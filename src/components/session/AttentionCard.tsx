@@ -15,6 +15,7 @@ import {
   BUILDING_ID,
   BUILDING_SESSIONS_TO_MIN,
   flaggedIds,
+  type Tier1Row,
 } from "@/lib/session-flags";
 import { SeverityGlyph } from "@/components/data/SeverityGlyph";
 import { ValueOnTrack } from "@/components/data/ValueOnTrack";
