@@ -9,6 +9,7 @@ import { AnchorRow } from "@/components/session/AnchorRow";
 import { SectionStub } from "@/components/session/SectionStub";
 import { AttentionCard } from "@/components/session/AttentionCard";
 import { SummaryCard } from "@/components/session/SummaryCard";
+import { PeriodsCard } from "@/components/session/PeriodsCard";
 
 export const Route = createFileRoute("/session")({
   head: () => ({
@@ -60,7 +61,7 @@ function SessionRoute() {
             <div className="space-y-10">
               <AttentionCard />
               <SummaryCard />
-              <SectionStub kind="periods" />
+              <PeriodsCard />
               <SectionStub kind="squad" />
             </div>
           </main>

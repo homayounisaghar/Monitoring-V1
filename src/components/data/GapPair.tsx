@@ -24,6 +24,9 @@ export type GapPairProps = {
   tone?: "default" | "escalate" | "notice";
   /** deltaLabel override — e.g. "+22 pts". Auto-computed when omitted. */
   deltaLabel?: string;
+  /** When set, the internal (cost) ring wears the TrustMark idiom
+   *  (hatch veil + leading dot). Coverage is surfaced on hover title. */
+  internalTrust?: { coverage: number };
 };
 
 export function GapPair({
@@ -37,6 +40,7 @@ export function GapPair({
   showLegend,
   tone = "default",
   deltaLabel,
+  internalTrust,
 }: GapPairProps) {
   const compact = size === "compact";
   const withLegend = showLegend ?? (!compact && mode === "shared");
@@ -105,6 +109,14 @@ export function GapPair({
           style={{ left: `${extPos}%`, backgroundColor: "var(--color-axis-work)" }}
           aria-label="external — work"
         />
+        {internalTrust && (
+          <span
+            className="veil-hatch absolute top-1/2 h-3 w-5 -translate-x-1/2 -translate-y-1/2 rounded-sm opacity-70"
+            style={{ left: `${intPos}%` }}
+            aria-hidden
+            title={`${internalTrust.coverage}% cov`}
+          />
+        )}
         <div
           className={`absolute top-1/2 ${dotDim} -translate-x-1/2 -translate-y-1/2 rounded-full bg-white`}
           style={{
@@ -112,6 +124,7 @@ export function GapPair({
             border: "2px solid var(--color-axis-cost)",
           }}
           aria-label="internal — cost"
+          title={internalTrust ? `internal · ${internalTrust.coverage}% cov` : undefined}
         />
       </div>
 
