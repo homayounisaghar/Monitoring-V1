@@ -36,6 +36,8 @@ export type ValueOnTrackProps = {
   size?: "default" | "compact";
   showValue?: boolean;
   deltaTone?: "default" | "escalate" | "notice";
+  /** When false, applies TrustMark treatment to the value (hatch veil + grey ink). */
+  qualified?: boolean;
 };
 
 export function ValueOnTrack({
@@ -54,6 +56,7 @@ export function ValueOnTrack({
   size = "default",
   showValue,
   deltaTone = "default",
+  qualified = true,
 }: ValueOnTrackProps) {
   const compact = size === "compact";
   const withValue = showValue ?? !compact;
@@ -151,12 +154,20 @@ export function ValueOnTrack({
 
       {withValue ? (
         <div className="flex min-w-[130px] items-baseline justify-end gap-2">
-          <span
-            className="type-num text-sm font-semibold"
-            style={{ color: "var(--color-text-primary)" }}
-          >
-            {value.toLocaleString()}
-            {unit ? <span className="type-data-label ml-0.5">{unit}</span> : null}
+          <span className="relative inline-flex items-baseline">
+            {!qualified && (
+              <span
+                className="veil-hatch absolute inset-x-[-2px] top-1/2 -translate-y-1/2 h-4 rounded-sm opacity-70"
+                aria-hidden
+              />
+            )}
+            <span
+              className="type-num text-sm font-semibold relative"
+              style={{ color: qualified ? "var(--color-text-primary)" : "var(--color-text-tertiary)" }}
+            >
+              {value.toLocaleString()}
+              {unit ? <span className="type-data-label ml-0.5">{unit}</span> : null}
+            </span>
           </span>
           {withheld ? (
             <span
