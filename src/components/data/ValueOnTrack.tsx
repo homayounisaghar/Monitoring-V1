@@ -56,6 +56,7 @@ export function ValueOnTrack({
   size = "default",
   showValue,
   deltaTone = "default",
+  qualified = true,
 }: ValueOnTrackProps) {
   const compact = size === "compact";
   const withValue = showValue ?? !compact;
