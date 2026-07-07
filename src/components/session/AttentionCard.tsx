@@ -14,7 +14,7 @@ import { useSessionScope, COVERAGE_MIN } from "@/lib/session-scope";
 import {
   BUILDING_ID,
   BUILDING_SESSIONS_TO_MIN,
-  type Tier1Row,
+  flaggedIds,
 } from "@/lib/session-flags";
 import { SeverityGlyph } from "@/components/data/SeverityGlyph";
 import { ValueOnTrack } from "@/components/data/ValueOnTrack";

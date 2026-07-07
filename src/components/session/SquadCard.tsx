@@ -30,10 +30,10 @@ import {
   cellState,
   isScaled,
   formatValue,
-  computeFlaggedIds,
   type Metric,
   type MetricId,
 } from "@/lib/squad-metrics";
+import { flaggedIds } from "@/lib/session-flags";
 import { ValueOnTrack } from "@/components/data/ValueOnTrack";
 
 /* ============================================================ */
@@ -82,7 +82,7 @@ export function SquadCard() {
     .filter((a) => a.hrCoveragePct !== null && a.hrCoveragePct < COVERAGE_MIN)
     .map((a) => a.id);
   const flagged = useMemo(
-    () => computeFlaggedIds(tier1Rows, lowCovIds),
+    () => flaggedIds(tier1Rows, lowCovIds),
     [tier1Rows, lowCovIds],
   );
 
