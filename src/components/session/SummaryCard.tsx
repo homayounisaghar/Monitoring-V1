@@ -15,60 +15,67 @@ import { ValueOnTrack } from "@/components/data/ValueOnTrack";
 
 type BenchKey = "typical_match" | "last_match" | "last_5" | "same_opponent";
 
-type Marks = {
-  totalDistanceM: number; refTotalDistanceM: number;
-  relDistanceMpm: number; refRelDistanceMpm: number;
-  hsrM: number;           refHsrM: number;
-  accDec: number;         refAccDec: number;
-  cardioLoadCL: number;   refCardioLoadCL: number;
-  srpeMean: number;       refSrpeMean: number;
-  z1: number; z2: number; z3: number; z4: number; z5: number;
-  z4z5Typical: number;
-  volumePct: number; intensityPct: number;
+// Benchmark-DEPENDENT references only. Current-session values (distances,
+// counts, zone shares, vs-full-match %) are session-level and live below;
+// switching the benchmark must not appear to move a measured fact.
+type BenchRefs = {
+  refTotalDistanceM: number;
+  refRelDistanceMpm: number;
+  refHsrM: number;
+  refAccDec: number;
+  refCardioLoadCL: number;
+  refSrpeMean: number;
+  z4z5TypicalDistance: number;
+  z4z5TypicalDuration: number;
 };
 
-const SQUAD: Record<BenchKey, Marks> = {
+const SQUAD_REF: Record<BenchKey, BenchRefs> = {
   typical_match: {
-    totalDistanceM: 9820, refTotalDistanceM: 9010,
-    relDistanceMpm: 108,  refRelDistanceMpm: 102,
-    hsrM: 812,            refHsrM: 665,
-    accDec: 118,          refAccDec: 108,
-    cardioLoadCL: 218,    refCardioLoadCL: 205,
-    srpeMean: 7.4,        refSrpeMean: 6.9,
-    z1: 34, z2: 22, z3: 13, z4: 19, z5: 12, z4z5Typical: 26,
-    volumePct: 101, intensityPct: 106,
+    refTotalDistanceM: 9010, refRelDistanceMpm: 102,
+    refHsrM: 665, refAccDec: 108,
+    refCardioLoadCL: 205, refSrpeMean: 6.9,
+    z4z5TypicalDistance: 26, z4z5TypicalDuration: 16,
   },
   last_match: {
-    totalDistanceM: 9820, refTotalDistanceM: 9640,
-    relDistanceMpm: 108,  refRelDistanceMpm: 104,
-    hsrM: 812,            refHsrM: 720,
-    accDec: 118,          refAccDec: 111,
-    cardioLoadCL: 218,    refCardioLoadCL: 210,
-    srpeMean: 7.4,        refSrpeMean: 7.1,
-    z1: 34, z2: 22, z3: 13, z4: 19, z5: 12, z4z5Typical: 28,
-    volumePct: 101, intensityPct: 106,
+    refTotalDistanceM: 9640, refRelDistanceMpm: 104,
+    refHsrM: 720, refAccDec: 111,
+    refCardioLoadCL: 210, refSrpeMean: 7.1,
+    z4z5TypicalDistance: 28, z4z5TypicalDuration: 17,
   },
   last_5: {
-    totalDistanceM: 9820, refTotalDistanceM: 9350,
-    relDistanceMpm: 108,  refRelDistanceMpm: 103,
-    hsrM: 812,            refHsrM: 690,
-    accDec: 118,          refAccDec: 109,
-    cardioLoadCL: 218,    refCardioLoadCL: 207,
-    srpeMean: 7.4,        refSrpeMean: 7.0,
-    z1: 34, z2: 22, z3: 13, z4: 19, z5: 12, z4z5Typical: 27,
-    volumePct: 101, intensityPct: 106,
+    refTotalDistanceM: 9350, refRelDistanceMpm: 103,
+    refHsrM: 690, refAccDec: 109,
+    refCardioLoadCL: 207, refSrpeMean: 7.0,
+    z4z5TypicalDistance: 27, z4z5TypicalDuration: 16,
   },
   same_opponent: {
-    totalDistanceM: 9820, refTotalDistanceM: 9200,
-    relDistanceMpm: 108,  refRelDistanceMpm: 103,
-    hsrM: 812,            refHsrM: 640,
-    accDec: 118,          refAccDec: 106,
-    cardioLoadCL: 218,    refCardioLoadCL: 202,
-    srpeMean: 7.4,        refSrpeMean: 6.8,
-    z1: 34, z2: 22, z3: 13, z4: 19, z5: 12, z4z5Typical: 25,
-    volumePct: 101, intensityPct: 106,
+    refTotalDistanceM: 9200, refRelDistanceMpm: 103,
+    refHsrM: 640, refAccDec: 106,
+    refCardioLoadCL: 202, refSrpeMean: 6.8,
+    z4z5TypicalDistance: 25, z4z5TypicalDuration: 15,
   },
 };
+
+// Session-level facts — invariant across benchmark choice.
+const SESSION_MARKS = {
+  totalDistanceM: 9820,
+  relDistanceMpm: 108,
+  hsrM: 812,
+  accDec: 118,
+  cardioLoadCL: 218,
+  srpeMean: 7.4,
+} as const;
+
+const SESSION_ZONES = {
+  distance: { z1: 34, z2: 22, z3: 13, z4: 19, z5: 12 },
+  duration: { z1: 46, z2: 24, z3: 12, z4: 12, z5: 6 },
+} as const;
+
+// vs a typical FULL match — reference is an EXTERNAL fixed baseline (100),
+// never the squad benchmark; modeled as a session-level constant so it can't
+// drift when the benchmark changes.
+const SESSION_VS_FULL = { volumePct: 101, intensityPct: 106 } as const;
+
 
 const PARTICIPATION_TAGS: ParticipationTag[] = [
   "Full", "Part", "Modified", "Rehab", "Injury", "Other",
