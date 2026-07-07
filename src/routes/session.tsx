@@ -10,6 +10,7 @@ import { SectionStub } from "@/components/session/SectionStub";
 import { AttentionCard } from "@/components/session/AttentionCard";
 import { SummaryCard } from "@/components/session/SummaryCard";
 import { PeriodsCard } from "@/components/session/PeriodsCard";
+import { SquadCard } from "@/components/session/SquadCard";
 
 export const Route = createFileRoute("/session")({
   head: () => ({
