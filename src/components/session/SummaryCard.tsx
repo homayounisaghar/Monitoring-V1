@@ -289,7 +289,7 @@ export function SummaryCard() {
                     mode="deviation"
                     axis="cost"
                     value={marks.srpeMean}
-                    reference={marks.refSrpeMean}
+                    reference={refs.refSrpeMean}
                     unit="/10"
                   />
                 ) : (
@@ -305,7 +305,7 @@ export function SummaryCard() {
                         ).toFixed(1),
                       )
                     }
-                    reference={marks.refSrpeMean}
+                    reference={refs.refSrpeMean}
                     unit="/10"
                   />
                 )}
@@ -380,8 +380,8 @@ export function SummaryCard() {
             )}
           </div>
           <div className="grid grid-cols-2 gap-6">
-            <FullMatchRead label="Volume" pct={marks.volumePct} />
-            <FullMatchRead label="Intensity" pct={marks.intensityPct} />
+            <FullMatchRead label="Volume" pct={SESSION_VS_FULL.volumePct} />
+            <FullMatchRead label="Intensity" pct={SESSION_VS_FULL.intensityPct} />
           </div>
         </div>
       </div>
