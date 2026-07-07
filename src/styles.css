@@ -172,6 +172,18 @@
   --clear-ink: var(--slate-600);
   --trust-dot: var(--slate-500);
   --veil-line: var(--slate-300);
+  --reference-band: var(--slate-200);
+  --text-on-brand: #FFFFFF;
+
+  /* Primitive extensions */
+  --green-50: #ECF5EF;
+  --green-100: #D5E9DC;
+  --green-500: #0F9A52;
+  --green-800: #075028;
+  --amber-200: #F6D9B0;
+  --amber-600: #C2620C;
+  --red-200: #F5C2C2;
+  --red-700: #B91C1C;
 }
 
 @layer base {
