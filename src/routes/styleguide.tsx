@@ -634,7 +634,7 @@ function Styleguide() {
           title="GapPair"
           desc="External vs internal on one shared % scale. Filled blue = external, open purple = internal, slate connector = gap."
         >
-          <Card eyebrow="% of session peak">
+          <Card eyebrow="basis - stated per surface (demo: % of session-average rate)">
             <div className="space-y-6">
               <GapPair externalPct={82} internalPct={55} />
               <GapPair externalPct={41} internalPct={68} />
