@@ -699,7 +699,7 @@ function Styleguide() {
                   border: "1px solid var(--color-border)",
                 }}
               >
-                {["Halves", "15' blocks", "Custom"].map((label, i) => (
+                {["Halves", "15' blocks"].map((label, i) => (
                   <button
                     key={label}
                     className={`type-micro rounded px-3 py-1.5 transition-colors ${
