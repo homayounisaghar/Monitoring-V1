@@ -24,6 +24,9 @@ export type GapPairProps = {
   tone?: "default" | "escalate" | "notice";
   /** deltaLabel override — e.g. "+22 pts". Auto-computed when omitted. */
   deltaLabel?: string;
+  /** When set, the internal (cost) ring wears the TrustMark idiom
+   *  (hatch veil + leading dot). Coverage is surfaced on hover title. */
+  internalTrust?: { coverage: number };
 };
 
 export function GapPair({
