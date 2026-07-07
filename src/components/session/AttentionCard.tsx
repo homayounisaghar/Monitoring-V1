@@ -63,14 +63,10 @@ export function AttentionCard() {
   const cantSayCoverage =
     squadFullCov / effectiveParticipants.length < 0.6; // < ~60% trustworthy → can't-say state
 
-  const flaggedIdsInScope = new Set<string>([
-    ...tier1.map((r) => r.id),
-    ...lowCovAthletes.map((a) => a.id),
-    ...building.map((a) => a.id),
-  ]);
+  const flaggedSet = flaggedIds(tier1, lowCovAthletes.map((a) => a.id));
   const clearCount = isAllClear
     ? activeAthletes.length - buildCount
-    : activeAthletes.length - flaggedIdsInScope.size;
+    : activeAthletes.filter((a) => !flaggedSet.has(a.id)).length;
   const totalInScope = activeAthletes.length;
 
   return (
