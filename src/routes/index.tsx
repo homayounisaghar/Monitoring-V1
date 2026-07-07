@@ -1,24 +1,38 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 
-// No head() here: the home route inherits title/description/og/twitter from
-// __root.tsx, and ships no og:image so serve-time hosting can inject the
-// project's social preview (explicit og:image or latest screenshot).
 export const Route = createFileRoute("/")({
   component: Index,
 });
 
-// IMPORTANT: Replace this placeholder. See ./README.md for routing conventions.
 function Index() {
   return (
     <div
-      className="flex min-h-screen items-center justify-center"
-      style={{ backgroundColor: "#fcfbf8" }}
+      className="flex min-h-screen items-center justify-center px-6"
+      style={{ backgroundColor: "var(--color-canvas)" }}
     >
-      <img
-        data-lovable-blank-page-placeholder="REMOVE_THIS"
-        src="https://cdn.gpteng.co/blank-app-v1.svg"
-        alt="Your app will live here!"
-      />
+      <div className="max-w-xl space-y-6 text-center">
+        <div className="type-micro" style={{ color: "var(--color-text-tertiary)" }}>
+          ST2 · Foundation
+        </div>
+        <h1
+          className="text-4xl font-semibold tracking-tight"
+          style={{ color: "var(--color-text-primary)" }}
+        >
+          Post-session monitoring for professional squads.
+        </h1>
+        <p style={{ color: "var(--color-text-secondary)" }}>
+          Design system and core data objects only. Product screens ship in later prompts.
+        </p>
+        <div>
+          <Link
+            to="/styleguide"
+            className="type-micro inline-flex items-center rounded-md px-4 py-2 text-white transition-colors"
+            style={{ backgroundColor: "var(--color-brand)" }}
+          >
+            Open styleguide →
+          </Link>
+        </div>
+      </div>
     </div>
   );
 }
