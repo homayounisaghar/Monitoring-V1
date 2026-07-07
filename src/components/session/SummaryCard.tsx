@@ -320,13 +320,19 @@ export function SummaryCard() {
           style={{ borderColor: "var(--color-border)" }}
         >
           <div className="mb-2 flex items-baseline justify-between gap-4">
-            <div className="flex items-baseline gap-2">
+            <div className="flex items-baseline gap-2 flex-wrap">
               <span className="type-col-head">Z4+Z5 high-intensity share</span>
+              <span
+                className="type-card-eyebrow"
+                style={{ color: "var(--color-text-tertiary)" }}
+              >
+                · {basisWord}
+              </span>
               <span
                 className="type-num text-[15px] font-semibold"
                 style={{ color: "var(--color-text-primary)" }}
               >
-                {zoneShares.hi}%
+                — {zoneShares.hi}%
               </span>
               <span
                 className="text-[12px]"
