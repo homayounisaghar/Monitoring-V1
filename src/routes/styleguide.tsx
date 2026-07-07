@@ -724,7 +724,7 @@ function Styleguide() {
               <div className="chip-changed inline-flex items-center gap-2 rounded-md px-2.5 py-1.5">
                 <span className="type-data-label">Benchmark</span>
                 <span className="type-num text-xs font-semibold" style={{ color: "var(--color-text-primary)" }}>
-                  Squad median · Last 6
+                  last match
                 </span>
                 <button
                   className="type-micro rounded px-1.5 py-0.5 transition-colors hover:bg-white"
