@@ -8,6 +8,7 @@ import { FilterCluster } from "@/components/session/FilterPanel";
 import { AnchorRow } from "@/components/session/AnchorRow";
 import { SectionStub } from "@/components/session/SectionStub";
 import { AttentionCard } from "@/components/session/AttentionCard";
+import { SummaryCard } from "@/components/session/SummaryCard";
 
 export const Route = createFileRoute("/session")({
   head: () => ({
