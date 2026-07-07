@@ -1,93 +1,69 @@
 /**
  * ST2 — Session > Periods card.
  * Within-session distribution: how load was distributed through the match.
- * Per-block PER-MINUTE RATE (as % of the session's mean per-minute rate),
- * so a 5' window reads honestly by its rate, not its share of total.
+ *
+ * §Q — per-block PER-MINUTE RATE, expressed as % of the session's mean
+ * per-minute rate on the SAME axis. Computed from raw block loads and the
+ * block's minutes (never hand-authored percentages):
+ *
+ *   sessionMeanRate_axis   = Σ block.load_axis / Σ block.minutes
+ *   block.renderedPct_axis = (block.load_axis / block.minutes) / sessionMeanRate_axis × 100
+ *
+ * So a short window like the ~5' stoppage reads honestly by its RATE — a
+ * modest total load divided by few minutes lands high on the shared scale —
+ * without being diluted by its share of the match.
  *
  * A period filter never restricts this section — Periods always shows its
- * full breakdown. Position / participation / athlete filters DO re-scope
- * the per-block rates and stamp the section descriptor inline.
+ * full breakdown. Position / participation / athlete filters do NOT re-scope
+ * these per-block rates in the current data model (per-position period
+ * profiles aren't authored), so this section deliberately does not stamp a
+ * scope in its descriptor — an honest omission rather than a scope stamp the
+ * numbers didn't perform. Use the other sections for scoped views.
  *
- * Peak = the block with the highest INTERNAL rate — computed from the
- * rendered data (no override, no editorial flag).
+ * Peak = the block with the highest computed INTERNAL rate.
  */
 import { useMemo, useState } from "react";
 import { GapPair } from "@/components/data/GapPair";
-import {
-  useSessionScope,
-  currentSession,
-} from "@/lib/session-scope";
-import {
-  timeline,
-  POSITION_LABEL,
-  type PositionCode,
-} from "@/lib/session-data";
+import { useSessionScope, currentSession } from "@/lib/session-scope";
+import { timeline } from "@/lib/session-data";
 
-/* ---------- Sample rates (% of session mean per-minute rate) ---------- */
+/* ---------- Raw loads (units) ------------------------------------------
+ * External unit: an external-load unit (think high-intensity-metres-equivalent).
+ * Internal unit: an internal-load unit (TRIMP-equivalent).
+ * Values chosen so the story lands under §Q — 75-90' the true internal-rate
+ * max, 0-15' loud but not the max, ~5' stoppage HIGH by rate. Coverage on
+ * b60 (78%) triggers the internal TrustMark idiom.
+ */
 
-type Rates = { external: number; internal: number; coverage?: number };
+type Load = { external: number; internal: number; coverage?: number };
 
-// 15' blocks — ids match timeline("15min"): b0, b15, b30, b45, b60, b75, stoppage.
-// 75-90' is the TRUE internal maximum (118); the loud opening (0-15') is high but
-// not the max (106). The 5' stoppage reads high by RATE (I 112) even though its
-// share-of-total would be near 33%.
-const RATES_15: Record<string, Rates> = {
-  b0:       { external: 110, internal: 106 },
-  b15:      { external: 108, internal: 92  },
-  b30:      { external: 96,  internal: 88  },
-  b45:      { external: 88,  internal: 94  },
-  b60:      { external: 104, internal: 98, coverage: 78 },
-  b75:      { external: 96,  internal: 118 },
-  stoppage: { external: 58,  internal: 112 },
+const LOADS_15: Record<string, Load> = {
+  b0:       { external: 1650, internal: 1590 }, // 15' — loud open
+  b15:      { external: 1620, internal: 1380 },
+  b30:      { external: 1440, internal: 1320 },
+  b45:      { external: 1320, internal: 1410 },
+  b60:      { external: 1560, internal: 1470, coverage: 78 },
+  b75:      { external: 1440, internal: 1770 }, // 15' — internal peak
+  stoppage: { external:  290, internal:  560 }, // 5'  — high by rate
 };
 
-// Halves — 1st 0-47', 2nd 47-95'. Non-trivially unequal.
-const RATES_HALVES: Record<string, Rates> = {
-  h1: { external: 104, internal: 96  },
-  h2: { external: 97,  internal: 105 },
+const LOADS_HALVES: Record<string, Load> = {
+  h1: { external: 4880, internal: 4515 }, // 47'
+  h2: { external: 4650, internal: 5040 }, // 48'
 };
 
-// Position-scope multipliers — a filter re-computes the per-block rates
-// against a plausible position-slice. Deterministic; small.
-const POS_MULT: Record<PositionCode, { e: number; i: number }> = {
-  GK:  { e: 0.42, i: 0.68 },
-  DEF: { e: 0.94, i: 0.98 },
-  MID: { e: 1.06, i: 1.03 },
-  ATT: { e: 1.02, i: 1.00 },
-};
-
-function scopedRates(base: Rates, positions: Set<PositionCode>): Rates {
-  if (positions.size === 0) return base;
-  let e = 0, i = 0;
-  positions.forEach((p) => {
-    e += POS_MULT[p].e;
-    i += POS_MULT[p].i;
-  });
-  e /= positions.size;
-  i /= positions.size;
-  return {
-    ...base,
-    external: Math.round(base.external * e),
-    internal: Math.round(base.internal * i),
-  };
-}
-
-/* ---------- Component ---------- */
+/* ---------- Scale / gridlines ------------------------------------------ */
 
 const SCALE_MIN = 40;
 const SCALE_MAX = 160;
 const GRIDLINES = [50, 75, 100, 125, 150];
 
-export function PeriodsCard() {
-  const {
-    filter,
-    filterIsDefault,
-    scopeLabel,
-    activeAthletes,
-    totalParticipants,
-  } = useSessionScope();
+/* ---------- Component -------------------------------------------------- */
 
+export function PeriodsCard() {
   const [granularity, setGranularity] = useState<"halves" | "15min">("15min");
+  // filter is read but does not re-scope this section (see header docblock).
+  useSessionScope();
 
   const opts = useMemo(
     () => timeline(currentSession, granularity),
@@ -95,23 +71,38 @@ export function PeriodsCard() {
   );
 
   const rows = useMemo(() => {
-    const table = granularity === "halves" ? RATES_HALVES : RATES_15;
+    const table = granularity === "halves" ? LOADS_HALVES : LOADS_15;
+
+    // Session means from raw loads across the rendered partition.
+    let sumExt = 0;
+    let sumInt = 0;
+    let sumMin = 0;
+    for (const o of opts) {
+      const l = table[o.id];
+      if (!l) continue;
+      sumExt += l.external;
+      sumInt += l.internal;
+      sumMin += o.endMin - o.startMin;
+    }
+    const meanExt = sumMin > 0 ? sumExt / sumMin : 1;
+    const meanInt = sumMin > 0 ? sumInt / sumMin : 1;
+
     return opts.map((o) => {
-      const base = table[o.id] ?? { external: 100, internal: 100 };
-      const r = scopedRates(base, filter.positions);
+      const l = table[o.id] ?? { external: 0, internal: 0 };
       const durationMin = o.endMin - o.startMin;
+      const extRate = (l.external / durationMin / meanExt) * 100;
+      const intRate = (l.internal / durationMin / meanInt) * 100;
       return {
         id: o.id,
         label: o.label,
         durationMin,
-        external: r.external,
-        internal: r.internal,
-        coverage: r.coverage,
+        external: Math.round(extRate),
+        internal: Math.round(intRate),
+        coverage: l.coverage,
       };
     });
-  }, [opts, granularity, filter.positions]);
+  }, [opts, granularity]);
 
-  // Peak = argmax internal (computed, no override).
   const peakIdx = useMemo(() => {
     let idx = 0;
     let max = -Infinity;
@@ -124,42 +115,32 @@ export function PeriodsCard() {
     return idx;
   }, [rows]);
 
-  const [pinned, setPinned] = useState<Set<string>>(new Set());
+  const [pinned, setPinned] = useState<string[]>([]);
   const togglePin = (id: string) => {
     setPinned((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else {
-        if (next.size >= 2) {
-          const first = next.values().next().value as string;
-          next.delete(first);
-        }
-        next.add(id);
-      }
+      if (prev.includes(id)) return prev.filter((p) => p !== id);
+      const next = [...prev, id];
+      if (next.length > 2) next.shift();
       return next;
     });
   };
 
-  // Descriptor: scope stamp uses the same pattern as other sections,
-  // but any PERIOD scope in the filter is IGNORED here.
-  const nonPeriodScope = useMemo(() => {
-    if (filterIsDefault || !scopeLabel) return null;
-    const parts: string[] = [];
-    if (filter.positions.size > 0) {
-      parts.push(
-        [...filter.positions].map((p) => POSITION_LABEL[p]).join(" + "),
-      );
-    }
-    if (filter.participation.size > 0) {
-      parts.push([...filter.participation].join(" + "));
-    }
-    if (filter.athletes.size > 0 && filter.positions.size === 0) {
-      parts.push(`${filter.athletes.size} selected`);
-    }
-    return parts.length > 0 ? parts.join(" · ") : null;
-  }, [filter, filterIsDefault, scopeLabel]);
-
-  const showAthleteCount = nonPeriodScope !== null;
+  const pinnedRows = pinned
+    .map((id) => rows.find((r) => r.id === id))
+    .filter((r): r is (typeof rows)[number] => Boolean(r));
+  const pinDelta =
+    pinnedRows.length === 2
+      ? {
+          a: pinnedRows[0],
+          b: pinnedRows[1],
+          gapA: pinnedRows[0].external - pinnedRows[0].internal,
+          gapB: pinnedRows[1].external - pinnedRows[1].internal,
+          delta:
+            pinnedRows[1].external -
+            pinnedRows[1].internal -
+            (pinnedRows[0].external - pinnedRows[0].internal),
+        }
+      : null;
 
   return (
     <section id="periods" className="scroll-mt-28">
@@ -172,17 +153,8 @@ export function PeriodsCard() {
           >
             — How load was distributed through the match · within-session
             distribution
-            {nonPeriodScope ? ` · ${nonPeriodScope}` : ""}
           </span>
         </div>
-        {showAthleteCount && (
-          <span
-            className="type-num text-[11px]"
-            style={{ color: "var(--color-text-tertiary)" }}
-          >
-            {activeAthletes.length} of {totalParticipants}
-          </span>
-        )}
       </header>
 
       <div
@@ -202,22 +174,24 @@ export function PeriodsCard() {
             style={{ color: "var(--color-text-tertiary)" }}
           >
             different question from Summary · this is within THIS session,
-            not vs a typical match
+            not vs a typical match · session-wide (not re-scoped by filter)
           </span>
-          <GranularityToggle
-            value={granularity}
-            onChange={setGranularity}
-          />
+          <GranularityToggle value={granularity} onChange={setGranularity} />
         </div>
 
         {/* Chart */}
         <div className="px-5 pt-5 pb-3">
-          {/* Column headers over the shared scale */}
           <div className="mb-1.5 grid grid-cols-[110px_1fr_72px] items-baseline gap-3">
-            <span className="type-data-label" style={{ color: "var(--color-text-tertiary)" }}>
+            <span
+              className="type-data-label"
+              style={{ color: "var(--color-text-tertiary)" }}
+            >
               Period
             </span>
-            <div className="type-data-label" style={{ color: "var(--color-text-tertiary)" }}>
+            <div
+              className="type-data-label"
+              style={{ color: "var(--color-text-tertiary)" }}
+            >
               per-minute rate — external ● / internal ○
             </div>
             <span
@@ -228,11 +202,10 @@ export function PeriodsCard() {
             </span>
           </div>
 
-          {/* Rows */}
           <div>
             {rows.map((r, i) => {
               const isPeak = i === peakIdx;
-              const isPinned = pinned.has(r.id);
+              const isPinned = pinned.includes(r.id);
               const banded = i % 2 === 1;
               const gap = r.external - r.internal;
               return (
@@ -252,7 +225,7 @@ export function PeriodsCard() {
                       : "none",
                     outlineOffset: "-2px",
                   }}
-                  title={`${r.label} · E ${r.external}% / I ${r.internal}% · gap ${gap >= 0 ? "+" : ""}${gap} pts${r.coverage ? ` · ${r.coverage}% cov (internal)` : ""}`}
+                  title={`${r.label} · ${r.durationMin}' · E ${r.external}% / I ${r.internal}% · gap ${gap >= 0 ? "+" : ""}${gap} pts${r.coverage ? ` · ${r.coverage}% cov (internal)` : ""}`}
                 >
                   <div className="flex items-center gap-1.5">
                     <span
@@ -279,23 +252,21 @@ export function PeriodsCard() {
 
                   <div className="relative">
                     <Gridlines />
-                    <div className="relative">
-                      <GapPair
-                        mode="shared"
-                        size="compact"
-                        externalPct={r.external}
-                        internalPct={r.internal}
-                        scaleMin={SCALE_MIN}
-                        scaleMax={SCALE_MAX}
-                        showLegend={false}
-                        deltaLabel=" "
-                        internalTrust={
-                          r.coverage !== undefined
-                            ? { coverage: r.coverage }
-                            : undefined
-                        }
-                      />
-                    </div>
+                    <GapPair
+                      mode="shared"
+                      size="compact"
+                      externalPct={r.external}
+                      internalPct={r.internal}
+                      scaleMin={SCALE_MIN}
+                      scaleMax={SCALE_MAX}
+                      showLegend={false}
+                      deltaLabel=" "
+                      internalTrust={
+                        r.coverage !== undefined
+                          ? { coverage: r.coverage }
+                          : undefined
+                      }
+                    />
                   </div>
 
                   <span
@@ -313,7 +284,7 @@ export function PeriodsCard() {
             })}
           </div>
 
-          {/* Scale legend under the chart */}
+          {/* Scale legend */}
           <div className="mt-2 grid grid-cols-[110px_1fr_72px] gap-3">
             <span />
             <div className="relative h-5">
@@ -344,10 +315,63 @@ export function PeriodsCard() {
             className="mt-3 type-data-label"
             style={{ color: "var(--color-text-secondary)" }}
           >
-            100% = the session's average rate. Each block's mark is its per-minute
-            load rate — so a short window reads honestly at its own rate, not diluted
-            by its length.
+            100% = the session's average per-minute rate on the same axis.
+            Each block's mark is its per-minute load rate — a short window
+            reads honestly at its own rate, not diluted by its length.
           </p>
+
+          {/* Pin-delta readout */}
+          {pinDelta && (
+            <div
+              className="mt-3 rounded-md border px-3 py-2.5"
+              style={{
+                borderColor: "var(--color-border)",
+                backgroundColor: "var(--color-slate-50)",
+              }}
+            >
+              <div className="mb-1.5 flex items-baseline justify-between">
+                <span
+                  className="type-card-eyebrow"
+                  style={{ color: "var(--color-text-tertiary)" }}
+                >
+                  gap delta · {pinDelta.a.label} → {pinDelta.b.label}
+                </span>
+                <span
+                  className="type-num text-[13px] font-semibold"
+                  style={{ color: "var(--color-text-primary)" }}
+                >
+                  Δ {pinDelta.delta >= 0 ? "+" : ""}
+                  {pinDelta.delta} pts
+                </span>
+              </div>
+              <div className="relative h-4">
+                <Gridlines />
+                <PinDeltaTrack
+                  gapA={pinDelta.gapA}
+                  gapB={pinDelta.gapB}
+                />
+              </div>
+              <div
+                className="mt-1 flex items-center justify-between type-data-label"
+                style={{ color: "var(--color-text-secondary)" }}
+              >
+                <span>
+                  {pinDelta.a.label} gap{" "}
+                  <span className="type-num">
+                    {pinDelta.gapA >= 0 ? "+" : ""}
+                    {pinDelta.gapA}
+                  </span>
+                </span>
+                <span>
+                  {pinDelta.b.label} gap{" "}
+                  <span className="type-num">
+                    {pinDelta.gapB >= 0 ? "+" : ""}
+                    {pinDelta.gapB}
+                  </span>
+                </span>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Foot */}
@@ -368,16 +392,16 @@ export function PeriodsCard() {
             className="type-data-label"
             style={{
               color:
-                pinned.size > 0
+                pinned.length > 0
                   ? "var(--color-text-secondary)"
                   : "var(--color-text-tertiary)",
             }}
           >
-            {pinned.size === 0
+            {pinned.length === 0
               ? "tap a row to pin — pick two to read the gap delta"
-              : pinned.size === 1
+              : pinned.length === 1
                 ? "1 pinned — pick one more"
-                : "2 pinned"}
+                : "2 pinned · tap to unpin"}
           </span>
         </div>
       </div>
@@ -385,7 +409,7 @@ export function PeriodsCard() {
   );
 }
 
-/* ---------- Sub-parts ---------- */
+/* ---------- Sub-parts -------------------------------------------------- */
 
 function GranularityToggle({
   value,
@@ -447,13 +471,63 @@ function Gridlines() {
                 ? "var(--color-slate-400)"
                 : "var(--color-slate-200)",
               opacity: prominent ? 0.9 : 0.6,
-              borderLeft: prominent ? "none" : "1px dotted var(--color-slate-300)",
-              width: prominent ? "1px" : "0",
             }}
             aria-hidden
           />
         );
       })}
+    </div>
+  );
+}
+
+/**
+ * PinDeltaTrack — places the two pinned gap values on the same shared
+ * scale used for the row rates, with a slate connector between them
+ * (the delta). Gap values are signed points around 0; map onto the
+ * SCALE_MIN..SCALE_MAX window by treating 0 as the 100% (session-avg)
+ * gridline anchor.
+ */
+function PinDeltaTrack({ gapA, gapB }: { gapA: number; gapB: number }) {
+  // Map gap-pts (typically -30..+30) onto the 40-160 window centered on 100.
+  const toPos = (g: number) => {
+    const centered = 100 + g;
+    const clamped = Math.max(SCALE_MIN, Math.min(SCALE_MAX, centered));
+    return ((clamped - SCALE_MIN) / (SCALE_MAX - SCALE_MIN)) * 100;
+  };
+  const a = toPos(gapA);
+  const b = toPos(gapB);
+  const left = Math.min(a, b);
+  const right = Math.max(a, b);
+  return (
+    <div className="relative h-full">
+      <div
+        className="absolute left-0 right-0 top-1/2 h-[6px] -translate-y-1/2 rounded-full"
+        style={{ backgroundColor: "var(--color-data-band)" }}
+      />
+      <div
+        className="absolute top-1/2 h-[2px] -translate-y-1/2"
+        style={{
+          left: `${left}%`,
+          width: `${right - left}%`,
+          backgroundColor: "var(--color-slate-500)",
+        }}
+      />
+      <div
+        className="absolute top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full ring-2 ring-white"
+        style={{
+          left: `${a}%`,
+          backgroundColor: "var(--color-slate-500)",
+        }}
+        aria-label="first pinned gap"
+      />
+      <div
+        className="absolute top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full ring-2 ring-white"
+        style={{
+          left: `${b}%`,
+          backgroundColor: "var(--color-text-primary)",
+        }}
+        aria-label="second pinned gap"
+      />
     </div>
   );
 }
