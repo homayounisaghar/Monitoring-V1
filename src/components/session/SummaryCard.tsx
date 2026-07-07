@@ -259,8 +259,9 @@ export function SummaryCard() {
                   mode="deviation"
                   axis="cost"
                   value={marks.cardioLoadCL}
-                  reference={marks.refCardioLoadCL}
+                  reference={refs.refCardioLoadCL}
                   unit="CL"
+                  qualified={clQualified}
                 />
               </div>
 
