@@ -55,6 +55,8 @@
   /* The two data hues */
   --color-axis-work: var(--axis-work);
   --color-axis-cost: var(--axis-cost);
+  --color-axis-work-tinted: var(--axis-work-tinted);
+  --color-axis-cost-tinted: var(--axis-cost-tinted);
 
   /* Zone ramps */
   --color-zone-work-1: var(--zone-work-1);
