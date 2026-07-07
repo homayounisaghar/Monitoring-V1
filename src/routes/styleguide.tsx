@@ -112,7 +112,7 @@ function ZoneRamp({
             key={n}
             className="flex h-14 flex-1 items-end justify-center pb-1.5 type-num text-[10.5px]"
             style={{
-              backgroundColor: `var(--color-zone-${axis}-${n})`,
+              backgroundColor: `var(--zone-${axis}-${n})`,
               color: n >= 4 ? "white" : "var(--color-slate-800)",
             }}
           >
