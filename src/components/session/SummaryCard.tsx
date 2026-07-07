@@ -205,25 +205,25 @@ export function SummaryCard() {
               <WorkMark
                 label="Total distance"
                 value={marks.totalDistanceM}
-                reference={marks.refTotalDistanceM}
+                reference={refs.refTotalDistanceM}
                 unit="m"
               />
               <WorkMark
                 label="Relative distance"
                 value={marks.relDistanceMpm}
-                reference={marks.refRelDistanceMpm}
+                reference={refs.refRelDistanceMpm}
                 unit="m/min"
               />
               <WorkMark
                 label="HSR"
                 value={marks.hsrM}
-                reference={marks.refHsrM}
+                reference={refs.refHsrM}
                 unit="m"
               />
               <WorkMark
                 label="Acc–Dec"
                 value={marks.accDec}
-                reference={marks.refAccDec}
+                reference={refs.refAccDec}
                 unit="ct"
               />
             </div>
