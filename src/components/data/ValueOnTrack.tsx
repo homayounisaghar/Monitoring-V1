@@ -36,6 +36,8 @@ export type ValueOnTrackProps = {
   size?: "default" | "compact";
   showValue?: boolean;
   deltaTone?: "default" | "escalate" | "notice";
+  /** When false, applies TrustMark treatment to the value (hatch veil + grey ink). */
+  qualified?: boolean;
 };
 
 export function ValueOnTrack({
