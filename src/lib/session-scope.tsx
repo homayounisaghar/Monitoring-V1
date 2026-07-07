@@ -1,15 +1,15 @@
 /**
  * ST2 — Session-tab shared state.
- * Benchmark + Reference + Filter + Demo scenario live here so later section
- * prompts inherit working propagation, not a paint.
+ * Benchmark + Reference + Filter + Demo scenario live here so later
+ * section prompts inherit working propagation, not a paint.
  *
- * Scoped to <SessionRoute>, not global: the Filter is Session-tab state by
- * rule, and whether Benchmark persists across tabs is an open decision the
- * Longitudinal prompt will make.
+ * Effective data: the provider derives ONE dataset per demo scenario
+ * (participants overrides + tier-1 flag set) and every component
+ * reads only that — no per-component demo branches.
  */
 import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
 import {
-  participants,
+  participants as rawParticipants,
   currentSession,
   POSITION_LABEL,
   timeline,
@@ -18,6 +18,12 @@ import {
   type ParticipationTag,
   type PeriodOption,
 } from "./session-data";
+import {
+  COVERAGE_MIN,
+  TIER1_ROWS_DEFAULT,
+  sortTier1,
+  type Tier1Row,
+} from "./session-flags";
 
 export type ReferenceKind =
   | "own_typical"
@@ -55,7 +61,12 @@ export type Filter = {
   athletes: Set<string>;
 };
 
-export type DemoScenario = "default" | "all_clear" | "srpe_none" | "srpe_full";
+export type DemoScenario =
+  | "default"
+  | "all_clear"
+  | "srpe_none"
+  | "srpe_full"
+  | "coverage_thin";
 
 export type SessionScope = {
   reference: { kind: ReferenceKind; label: string };
@@ -69,10 +80,15 @@ export type SessionScope = {
   demo: DemoScenario;
   setDemo: (d: DemoScenario) => void;
 
+  // Effective (scenario-adjusted) participants — every read uses this.
+  effectiveParticipants: Athlete[];
+  tier1Rows: Tier1Row[];
+
   // derived
-  activeAthletes: Athlete[];         // participants ∩ filter — never includes Sturm
-  showingCount: number;              // always "of 18"
-  scopeLabel: string | null;         // "Defenders · 0–15'" when a non-default scope is active
+  activeAthletes: Athlete[];
+  showingCount: number;
+  totalParticipants: number;
+  scopeLabel: string | null;
   filterIsDefault: boolean;
 };
 
@@ -85,11 +101,84 @@ const emptyFilter: Filter = {
 
 const Ctx = createContext<SessionScope | null>(null);
 
+/* --- Effective-data overlays --- */
+
+const COVERAGE_LIFT_ALL_CLEAR: Record<string, number> = {
+  brandt: 92,
+  kuhn: 88,
+  voss: 86,
+};
+
+// coverage_thin: keep these 5 above the floor.
+const COVERAGE_THIN_KEEP = new Set(["keller", "schaefer", "hofmann", "roth", "hoffmann"]);
+// Deterministic below-floor values for the other 13.
+const COVERAGE_THIN_LOW: Record<string, number> = {
+  fischer: 74,
+  werner: 71,
+  koehler: 68,
+  ebel: 66,
+  frei: 63,
+  wagner: 72,
+  albrecht: 70,
+  brunner: 67,
+  brandt: 58,
+  kuhn: 54,
+  voss: 43,
+  lange: 61,
+  meier: 76,
+};
+
+function applyOverlay(
+  demo: DemoScenario,
+  participants: Athlete[],
+): { participants: Athlete[]; tier1: Tier1Row[] } {
+  const sorted = sortTier1(TIER1_ROWS_DEFAULT);
+  switch (demo) {
+    case "default":
+      return { participants, tier1: sorted };
+    case "all_clear":
+      return {
+        participants: participants.map((a) =>
+          a.id in COVERAGE_LIFT_ALL_CLEAR
+            ? { ...a, hrCoveragePct: COVERAGE_LIFT_ALL_CLEAR[a.id] }
+            : a,
+        ),
+        tier1: [],
+      };
+    case "srpe_none":
+      return {
+        participants: participants.map((a) => ({ ...a, srpeSubmitted: false })),
+        tier1: sorted,
+      };
+    case "srpe_full":
+      return {
+        participants: participants.map((a) => ({ ...a, srpeSubmitted: true })),
+        tier1: sorted,
+      };
+    case "coverage_thin":
+      return {
+        participants: participants.map((a) => {
+          if (a.hrCoveragePct === null) return a;
+          if (COVERAGE_THIN_KEEP.has(a.id)) return a;
+          const lowered = COVERAGE_THIN_LOW[a.id];
+          return lowered !== undefined ? { ...a, hrCoveragePct: lowered } : a;
+        }),
+        // Divergence flags suppressed into "to check" per the gating rule.
+        tier1: [],
+      };
+  }
+}
+
 export function SessionScopeProvider({ children }: { children: ReactNode }) {
   const [reference, setReference] = useState(REFERENCE_OPTIONS[0]);
   const [benchmark, setBenchmark] = useState(BENCHMARK_OPTIONS[0]);
   const [filter, setFilter] = useState<Filter>(emptyFilter);
   const [demo, setDemo] = useState<DemoScenario>("default");
+
+  const { effectiveParticipants, tier1Rows } = useMemo(() => {
+    const overlay = applyOverlay(demo, rawParticipants);
+    return { effectiveParticipants: overlay.participants, tier1Rows: overlay.tier1 };
+  }, [demo]);
 
   const derived = useMemo(() => {
     const filterIsDefault =
@@ -98,7 +187,7 @@ export function SessionScopeProvider({ children }: { children: ReactNode }) {
       filter.period.selected.size === 0 &&
       filter.athletes.size === 0;
 
-    let active = participants;
+    let active = effectiveParticipants;
     if (filter.participation.size > 0)
       active = active.filter((a) => a.participation && filter.participation.has(a.participation));
     if (filter.positions.size > 0)
@@ -106,12 +195,9 @@ export function SessionScopeProvider({ children }: { children: ReactNode }) {
     if (filter.athletes.size > 0)
       active = active.filter((a) => filter.athletes.has(a.id));
 
-    // Scope label (built from same source as chips, not hardcoded)
     const parts: string[] = [];
     if (filter.positions.size > 0) {
-      parts.push(
-        [...filter.positions].map((p) => POSITION_LABEL[p]).join(" + ")
-      );
+      parts.push([...filter.positions].map((p) => POSITION_LABEL[p]).join(" + "));
     }
     if (filter.participation.size > 0) {
       parts.push([...filter.participation].join(" + "));
@@ -133,10 +219,11 @@ export function SessionScopeProvider({ children }: { children: ReactNode }) {
     return {
       activeAthletes: active,
       showingCount: active.length,
+      totalParticipants: effectiveParticipants.length,
       scopeLabel,
       filterIsDefault,
     };
-  }, [filter]);
+  }, [filter, effectiveParticipants]);
 
   const value: SessionScope = {
     reference,
@@ -147,6 +234,8 @@ export function SessionScopeProvider({ children }: { children: ReactNode }) {
     setFilter,
     demo,
     setDemo,
+    effectiveParticipants,
+    tier1Rows,
     ...derived,
   };
 
@@ -159,5 +248,5 @@ export function useSessionScope(): SessionScope {
   return v;
 }
 
-export { currentSession };
+export { currentSession, COVERAGE_MIN };
 export type { PeriodOption };
