@@ -61,7 +61,7 @@ function SessionRoute() {
             <div className="space-y-10">
               <AttentionCard />
               <SummaryCard />
-              <SectionStub kind="periods" />
+              <PeriodsCard />
               <SectionStub kind="squad" />
             </div>
           </main>
