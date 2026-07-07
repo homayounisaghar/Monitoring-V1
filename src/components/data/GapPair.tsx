@@ -109,6 +109,14 @@ export function GapPair({
           style={{ left: `${extPos}%`, backgroundColor: "var(--color-axis-work)" }}
           aria-label="external — work"
         />
+        {internalTrust && (
+          <span
+            className="veil-hatch absolute top-1/2 h-3 w-5 -translate-x-1/2 -translate-y-1/2 rounded-sm opacity-70"
+            style={{ left: `${intPos}%` }}
+            aria-hidden
+            title={`${internalTrust.coverage}% cov`}
+          />
+        )}
         <div
           className={`absolute top-1/2 ${dotDim} -translate-x-1/2 -translate-y-1/2 rounded-full bg-white`}
           style={{
@@ -116,6 +124,7 @@ export function GapPair({
             border: "2px solid var(--color-axis-cost)",
           }}
           aria-label="internal — cost"
+          title={internalTrust ? `internal · ${internalTrust.coverage}% cov` : undefined}
         />
       </div>
 
