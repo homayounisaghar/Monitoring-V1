@@ -33,28 +33,38 @@ function ValueOnTrack({
   axis = "neutral",
   value,
   reference,
+  referenceBandPct,
   windowPct = 0.4,
   scaleMin,
   scaleMax,
   unit,
   deltaAbs,
+  baselineState = "mature",
 }: {
   mode: "deviation" | "shared";
   axis?: Axis;
   value: number;
   reference: number;
+  /** Half-width of the reference's normal variation, as a fraction of reference (deviation mode)
+   *  or in absolute scale units (shared mode). */
+  referenceBandPct?: number;
   windowPct?: number;
   scaleMin?: number;
   scaleMax?: number;
   unit?: string;
   deltaAbs?: string;
+  /** "mature" = narrow band, "young" = wide band, "building" = withhold reference entirely. */
+  baselineState?: "mature" | "young" | "building";
 }) {
   const color = axisColor(axis);
+  const withheld = baselineState === "building";
   const deltaPct = ((value - reference) / reference) * 100;
   const deltaLabel = `${deltaPct >= 0 ? "+" : ""}${deltaPct.toFixed(0)}%`;
 
   let posPct: number;
   let refPct: number;
+  let bandLeftPct = 0;
+  let bandRightPct = 0;
   let clamped = false;
 
   if (mode === "deviation") {
@@ -69,27 +79,47 @@ function ValueOnTrack({
       posPct = ((raw + windowPct) / (windowPct * 2)) * 100;
     }
     refPct = 50;
+    const halfBandFrac = referenceBandPct ?? 0.08;
+    bandLeftPct = Math.max(0, ((-halfBandFrac + windowPct) / (windowPct * 2)) * 100);
+    bandRightPct = Math.min(100, ((halfBandFrac + windowPct) / (windowPct * 2)) * 100);
   } else {
     const min = scaleMin ?? 0;
     const max = scaleMax ?? 1;
     posPct = Math.max(0, Math.min(100, ((value - min) / (max - min)) * 100));
     refPct = Math.max(0, Math.min(100, ((reference - min) / (max - min)) * 100));
+    const halfBandAbs = referenceBandPct ?? (max - min) * 0.05;
+    bandLeftPct = Math.max(0, ((reference - halfBandAbs - min) / (max - min)) * 100);
+    bandRightPct = Math.min(100, ((reference + halfBandAbs - min) / (max - min)) * 100);
   }
 
   return (
     <div className="flex items-center gap-3">
       <div className="relative h-7 flex-1">
-        {/* Band */}
+        {/* Track band */}
         <div
           className="absolute left-0 right-0 top-1/2 h-[7px] -translate-y-1/2 rounded-full"
           style={{ backgroundColor: "var(--color-data-band)" }}
         />
+        {/* Reference band — normal variation window (withheld when baseline is still building) */}
+        {!withheld && (
+          <div
+            className="absolute top-1/2 h-[11px] -translate-y-1/2 rounded-sm"
+            style={{
+              left: `${bandLeftPct}%`,
+              width: `${bandRightPct - bandLeftPct}%`,
+              backgroundColor: "var(--color-reference-band)",
+            }}
+            aria-label="reference band — typical variation"
+          />
+        )}
         {/* Reference tick */}
-        <div
-          className="absolute top-1/2 h-4 w-[2px] -translate-x-1/2 -translate-y-1/2 rounded-sm"
-          style={{ left: `${refPct}%`, backgroundColor: "var(--color-data-reference)" }}
-          aria-label="reference"
-        />
+        {!withheld && (
+          <div
+            className="absolute top-1/2 h-4 w-[2px] -translate-x-1/2 -translate-y-1/2 rounded-sm"
+            style={{ left: `${refPct}%`, backgroundColor: "var(--color-data-reference)" }}
+            aria-label="reference"
+          />
+        )}
         {/* Value dot */}
         <div
           className="absolute top-1/2 h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full ring-2 ring-white"
@@ -97,7 +127,7 @@ function ValueOnTrack({
           aria-label="value"
         />
         {/* Overflow marker */}
-        {clamped && (
+        {clamped && !withheld && (
           <div
             className="absolute top-1/2 -translate-y-1/2 type-num text-[10px] font-semibold"
             style={{
@@ -109,18 +139,24 @@ function ValueOnTrack({
           </div>
         )}
       </div>
-      <div className="flex min-w-[110px] items-baseline justify-end gap-2">
+      <div className="flex min-w-[130px] items-baseline justify-end gap-2">
         <span className="type-num text-sm font-semibold" style={{ color: "var(--color-text-primary)" }}>
           {value.toLocaleString()}
           {unit ? <span className="type-data-label ml-0.5">{unit}</span> : null}
         </span>
-        <span
-          className="type-num text-xs font-medium"
-          style={{ color: "var(--color-text-secondary)" }}
-          title={deltaAbs ? `Δ ${deltaAbs}` : undefined}
-        >
-          {deltaLabel}
-        </span>
+        {withheld ? (
+          <span className="type-data-label italic" title="Baseline still building — no reference yet">
+            baseline building
+          </span>
+        ) : (
+          <span
+            className="type-num text-xs font-medium"
+            style={{ color: "var(--color-text-secondary)" }}
+            title={deltaAbs ? `Δ ${deltaAbs}` : undefined}
+          >
+            {deltaLabel}
+          </span>
+        )}
       </div>
     </div>
   );
