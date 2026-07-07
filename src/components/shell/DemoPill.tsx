@@ -3,10 +3,11 @@ import { FlaskConical, ChevronDown } from "lucide-react";
 import { useSessionScope, type DemoScenario } from "@/lib/session-scope";
 
 const SCENARIOS: Array<{ id: DemoScenario; label: string }> = [
-  { id: "default",    label: "Default" },
-  { id: "all_clear",  label: "All-clear" },
-  { id: "srpe_none",  label: "sRPE not collected" },
-  { id: "srpe_full",  label: "sRPE full (18 of 18)" },
+  { id: "default",        label: "Default" },
+  { id: "all_clear",      label: "All-clear" },
+  { id: "srpe_none",      label: "sRPE not collected" },
+  { id: "srpe_full",      label: "sRPE full (18 of 18)" },
+  { id: "coverage_thin",  label: "Coverage thin" },
 ];
 
 export function DemoPill() {
