@@ -634,7 +634,7 @@ function Styleguide() {
           title="GapPair"
           desc="External vs internal on one shared % scale. Filled blue = external, open purple = internal, slate connector = gap."
         >
-          <Card eyebrow="% of session peak">
+          <Card eyebrow="basis - stated per surface (demo: % of session-average rate)">
             <div className="space-y-6">
               <GapPair externalPct={82} internalPct={55} />
               <GapPair externalPct={41} internalPct={68} />
@@ -699,7 +699,7 @@ function Styleguide() {
                   border: "1px solid var(--color-border)",
                 }}
               >
-                {["Halves", "15' blocks", "Custom"].map((label, i) => (
+                {["Halves", "15' blocks"].map((label, i) => (
                   <button
                     key={label}
                     className={`type-micro rounded px-3 py-1.5 transition-colors ${
@@ -724,7 +724,7 @@ function Styleguide() {
               <div className="chip-changed inline-flex items-center gap-2 rounded-md px-2.5 py-1.5">
                 <span className="type-data-label">Benchmark</span>
                 <span className="type-num text-xs font-semibold" style={{ color: "var(--color-text-primary)" }}>
-                  Squad median · Last 6
+                  last match
                 </span>
                 <button
                   className="type-micro rounded px-1.5 py-0.5 transition-colors hover:bg-white"
