@@ -527,7 +527,7 @@ function Styleguide() {
         {/* ValueOnTrack */}
         <Section
           title="ValueOnTrack"
-          desc="Canonical comparison object. Band + reference tick + value in the owning hue + signed % delta."
+          desc="Canonical comparison object. Track band + reference band (typical variation) + reference tick + value in the owning hue + signed % delta. Past the tick = above typical; past the band = beyond normal variation."
         >
           <div className="grid grid-cols-2 gap-4">
             <Card eyebrow="Deviation mode · window ±40%">
@@ -570,7 +570,64 @@ function Styleguide() {
               </div>
             </Card>
           </div>
+
+          <Card eyebrow="Reference band — three baseline states">
+            <div className="space-y-5">
+              <div className="grid grid-cols-[160px_1fr] items-center gap-4">
+                <div>
+                  <div className="type-data-label" style={{ color: "var(--color-text-primary)" }}>
+                    Mature baseline
+                  </div>
+                  <div className="type-data-label">narrow band — tight normal variation</div>
+                </div>
+                <ValueOnTrack
+                  mode="deviation"
+                  axis="work"
+                  value={9100}
+                  reference={8800}
+                  referenceBandPct={0.05}
+                  unit="m"
+                  baselineState="mature"
+                />
+              </div>
+              <div className="grid grid-cols-[160px_1fr] items-center gap-4">
+                <div>
+                  <div className="type-data-label" style={{ color: "var(--color-text-primary)" }}>
+                    Young baseline
+                  </div>
+                  <div className="type-data-label">wide band — high uncertainty, still learning</div>
+                </div>
+                <ValueOnTrack
+                  mode="deviation"
+                  axis="work"
+                  value={9400}
+                  reference={8600}
+                  referenceBandPct={0.18}
+                  unit="m"
+                  baselineState="young"
+                />
+              </div>
+              <div className="grid grid-cols-[160px_1fr] items-center gap-4">
+                <div>
+                  <div className="type-data-label" style={{ color: "var(--color-text-primary)" }}>
+                    Building baseline
+                  </div>
+                  <div className="type-data-label">reference withheld — no false-confident compare</div>
+                </div>
+                <ValueOnTrack
+                  mode="deviation"
+                  axis="work"
+                  value={7800}
+                  reference={8600}
+                  unit="m"
+                  baselineState="building"
+                />
+              </div>
+            </div>
+          </Card>
         </Section>
+
+
 
         {/* GapPair */}
         <Section
