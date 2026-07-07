@@ -75,6 +75,18 @@
   --color-clear-ink: var(--clear-ink);
   --color-trust-dot: var(--trust-dot);
   --color-veil-line: var(--veil-line);
+  --color-reference-band: var(--reference-band);
+  --color-text-on-brand: var(--text-on-brand);
+
+  /* Primitive scale extensions (hover/border variants) */
+  --color-green-50: var(--green-50);
+  --color-green-100: var(--green-100);
+  --color-green-500: var(--green-500);
+  --color-green-800: var(--green-800);
+  --color-amber-200: var(--amber-200);
+  --color-amber-600: var(--amber-600);
+  --color-red-200: var(--red-200);
+  --color-red-700: var(--red-700);
 
   /* Ring */
   --color-ring: var(--brand);
