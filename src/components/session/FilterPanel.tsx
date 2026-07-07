@@ -78,14 +78,6 @@ export function FilterCluster() {
       >
         <SlidersHorizontal className="h-3.5 w-3.5" />
         <span>Filter</span>
-        {!filterIsDefault && (
-          <span
-            className="type-num rounded px-1 text-[10.5px]"
-            style={{ backgroundColor: "var(--color-slate-200)", color: "var(--color-text-primary)" }}
-          >
-            {showingCount}
-          </span>
-        )}
       </button>
 
       {open && (
@@ -252,7 +244,7 @@ function FilterPanel({
         }}
       >
         <span className="text-[12px]" style={{ color: "var(--color-text-secondary)" }}>
-          Showing <span className="type-num font-semibold" style={{ color: "var(--color-text-primary)" }}>{showingCount}</span> of 18
+          Showing <span className="type-num font-semibold" style={{ color: "var(--color-text-primary)" }}>{showingCount}</span> of {participants.length}
         </span>
         <div className="flex items-center gap-2">
           {!isFilterDefault(filter) && (

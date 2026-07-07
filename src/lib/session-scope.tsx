@@ -12,6 +12,7 @@ import {
   participants,
   currentSession,
   POSITION_LABEL,
+  timeline,
   type Athlete,
   type PositionCode,
   type ParticipationTag,
@@ -119,7 +120,13 @@ export function SessionScopeProvider({ children }: { children: ReactNode }) {
       parts.push(`${filter.athletes.size} selected`);
     }
     if (filter.period.selected.size > 0) {
-      parts.push(`${filter.period.selected.size} period${filter.period.selected.size > 1 ? "s" : ""}`);
+      const opts = timeline(currentSession, filter.period.granularity);
+      const selected = opts.filter((o) => filter.period.selected.has(o.id));
+      if (selected.length <= 2) {
+        parts.push(selected.map((o) => o.label).join(" · "));
+      } else {
+        parts.push(`${selected.length} periods`);
+      }
     }
     const scopeLabel = parts.length > 0 ? parts.join(" · ") : null;
 

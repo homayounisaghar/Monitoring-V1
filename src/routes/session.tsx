@@ -7,6 +7,7 @@ import { ReadingLine } from "@/components/session/ReadingLine";
 import { FilterCluster } from "@/components/session/FilterPanel";
 import { AnchorRow } from "@/components/session/AnchorRow";
 import { SectionStub } from "@/components/session/SectionStub";
+import { AttentionCard } from "@/components/session/AttentionCard";
 
 export const Route = createFileRoute("/session")({
   head: () => ({
@@ -56,7 +57,7 @@ function SessionRoute() {
           {/* Content column */}
           <main className="mx-auto max-w-[1320px] px-6 py-8">
             <div className="space-y-10">
-              <SectionStub kind="attention" />
+              <AttentionCard />
               <SectionStub kind="summary" />
               <SectionStub kind="periods" />
               <SectionStub kind="squad" />
