@@ -63,7 +63,7 @@ function SessionRoute() {
               <AttentionCard />
               <SummaryCard />
               <PeriodsCard />
-              <SectionStub kind="squad" />
+              <SquadCard />
             </div>
           </main>
         </div>
