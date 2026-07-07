@@ -1,4 +1,5 @@
 import { useSessionScope, BENCHMARK_OPTIONS } from "@/lib/session-scope";
+import { participants } from "@/lib/session-data";
 
 type Kind = "attention" | "summary" | "periods" | "squad";
 
@@ -17,7 +18,7 @@ const META: Record<Kind, { title: string; desc: string }> = {
   },
   squad: {
     title: "Squad",
-    desc: "Every squad member. Non-participants render as honest-empty rows.",
+    desc: "Every athlete on this session — sort, scan, drill.",
   },
 };
 
@@ -53,7 +54,7 @@ export function SectionStub({ kind }: { kind: Kind }) {
             className="type-num text-[11px]"
             style={{ color: "var(--color-text-tertiary)" }}
           >
-            {showingCount} of 18
+            {showingCount} of {participants.length}
           </span>
         )}
       </header>

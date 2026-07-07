@@ -79,8 +79,8 @@ export const squad: Athlete[] = [
   { id: "brandt",   name: "T. Brandt",   posDetail: "CM", position: "MID", participation: "Part",     minutes: 21, hrCoveragePct: 74, srpeSubmitted: true },
   { id: "kuhn",     name: "S. Kuhn",     posDetail: "LB", position: "DEF", participation: "Part",     minutes: 26, hrCoveragePct: 61, srpeSubmitted: false },
   { id: "voss",     name: "F. Voss",     posDetail: "ST", position: "ATT", participation: "Injury",   minutes: 12, hrCoveragePct: 43, srpeSubmitted: false },
-  { id: "lange",    name: "P. Lange",    posDetail: "CB", position: "DEF", participation: "Injury",   minutes: 0,  hrCoveragePct: 82, srpeSubmitted: false },
-  { id: "meier",    name: "H. Meier",    posDetail: "GK", position: "GK",  participation: "Full",     minutes: 0,  hrCoveragePct: 85, srpeSubmitted: true },
+  { id: "lange",    name: "P. Lange",    posDetail: "CB", position: "DEF", participation: "Injury",   minutes: 29, hrCoveragePct: 82, srpeSubmitted: false },
+  { id: "meier",    name: "H. Meier",    posDetail: "RM", position: "MID", participation: "Full",     minutes: 78, hrCoveragePct: 85, srpeSubmitted: true },
   // In squad, did NOT participate — must not appear in any "of 18" read.
   { id: "sturm",    name: "P. Sturm",    posDetail: "CB", position: "DEF", participation: null,       minutes: 0,  hrCoveragePct: null, srpeSubmitted: false },
 ];
