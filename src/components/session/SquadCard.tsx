@@ -30,10 +30,10 @@ import {
   cellState,
   isScaled,
   formatValue,
-  computeFlaggedIds,
   type Metric,
   type MetricId,
 } from "@/lib/squad-metrics";
+import { flaggedIds } from "@/lib/session-flags";
 import { ValueOnTrack } from "@/components/data/ValueOnTrack";
 
 /* ============================================================ */
@@ -82,7 +82,7 @@ export function SquadCard() {
     .filter((a) => a.hrCoveragePct !== null && a.hrCoveragePct < COVERAGE_MIN)
     .map((a) => a.id);
   const flagged = useMemo(
-    () => computeFlaggedIds(tier1Rows, lowCovIds),
+    () => flaggedIds(tier1Rows, lowCovIds),
     [tier1Rows, lowCovIds],
   );
 
@@ -93,13 +93,23 @@ export function SquadCard() {
 
   /* --- sort key derives from active display mode --- */
 
-  const sortValue = (a: Athlete, key: MetricId): number => {
+  const hasSortData = (a: Athlete, key: MetricId): boolean => {
+    if (a.participation === null) return false;
     const m = METRICS[key];
     const v = valueFor(a, m);
-    if (v == null) return display === "percent" ? -Infinity : -Infinity;
+    if (v == null) return false;
     if (display === "percent") {
       const r = refFor(a, m);
-      if (r == null) return -Infinity;
+      if (r == null) return false;
+    }
+    return true;
+  };
+
+  const sortValue = (a: Athlete, key: MetricId): number => {
+    const m = METRICS[key];
+    const v = valueFor(a, m)!;
+    if (display === "percent") {
+      const r = refFor(a, m)!;
       return (v / r) * 100;
     }
     return v;
@@ -108,11 +118,13 @@ export function SquadCard() {
   const sortedRows = useMemo(() => {
     const rows = [...tableRows];
     rows.sort((a, b) => {
+      const aHas = hasSortData(a, sort.key);
+      const bHas = hasSortData(b, sort.key);
+      if (!aHas && bHas) return 1;
+      if (aHas && !bHas) return -1;
+      if (!aHas && !bHas) return a.name.localeCompare(b.name);
       const av = sortValue(a, sort.key);
       const bv = sortValue(b, sort.key);
-      // DNP always at bottom
-      if (a.participation === null && b.participation !== null) return 1;
-      if (b.participation === null && a.participation !== null) return -1;
       if (av === bv) return a.name.localeCompare(b.name);
       return sort.dir === "asc" ? av - bv : bv - av;
     });
