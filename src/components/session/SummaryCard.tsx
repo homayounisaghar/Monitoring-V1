@@ -600,7 +600,7 @@ function ZoneBar({
             key={s.id}
             style={{
               width: `${s.pct}%`,
-              backgroundColor: `var(--color-zone-work-${s.ramp})`,
+              backgroundColor: `var(--zone-work-${s.ramp})`,
             }}
             title={`Z${s.ramp} — ${s.pct}%`}
           />
