@@ -123,10 +123,11 @@ function EditableChip({
         <button
           onClick={onReset}
           aria-label="Reset to default"
-          className="grid h-4 w-4 place-items-center rounded transition-colors hover:bg-[color:var(--color-slate-200)]"
+          className="inline-flex items-center gap-0.5 rounded px-1 py-0.5 text-[11.5px] transition-colors hover:bg-[color:var(--color-slate-200)]"
           style={{ color: "var(--color-text-tertiary)" }}
           title="Reset"
         >
+          <span>reset</span>
           <X className="h-3 w-3" />
         </button>
       )}
@@ -209,22 +210,41 @@ function ChipOptions<T extends ReferenceKind | BenchmarkKind>({
 
 function InfoDot() {
   const [open, setOpen] = useState(false);
+  const [pinned, setPinned] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const hoverTimer = useRef<number | null>(null);
 
   useEffect(() => {
     if (!open) return;
     const onDoc = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false);
+        setPinned(false);
+      }
     };
     document.addEventListener("mousedown", onDoc);
     return () => document.removeEventListener("mousedown", onDoc);
   }, [open]);
 
+  const onEnter = () => {
+    if (pinned) return;
+    if (hoverTimer.current) window.clearTimeout(hoverTimer.current);
+    hoverTimer.current = window.setTimeout(() => setOpen(true), 180);
+  };
+  const onLeave = () => {
+    if (pinned) return;
+    if (hoverTimer.current) window.clearTimeout(hoverTimer.current);
+    setOpen(false);
+  };
+
   return (
-    <span ref={ref} className="relative inline-flex">
+    <span ref={ref} className="relative inline-flex" onMouseEnter={onEnter} onMouseLeave={onLeave}>
       <button
         aria-label="About benchmark"
-        onClick={() => setOpen((o) => !o)}
+        onClick={() => {
+          setOpen(true);
+          setPinned(true);
+        }}
         className="grid h-4 w-4 place-items-center rounded-full transition-colors hover:bg-[color:var(--color-slate-100)]"
         style={{ color: "var(--color-text-tertiary)" }}
       >
@@ -304,7 +324,6 @@ function HowToReadPopover() {
             </Row>
             <Row term="flag glyph">
               marks a flagged athlete's name in depth sections and links back to the Attention card.
-              The fact travels; the severity colour does not.
             </Row>
           </dl>
         </div>

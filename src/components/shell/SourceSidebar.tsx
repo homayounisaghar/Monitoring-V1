@@ -95,7 +95,7 @@ export function SourceSidebar() {
                     }}
                   >
                     <span
-                      className="mt-[3px] grid h-4 w-4 shrink-0 place-items-center rounded-sm text-[9px] font-bold"
+                      className="mt-[3px] grid h-4 w-4 shrink-0 place-items-center rounded-sm text-[10px] font-bold"
                       style={{
                         backgroundColor: "var(--color-slate-100)",
                         color: "var(--color-text-secondary)",
