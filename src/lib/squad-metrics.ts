@@ -13,10 +13,7 @@
  *   - No reference for identity columns (min)
  *   - "not compared" for vs-full-match metrics on <60' partials
  */
-import {
-  BUILDING_ID,
-  type Tier1Row,
-} from "./session-flags";
+import { BUILDING_ID } from "./session-flags";
 import type { Athlete, PositionCode } from "./session-data";
 
 export type Axis = "work" | "cost" | "neutral";
@@ -164,15 +161,3 @@ export function formatValue(v: number | null, m: Metric): string {
   return num;
 }
 
-/* ---------- Flagged IDs — the identity set for the neutral flag glyph. ---------- */
-
-export function computeFlaggedIds(
-  tier1: Tier1Row[],
-  lowCovIds: string[],
-): Set<string> {
-  return new Set<string>([
-    ...tier1.map((r) => r.id),
-    ...lowCovIds,
-    BUILDING_ID,
-  ]);
-}
