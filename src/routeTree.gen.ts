@@ -10,11 +10,29 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as StyleguideRouteImport } from './routes/styleguide'
+import { Route as SessionRouteImport } from './routes/session'
+import { Route as LongitudinalRouteImport } from './routes/longitudinal'
+import { Route as AthleteRouteImport } from './routes/athlete'
 import { Route as IndexRouteImport } from './routes/index'
 
 const StyleguideRoute = StyleguideRouteImport.update({
   id: '/styleguide',
   path: '/styleguide',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SessionRoute = SessionRouteImport.update({
+  id: '/session',
+  path: '/session',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LongitudinalRoute = LongitudinalRouteImport.update({
+  id: '/longitudinal',
+  path: '/longitudinal',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AthleteRoute = AthleteRouteImport.update({
+  id: '/athlete',
+  path: '/athlete',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -25,27 +43,45 @@ const IndexRoute = IndexRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/athlete': typeof AthleteRoute
+  '/longitudinal': typeof LongitudinalRoute
+  '/session': typeof SessionRoute
   '/styleguide': typeof StyleguideRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/athlete': typeof AthleteRoute
+  '/longitudinal': typeof LongitudinalRoute
+  '/session': typeof SessionRoute
   '/styleguide': typeof StyleguideRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/athlete': typeof AthleteRoute
+  '/longitudinal': typeof LongitudinalRoute
+  '/session': typeof SessionRoute
   '/styleguide': typeof StyleguideRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/styleguide'
+  fullPaths: '/' | '/athlete' | '/longitudinal' | '/session' | '/styleguide'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/styleguide'
-  id: '__root__' | '/' | '/styleguide'
+  to: '/' | '/athlete' | '/longitudinal' | '/session' | '/styleguide'
+  id:
+    | '__root__'
+    | '/'
+    | '/athlete'
+    | '/longitudinal'
+    | '/session'
+    | '/styleguide'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AthleteRoute: typeof AthleteRoute
+  LongitudinalRoute: typeof LongitudinalRoute
+  SessionRoute: typeof SessionRoute
   StyleguideRoute: typeof StyleguideRoute
 }
 
@@ -56,6 +92,27 @@ declare module '@tanstack/react-router' {
       path: '/styleguide'
       fullPath: '/styleguide'
       preLoaderRoute: typeof StyleguideRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/session': {
+      id: '/session'
+      path: '/session'
+      fullPath: '/session'
+      preLoaderRoute: typeof SessionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/longitudinal': {
+      id: '/longitudinal'
+      path: '/longitudinal'
+      fullPath: '/longitudinal'
+      preLoaderRoute: typeof LongitudinalRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/athlete': {
+      id: '/athlete'
+      path: '/athlete'
+      fullPath: '/athlete'
+      preLoaderRoute: typeof AthleteRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -70,6 +127,9 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AthleteRoute: AthleteRoute,
+  LongitudinalRoute: LongitudinalRoute,
+  SessionRoute: SessionRoute,
   StyleguideRoute: StyleguideRoute,
 }
 export const routeTree = rootRouteImport
