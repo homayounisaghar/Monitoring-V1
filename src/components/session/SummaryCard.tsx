@@ -111,7 +111,8 @@ export function SummaryCard() {
     effectiveParticipants,
   } = useSessionScope();
 
-  const marks = SQUAD[benchmark.kind];
+  const refs = SQUAD_REF[benchmark.kind];
+  const marks = SESSION_MARKS;
   const nInScope = activeAthletes.length;
 
   // Coverage badge — squad aggregate on effective data.
@@ -119,6 +120,11 @@ export function SummaryCard() {
     (a) => a.hrCoveragePct !== null && a.hrCoveragePct < COVERAGE_MIN,
   );
   const coveredCount = effectiveParticipants.length - lowCov.length;
+  // Confidence gate — same threshold as the can't-say synthesis.
+  const clQualified =
+    effectiveParticipants.length === 0
+      ? true
+      : coveredCount / effectiveParticipants.length >= 0.6;
 
   // sRPE state, from effective data.
   const submitters = effectiveParticipants.filter((a) => a.srpeSubmitted);
@@ -131,13 +137,12 @@ export function SummaryCard() {
 
   const [zoneBasis, setZoneBasis] = useState<"distance" | "duration">("distance");
   const zoneShares = useMemo(() => {
-    // The distance ramp is the primary; duration is a re-basis toy that
-    // subtly shifts the low-intensity end (walking dominates duration).
-    if (zoneBasis === "distance") {
-      return { z1: marks.z1, z2: marks.z2, z3: marks.z3, z4: marks.z4, z5: marks.z5, hi: marks.z4 + marks.z5, typ: marks.z4z5Typical };
-    }
-    return { z1: 46, z2: 24, z3: 12, z4: 12, z5: 6, hi: 18, typ: 16 };
-  }, [zoneBasis, marks]);
+    const z = SESSION_ZONES[zoneBasis];
+    const typ =
+      zoneBasis === "distance" ? refs.z4z5TypicalDistance : refs.z4z5TypicalDuration;
+    return { ...z, hi: z.z4 + z.z5, typ };
+  }, [zoneBasis, refs]);
+  const basisWord = zoneBasis === "distance" ? "by distance" : "by duration";
 
   const descriptorScope = !filterIsDefault && scopeLabel ? scopeLabel : null;
 
