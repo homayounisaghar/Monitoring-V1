@@ -116,32 +116,7 @@ export function PeriodsCard() {
     return idx;
   }, [rows]);
 
-  const [pinned, setPinned] = useState<string[]>([]);
-  const togglePin = (id: string) => {
-    setPinned((prev) => {
-      if (prev.includes(id)) return prev.filter((p) => p !== id);
-      const next = [...prev, id];
-      if (next.length > 2) next.shift();
-      return next;
-    });
-  };
-
-  const pinnedRows = pinned
-    .map((id) => rows.find((r) => r.id === id))
-    .filter((r): r is (typeof rows)[number] => Boolean(r));
-  const pinDelta =
-    pinnedRows.length === 2
-      ? {
-          a: pinnedRows[0],
-          b: pinnedRows[1],
-          gapA: pinnedRows[0].external - pinnedRows[0].internal,
-          gapB: pinnedRows[1].external - pinnedRows[1].internal,
-          delta:
-            pinnedRows[1].external -
-            pinnedRows[1].internal -
-            (pinnedRows[0].external - pinnedRows[0].internal),
-        }
-      : null;
+  const HEAVY_GAP = 15;
 
   return (
     <section id="periods" className="scroll-mt-28">
@@ -152,11 +127,13 @@ export function PeriodsCard() {
             className="type-label"
             style={{ color: "var(--color-text-tertiary)" }}
           >
-            — How load was distributed through the match · within-session
-            distribution
+            — How load was distributed through the match
           </span>
         </div>
-        <ScopeTag full />
+        <div className="flex items-center gap-3">
+          <GranularityToggle value={granularity} onChange={setGranularity} />
+          <ScopeTag full />
+        </div>
       </header>
 
       <div
@@ -166,21 +143,6 @@ export function PeriodsCard() {
           backgroundColor: "var(--color-surface-card)",
         }}
       >
-        {/* Toolbar */}
-        <div
-          className="flex items-center justify-between border-b px-5 py-3"
-          style={{ borderColor: "var(--color-border)" }}
-        >
-          <span
-            className="type-label"
-            style={{ color: "var(--color-text-tertiary)" }}
-          >
-            different question from Summary · this is within THIS session,
-            not vs a typical match · session-wide (not re-scoped by filter)
-          </span>
-          <GranularityToggle value={granularity} onChange={setGranularity} />
-        </div>
-
         {/* Chart */}
         <div className="px-5 pt-5 pb-3">
           <div className="mb-1.5 grid grid-cols-[110px_1fr_72px] items-baseline gap-3">
@@ -199,6 +161,7 @@ export function PeriodsCard() {
             <span
               className="type-data-label text-right"
               style={{ color: "var(--color-text-tertiary)" }}
+              title="external minus internal, in per-minute-rate points"
             >
               GAP E−I · pts
             </span>
@@ -207,34 +170,29 @@ export function PeriodsCard() {
           <div>
             {rows.map((r, i) => {
               const isPeak = i === peakIdx;
-              const isPinned = pinned.includes(r.id);
               const banded = i % 2 === 1;
               const gap = r.external - r.internal;
+              const heavy = Math.abs(gap) >= HEAVY_GAP;
               return (
-                <button
+                <div
                   key={r.id}
-                  type="button"
-                  onClick={() => togglePin(r.id)}
-                  className="grid w-full grid-cols-[110px_1fr_72px] items-center gap-3 rounded px-2 py-2 text-left transition-colors"
+                  className="grid w-full grid-cols-[110px_1fr_72px] items-center gap-3 rounded px-2 py-2 text-left"
                   style={{
                     backgroundColor: isPeak
                       ? "var(--color-slate-100)"
                       : banded
                         ? "var(--color-slate-50)"
                         : "transparent",
-                    outline: isPinned
-                      ? "1px dashed var(--color-slate-400)"
-                      : "none",
-                    outlineOffset: "-2px",
                   }}
                   title={`${r.label} · ${r.durationMin}' · E ${r.external}% / I ${r.internal}% · gap ${gap >= 0 ? "+" : ""}${gap} pts${r.coverage ? ` · ${r.coverage}% cov (internal)` : ""}`}
                 >
                   <div className="flex items-center gap-1.5">
                     <span
-                      className="type-num text-[12.5px]"
+                      className="type-num"
                       style={{
                         color: "var(--color-text-primary)",
-                        fontWeight: isPeak ? 600 : 500,
+                        fontWeight: heavy || isPeak ? 600 : 500,
+                        fontSize: heavy ? "14px" : "12.5px",
                       }}
                     >
                       {r.label}
@@ -246,6 +204,7 @@ export function PeriodsCard() {
                           backgroundColor: "var(--color-slate-200)",
                           color: "var(--color-text-secondary)",
                         }}
+                        title="highest internal-load rate"
                       >
                         peak
                       </span>
@@ -263,6 +222,7 @@ export function PeriodsCard() {
                       scaleMax={SCALE_MAX}
                       showLegend={false}
                       deltaLabel=" "
+                      heavy={heavy}
                       internalTrust={
                         r.coverage !== undefined
                           ? { coverage: r.coverage }
@@ -272,16 +232,17 @@ export function PeriodsCard() {
                   </div>
 
                   <span
-                    className="type-num text-right text-[12.5px]"
+                    className="type-num text-right"
                     style={{
                       color: "var(--color-text-primary)",
-                      fontWeight: isPeak ? 600 : 500,
+                      fontWeight: heavy || isPeak ? 600 : 500,
+                      fontSize: heavy ? "14px" : "12.5px",
                     }}
                   >
                     {gap >= 0 ? "+" : ""}
                     {gap}
                   </span>
-                </button>
+                </div>
               );
             })}
           </div>
@@ -312,99 +273,6 @@ export function PeriodsCard() {
             </div>
             <span />
           </div>
-
-          <p
-            className="mt-3 type-data-label"
-            style={{ color: "var(--color-text-secondary)" }}
-          >
-            100% = the session's average per-minute rate on the same axis.
-            Each block's mark is its per-minute load rate — a short window
-            reads honestly at its own rate, not diluted by its length.
-          </p>
-
-          {/* Pin-delta readout */}
-          {pinDelta && (
-            <div
-              className="mt-3 rounded-md border px-3 py-2.5"
-              style={{
-                borderColor: "var(--color-border)",
-                backgroundColor: "var(--color-slate-50)",
-              }}
-            >
-              <div className="mb-1.5 flex items-baseline justify-between">
-                <span
-                  className="type-label"
-                  style={{ color: "var(--color-text-tertiary)" }}
-                >
-                  gap delta · {pinDelta.a.label} → {pinDelta.b.label}
-                </span>
-                <span
-                  className="type-num text-[13px] font-semibold"
-                  style={{ color: "var(--color-text-primary)" }}
-                >
-                  Δ {pinDelta.delta >= 0 ? "+" : ""}
-                  {pinDelta.delta} pts
-                </span>
-              </div>
-              <div className="relative h-4">
-                <Gridlines />
-                <PinDeltaTrack
-                  gapA={pinDelta.gapA}
-                  gapB={pinDelta.gapB}
-                />
-              </div>
-              <div
-                className="mt-1 flex items-center justify-between type-data-label"
-                style={{ color: "var(--color-text-secondary)" }}
-              >
-                <span>
-                  {pinDelta.a.label} gap{" "}
-                  <span className="type-num">
-                    {pinDelta.gapA >= 0 ? "+" : ""}
-                    {pinDelta.gapA}
-                  </span>
-                </span>
-                <span>
-                  {pinDelta.b.label} gap{" "}
-                  <span className="type-num">
-                    {pinDelta.gapB >= 0 ? "+" : ""}
-                    {pinDelta.gapB}
-                  </span>
-                </span>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Foot */}
-        <div
-          className="flex items-center justify-between border-t px-5 py-2.5"
-          style={{
-            borderColor: "var(--color-border)",
-            backgroundColor: "var(--color-slate-50)",
-          }}
-        >
-          <span
-            className="type-label"
-            style={{ color: "var(--color-text-tertiary)" }}
-          >
-            peak = the block with the highest internal-load rate
-          </span>
-          <span
-            className="type-data-label"
-            style={{
-              color:
-                pinned.length > 0
-                  ? "var(--color-text-secondary)"
-                  : "var(--color-text-tertiary)",
-            }}
-          >
-            {pinned.length === 0
-              ? "tap a row to pin — pick two to read the gap delta"
-              : pinned.length === 1
-                ? "1 pinned — pick one more"
-                : "2 pinned · tap to unpin"}
-          </span>
         </div>
       </div>
     </section>
