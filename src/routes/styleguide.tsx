@@ -398,19 +398,23 @@ function Styleguide() {
           </Card>
         </Section>
 
-        {/* TrustMark */}
+        {/* TrustMark — trust grammar */}
         <Section
-          title="TrustMark"
-          desc="One costume at every size. Coverage printed on the value it qualifies."
+          title="Trust grammar"
+          desc="A clean value with a small hollow dot before it. Coverage lives on hover (e.g. “74% HR coverage”). Texture never sits behind numerals anywhere in the system."
         >
           <Card>
             <div className="flex items-center gap-10">
-              <TrustMark size="sm" value="218" unit="m" coverage={74} />
-              <TrustMark size="md" value="9,820" unit="m" coverage={74} />
-              <TrustMark size="lg" value="168" unit="CL" coverage={82} />
+              <TrustMark size="sm" value="218" unit="m" coverage={74} coverageOf="HR coverage" />
+              <TrustMark size="md" value="9,820" unit="m" coverage={74} coverageOf="GPS coverage" />
+              <TrustMark size="lg" value="168" unit="CL" coverage={82} coverageOf="HR coverage" />
             </div>
+            <p className="type-label mt-4">
+              Hover any value to see the coverage read. The hollow dot is the trust affordance — the number stays fully legible.
+            </p>
           </Card>
         </Section>
+
 
         {/* SeverityGlyphs */}
         <Section
