@@ -56,6 +56,7 @@ export function ValueOnTrack({
   baselineState = "mature",
   size = "default",
   showValue,
+  showDelta = true,
   deltaTone = "default",
   qualified = true,
 }: ValueOnTrackProps) {
