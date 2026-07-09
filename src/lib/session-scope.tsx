@@ -167,6 +167,8 @@ function applyOverlay(
         // Divergence flags suppressed into "to check" per the gating rule.
         tier1: [],
       };
+    case "training_day":
+      return { participants, tier1: sorted };
   }
 }
 
