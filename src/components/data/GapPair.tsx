@@ -27,6 +27,8 @@ export type GapPairProps = {
   /** When set, the internal (cost) ring wears the TrustMark idiom
    *  (hatch veil + leading dot). Coverage is surfaced on hover title. */
   internalTrust?: { coverage: number };
+  /** When true, dots grow half a step and the slate connector thickens one step. Slate only, no hue. */
+  heavy?: boolean;
 };
 
 export function GapPair({
@@ -41,6 +43,7 @@ export function GapPair({
   tone = "default",
   deltaLabel,
   internalTrust,
+  heavy = false,
 }: GapPairProps) {
   const compact = size === "compact";
   const withLegend = showLegend ?? (!compact && mode === "shared");
@@ -71,7 +74,11 @@ export function GapPair({
 
   const trackH = compact ? "h-5" : "h-8";
   const trackBandH = compact ? "h-[6px]" : "h-[7px]";
-  const dotDim = compact ? "h-3 w-3" : "h-3.5 w-3.5";
+  const dotDim = heavy
+    ? compact ? "h-[18px] w-[18px]" : "h-[22px] w-[22px]"
+    : compact ? "h-3 w-3" : "h-3.5 w-3.5";
+  const connectorH = heavy ? "h-[4px]" : "h-[2px]";
+  const connectorInk = heavy ? "var(--color-slate-500)" : "var(--color-slate-400)";
   const deltaInk =
     tone === "escalate"
       ? "var(--color-escalate-ink)"
@@ -97,11 +104,11 @@ export function GapPair({
           />
         )}
         <div
-          className="absolute top-1/2 h-[2px] -translate-y-1/2"
+          className={`absolute top-1/2 ${connectorH} -translate-y-1/2`}
           style={{
             left: `${left}%`,
             width: `${right - left}%`,
-            backgroundColor: "var(--color-slate-400)",
+            backgroundColor: connectorInk,
           }}
         />
         <div
