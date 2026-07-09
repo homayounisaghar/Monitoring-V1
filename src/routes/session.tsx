@@ -51,10 +51,8 @@ function SessionRoute() {
           </div>
 
           {/* Content column */}
-          <main className="mx-auto max-w-[1320px] px-6 py-8">
-            <section id="attention">
-              <AttentionCard />
-            </section>
+          <main className="mx-auto max-w-[1320px] px-6 pt-8">
+            <AttentionCard />
 
             {/* Seam — form only: tone step down + hairline crossing the column */}
             <div
@@ -66,21 +64,16 @@ function SessionRoute() {
                 className="h-px w-full"
                 style={{ backgroundColor: "var(--color-border)" }}
               />
-              <div className="space-y-10 pt-10">
-                <section id="summary">
-                  <SummaryCard />
-                </section>
-                <section id="periods">
-                  <PeriodsCard />
-                </section>
-                <section id="squad">
-                  <SquadCard />
-                </section>
+              <div className="space-y-10 py-10">
+                <SummaryCard />
+                <PeriodsCard />
+                <SquadCard />
               </div>
             </div>
           </main>
         </div>
       </div>
+
 
 
       <DemoPill />
