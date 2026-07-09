@@ -51,8 +51,20 @@ export const COPY = {
   "legend.trustDot": "coverage below the read-safe threshold",
   "legend.flagGlyph": "flagged in Attention this session",
 
-  // ---------- Reading-line menu glosses ----------
+  // ---------- Reading-line menu glosses (per option kind) ----------
   "readingLine.cohortGloss": "cohort — same position group, this season",
+  // Reference (per-athlete) glosses — DRAFT
+  "readingLine.gloss.own_typical": "his usual output for this match type",
+  "readingLine.gloss.positional": "typical for his position group",
+  "readingLine.gloss.cohort": "same position group, this season",
+  "readingLine.gloss.last_n": "average of his last five matches",
+  "readingLine.gloss.season": "his rolling season average",
+  "readingLine.gloss.same_opponent": "his output vs this opponent before",
+  // Benchmark (squad) glosses — DRAFT
+  "readingLine.bgloss.typical_match": "a typical match of this type",
+  "readingLine.bgloss.last_match": "the squad's previous match",
+  "readingLine.bgloss.last_5": "average of the squad's last five matches",
+  "readingLine.bgloss.same_opponent": "squad output vs this opponent before",
 
   // ---------- Filter panel ----------
   "filter.group.timeWindow": "Time window",
