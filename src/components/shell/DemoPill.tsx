@@ -8,6 +8,7 @@ const SCENARIOS: Array<{ id: DemoScenario; label: string }> = [
   { id: "srpe_none",      label: "sRPE not collected" },
   { id: "srpe_full",      label: "sRPE full (18 of 18)" },
   { id: "coverage_thin",  label: "Coverage thin" },
+  { id: "training_day",   label: "Training day" },
 ];
 
 export function DemoPill() {
