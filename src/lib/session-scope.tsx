@@ -66,7 +66,8 @@ export type DemoScenario =
   | "all_clear"
   | "srpe_none"
   | "srpe_full"
-  | "coverage_thin";
+  | "coverage_thin"
+  | "training_day";
 
 export type SessionScope = {
   reference: { kind: ReferenceKind; label: string };
@@ -83,6 +84,7 @@ export type SessionScope = {
   // Effective (scenario-adjusted) participants — every read uses this.
   effectiveParticipants: Athlete[];
   tier1Rows: Tier1Row[];
+  sessionIsTraining: boolean;
 
   // derived
   activeAthletes: Athlete[];
@@ -166,6 +168,8 @@ function applyOverlay(
         // Divergence flags suppressed into "to check" per the gating rule.
         tier1: [],
       };
+    case "training_day":
+      return { participants, tier1: sorted };
   }
 }
 
@@ -236,6 +240,7 @@ export function SessionScopeProvider({ children }: { children: ReactNode }) {
     setDemo,
     effectiveParticipants,
     tier1Rows,
+    sessionIsTraining: demo === "training_day",
     ...derived,
   };
 
