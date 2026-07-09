@@ -463,7 +463,7 @@ function SynthesisLine({
           className="text-[13px] font-medium"
           style={{ color: "var(--color-text-primary)" }}
         >
-          A hard, high-intensity match — external work ran ahead of cardio cost, led by the front line.
+          {copy("attention.closer")}
         </span>
       </div>
     </div>
