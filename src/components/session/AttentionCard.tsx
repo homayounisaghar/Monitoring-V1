@@ -219,19 +219,6 @@ export function AttentionCard() {
         />
       </div>
 
-      {/* Seam — coach-to-analyst boundary */}
-      <div className="mt-8">
-        <div
-          className="h-px w-full"
-          style={{ backgroundColor: "var(--color-border)" }}
-        />
-        <div
-          className="type-label pt-3"
-          style={{ color: "var(--color-text-tertiary)" }}
-        >
-          Depth — Summary · Periods · Squad
-        </div>
-      </div>
     </section>
   );
 }
