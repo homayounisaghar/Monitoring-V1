@@ -160,14 +160,8 @@ export function SummaryCard() {
             {descriptorScope ? ` · ${descriptorScope}` : ""} · {nInScope} athletes
           </span>
         </div>
-        {!filterIsDefault && (
-          <span
-            className="type-num text-[11px]"
-            style={{ color: "var(--color-text-tertiary)" }}
-          >
-            {nInScope} of {totalParticipants}
-          </span>
-        )}
+        <ScopeTag />
+
       </header>
 
       {/* ---- Squad-load card — two axes side by side ---- */}

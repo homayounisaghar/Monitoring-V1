@@ -184,14 +184,8 @@ export function SquadCard() {
             {descriptorScope ? ` · ${descriptorScope}` : ""}
           </span>
         </div>
-        {!filterIsDefault && (
-          <span
-            className="type-num text-[11px]"
-            style={{ color: "var(--color-text-tertiary)" }}
-          >
-            {activeAthletes.length} of {totalParticipants}
-          </span>
-        )}
+        <ScopeTag />
+
       </header>
 
       {/* Toolbar */}

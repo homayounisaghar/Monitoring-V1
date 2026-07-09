@@ -155,6 +155,7 @@ export function PeriodsCard() {
             distribution
           </span>
         </div>
+        <ScopeTag full />
       </header>
 
       <div
