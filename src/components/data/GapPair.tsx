@@ -104,11 +104,11 @@ export function GapPair({
           />
         )}
         <div
-          className="absolute top-1/2 h-[2px] -translate-y-1/2"
+          className={`absolute top-1/2 ${connectorH} -translate-y-1/2`}
           style={{
             left: `${left}%`,
             width: `${right - left}%`,
-            backgroundColor: "var(--color-slate-400)",
+            backgroundColor: connectorInk,
           }}
         />
         <div
