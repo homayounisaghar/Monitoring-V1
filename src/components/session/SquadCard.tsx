@@ -5,15 +5,18 @@
  * not tabulate. Every delta, every %-mode cell, every sort key, and
  * the squad-avg row are computed live from raw value + raw reference.
  *
- * Two modes:
- *   Table (default): 19 rows including P. Sturm (DNP); neutral cells,
- *     sortable by any column, pinned "Squad avg · N" row.
- *   Chart: single-column ranked list on one metric, ValueOnTrack in
- *     shared-scale mode; partial/building/DNP shown honestly.
+ * Table (default): rows for every athlete in scope; sortable columns;
+ *   pinned "Squad avg · N" row on top; DNP + no-data rows pin to foot.
+ * Chart: single-column ranked list on one metric.
+ *   Absolute → shared unit axis 0..scaleMax, ranked by value.
+ *   Percent  → each row rebased to its own typical, ranked by delta.
  *
- * Cell honesty: Ebel scaled/not-compared, Köhler building baseline,
- * low-coverage Cardio Load with TrustMark veil, Sturm did-not-
- * participate row, non-submitters "—" on sRPE.
+ * Cell honesty: partial players carry a single row-level "N′ · scaled"
+ * beside the minutes; other cells stay clean. Non-comparable cells
+ * render "—" with a hover reason. Trust follows the RW0 grammar — a
+ * hollow leading dot on the value, coverage % on hover; no hatch
+ * behind digits. Köhler prints his value at his rank; his delta is
+ * suppressed with "building baseline".
  */
 import { useMemo, useState } from "react";
 import { ChevronRight, Flag, ChevronUp, ChevronDown, X } from "lucide-react";
@@ -21,6 +24,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { useSessionScope, COVERAGE_MIN } from "@/lib/session-scope";
 import { squad, POSITION_LABEL, type Athlete } from "@/lib/session-data";
 import { ScopeTag } from "@/components/session/ScopeTag";
+import { copy, tmpl } from "@/lib/copy-deck";
 import {
   METRICS,
   DEFAULT_COLUMNS,
@@ -47,10 +51,7 @@ export function SquadCard() {
     tier1Rows,
     activeAthletes,
     effectiveParticipants,
-    totalParticipants,
-    filter,
     filterIsDefault,
-    scopeLabel,
   } = useSessionScope();
 
   const [view, setView] = useState<ViewMode>("table");
@@ -66,8 +67,6 @@ export function SquadCard() {
 
   /* --- rows in scope --- */
 
-  // Table shows all 19 (including Sturm DNP) when no filter; a filter
-  // subsets participants (DNP drops from filtered subsets by design).
   const scopedIds = useMemo(
     () => new Set(activeAthletes.map((a) => a.id)),
     [activeAthletes],
@@ -77,7 +76,7 @@ export function SquadCard() {
     return squad.filter((a) => scopedIds.has(a.id));
   }, [filterIsDefault, scopedIds]);
 
-  /* --- flagged identity set — SAME source as the Attention card --- */
+  /* --- flagged identity set --- */
 
   const lowCovIds = effectiveParticipants
     .filter((a) => a.hrCoveragePct !== null && a.hrCoveragePct < COVERAGE_MIN)
@@ -87,12 +86,12 @@ export function SquadCard() {
     [tier1Rows, lowCovIds],
   );
 
-  /* --- sRPE column badge — coverage on the column head (not the toolbar) --- */
+  /* --- sRPE column trust --- */
 
   const srpeSubmitted = activeAthletes.filter((a) => a.srpeSubmitted).length;
   const srpeTotal = activeAthletes.length;
 
-  /* --- sort key derives from active display mode --- */
+  /* --- sort --- */
 
   const hasSortData = (a: Athlete, key: MetricId): boolean => {
     if (a.participation === null) return false;
@@ -119,6 +118,7 @@ export function SquadCard() {
   const sortedRows = useMemo(() => {
     const rows = [...tableRows];
     rows.sort((a, b) => {
+      // DNP + no-data pin to foot explicitly, regardless of dir.
       const aHas = hasSortData(a, sort.key);
       const bHas = hasSortData(b, sort.key);
       if (!aHas && bHas) return 1;
@@ -133,9 +133,9 @@ export function SquadCard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tableRows, sort, display]);
 
-  /* --- squad-avg row over IN-SCOPE participants --- */
+  /* --- squad-avg row (in-scope participants) --- */
 
-  const scopeParticipants = activeAthletes; // participants only
+  const scopeParticipants = activeAthletes;
   const avgCell = (m: Metric): { value: number | null; ref: number | null } => {
     if (m.scaling === "identity") {
       const vs = scopeParticipants
@@ -168,10 +168,6 @@ export function SquadCard() {
     };
   };
 
-  /* --- header descriptor --- */
-
-  const descriptorScope = !filterIsDefault && scopeLabel ? scopeLabel : null;
-
   return (
     <section id="squad" className="scroll-mt-28">
       <header className="mb-3 flex items-baseline justify-between gap-4">
@@ -181,12 +177,10 @@ export function SquadCard() {
             className="type-label"
             style={{ color: "var(--color-text-tertiary)" }}
           >
-            — Every athlete on this session · sort, scan, drill
-            {descriptorScope ? ` · ${descriptorScope}` : ""}
+            — {copy("squad.section.desc")}
           </span>
         </div>
         <ScopeTag />
-
       </header>
 
       {/* Toolbar */}
@@ -266,7 +260,7 @@ export function SquadCard() {
           }
           flagged={flagged}
           srpeCoverage={{ submitted: srpeSubmitted, total: srpeTotal }}
-          onRowClick={(a) => navigate({ to: "/athlete" })}
+          onRowClick={(_a) => navigate({ to: "/athlete" })}
           avgCell={avgCell}
           scopeCount={activeAthletes.length}
           onScrollToAttention={() => {
@@ -277,8 +271,8 @@ export function SquadCard() {
       ) : (
         <ChartBody
           metric={METRICS[chartMetric]}
+          display={display}
           rows={activeAthletes}
-          nonRankedIds={sturmAndNoDataIds(activeAthletes, METRICS[chartMetric])}
           allSquadForTray={squad}
           flagged={flagged}
           onRowClick={() => navigate({ to: "/athlete" })}
@@ -347,7 +341,7 @@ function TableBody({
               backgroundColor: "var(--color-slate-50)",
             }}
           >
-            <th className="px-3 py-2 text-left type-col-head" style={{ minWidth: 180 }}>
+            <th className="px-3 py-2 text-left type-col-head" style={{ minWidth: 200 }}>
               Athlete
             </th>
             {columns.map((id) => {
@@ -358,7 +352,7 @@ function TableBody({
                   key={id}
                   className="px-3 py-2 text-right"
                   style={{
-                    minWidth: id === "min" ? 68 : 100,
+                    minWidth: id === "min" ? 96 : 100,
                     backgroundColor: active
                       ? "var(--color-slate-100)"
                       : undefined,
@@ -394,12 +388,14 @@ function TableBody({
                     </span>
                     {id === "srpe" && (
                       <span
-                        className="type-num text-[10px]"
-                        style={{ color: "var(--color-text-tertiary)" }}
-                        title={`${srpeCoverage.submitted} of ${srpeCoverage.total} submitted`}
-                      >
-                        · {srpeCoverage.submitted}/{srpeCoverage.total}
-                      </span>
+                        className="inline-block h-2 w-2 shrink-0 rounded-full"
+                        style={{
+                          backgroundColor: "transparent",
+                          border: "1.25px solid var(--color-trust-dot)",
+                        }}
+                        aria-hidden
+                        title={`${srpeCoverage.submitted} of ${srpeCoverage.total}`}
+                      />
                     )}
                     {active ? (
                       sort.dir === "desc" ? (
@@ -444,68 +440,79 @@ function TableBody({
             })}
           </tr>
 
-          {rows.map((a) => (
-            <tr
-              key={a.id}
-              onClick={() => onRowClick(a)}
-              className="cursor-pointer border-b transition-colors hover:bg-[color:var(--color-slate-50)] last:border-b-0"
-              style={{ borderColor: "var(--color-border)" }}
-            >
-              <td className="px-3 py-2">
-                <div className="flex items-center gap-2">
-                  <span
-                    className="text-[13px] font-medium"
-                    style={{
-                      color:
-                        a.participation === null
-                          ? "var(--color-text-tertiary)"
-                          : "var(--color-text-primary)",
-                    }}
-                  >
-                    {a.name}
-                  </span>
-                  {flagged.has(a.id) && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onScrollToAttention();
-                      }}
-                      title="Flagged in Attention — view"
-                      className="inline-flex h-4 w-4 items-center justify-center rounded transition-colors hover:bg-[color:var(--color-slate-200)]"
-                      aria-label={`${a.name} flagged in Attention`}
-                    >
-                      <Flag
-                        className="h-3 w-3"
-                        style={{ color: "var(--color-slate-500)" }}
-                      />
-                    </button>
-                  )}
-                  <span
-                    className="type-label ml-1"
-                    style={{ color: "var(--color-text-tertiary)" }}
-                  >
-                    {a.posDetail}
-                  </span>
-                  {a.participation === null && (
+          {rows.map((a) => {
+            const rowScaled =
+              a.participation !== null &&
+              a.minutes < 60 &&
+              a.id !== "koehler"; // building baseline speaks for itself
+            return (
+              <tr
+                key={a.id}
+                onClick={() => onRowClick(a)}
+                className="cursor-pointer border-b transition-colors hover:bg-[color:var(--color-slate-50)] last:border-b-0"
+                style={{ borderColor: "var(--color-border)" }}
+              >
+                <td className="px-3 py-2">
+                  <div className="flex items-center gap-2">
                     <span
-                      className="type-label ml-2"
+                      className="text-[13px] font-medium"
+                      style={{
+                        color:
+                          a.participation === null
+                            ? "var(--color-text-tertiary)"
+                            : "var(--color-text-primary)",
+                      }}
+                    >
+                      {a.name}
+                    </span>
+                    {flagged.has(a.id) && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onScrollToAttention();
+                        }}
+                        title="Flagged in Attention — view"
+                        className="inline-flex h-4 w-4 items-center justify-center rounded transition-colors hover:bg-[color:var(--color-slate-200)]"
+                        aria-label={`${a.name} flagged in Attention`}
+                      >
+                        <Flag
+                          className="h-3 w-3"
+                          style={{ color: "var(--color-slate-500)" }}
+                        />
+                      </button>
+                    )}
+                    <span
+                      className="type-label ml-1"
                       style={{ color: "var(--color-text-tertiary)" }}
                     >
-                      · did not participate
+                      {a.posDetail}
                     </span>
-                  )}
-                </div>
-              </td>
-              {columns.map((id) => {
-                const m = METRICS[id];
-                return (
-                  <td key={id} className="px-3 py-2 text-right align-middle">
-                    <Cell a={a} m={m} display={display} />
-                  </td>
-                );
-              })}
-            </tr>
-          ))}
+                    {a.participation === null && (
+                      <span
+                        className="type-label ml-2"
+                        style={{ color: "var(--color-text-tertiary)" }}
+                      >
+                        · did not participate
+                      </span>
+                    )}
+                  </div>
+                </td>
+                {columns.map((id) => {
+                  const m = METRICS[id];
+                  return (
+                    <td key={id} className="px-3 py-2 text-right align-middle">
+                      <Cell
+                        a={a}
+                        m={m}
+                        display={display}
+                        rowScaled={rowScaled}
+                      />
+                    </td>
+                  );
+                })}
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>
@@ -514,19 +521,56 @@ function TableBody({
 
 /* ---------- individual cell renderers ---------- */
 
-function Cell({ a, m, display }: { a: Athlete; m: Metric; display: DisplayMode }) {
+function Cell({
+  a,
+  m,
+  display,
+  rowScaled,
+}: {
+  a: Athlete;
+  m: Metric;
+  display: DisplayMode;
+  rowScaled: boolean;
+}) {
   const state = cellState(a, m);
-  if (state === "dnp") {
+
+  // Min column — the single home for row-level "· scaled" (Q2).
+  if (m.id === "min") {
+    if (state === "dnp") {
+      return (
+        <span
+          className="type-num text-[13px]"
+          style={{ color: "var(--color-text-tertiary)" }}
+        >
+          —
+        </span>
+      );
+    }
+    const v = valueFor(a, m);
     return (
-      <span
-        className="type-num text-[13px]"
-        style={{ color: "var(--color-text-tertiary)" }}
-      >
-        —
-      </span>
+      <div className="flex flex-col items-end">
+        <span
+          className="type-num text-[13px]"
+          style={{ color: "var(--color-text-primary)" }}
+        >
+          {v}'
+        </span>
+        {rowScaled && (
+          <span
+            className="type-label"
+            style={{ color: "var(--color-text-tertiary)" }}
+          >
+            {tmpl("squad.row.scaledTagTemplate", { min: v ?? "" }).replace(
+              /^\d+′\s·\s/,
+              "· ",
+            )}
+          </span>
+        )}
+      </div>
     );
   }
-  if (state === "empty") {
+
+  if (state === "dnp" || state === "empty") {
     return (
       <span
         className="type-num text-[13px]"
@@ -556,22 +600,15 @@ function Cell({ a, m, display }: { a: Athlete; m: Metric; display: DisplayMode }
     );
   }
   if (state === "not_compared") {
-    const v = valueFor(a, m);
+    // Non-comparable cells render "—" with hover (Q2).
     return (
-      <div className="flex flex-col items-end">
-        <span
-          className="type-num text-[13px]"
-          style={{ color: "var(--color-text-primary)" }}
-        >
-          {formatValue(v, m)}
-        </span>
-        <span
-          className="type-label"
-          style={{ color: "var(--color-text-tertiary)" }}
-        >
-          · not compared
-        </span>
-      </div>
+      <span
+        className="type-num text-[13px]"
+        style={{ color: "var(--color-text-tertiary)" }}
+        title={tmpl("squad.cell.notComparedHoverTemplate", { min: a.minutes })}
+      >
+        {copy("squad.cell.notCompared")}
+      </span>
     );
   }
 
@@ -587,16 +624,8 @@ function Cell({ a, m, display }: { a: Athlete; m: Metric; display: DisplayMode }
   const deltaPct =
     r != null && v != null ? Math.round(((v - r) / r) * 100) : null;
 
-  const primary = cellIsPercent
-    ? `${pct}%`
-    : m.id === "min"
-      ? `${v}'`
-      : formatValue(v, m);
-
-  const scaledTag = isScaled(a, m);
-  const primaryInk = lowCov
-    ? "var(--color-text-tertiary)"
-    : "var(--color-text-primary)";
+  const primary = cellIsPercent ? `${pct}%` : formatValue(v, m);
+  const primaryInk = "var(--color-text-primary)";
 
   return (
     <div className="flex flex-col items-end">
@@ -621,21 +650,14 @@ function Cell({ a, m, display }: { a: Athlete; m: Metric; display: DisplayMode }
           {primary}
         </span>
       </span>
-      {m.id !== "min" && deltaPct != null && !cellIsPercent && (
+      {/* Delta once, muted, in absolute mode only. No per-cell "· scaled". */}
+      {!cellIsPercent && deltaPct != null && (
         <span
           className="type-num text-[10.5px]"
           style={{ color: "var(--color-text-tertiary)" }}
         >
           {deltaPct >= 0 ? "+" : ""}
-          {deltaPct}%{scaledTag ? " · scaled" : ""}
-        </span>
-      )}
-      {cellIsPercent && scaledTag && (
-        <span
-          className="type-label"
-          style={{ color: "var(--color-text-tertiary)" }}
-        >
-          · scaled
+          {deltaPct}%
         </span>
       )}
     </div>
@@ -685,7 +707,6 @@ function AvgCell({
   }
   const printed =
     m.decimals != null ? value.toFixed(m.decimals) : Math.round(value).toLocaleString();
-  const suffix = m.unit === "%" ? "%" : m.unit === "/10" ? "" : "";
   const rawDelta =
     ref != null && ref !== 0 ? ((value - ref) / ref) * 100 : null;
   const deltaPct = rawDelta != null && Number.isFinite(rawDelta) ? Math.round(rawDelta) : null;
@@ -698,7 +719,6 @@ function AvgCell({
         suppressHydrationWarning
       >
         {printed}
-        {suffix}
       </span>
       {deltaPct != null && (
         <span
@@ -720,36 +740,54 @@ function AvgCell({
 
 function ChartBody({
   metric,
+  display,
   rows,
-  nonRankedIds,
   allSquadForTray,
   flagged,
   onRowClick,
   onScrollToAttention,
 }: {
   metric: Metric;
+  display: DisplayMode;
   rows: Athlete[];
-  nonRankedIds: Set<string>;
   allSquadForTray: Athlete[];
   flagged: Set<string>;
   onRowClick: (a: Athlete) => void;
   onScrollToAttention: () => void;
 }) {
-  const ranked = rows
-    .filter((a) => a.participation !== null && !nonRankedIds.has(a.id))
+  // ranked: everyone with a value AND (in % mode) a reference.
+  // building baseline (Köhler) has value in absolute but no ref → he
+  // ranks in absolute; in % he sinks to the foot of the ranked list.
+  const withData = rows
+    .filter((a) => a.participation !== null && valueFor(a, metric) != null)
     .map((a) => {
       const state = cellState(a, metric);
       const v = valueFor(a, metric);
       const r = refFor(a, metric);
       return { a, v, r, state };
-    })
-    .sort((x, y) => (y.v ?? -Infinity) - (x.v ?? -Infinity));
+    });
 
-  const trayIds = new Set(nonRankedIds);
-  // add Sturm and anyone with no data on this metric that isn't already
-  const tray = allSquadForTray.filter(
-    (a) => trayIds.has(a.id) || (a.participation === null && rows.some((r) => r.id === a.id) === false),
-  );
+  const ranked = [...withData].sort((x, y) => {
+    if (display === "percent") {
+      const xd = x.r ? (x.v! / x.r) * 100 : null;
+      const yd = y.r ? (y.v! / y.r) * 100 : null;
+      if (xd == null && yd == null) return 0;
+      if (xd == null) return 1;
+      if (yd == null) return -1;
+      return yd - xd;
+    }
+    return (y.v ?? -Infinity) - (x.v ?? -Infinity);
+  });
+
+  // Non-participants + no-data pin to foot explicitly.
+  const trayIds = new Set<string>();
+  for (const a of allSquadForTray) {
+    if (a.participation === null) trayIds.add(a.id);
+    else if (rows.some((r) => r.id === a.id) && valueFor(a, metric) == null)
+      trayIds.add(a.id);
+  }
+  const tray = allSquadForTray.filter((a) => trayIds.has(a.id));
+
   const scaleMax = metric.chartMax;
 
   return (
@@ -768,22 +806,27 @@ function ChartBody({
           className="type-col-head"
           style={{ color: "var(--color-text-secondary)" }}
         >
-          Ranked by {metric.label}
+          {display === "percent"
+            ? `Ranked by delta · ${metric.label}`
+            : `Ranked by ${metric.label}`}
         </span>
         <span
           className="type-label"
           style={{ color: "var(--color-text-tertiary)" }}
         >
-          delta vs own typical for this day-type · shared scale 0–{formatScale(metric, scaleMax)}
+          {display === "percent"
+            ? "Each row re-based to its own typical · ticks align at 100%"
+            : `Shared unit axis · 0 — ${formatScale(metric, scaleMax)}`}
         </span>
       </div>
-      <ul className="max-h-[560px] overflow-y-auto">
+      <ul>
         {ranked.map((r, i) => (
           <ChartRow
             key={r.a.id}
             rank={i + 1}
             a={r.a}
             m={metric}
+            display={display}
             value={r.v}
             ref={r.r}
             state={r.state}
@@ -830,6 +873,7 @@ function ChartRow({
   rank,
   a,
   m,
+  display,
   value,
   ref,
   state,
@@ -841,6 +885,7 @@ function ChartRow({
   rank: number;
   a: Athlete;
   m: Metric;
+  display: DisplayMode;
   value: number | null;
   ref: number | null;
   state: ReturnType<typeof cellState>;
@@ -849,6 +894,8 @@ function ChartRow({
   onClick: () => void;
   onFlagClick: () => void;
 }) {
+  const rowScaled =
+    a.participation !== null && a.minutes < 60 && a.id !== "koehler";
   return (
     <li
       onClick={onClick}
@@ -889,51 +936,62 @@ function ChartRow({
           className="type-label"
           style={{ color: "var(--color-text-tertiary)" }}
         >
-          {a.posDetail} · {a.minutes}'
+          {a.posDetail} · {a.minutes}'{rowScaled ? " · scaled" : ""}
         </div>
       </div>
       <div className="min-w-0 flex-1">
         {state === "building" ? (
-          <div className="flex items-center gap-3">
-            <div
-              className="relative h-5 flex-1 rounded-full"
-              style={{ backgroundColor: "var(--color-data-band)" }}
-            >
-              {value != null && (
-                <span
-                  className="absolute top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full ring-2 ring-white"
-                  style={{
-                    left: `${Math.min(100, (value / scaleMax) * 100)}%`,
-                    backgroundColor:
-                      m.axis === "work"
-                        ? "var(--color-axis-work)"
-                        : m.axis === "cost"
-                          ? "var(--color-axis-cost)"
-                          : "var(--color-slate-500)",
-                  }}
-                />
-              )}
+          // Value at rank; delta suppressed; qualifier reads "building baseline".
+          display === "percent" ? (
+            <div className="flex items-center gap-3">
+              <div
+                className="relative h-5 flex-1 rounded-full"
+                style={{ backgroundColor: "var(--color-data-band)" }}
+              />
+              <span
+                className="w-[140px] text-right type-label italic"
+                style={{ color: "var(--color-text-tertiary)" }}
+              >
+                building baseline
+              </span>
             </div>
-            <span
-              className="w-[140px] text-right type-label italic"
-              style={{ color: "var(--color-text-tertiary)" }}
-            >
-              building baseline
-            </span>
-          </div>
-        ) : state === "not_compared" ? (
-          <div className="flex items-center gap-3">
-            <div
-              className="relative h-5 flex-1 rounded-full"
-              style={{ backgroundColor: "var(--color-data-band)" }}
-            />
-            <span
-              className="w-[140px] text-right type-label"
-              style={{ color: "var(--color-text-tertiary)" }}
-            >
-              · not compared
-            </span>
-          </div>
+          ) : (
+            <div className="flex items-center gap-3">
+              <div
+                className="relative h-5 flex-1 rounded-full"
+                style={{ backgroundColor: "var(--color-data-band)" }}
+              >
+                {value != null && (
+                  <span
+                    className="absolute top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full ring-2 ring-white"
+                    style={{
+                      left: `${Math.min(100, (value / scaleMax) * 100)}%`,
+                      backgroundColor:
+                        m.axis === "work"
+                          ? "var(--color-axis-work)"
+                          : m.axis === "cost"
+                            ? "var(--color-axis-cost)"
+                            : "var(--color-slate-500)",
+                    }}
+                  />
+                )}
+              </div>
+              <div className="w-[140px] flex items-baseline justify-end gap-2">
+                <span
+                  className="type-num text-sm font-semibold"
+                  style={{ color: "var(--color-text-primary)" }}
+                >
+                  {formatValue(value, m)}
+                </span>
+                <span
+                  className="type-data-label italic"
+                  style={{ color: "var(--color-text-tertiary)" }}
+                >
+                  building
+                </span>
+              </div>
+            </div>
+          )
         ) : value == null || ref == null ? (
           <div
             className="text-[12px]"
@@ -941,6 +999,17 @@ function ChartRow({
           >
             —
           </div>
+        ) : display === "percent" ? (
+          <ValueOnTrack
+            mode="deviation"
+            axis={m.axis}
+            value={value}
+            reference={ref}
+            windowPct={0.4}
+            unit=""
+            size="compact"
+            showValue={false}
+          />
         ) : (
           <ValueOnTrack
             mode="shared"
@@ -955,14 +1024,6 @@ function ChartRow({
             showValue={true}
             size="compact"
           />
-        )}
-        {isScaled(a, m) && state === "ok" && (
-          <div
-            className="type-label mt-0.5"
-            style={{ color: "var(--color-text-tertiary)" }}
-          >
-            · scaled to {a.minutes}'
-          </div>
         )}
       </div>
       <ChevronRight
@@ -989,15 +1050,15 @@ function ColumnsPicker({
   onReset: () => void;
 }) {
   const selected = new Set(columns);
+  const atCap = selected.size >= MAX_COLUMNS;
   const toggle = (id: MetricId) => {
-    if (id === "min") return; // identity — always on
+    if (id === "min") return;
     const next = new Set(selected);
     if (next.has(id)) next.delete(id);
     else {
       if (next.size >= MAX_COLUMNS) return;
       next.add(id);
     }
-    // preserve library order + always-on identity first
     const order: MetricId[] = ["min"];
     for (const g of COLUMN_LIBRARY) {
       for (const cid of g.ids) if (next.has(cid) && !order.includes(cid)) order.push(cid);
@@ -1027,7 +1088,10 @@ function ColumnsPicker({
               className="type-label"
               style={{ color: "var(--color-text-tertiary)" }}
             >
-              {selected.size} of max {MAX_COLUMNS} · remove one to add another
+              {tmpl("squad.columnPicker.counterTemplate", {
+                n: selected.size,
+                max: MAX_COLUMNS,
+              })}
             </div>
           </div>
           <button
@@ -1058,14 +1122,23 @@ function ColumnsPicker({
             <div className="grid grid-cols-2 gap-2">
               {g.ids.map((id) => {
                 const on = selected.has(id);
+                const disabled = !on && atCap;
                 return (
                   <button
                     key={id}
                     onClick={() => toggle(id)}
+                    disabled={disabled}
+                    title={
+                      disabled
+                        ? `At the ${MAX_COLUMNS}-column cap — remove one to add another`
+                        : undefined
+                    }
                     className={`flex items-center justify-between rounded border px-2 py-1.5 text-left text-[12.5px] transition-colors ${
                       on
                         ? "bg-[color:var(--color-slate-100)]"
-                        : "hover:bg-[color:var(--color-slate-50)]"
+                        : disabled
+                          ? "cursor-not-allowed opacity-50"
+                          : "hover:bg-[color:var(--color-slate-50)]"
                     }`}
                     style={{
                       borderColor: on
@@ -1096,7 +1169,7 @@ function ColumnsPicker({
             className="type-label"
             style={{ color: "var(--color-text-tertiary)" }}
           >
-            Need something that isn't here? The full data is in Export.
+            {copy("squad.export.link")}
           </span>
           <div className="flex items-center gap-2">
             <button
@@ -1174,14 +1247,7 @@ function formatScale(m: Metric, max: number): string {
   return `${max} ${m.unit}`;
 }
 
-function sturmAndNoDataIds(rows: Athlete[], m: Metric): Set<string> {
-  const set = new Set<string>();
-  for (const a of rows) {
-    if (a.participation === null) set.add(a.id);
-    else if (valueFor(a, m) == null) set.add(a.id);
-  }
-  return set;
-}
-
-// squad exported from session-data (unused typed suppression not needed)
+// Suppressed lint: helper retained if callers need it in future.
 export { POSITION_LABEL };
+// unused import guard
+void isScaled;
