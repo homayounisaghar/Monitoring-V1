@@ -11,6 +11,7 @@ import { useSessionScope, currentSession, COVERAGE_MIN } from "@/lib/session-sco
 import type { ParticipationTag } from "@/lib/session-data";
 import { ValueOnTrack } from "@/components/data/ValueOnTrack";
 import { copy } from "@/lib/copy-deck";
+import { ScopeTag } from "@/components/session/ScopeTag";
 
 /* ---------- Static (curated) squad averages, keyed to Benchmark ---------- */
 

@@ -26,6 +26,7 @@ import { useMemo, useState } from "react";
 import { GapPair } from "@/components/data/GapPair";
 import { useSessionScope, currentSession } from "@/lib/session-scope";
 import { timeline } from "@/lib/session-data";
+import { ScopeTag } from "@/components/session/ScopeTag";
 
 /* ---------- Raw loads (units) ------------------------------------------
  * External unit: an external-load unit (think high-intensity-metres-equivalent).
