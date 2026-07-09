@@ -605,28 +605,26 @@ function Cell({ a, m, display }: { a: Athlete; m: Metric; display: DisplayMode }
 
   return (
     <div className="flex flex-col items-end">
-      <span className="relative inline-flex items-baseline">
+      <span
+        className="inline-flex items-baseline gap-1.5"
+        title={lowCov ? `${cov}% HR coverage` : undefined}
+      >
         {lowCov && (
           <span
-            className="veil-hatch absolute inset-x-[-2px] top-1/2 -translate-y-1/2 h-4 rounded-sm opacity-70"
+            className="inline-block h-2 w-2 shrink-0 translate-y-[-1px] rounded-full"
+            style={{
+              backgroundColor: "transparent",
+              border: "1.25px solid var(--color-trust-dot)",
+            }}
             aria-hidden
           />
         )}
         <span
-          className="type-num text-[13px] relative"
+          className="type-num text-[13px]"
           style={{ color: primaryInk }}
-          title={lowCov ? `${cov}% cov` : undefined}
         >
           {primary}
         </span>
-        {lowCov && (
-          <span
-            className="type-label ml-1"
-            style={{ color: "var(--color-text-tertiary)" }}
-          >
-            · {cov}% cov
-          </span>
-        )}
       </span>
       {m.id !== "min" && deltaPct != null && !cellIsPercent && (
         <span
