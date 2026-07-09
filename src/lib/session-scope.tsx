@@ -240,6 +240,7 @@ export function SessionScopeProvider({ children }: { children: ReactNode }) {
     setDemo,
     effectiveParticipants,
     tier1Rows,
+    sessionIsTraining: demo === "training_day",
     ...derived,
   };
 
