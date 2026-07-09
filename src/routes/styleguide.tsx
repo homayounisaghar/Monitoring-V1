@@ -201,27 +201,84 @@ function Styleguide() {
           </Card>
         </Section>
 
-        {/* Type roles */}
+        {/* Type scale — five slots */}
         <Section
-          title="Type roles"
-          desc="One header system for every section. Distinct classes, never shared. Numbers use the tabular/mono stack."
+          title="Type scale"
+          desc="Five slots, ratified. Display is one-per-screen. Micro-caps is for column heads and axis labels only — never a sentence."
+        >
+          <Card eyebrow="1 · display · one per screen">
+            <div className="type-display">1,248.65</div>
+            <p className="type-label mt-2">
+              Reserved for the single hero read on any given screen. Never used for section headers.
+            </p>
+          </Card>
+          <div className="grid grid-cols-2 gap-4">
+            <Card eyebrow="2 · key-value">
+              <div className="type-keyvalue">9,820 m</div>
+              <div className="type-keyvalue mt-2">168 CL</div>
+            </Card>
+            <Card eyebrow="3 · data">
+              <div className="type-data">Total distance · 9,820 m · +14%</div>
+              <div className="type-data">Cardio Load · 168 · −14%</div>
+            </Card>
+            <Card eyebrow="4 · label · sentence case, no tracking">
+              <p className="type-label">Total distance vs athlete reference</p>
+              <p className="type-label">Baseline is still building — 3 of 5 sessions.</p>
+            </Card>
+            <Card eyebrow="5 · micro-caps · column heads & axis labels only">
+              <div className="type-microcaps">Athlete</div>
+              <div className="type-microcaps mt-1">Distance (m)</div>
+              <div className="type-microcaps mt-1">HSR</div>
+            </Card>
+          </div>
+        </Section>
+
+        {/* Tone ladder */}
+        <Section
+          title="Tone ladder"
+          desc="Canvas → card → inset. Cards are white on a slate canvas with a hairline border and 1dp shadow. Only the Attention card is allowed 2dp. Insets are one step darker than the card, for accounting lines and wells."
+        >
+          <div className="grid grid-cols-3 gap-4">
+            <div className="surface-card rounded-lg p-5">
+              <div className="type-microcaps mb-2">Card · 1dp</div>
+              <p className="type-label">The default surface for every section card.</p>
+              <div className="surface-inset mt-4 rounded-md p-3">
+                <div className="type-microcaps mb-1">Inset</div>
+                <p className="type-label">One step darker — used for wells inside a card.</p>
+              </div>
+            </div>
+            <div className="surface-card-attention rounded-lg p-5">
+              <div className="type-microcaps mb-2">Attention card · 2dp</div>
+              <p className="type-label">The only surface allowed the second shadow step.</p>
+            </div>
+            <div
+              className="rounded-lg p-5"
+              style={{ backgroundColor: "var(--color-canvas)", border: "1px dashed var(--color-border)" }}
+            >
+              <div className="type-microcaps mb-2">Canvas</div>
+              <p className="type-label">The page background — one step darker than before.</p>
+            </div>
+          </div>
+        </Section>
+
+        {/* Legacy type roles (compat only) */}
+        <Section
+          title="Legacy type roles (compat)"
+          desc="Kept while sections are re-clothed. New work uses the five slots above."
         >
           <Card>
-            <div className="space-y-6">
-              <div>
-                <h2 className="type-section-h">Section header</h2>
-                <p className="type-section-desc">One-line descriptor sits under every section header.</p>
-              </div>
-              <div className="space-y-1">
-                <div className="type-card-eyebrow">Card eyebrow</div>
-                <div className="type-data-label">Data label — 11px, text-secondary</div>
-                <div className="type-col-head">Column head</div>
-                <div className="type-micro">Micro label</div>
-                <div className="type-num text-2xl font-semibold">1,248.65</div>
-              </div>
+            <div className="space-y-1">
+              <h2 className="type-section-h">Section header</h2>
+              <p className="type-section-desc">One-line descriptor sits under every section header.</p>
+              <div className="type-card-eyebrow">Card eyebrow</div>
+              <div className="type-data-label">Data label — 11px, text-secondary</div>
+              <div className="type-col-head">Column head</div>
+              <div className="type-micro">Micro label</div>
+              <div className="type-num text-2xl font-semibold">1,248.65</div>
             </div>
           </Card>
         </Section>
+
 
         {/* ValueOnTrack */}
         <Section
@@ -341,19 +398,23 @@ function Styleguide() {
           </Card>
         </Section>
 
-        {/* TrustMark */}
+        {/* TrustMark — trust grammar */}
         <Section
-          title="TrustMark"
-          desc="One costume at every size. Coverage printed on the value it qualifies."
+          title="Trust grammar"
+          desc="A clean value with a small hollow dot before it. Coverage lives on hover (e.g. “74% HR coverage”). Texture never sits behind numerals anywhere in the system."
         >
           <Card>
             <div className="flex items-center gap-10">
-              <TrustMark size="sm" value="218" unit="m" coverage={74} />
-              <TrustMark size="md" value="9,820" unit="m" coverage={74} />
-              <TrustMark size="lg" value="168" unit="CL" coverage={82} />
+              <TrustMark size="sm" value="218" unit="m" coverage={74} coverageOf="HR coverage" />
+              <TrustMark size="md" value="9,820" unit="m" coverage={74} coverageOf="GPS coverage" />
+              <TrustMark size="lg" value="168" unit="CL" coverage={82} coverageOf="HR coverage" />
             </div>
+            <p className="type-label mt-4">
+              Hover any value to see the coverage read. The hollow dot is the trust affordance — the number stays fully legible.
+            </p>
           </Card>
         </Section>
+
 
         {/* SeverityGlyphs */}
         <Section

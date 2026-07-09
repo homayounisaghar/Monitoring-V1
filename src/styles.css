@@ -34,12 +34,14 @@
   /* Semantic surfaces */
   --color-canvas: var(--canvas);
   --color-surface-card: var(--surface-card);
+  --color-surface-inset: var(--surface-inset);
   --color-border: var(--border);
 
   /* Text */
   --color-text-primary: var(--text-primary);
   --color-text-secondary: var(--text-secondary);
   --color-text-tertiary: var(--text-tertiary);
+
 
   /* Brand & chrome */
   --color-brand: var(--brand);
@@ -159,12 +161,13 @@
   --zone-cost-4: #A855F7;
   --zone-cost-5: #7E22CE;
 
-  /* Surfaces */
-  --canvas: var(--slate-50);
+  /* Surfaces — tone ladder: canvas > card > (attention) ; inset < card */
+  --canvas: var(--slate-100);          /* one step darker than before (was slate-50) */
   --surface-card: #FFFFFF;
+  --surface-inset: var(--slate-50);    /* accounting lines / wells inside a card */
   --border: var(--slate-200);
 
-  /* Text roles */
+  /* Text roles — ink floor #0F172A / #475569 / #64748B; slate-400 never as text */
   --text-primary: var(--slate-900);
   --text-secondary: var(--slate-600);
   --text-tertiary: var(--slate-500);
@@ -179,6 +182,10 @@
   --reference-band: var(--slate-200);
   --text-on-brand: #FFFFFF;
 
+  /* Elevation — 1dp for cards, 2dp reserved for the Attention card only */
+  --shadow-card: 0 1px 2px rgba(15, 23, 42, 0.06);
+  --shadow-card-attention: 0 2px 6px rgba(15, 23, 42, 0.10);
+
   /* Primitive extensions */
   --green-50: #ECF5EF;
   --green-100: #D5E9DC;
@@ -189,6 +196,7 @@
   --red-200: #F5C2C2;
   --red-700: #B91C1C;
 }
+
 
 @layer base {
   * {
@@ -205,7 +213,83 @@
   }
 }
 
-/* Type roles — distinct classes, never shared */
+/* ============================================================
+ * TYPE SCALE — five slots. These are the ratified hierarchy.
+ * Legacy `type-section-*`, `type-card-eyebrow`, `type-data-label`,
+ * `type-col-head`, `type-micro` are kept below for back-compat while
+ * sections are re-clothed one prompt at a time.
+ * ============================================================ */
+
+/* 1 — display: ONE per screen, nothing else */
+@utility type-display {
+  font-size: 54px;
+  line-height: 1.05;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  color: var(--color-text-primary);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+/* 2 — key-value: primary read numbers */
+@utility type-keyvalue {
+  font-size: 25px;
+  line-height: 1.15;
+  font-weight: 620;
+  letter-spacing: -0.005em;
+  color: var(--color-text-primary);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+/* 3 — data: tabular figures, table cells, inline numbers */
+@utility type-data {
+  font-size: 14px;
+  line-height: 1.35;
+  color: var(--color-text-primary);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+/* 4 — label: sentence case, NO tracking, NO caps */
+@utility type-label {
+  font-size: 12.5px;
+  line-height: 1.4;
+  font-weight: 500;
+  letter-spacing: 0;
+  color: var(--color-text-secondary);
+  text-transform: none;
+}
+
+/* 5 — micro-caps: COLUMN HEADS AND AXIS LABELS ONLY, never a sentence */
+@utility type-microcaps {
+  font-size: 10.5px;
+  line-height: 1.2;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--color-text-tertiary);
+}
+
+/* Tone ladder — elevation utilities */
+@utility surface-card {
+  background-color: var(--color-surface-card);
+  border: 1px solid var(--color-border);
+  box-shadow: var(--shadow-card);
+}
+@utility surface-card-attention {
+  background-color: var(--color-surface-card);
+  border: 1px solid var(--color-border);
+  box-shadow: var(--shadow-card-attention);
+}
+@utility surface-inset {
+  background-color: var(--color-surface-inset);
+}
+
+/* ---- Legacy type roles (compat; scheduled removal per section rewrites) ---- */
 @utility type-section-h {
   font-size: 17px;
   line-height: 1.25;
@@ -247,6 +331,7 @@
   font-variant-numeric: tabular-nums;
   font-feature-settings: "tnum";
 }
+
 
 /* Selection treatment — active pills / toggles / segmented controls */
 @utility sel-active {
