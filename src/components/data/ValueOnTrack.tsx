@@ -35,6 +35,7 @@ export type ValueOnTrackProps = {
   baselineState?: BaselineState;
   size?: "default" | "compact";
   showValue?: boolean;
+  showDelta?: boolean;
   deltaTone?: "default" | "escalate" | "notice";
   /** When false, applies TrustMark treatment to the value (hatch veil + grey ink). */
   qualified?: boolean;
@@ -55,6 +56,7 @@ export function ValueOnTrack({
   baselineState = "mature",
   size = "default",
   showValue,
+  showDelta = true,
   deltaTone = "default",
   qualified = true,
 }: ValueOnTrackProps) {
@@ -152,63 +154,64 @@ export function ValueOnTrack({
         )}
       </div>
 
-      {withValue ? (
-        <div className="flex min-w-[130px] items-baseline justify-end gap-2">
-          <span
-            className="inline-flex items-baseline gap-1.5"
-            title={!qualified ? "coverage below read-safe threshold" : undefined}
-          >
-            {!qualified && (
+      {(withValue || showDelta) &&
+        (withValue ? (
+          <div className="flex min-w-[130px] items-baseline justify-end gap-2">
+            <span
+              className="inline-flex items-baseline gap-1.5"
+              title={!qualified ? "coverage below read-safe threshold" : undefined}
+            >
+              {!qualified && (
+                <span
+                  className="inline-block h-2 w-2 shrink-0 translate-y-[-1px] rounded-full"
+                  style={{
+                    backgroundColor: "transparent",
+                    border: "1.25px solid var(--color-trust-dot)",
+                  }}
+                  aria-hidden
+                />
+              )}
               <span
-                className="inline-block h-2 w-2 shrink-0 translate-y-[-1px] rounded-full"
-                style={{
-                  backgroundColor: "transparent",
-                  border: "1.25px solid var(--color-trust-dot)",
-                }}
-                aria-hidden
-              />
+                className="type-num text-sm font-semibold"
+                style={{ color: qualified ? "var(--color-text-primary)" : "var(--color-text-tertiary)" }}
+              >
+                {value.toLocaleString()}
+                {unit ? <span className="type-data-label ml-0.5">{unit}</span> : null}
+              </span>
+            </span>
+            {withheld ? (
+              <span
+                className="type-data-label italic"
+                title="Baseline still building — no reference yet"
+              >
+                baseline building
+              </span>
+            ) : (
+              <span
+                className="type-num text-xs font-medium"
+                style={{ color: deltaInk }}
+                title={deltaAbs ? `Δ ${deltaAbs}` : undefined}
+              >
+                {deltaLabel}
+              </span>
             )}
-            <span
-              className="type-num text-sm font-semibold"
-              style={{ color: qualified ? "var(--color-text-primary)" : "var(--color-text-tertiary)" }}
-            >
-              {value.toLocaleString()}
-              {unit ? <span className="type-data-label ml-0.5">{unit}</span> : null}
-            </span>
+          </div>
+        ) : withheld ? (
+          <span
+            className="type-data-label w-[54px] shrink-0 text-right italic"
+            title="Baseline still building — no reference yet"
+          >
+            building
           </span>
-          {withheld ? (
-            <span
-              className="type-data-label italic"
-              title="Baseline still building — no reference yet"
-            >
-              baseline building
-            </span>
-          ) : (
-            <span
-              className="type-num text-xs font-medium"
-              style={{ color: deltaInk }}
-              title={deltaAbs ? `Δ ${deltaAbs}` : undefined}
-            >
-              {deltaLabel}
-            </span>
-          )}
-        </div>
-      ) : withheld ? (
-        <span
-          className="type-data-label w-[54px] shrink-0 text-right italic"
-          title="Baseline still building — no reference yet"
-        >
-          building
-        </span>
-      ) : (
-        <span
-          className="type-num w-[54px] shrink-0 text-right text-[12.5px] font-semibold"
-          style={{ color: deltaInk }}
-          title={deltaAbs ? `Δ ${deltaAbs}` : undefined}
-        >
-          {deltaLabel}
-        </span>
-      )}
+        ) : (
+          <span
+            className="type-num w-[54px] shrink-0 text-right text-[12.5px] font-semibold"
+            style={{ color: deltaInk }}
+            title={deltaAbs ? `Δ ${deltaAbs}` : undefined}
+          >
+            {deltaLabel}
+          </span>
+        ))}
     </div>
   );
 }
