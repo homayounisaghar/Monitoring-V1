@@ -166,7 +166,7 @@ function FilterPanel({
         </Section>
 
         {/* Periods */}
-        <Section title="Periods">
+        <Section title="Time window">
           <div
             className="mb-2 flex rounded-md border p-0.5"
             style={{ borderColor: "var(--color-border)" }}

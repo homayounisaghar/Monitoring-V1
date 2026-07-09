@@ -5,8 +5,6 @@ import { DemoPill } from "@/components/shell/DemoPill";
 import { EventBanner } from "@/components/session/EventBanner";
 import { ReadingLine } from "@/components/session/ReadingLine";
 import { FilterCluster } from "@/components/session/FilterPanel";
-import { AnchorRow } from "@/components/session/AnchorRow";
-import { SectionStub } from "@/components/session/SectionStub";
 import { AttentionCard } from "@/components/session/AttentionCard";
 import { SummaryCard } from "@/components/session/SummaryCard";
 import { PeriodsCard } from "@/components/session/PeriodsCard";
@@ -52,22 +50,31 @@ function SessionRoute() {
             </div>
           </div>
 
-          {/* Sticky anchor row — subordinate to product tabs */}
-          <div className="sticky top-[96px] z-20">
-            <AnchorRow />
-          </div>
-
           {/* Content column */}
-          <main className="mx-auto max-w-[1320px] px-6 py-8">
-            <div className="space-y-10">
-              <AttentionCard />
-              <SummaryCard />
-              <PeriodsCard />
-              <SquadCard />
+          <main className="mx-auto max-w-[1320px] px-6 pt-8">
+            <AttentionCard />
+
+            {/* Seam — form only: tone step down + hairline crossing the column */}
+            <div
+              className="mt-10"
+              style={{ backgroundColor: "var(--color-canvas-sunken, var(--color-slate-100))" }}
+            >
+              <div
+                aria-hidden
+                className="h-px w-full"
+                style={{ backgroundColor: "var(--color-border)" }}
+              />
+              <div className="space-y-10 py-10">
+                <SummaryCard />
+                <PeriodsCard />
+                <SquadCard />
+              </div>
             </div>
           </main>
         </div>
       </div>
+
+
 
       <DemoPill />
     </SessionScopeProvider>
