@@ -1246,7 +1246,5 @@ function formatScale(m: Metric, max: number): string {
   return `${max} ${m.unit}`;
 }
 
-// Suppressed lint: helper retained if callers need it in future.
 export { POSITION_LABEL };
-// unused import guard
-void isScaled;
+
