@@ -116,6 +116,7 @@ export function SummaryCard() {
     filter,
     activeAthletes,
     effectiveParticipants,
+    sessionIsTraining,
   } = useSessionScope();
 
   const refs = SQUAD_REF[benchmark.kind];
