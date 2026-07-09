@@ -37,25 +37,25 @@ export const TIER1_ROWS_DEFAULT: Tier1Row[] = [
   {
     id: "fischer",
     tier: "escalate",
-    reason: "Sprint distance +34% · +1 more",
+    reason: "Sprint distance · HSR",
     read: { kind: "vot", axis: "work", deltaFrac: 0.34, bandFrac: 0.1 },
   },
   {
     id: "werner",
     tier: "notice",
-    reason: "High-speed running +22%",
+    reason: "High-speed running",
     read: { kind: "vot", axis: "work", deltaFrac: 0.22, bandFrac: 0.1 },
   },
   {
     id: "schaefer",
     tier: "notice",
-    reason: "External up · cardio flat",
+    reason: "External · cardio",
     read: { kind: "gap", externalPct: 19, internalPct: -3, gapPts: 22 },
   },
   {
     id: "hofmann",
     tier: "notice",
-    reason: "Total distance +14%",
+    reason: "Total distance",
     read: { kind: "vot", axis: "work", deltaFrac: 0.14, bandFrac: 0.14 },
   },
 ];
