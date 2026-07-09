@@ -33,7 +33,7 @@ import {
   refFor,
   valueFor,
   cellState,
-  isScaled,
+  
   formatValue,
   type Metric,
   type MetricId,
