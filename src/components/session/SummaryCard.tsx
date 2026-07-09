@@ -148,7 +148,7 @@ export function SummaryCard() {
     return { ...z, hi: z.z4 + z.z5, typ };
   }, [zoneBasis, refs]);
 
-  const isMatch = currentSession.kind === "match";
+  const isMatch = !sessionIsTraining;
 
   return (
     <section id="summary" className="scroll-mt-28">
