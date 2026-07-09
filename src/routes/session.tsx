@@ -5,8 +5,6 @@ import { DemoPill } from "@/components/shell/DemoPill";
 import { EventBanner } from "@/components/session/EventBanner";
 import { ReadingLine } from "@/components/session/ReadingLine";
 import { FilterCluster } from "@/components/session/FilterPanel";
-import { AnchorRow } from "@/components/session/AnchorRow";
-import { SectionStub } from "@/components/session/SectionStub";
 import { AttentionCard } from "@/components/session/AttentionCard";
 import { SummaryCard } from "@/components/session/SummaryCard";
 import { PeriodsCard } from "@/components/session/PeriodsCard";
