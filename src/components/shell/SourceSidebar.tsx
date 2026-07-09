@@ -26,7 +26,7 @@ export function SourceSidebar() {
             className="type-microcaps px-1.5"
             style={{ color: "var(--color-text-tertiary)" }}
           >
-            Source
+            {copy("sidebar.header")}
           </span>
         )}
         <button
