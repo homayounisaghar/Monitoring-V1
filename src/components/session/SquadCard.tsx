@@ -693,8 +693,10 @@ function AvgCell({
   const printed =
     m.decimals != null ? value.toFixed(m.decimals) : Math.round(value).toLocaleString();
   const suffix = m.unit === "%" ? "%" : m.unit === "/10" ? "" : "";
-  const deltaPct =
-    ref != null && ref !== 0 ? Math.round(((value - ref) / ref) * 100) : null;
+  const rawDelta =
+    ref != null && ref !== 0 ? ((value - ref) / ref) * 100 : null;
+  const deltaPct = rawDelta != null && Number.isFinite(rawDelta) ? Math.round(rawDelta) : null;
+
   return (
     <div className="flex flex-col items-end">
       <span
