@@ -35,6 +35,7 @@ export type ValueOnTrackProps = {
   baselineState?: BaselineState;
   size?: "default" | "compact";
   showValue?: boolean;
+  showDelta?: boolean;
   deltaTone?: "default" | "escalate" | "notice";
   /** When false, applies TrustMark treatment to the value (hatch veil + grey ink). */
   qualified?: boolean;
