@@ -27,6 +27,8 @@ export type GapPairProps = {
   /** When set, the internal (cost) ring wears the TrustMark idiom
    *  (hatch veil + leading dot). Coverage is surfaced on hover title. */
   internalTrust?: { coverage: number };
+  /** When true, dots grow half a step and the slate connector thickens one step. Slate only, no hue. */
+  heavy?: boolean;
 };
 
 export function GapPair({
