@@ -20,6 +20,7 @@ import { ChevronRight, Flag, ChevronUp, ChevronDown, X } from "lucide-react";
 import { useNavigate } from "@tanstack/react-router";
 import { useSessionScope, COVERAGE_MIN } from "@/lib/session-scope";
 import { squad, POSITION_LABEL, type Athlete } from "@/lib/session-data";
+import { ScopeTag } from "@/components/session/ScopeTag";
 import {
   METRICS,
   DEFAULT_COLUMNS,
@@ -184,14 +185,8 @@ export function SquadCard() {
             {descriptorScope ? ` · ${descriptorScope}` : ""}
           </span>
         </div>
-        {!filterIsDefault && (
-          <span
-            className="type-num text-[11px]"
-            style={{ color: "var(--color-text-tertiary)" }}
-          >
-            {activeAthletes.length} of {totalParticipants}
-          </span>
-        )}
+        <ScopeTag />
+
       </header>
 
       {/* Toolbar */}

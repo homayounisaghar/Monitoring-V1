@@ -1,5 +1,5 @@
 import { useSessionScope, BENCHMARK_OPTIONS } from "@/lib/session-scope";
-import { participants } from "@/lib/session-data";
+import { ScopeTag } from "@/components/session/ScopeTag";
 
 type Kind = "attention" | "summary" | "periods" | "squad";
 
@@ -23,7 +23,7 @@ const META: Record<Kind, { title: string; desc: string }> = {
 };
 
 export function SectionStub({ kind }: { kind: Kind }) {
-  const { benchmark, scopeLabel, showingCount, filterIsDefault } = useSessionScope();
+  const { benchmark, scopeLabel, filterIsDefault } = useSessionScope();
   const meta = META[kind];
   const benchmarkChanged = benchmark.kind !== BENCHMARK_OPTIONS[0].kind;
 
@@ -49,14 +49,8 @@ export function SectionStub({ kind }: { kind: Kind }) {
             </span>
           )}
         </div>
-        {!filterIsDefault && (
-          <span
-            className="type-num text-[11px]"
-            style={{ color: "var(--color-text-tertiary)" }}
-          >
-            {showingCount} of {participants.length}
-          </span>
-        )}
+        <ScopeTag />
+
       </header>
       <p className="type-section-desc mb-3">{meta.desc}</p>
       <div

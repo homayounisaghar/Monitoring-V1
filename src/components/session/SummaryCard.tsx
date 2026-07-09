@@ -11,6 +11,7 @@ import { useSessionScope, currentSession, COVERAGE_MIN } from "@/lib/session-sco
 import type { ParticipationTag } from "@/lib/session-data";
 import { ValueOnTrack } from "@/components/data/ValueOnTrack";
 import { copy } from "@/lib/copy-deck";
+import { ScopeTag } from "@/components/session/ScopeTag";
 
 /* ---------- Static (curated) squad averages, keyed to Benchmark ---------- */
 
@@ -160,14 +161,8 @@ export function SummaryCard() {
             {descriptorScope ? ` · ${descriptorScope}` : ""} · {nInScope} athletes
           </span>
         </div>
-        {!filterIsDefault && (
-          <span
-            className="type-num text-[11px]"
-            style={{ color: "var(--color-text-tertiary)" }}
-          >
-            {nInScope} of {totalParticipants}
-          </span>
-        )}
+        <ScopeTag />
+
       </header>
 
       {/* ---- Squad-load card — two axes side by side ---- */}
