@@ -43,6 +43,7 @@ export function GapPair({
   tone = "default",
   deltaLabel,
   internalTrust,
+  heavy = false,
 }: GapPairProps) {
   const compact = size === "compact";
   const withLegend = showLegend ?? (!compact && mode === "shared");
