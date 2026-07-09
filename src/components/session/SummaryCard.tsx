@@ -1,9 +1,7 @@
 /**
  * ST2 — Session > Summary card.
- * Squad load vs the active Benchmark, on the two axes side by side,
- * plus zones, vs-full-match, and a separate Participation card.
- * All counts derived from effective participants; the benchmark chip
- * re-labels the descriptor live.
+ * Two-axis pair (S6), zones, vs-full-match (S3) and Participation (S4).
+ * Header carries scope once (via ScopeTag). No axis-tinted panes.
  */
 import { useMemo, useState } from "react";
 import { Info } from "lucide-react";
@@ -17,9 +15,6 @@ import { ScopeTag } from "@/components/session/ScopeTag";
 
 type BenchKey = "typical_match" | "last_match" | "last_5" | "same_opponent";
 
-// Benchmark-DEPENDENT references only. Current-session values (distances,
-// counts, zone shares, vs-full-match %) are session-level and live below;
-// switching the benchmark must not appear to move a measured fact.
 type BenchRefs = {
   refTotalDistanceM: number;
   refRelDistanceMpm: number;
@@ -58,7 +53,6 @@ const SQUAD_REF: Record<BenchKey, BenchRefs> = {
   },
 };
 
-// Session-level facts — invariant across benchmark choice.
 const SESSION_MARKS = {
   totalDistanceM: 9820,
   relDistanceMpm: 108,
@@ -73,32 +67,46 @@ const SESSION_ZONES = {
   duration: { z1: 46, z2: 24, z3: 12, z4: 12, z5: 6 },
 } as const;
 
-// vs a typical FULL match — reference is an EXTERNAL fixed baseline (100),
-// never the squad benchmark; modeled as a session-level constant so it can't
-// drift when the benchmark changes.
 const SESSION_VS_FULL = { volumePct: 101, intensityPct: 106 } as const;
-
 
 const PARTICIPATION_TAGS: ParticipationTag[] = [
   "Full", "Part", "Modified", "Rehab", "Injury", "Other",
 ];
-const TAG_LETTER: Record<ParticipationTag, string> = {
-  Full: "F", Part: "P", Modified: "M", Rehab: "R", Injury: "I", Other: "O",
-};
+// Mid-tone fills — kept below the Summary loudness budget (≤60).
+// Category carried by texture, not hue.
 const TAG_TEXTURE: Record<ParticipationTag, string> = {
-  // Neutral slate textures — distinguished by pattern, not hue ranking.
-  Full:     "bg-[color:var(--color-slate-700)]",
-  Part:     "bg-[color:var(--color-slate-500)] bg-[repeating-linear-gradient(45deg,var(--color-slate-500)_0_6px,var(--color-slate-400)_6px_12px)]",
+  Full:     "bg-[color:var(--color-slate-500)]",
+  Part:     "bg-[color:var(--color-slate-400)] bg-[repeating-linear-gradient(45deg,var(--color-slate-400)_0_6px,var(--color-slate-300)_6px_12px)]",
   Modified: "bg-[color:var(--color-slate-400)] bg-[repeating-linear-gradient(-45deg,var(--color-slate-400)_0_4px,var(--color-slate-300)_4px_8px)]",
   Rehab:    "bg-[color:var(--color-slate-300)] bg-[repeating-linear-gradient(90deg,var(--color-slate-300)_0_5px,var(--color-slate-200)_5px_10px)]",
-  Injury:   "bg-[color:var(--color-slate-500)] bg-[repeating-linear-gradient(0deg,var(--color-slate-500)_0_3px,var(--color-slate-300)_3px_6px)]",
+  Injury:   "bg-[color:var(--color-slate-400)] bg-[repeating-linear-gradient(0deg,var(--color-slate-400)_0_3px,var(--color-slate-200)_3px_6px)]",
   Other:    "bg-[color:var(--color-slate-300)]",
 };
-const TAG_TEXT_ON: Record<ParticipationTag, string> = {
-  Full: "text-white", Part: "text-white", Modified: "text-[color:var(--color-slate-900)]",
-  Rehab: "text-[color:var(--color-slate-900)]", Injury: "text-white",
-  Other: "text-[color:var(--color-slate-900)]",
-};
+
+/* ---------- Small shared bits ---------- */
+
+function AxisDot({ axis }: { axis: "work" | "cost" }) {
+  return (
+    <span
+      className="h-2 w-2 rounded-full"
+      style={{
+        backgroundColor:
+          axis === "work" ? "var(--color-axis-work)" : "var(--color-axis-cost)",
+      }}
+    />
+  );
+}
+
+function RefParen({ children }: { children: React.ReactNode }) {
+  return (
+    <span
+      className="type-num text-[11px]"
+      style={{ color: "var(--color-text-tertiary)" }}
+    >
+      ({children})
+    </span>
+  );
+}
 
 /* ---------- Component ---------- */
 
@@ -106,29 +114,23 @@ export function SummaryCard() {
   const {
     benchmark,
     filter,
-    filterIsDefault,
-    scopeLabel,
     activeAthletes,
-    totalParticipants,
     effectiveParticipants,
   } = useSessionScope();
 
   const refs = SQUAD_REF[benchmark.kind];
   const marks = SESSION_MARKS;
-  const nInScope = activeAthletes.length;
 
-  // Coverage badge — squad aggregate on effective data.
+  // Coverage — squad aggregate on effective data.
   const lowCov = effectiveParticipants.filter(
     (a) => a.hrCoveragePct !== null && a.hrCoveragePct < COVERAGE_MIN,
   );
   const coveredCount = effectiveParticipants.length - lowCov.length;
-  // Confidence gate — same threshold as the can't-say synthesis.
   const clQualified =
     effectiveParticipants.length === 0
       ? true
       : coveredCount / effectiveParticipants.length >= 0.6;
 
-  // sRPE state, from effective data.
   const submitters = effectiveParticipants.filter((a) => a.srpeSubmitted);
   const srpeState: "filled" | "partial" | "none" =
     submitters.length === 0
@@ -144,9 +146,8 @@ export function SummaryCard() {
       zoneBasis === "distance" ? refs.z4z5TypicalDistance : refs.z4z5TypicalDuration;
     return { ...z, hi: z.z4 + z.z5, typ };
   }, [zoneBasis, refs]);
-  const basisWord = zoneBasis === "distance" ? "by distance" : "by duration";
 
-  const descriptorScope = !filterIsDefault && scopeLabel ? scopeLabel : null;
+  const isMatch = currentSession.kind === "match";
 
   return (
     <section id="summary" className="scroll-mt-28">
@@ -158,14 +159,12 @@ export function SummaryCard() {
             style={{ color: "var(--color-text-tertiary)" }}
           >
             — Squad load vs {benchmark.label}
-            {descriptorScope ? ` · ${descriptorScope}` : ""} · {nInScope} athletes
           </span>
         </div>
         <ScopeTag />
-
       </header>
 
-      {/* ---- Squad-load card — two axes side by side ---- */}
+      {/* ---- Squad-load card — two axes side by side (white, hairline) ---- */}
       <div
         className="overflow-hidden rounded-lg border"
         style={{
@@ -173,30 +172,30 @@ export function SummaryCard() {
           backgroundColor: "var(--color-surface-card)",
         }}
       >
+        {/* Shared header row */}
+        <div
+          className="grid grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] border-b"
+          style={{ borderColor: "var(--color-border)" }}
+        >
+          <div
+            className="border-r px-5 py-3 flex items-center gap-2"
+            style={{ borderColor: "var(--color-border)" }}
+          >
+            <AxisDot axis="work" />
+            <span className="type-col-head">External — work</span>
+          </div>
+          <div className="px-5 py-3 flex items-center gap-2">
+            <AxisDot axis="cost" />
+            <span className="type-col-head">Internal — cost</span>
+          </div>
+        </div>
+
         <div className="grid grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
           {/* External — Work */}
           <div
             className="border-r p-5"
-            style={{
-              borderColor: "var(--color-border)",
-              backgroundColor: "var(--color-axis-work-tinted)",
-            }}
+            style={{ borderColor: "var(--color-border)" }}
           >
-            <div className="mb-3 flex items-baseline justify-between">
-              <div className="flex items-center gap-2">
-                <span
-                  className="h-2 w-2 rounded-full"
-                  style={{ backgroundColor: "var(--color-axis-work)" }}
-                />
-                <span className="type-col-head">External — work</span>
-              </div>
-              <span
-                className="type-data-label"
-                style={{ color: "var(--color-text-tertiary)" }}
-              >
-                marks: window ±40% vs {benchmark.label}
-              </span>
-            </div>
             <div className="grid grid-cols-2 gap-x-5 gap-y-4">
               <WorkMark
                 label="Total distance"
@@ -226,17 +225,7 @@ export function SummaryCard() {
           </div>
 
           {/* Internal — Cost */}
-          <div
-            className="p-5"
-            style={{ backgroundColor: "var(--color-axis-cost-tinted)" }}
-          >
-            <div className="mb-3 flex items-center gap-2">
-              <span
-                className="h-2 w-2 rounded-full"
-                style={{ backgroundColor: "var(--color-axis-cost)" }}
-              />
-              <span className="type-col-head">Internal — cost</span>
-            </div>
+          <div className="p-5">
             <div className="space-y-5">
               {/* Cardio Load */}
               <div className="space-y-1.5">
@@ -251,9 +240,7 @@ export function SummaryCard() {
                     }))}
                   />
                 </div>
-                <ValueOnTrack
-                  mode="deviation"
-                  axis="cost"
+                <CostMark
                   value={marks.cardioLoadCL}
                   reference={refs.refCardioLoadCL}
                   unit="CL"
@@ -261,7 +248,7 @@ export function SummaryCard() {
                 />
               </div>
 
-              {/* sRPE — co-equal, three states */}
+              {/* sRPE */}
               <div className="space-y-1.5">
                 <div className="flex items-baseline justify-between">
                   <span className="type-data-label">sRPE</span>
@@ -280,26 +267,12 @@ export function SummaryCard() {
                   >
                     {copy("srpe.empty")}
                   </div>
-                ) : srpeState === "filled" ? (
-                  <ValueOnTrack
-                    mode="deviation"
-                    axis="cost"
-                    value={marks.srpeMean}
-                    reference={refs.refSrpeMean}
-                    unit="/10"
-                  />
                 ) : (
-                  <ValueOnTrack
-                    mode="deviation"
-                    axis="cost"
+                  <CostMark
                     value={
-                      // mean of submitters (rough — averages toward marks.srpeMean)
-                      Number(
-                        (submitters.length > 0
-                          ? marks.srpeMean * 0.97
-                          : marks.srpeMean
-                        ).toFixed(1),
-                      )
+                      srpeState === "filled"
+                        ? marks.srpeMean
+                        : Number((marks.srpeMean * 0.97).toFixed(1))
                     }
                     reference={refs.refSrpeMean}
                     unit="/10"
@@ -319,23 +292,12 @@ export function SummaryCard() {
             <div className="flex items-baseline gap-2 flex-wrap">
               <span className="type-col-head">Z4+Z5 high-intensity share</span>
               <span
-                className="type-label"
-                style={{ color: "var(--color-text-tertiary)" }}
-              >
-                · {basisWord}
-              </span>
-              <span
                 className="type-num text-[15px] font-semibold"
                 style={{ color: "var(--color-text-primary)" }}
               >
                 — {zoneShares.hi}%
               </span>
-              <span
-                className="text-[12px]"
-                style={{ color: "var(--color-text-tertiary)" }}
-              >
-                (typical {zoneShares.typ}%)
-              </span>
+              <RefParen>typical {zoneShares.typ}%</RefParen>
             </div>
             <SegmentedToggle
               value={zoneBasis}
@@ -357,35 +319,48 @@ export function SummaryCard() {
           />
         </div>
 
-        {/* vs Full match — receded on a match day */}
-        <div
-          className="border-t px-5 py-4"
-          style={{
-            borderColor: "var(--color-border)",
-            backgroundColor: "var(--color-slate-50)",
-          }}
-        >
-          <div className="mb-2 flex items-baseline justify-between gap-4">
+        {/* vs Full match — promoted on training, collapsed on match */}
+        {isMatch ? (
+          <div
+            className="border-t px-5 py-3 flex items-baseline justify-between gap-4"
+            style={{
+              borderColor: "var(--color-border)",
+              backgroundColor: "var(--color-slate-50)",
+            }}
+          >
             <span
               className="type-label"
               style={{ color: "var(--color-text-tertiary)" }}
             >
-              vs a typical full match — scale 0–150%, tick = full match
+              {copy("summary.vsFullMatch.label")}
             </span>
-            {currentSession.kind === "match" && (
+            <div className="flex items-baseline gap-4">
+              <CollapsedFullRead label="Volume" pct={SESSION_VS_FULL.volumePct} />
+              <CollapsedFullRead label="Intensity" pct={SESSION_VS_FULL.intensityPct} />
+            </div>
+          </div>
+        ) : (
+          <div
+            className="border-t px-5 py-4"
+            style={{
+              borderColor: "var(--color-border)",
+              backgroundColor: "var(--color-slate-50)",
+            }}
+          >
+            <div className="mb-2">
               <span
-                className="text-[11px] italic"
+                className="type-label"
                 style={{ color: "var(--color-text-tertiary)" }}
               >
-                most useful on training days
+                {copy("summary.vsFullMatch.label")}
               </span>
-            )}
+            </div>
+            <div className="grid grid-cols-2 gap-6">
+              <FullMatchRead label="Volume" pct={SESSION_VS_FULL.volumePct} />
+              <FullMatchRead label="Intensity" pct={SESSION_VS_FULL.intensityPct} />
+            </div>
           </div>
-          <div className="grid grid-cols-2 gap-6">
-            <FullMatchRead label="Volume" pct={SESSION_VS_FULL.volumePct} />
-            <FullMatchRead label="Intensity" pct={SESSION_VS_FULL.intensityPct} />
-          </div>
-        </div>
+        )}
       </div>
 
       {/* ---- Participation card ---- */}
@@ -421,7 +396,7 @@ function WorkMark({
       <div className="flex items-baseline justify-between">
         <span className="type-data-label">{label}</span>
         <span
-          className="type-num text-[15px] font-semibold"
+          className="type-num text-[25px] font-semibold leading-none"
           style={{ color: "var(--color-text-primary)" }}
         >
           {value.toLocaleString()}
@@ -435,6 +410,43 @@ function WorkMark({
         reference={reference}
         size="compact"
         showValue={false}
+        showDelta={false}
+      />
+    </div>
+  );
+}
+
+function CostMark({
+  value,
+  reference,
+  unit,
+  qualified = true,
+}: {
+  value: number;
+  reference: number;
+  unit: string;
+  qualified?: boolean;
+}) {
+  return (
+    <div className="space-y-1">
+      <div className="flex items-baseline justify-end">
+        <span
+          className="type-num text-[25px] font-semibold leading-none"
+          style={{ color: "var(--color-text-primary)" }}
+        >
+          {value.toLocaleString()}
+          <span className="type-data-label ml-0.5">{unit}</span>
+        </span>
+      </div>
+      <ValueOnTrack
+        mode="deviation"
+        axis="cost"
+        value={value}
+        reference={reference}
+        size="compact"
+        showValue={false}
+        showDelta={false}
+        qualified={qualified}
       />
     </div>
   );
@@ -457,7 +469,7 @@ function CoverageBadge({
         className="type-num text-[11px]"
         style={{ color: "var(--color-text-tertiary)" }}
       >
-        {covered} of {total} ≥{COVERAGE_MIN}% cov
+        · {covered} of {total}
       </span>
     );
   }
@@ -473,7 +485,7 @@ function CoverageBadge({
           style={{ backgroundColor: "var(--color-trust-dot)" }}
           aria-hidden
         />
-        {covered} of {total} ≥{COVERAGE_MIN}% cov
+        · {covered} of {total}
         <Info className="h-3 w-3" />
       </button>
       {open && (
@@ -527,7 +539,7 @@ function SrpeBadge({
           style={{ backgroundColor: "var(--color-trust-dot)" }}
           aria-hidden
         />
-        {submitted} of {total} submitted
+        · {submitted} of {total}
         <Info className="h-3 w-3" />
       </button>
       {open && (
@@ -621,6 +633,8 @@ function ZoneBar({
   );
 }
 
+/* ---------- vs Full match reads ---------- */
+
 function FullMatchRead({ label, pct }: { label: string; pct: number }) {
   return (
     <div className="space-y-1">
@@ -645,7 +659,43 @@ function FullMatchRead({ label, pct }: { label: string; pct: number }) {
         size="compact"
         showValue={false}
       />
+      {/* End labels — the axis itself draws them */}
+      <div
+        className="flex justify-between type-num text-[10px]"
+        style={{ color: "var(--color-text-tertiary)" }}
+      >
+        <span>0</span>
+        <span>100</span>
+        <span>150</span>
+      </div>
     </div>
+  );
+}
+
+function CollapsedFullRead({ label, pct }: { label: string; pct: number }) {
+  const delta = pct - 100;
+  const deltaLabel = `${delta >= 0 ? "+" : ""}${delta}%`;
+  return (
+    <span className="inline-flex items-baseline gap-1.5">
+      <span
+        className="type-data-label"
+        style={{ color: "var(--color-text-secondary)" }}
+      >
+        {label}
+      </span>
+      <span
+        className="type-num text-[13px] font-semibold"
+        style={{ color: "var(--color-text-primary)" }}
+      >
+        {pct}%
+      </span>
+      <span
+        className="type-num text-[11px]"
+        style={{ color: "var(--color-text-tertiary)" }}
+      >
+        {deltaLabel}
+      </span>
+    </span>
   );
 }
 
@@ -669,7 +719,7 @@ function ParticipationCard({
 
   const withCounts = PARTICIPATION_TAGS.map((t) => ({ tag: t, names: counts[t] }));
   const present = withCounts.filter((x) => x.names.length > 0);
-  const absent = withCounts.filter((x) => x.names.length === 0).map((x) => x.tag);
+  const absent = withCounts.filter((x) => x.names.length === 0);
 
   const [popover, setPopover] = useState<ParticipationTag | null>(null);
 
@@ -701,55 +751,82 @@ function ParticipationCard({
         </div>
       </div>
 
-      {/* Segmented bar */}
+      {/* Segmented bar — mid-tone, no in-bar labels */}
       <div
         className="relative flex h-8 overflow-hidden rounded-md"
         style={{ border: "1px solid var(--color-border)" }}
       >
         {present.map((seg) => {
           const pct = (seg.names.length / total) * 100;
-          const wide = pct >= 14;
           return (
             <button
               key={seg.tag}
               onClick={() => setPopover((p) => (p === seg.tag ? null : seg.tag))}
-              className={`relative flex items-center justify-center overflow-hidden transition-opacity hover:opacity-90 ${TAG_TEXTURE[seg.tag]} ${TAG_TEXT_ON[seg.tag]}`}
+              className={`relative transition-opacity hover:opacity-90 ${TAG_TEXTURE[seg.tag]}`}
               style={{ width: `${pct}%` }}
               title={`${seg.tag} — ${seg.names.length}`}
-            >
-              <span className="type-num text-[11px] font-semibold">
-                {wide ? `${seg.tag} — ${seg.names.length}` : TAG_LETTER[seg.tag]}
-              </span>
-            </button>
+              aria-label={`${seg.tag}: ${seg.names.length}`}
+            />
           );
         })}
       </div>
 
-      {/* Legend + zero-count muted line */}
-      <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5">
-        {present.map((seg) => (
-          <button
-            key={seg.tag}
-            onClick={() => setPopover((p) => (p === seg.tag ? null : seg.tag))}
-            className="inline-flex items-center gap-1.5 text-[11.5px] transition-colors hover:text-[color:var(--color-text-primary)]"
-            style={{ color: "var(--color-text-secondary)" }}
-          >
-            <span
-              className={`h-2.5 w-2.5 rounded-sm ${TAG_TEXTURE[seg.tag]}`}
-              aria-hidden
-            />
-            <span>{seg.tag}</span>
-            <span className="type-num" style={{ color: "var(--color-text-tertiary)" }}>
-              {seg.names.length}
-            </span>
-          </button>
+      {/* Count-chips keyed by swatch — "Full 13 · Part 3 · Injury 2" */}
+      <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5">
+        {present.map((seg, idx) => (
+          <span key={seg.tag} className="inline-flex items-center gap-x-3">
+            {idx > 0 && (
+              <span
+                className="type-num text-[11px]"
+                style={{ color: "var(--color-text-tertiary)" }}
+                aria-hidden
+              >
+                ·
+              </span>
+            )}
+            <button
+              onClick={() => setPopover((p) => (p === seg.tag ? null : seg.tag))}
+              className="inline-flex items-center gap-1.5 text-[11.5px] transition-colors hover:text-[color:var(--color-text-primary)]"
+              style={{ color: "var(--color-text-secondary)" }}
+            >
+              <span
+                className={`h-2.5 w-2.5 rounded-sm ${TAG_TEXTURE[seg.tag]}`}
+                aria-hidden
+              />
+              <span>{seg.tag}</span>
+              <span
+                className="type-num"
+                style={{ color: "var(--color-text-primary)" }}
+              >
+                {seg.names.length}
+              </span>
+            </button>
+          </span>
         ))}
+        {/* Zeros surface on hover only */}
         {absent.length > 0 && (
           <span
-            className="type-data-label"
-            style={{ color: "var(--color-text-tertiary)" }}
+            className="group relative inline-flex items-center"
+            tabIndex={0}
           >
-            none: {absent.join(" · ")}
+            <span
+              className="type-num text-[11px] cursor-default"
+              style={{ color: "var(--color-text-tertiary)" }}
+              aria-label="Categories with zero athletes"
+            >
+              ·
+            </span>
+            <span
+              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 whitespace-nowrap rounded border px-2 py-1 opacity-0 shadow-sm transition-opacity group-hover:opacity-100 group-focus:opacity-100 type-data-label"
+              style={{
+                backgroundColor: "var(--color-surface-card)",
+                borderColor: "var(--color-border)",
+                color: "var(--color-text-tertiary)",
+                zIndex: 40,
+              }}
+            >
+              none: {absent.map((x) => x.tag).join(" · ")}
+            </span>
           </span>
         )}
       </div>
