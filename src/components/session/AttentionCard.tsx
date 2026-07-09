@@ -1,26 +1,29 @@
 /**
- * ST2 — Attention card.
- * The coach's 5-second answer to "who needs me?". This is the only place
- * severity ink and the severity glyphs are allowed to appear.
+ * ST2 — Attention card (RW2).
  *
- * All data is read from the effective (scenario-adjusted) scope. No
- * demo branches live here — isAllClear is a consequence of the data
- * (zero tier-1 flags + full coverage across participants).
+ * Contract (A9): the card computes SQUAD-WIDE. Filters never re-scope
+ * the tier-1 read; when a filter hides an escalation, one neutral line
+ * names the out-of-scope escalation.
+ *
+ * Anatomy:
+ *   1. Headline slot — display "N" + suffix, right meta "K of T clear · (i)"
+ *   2. Tier rows — escalate (large) then notice (bare diamond + slate delta)
+ *   3. Row phrase = metric names only; delta prints once at the right
+ *   4. Gap dialect for gap-read rows (paired value + "pts" unit)
+ *   5. Accounting line — "To check — {names+cov} · Köhler — baseline, 3 of 5"
+ *   6. Card close — the squad read as the card's only sentence
+ *   7. Edge states — coverage-thin > all-clear > flags
  */
-import { useState } from "react";
-import { ChevronRight, ChevronDown } from "lucide-react";
 import { useNavigate } from "@tanstack/react-router";
+import { Info, ChevronDown } from "lucide-react";
 import { useSessionScope, COVERAGE_MIN } from "@/lib/session-scope";
 import {
   BUILDING_ID,
   BUILDING_SESSIONS_TO_MIN,
-  flaggedIds,
   type Tier1Row,
 } from "@/lib/session-flags";
-import { SeverityGlyph } from "@/components/data/SeverityGlyph";
-import { copy } from "@/lib/copy-deck";
+import { copy, tmpl, BUILDING_BASELINE_MIN_SESSIONS } from "@/lib/copy-deck";
 import { ValueOnTrack } from "@/components/data/ValueOnTrack";
-import { GapPair } from "@/components/data/GapPair";
 
 /* ---------- Component ---------- */
 
@@ -30,73 +33,41 @@ export function AttentionCard() {
     tier1Rows,
     activeAthletes,
     filterIsDefault,
-    scopeLabel,
     totalParticipants,
   } = useSessionScope();
-  const [showCheck, setShowCheck] = useState(false);
 
-  const total = totalParticipants; // "of 18" invariant, derived
-  const inScope = new Set(activeAthletes.map((a) => a.id));
-
-  const tier1 = tier1Rows.filter((r) => inScope.has(r.id));
-  const lowCovAthletes = activeAthletes.filter(
-    (a) => a.hrCoveragePct !== null && a.hrCoveragePct < COVERAGE_MIN,
-  );
-  const building = activeAthletes.filter((a) => a.id === BUILDING_ID);
-
-  const escalateCount = tier1.filter((r) => r.tier === "escalate").length;
-  const noticeCount = tier1.filter((r) => r.tier === "notice").length;
-  const manageCount = tier1.length;
-  const checkCount = lowCovAthletes.length;
-  const buildCount = building.length;
-
-  // Coverage of the SQUAD (not the filtered subset) drives the synthesis
-  // scope rule and the all-clear substantiation.
+  // A9 — always squad-wide.
+  const tier1 = tier1Rows;
   const squadLowCov = effectiveParticipants.filter(
     (a) => a.hrCoveragePct !== null && a.hrCoveragePct < COVERAGE_MIN,
-  ).length;
-  const squadFullCov = effectiveParticipants.length - squadLowCov;
-  const squadTier1 = tier1Rows.length;
+  );
+  const building = effectiveParticipants.filter((a) => a.id === BUILDING_ID);
 
-  // Consequence-of-data flags.
-  const isAllClear =
-    squadTier1 === 0 && squadLowCov === 0; // "cleared" when nobody flagged and every input trustworthy
-  const cantSayCoverage =
-    squadFullCov / effectiveParticipants.length < 0.6; // < ~60% trustworthy → can't-say state
+  const escalateCount = tier1.filter((r) => r.tier === "escalate").length;
+  const flaggedSet = new Set<string>([
+    ...tier1.map((r) => r.id),
+    ...squadLowCov.map((a) => a.id),
+    ...building.map((a) => a.id),
+  ]);
+  const clearCount = effectiveParticipants.length - flaggedSet.size;
+  const manageCount = tier1.length;
 
-  const flaggedSet = flaggedIds(tier1, lowCovAthletes.map((a) => a.id));
-  const clearCount = isAllClear
-    ? activeAthletes.length - buildCount
-    : activeAthletes.filter((a) => !flaggedSet.has(a.id)).length;
-  const totalInScope = activeAthletes.length;
+  const isAllClear = tier1.length === 0 && squadLowCov.length === 0;
+  const isCovThin =
+    tier1.length === 0 &&
+    squadLowCov.length / effectiveParticipants.length > 0.5;
+
+  // Out-of-scope escalation notice (A9).
+  const inScopeIds = new Set(activeAthletes.map((a) => a.id));
+  const outsideEscalations = !filterIsDefault
+    ? tier1.filter((r) => r.tier === "escalate" && !inScopeIds.has(r.id))
+    : [];
 
   return (
     <section id="attention" className="scroll-mt-28">
-      <header className="mb-3 flex items-baseline justify-between gap-4">
-        <div className="flex items-baseline gap-3">
-          <h2 className="type-section-h">Attention</h2>
-          {!filterIsDefault && scopeLabel && (
-            <span
-              className="type-label"
-              style={{ color: "var(--color-text-tertiary)" }}
-            >
-              — {scopeLabel}
-            </span>
-          )}
-        </div>
-        {!filterIsDefault && (
-          <span
-            className="type-num text-[11px]"
-            style={{ color: "var(--color-text-tertiary)" }}
-          >
-            {totalInScope} of {total}
-          </span>
-        )}
+      <header className="mb-3">
+        <h2 className="type-section-h">Attention</h2>
       </header>
-      <p className="type-section-desc mb-3">
-        Who needs attention this session — checked against each athlete's own typical
-        for this day-type.
-      </p>
 
       <div
         className="overflow-hidden rounded-lg border"
@@ -105,121 +76,144 @@ export function AttentionCard() {
           backgroundColor: "var(--color-surface-card)",
         }}
       >
-        <div
-          className="flex items-start justify-between gap-6 border-b px-5 pb-3 pt-4"
-          style={{ borderColor: "var(--color-border)" }}
-        >
-          <div className="min-w-0">
-            {isAllClear ? (
-              <div className="flex items-baseline gap-2">
-                <span
-                  className="text-[18px] font-semibold tracking-tight"
-                  style={{ color: "var(--color-text-primary)" }}
-                >
-                  Nothing needs attention
-                </span>
-                <span
-                  className="text-[12.5px]"
-                  style={{ color: "var(--color-text-secondary)" }}
-                >
-                  · {clearCount} of {totalInScope} clear
-                </span>
-              </div>
-            ) : (
-              <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-                <span
-                  className="text-[18px] font-semibold tracking-tight"
-                  style={{ color: "var(--color-text-primary)" }}
-                >
-                  {manageCount} to manage
-                </span>
-                <span
-                  className="text-[12.5px]"
-                  style={{ color: "var(--color-text-secondary)" }}
-                >
-                  · {escalateCount} escalate · {noticeCount} notice
-                </span>
-                <span
-                  className="text-[12.5px]"
-                  style={{ color: "var(--color-text-tertiary)" }}
-                >
-                  &nbsp;—&nbsp;
-                </span>
-                <span
-                  className="text-[12.5px]"
-                  style={{ color: "var(--color-text-secondary)" }}
-                >
-                  {checkCount} to check · {buildCount} building baseline · {clearCount} of {totalInScope} clear
-                </span>
-              </div>
-            )}
-          </div>
-          <div
-            className="shrink-0 text-[11px]"
-            style={{ color: "var(--color-text-tertiary)" }}
-          >
-            tracks: window ±40% vs each athlete's own typical for this day-type
-          </div>
-        </div>
-
-        {isAllClear ? (
-          <AllClearBody totalInScope={totalInScope} />
-        ) : (
-          <ul>
-            {tier1.map((r) => (
-              <Tier1RowUI key={r.id} row={r} />
-            ))}
-            {tier1.length === 0 && (
-              <li
-                className="px-5 py-4 text-[13px]"
-                style={{ color: "var(--color-text-secondary)" }}
-              >
-                No divergence flags in this scope.
-              </li>
-            )}
-          </ul>
-        )}
-
-        {checkCount > 0 && !isAllClear && (
-          <Tier2Row
-            count={checkCount}
-            expanded={showCheck}
-            onToggle={() => setShowCheck((s) => !s)}
-            athletes={lowCovAthletes.map((a) => ({
-              name: a.name,
-              cov: a.hrCoveragePct ?? 0,
-            }))}
-          />
-        )}
-
-        {buildCount > 0 && (
-          <div
-            className="flex items-center gap-3 border-t px-5 py-2.5"
-            style={{
-              borderColor: "var(--color-border)",
-              backgroundColor: "var(--color-slate-50)",
-            }}
-          >
-            <span
-              className="type-label"
-              style={{ color: "var(--color-text-tertiary)" }}
-            >
-              Building baseline
-            </span>
-            <span className="text-[12.5px]" style={{ color: "var(--color-text-secondary)" }}>
-              B. Köhler · {BUILDING_SESSIONS_TO_MIN} sessions to minimum history
-            </span>
-          </div>
-        )}
-
-        <SynthesisLine
-          isAllClear={isAllClear}
-          cantSay={cantSayCoverage}
-          filterIsDefault={filterIsDefault}
+        {/* Headline slot */}
+        <Headline
+          state={isCovThin ? "covThin" : isAllClear ? "allClear" : "flags"}
+          manageCount={manageCount}
+          clearCount={clearCount}
+          totalSquad={totalParticipants}
+          squadLowCov={squadLowCov.length}
         />
-      </div>
 
+        {/* Body by state */}
+        {isCovThin ? (
+          <CovThinBody rows={squadLowCov.map((a) => ({ name: a.name, cov: a.hrCoveragePct ?? 0 }))} />
+        ) : isAllClear ? (
+          <AllClearBody buildCount={building.length} />
+        ) : (
+          <>
+            <ul>
+              {tier1.map((r) => (
+                <Tier1RowUI key={r.id} row={r} />
+              ))}
+            </ul>
+
+            {outsideEscalations.length > 0 && (
+              <OutsideEscalationLine />
+            )}
+
+            <AccountingLine
+              lowCov={squadLowCov.map((a) => ({ name: a.name, cov: a.hrCoveragePct ?? 0 }))}
+              buildCount={building.length}
+            />
+
+            <CloserLine />
+          </>
+        )}
+      </div>
     </section>
+  );
+}
+
+/* ---------- Headline ---------- */
+
+function Headline({
+  state,
+  manageCount,
+  clearCount,
+  totalSquad,
+  squadLowCov,
+}: {
+  state: "flags" | "allClear" | "covThin";
+  manageCount: number;
+  clearCount: number;
+  totalSquad: number;
+  squadLowCov: number;
+}) {
+  if (state === "covThin") {
+    return (
+      <div
+        className="flex items-baseline justify-between gap-6 border-b px-5 py-4"
+        style={{ borderColor: "var(--color-border)" }}
+      >
+        <span
+          className="type-display"
+          style={{ color: "var(--color-text-primary)" }}
+        >
+          {tmpl("attention.covThin.headlineTemplate", {
+            below: squadLowCov,
+            total: totalSquad,
+          })}
+        </span>
+      </div>
+    );
+  }
+
+  if (state === "allClear") {
+    return (
+      <div
+        className="flex items-baseline justify-between gap-6 border-b px-5 py-4"
+        style={{ borderColor: "var(--color-border)" }}
+      >
+        <div className="flex items-baseline gap-2">
+          <span
+            className="text-[18px] font-semibold tracking-tight"
+            style={{ color: "var(--color-text-primary)" }}
+          >
+            Nothing needs attention
+          </span>
+          <span
+            className="text-[12.5px]"
+            style={{ color: "var(--color-text-secondary)" }}
+          >
+            · {tmpl("attention.headline.metaTemplate", { clear: clearCount, total: totalSquad })}
+          </span>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className="flex items-baseline justify-between gap-6 border-b px-5 pb-4 pt-5"
+      style={{ borderColor: "var(--color-border)" }}
+    >
+      <div className="flex items-baseline gap-3">
+        <span
+          className="type-display"
+          style={{ color: "var(--color-text-primary)" }}
+        >
+          {manageCount}
+        </span>
+        <span
+          className="text-[15px] font-medium"
+          style={{ color: "var(--color-text-primary)" }}
+        >
+          {copy("attention.headline.suffix")}
+        </span>
+      </div>
+      <div className="flex items-center gap-2">
+        <span
+          className="text-[12.5px]"
+          style={{ color: "var(--color-text-secondary)" }}
+        >
+          {tmpl("attention.headline.metaTemplate", { clear: clearCount, total: totalSquad })}
+        </span>
+        <button
+          type="button"
+          onClick={() => {
+            document
+              .getElementById("legend")
+              ?.scrollIntoView({ behavior: "smooth", block: "start" });
+          }}
+          className="inline-flex h-5 w-5 items-center justify-center rounded-full transition-colors hover:bg-[color:var(--color-slate-100)]"
+          style={{ color: "var(--color-text-tertiary)" }}
+          aria-label="How to read this"
+        >
+          <Info className="h-3.5 w-3.5" />
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -231,24 +225,61 @@ function Tier1RowUI({ row }: { row: Tier1Row }) {
   const athlete = effectiveParticipants.find((a) => a.id === row.id);
   if (!athlete) return null;
 
+  const isEscalate = row.tier === "escalate";
+
+  // Delta printed once, at the right, sized per tier.
+  const deltaText =
+    row.read.kind === "vot"
+      ? `${row.read.deltaFrac >= 0 ? "+" : ""}${Math.round(row.read.deltaFrac * 100)}%`
+      : null;
+
+  const nameCls = isEscalate
+    ? "text-[16px] font-semibold leading-tight"
+    : "text-[14px] font-medium leading-tight";
+  const rowPad = isEscalate ? "py-4" : "py-3";
+
   return (
     <li
-      className="group relative border-b last:border-b-0 transition-colors hover:bg-[color:var(--color-slate-50)]"
+      className={`group relative border-b last:border-b-0 transition-colors hover:bg-[color:var(--color-slate-50)]`}
       style={{ borderColor: "var(--color-border)" }}
     >
       <button
-        className="flex w-full items-center gap-4 px-5 py-3 text-left"
+        className={`flex w-full items-center gap-4 px-5 text-left ${rowPad}`}
         onClick={() => navigate({ to: "/athlete" })}
       >
+        {/* Tier mark — pigment lives here, not on numerals (unless escalate delta) */}
         <div className="w-[92px] shrink-0">
-          <SeverityGlyph tier={row.tier} size="compact" />
+          {isEscalate ? (
+            <span
+              className="inline-flex items-center gap-1.5 rounded px-1.5 py-0.5 type-micro"
+              style={{
+                backgroundColor: "var(--color-escalate-surface)",
+                color: "var(--color-escalate-ink)",
+              }}
+            >
+              <svg width={10} height={10} viewBox="0 0 10 10" aria-hidden>
+                <polygon points="5,1 9.5,9 0.5,9" fill="currentColor" />
+              </svg>
+              escalate
+            </span>
+          ) : (
+            <span
+              className="inline-flex items-center gap-1.5 type-micro"
+              style={{ color: "var(--color-text-secondary)" }}
+            >
+              <svg width={9} height={9} viewBox="0 0 10 10" aria-hidden>
+                <polygon
+                  points="5,1 9,5 5,9 1,5"
+                  fill="var(--color-notice-ink)"
+                />
+              </svg>
+              notice
+            </span>
+          )}
         </div>
 
         <div className="w-[170px] shrink-0">
-          <div
-            className="text-[13.5px] font-medium leading-tight"
-            style={{ color: "var(--color-text-primary)" }}
-          >
+          <div className={nameCls} style={{ color: "var(--color-text-primary)" }}>
             {athlete.name}
           </div>
           <div
@@ -259,6 +290,7 @@ function Tier1RowUI({ row }: { row: Tier1Row }) {
           </div>
         </div>
 
+        {/* Phrase = metric names only. No delta here. */}
         <div
           className="min-w-0 flex-1 text-[13px]"
           style={{ color: "var(--color-text-secondary)" }}
@@ -266,7 +298,8 @@ function Tier1RowUI({ row }: { row: Tier1Row }) {
           {row.reason}
         </div>
 
-        <div className="w-[38%] shrink-0">
+        {/* Track = position; no delta echo on the track */}
+        <div className="w-[34%] shrink-0">
           {row.read.kind === "vot" ? (
             <ValueOnTrack
               mode="deviation"
@@ -276,227 +309,284 @@ function Tier1RowUI({ row }: { row: Tier1Row }) {
               referenceBandPct={row.read.bandFrac}
               size="compact"
               showValue={false}
-              deltaTone={row.tier}
+              deltaTone="default"
             />
           ) : (
-            <GapPair
-              mode="signed"
+            <GapMiniTrack
               externalPct={row.read.externalPct}
               internalPct={row.read.internalPct}
-              deltaLabel={`${row.read.gapPts >= 0 ? "+" : ""}${row.read.gapPts} pts`}
-              size="compact"
-              tone={row.tier}
             />
           )}
         </div>
 
-        <div className="ml-2 flex w-[92px] shrink-0 items-center justify-end gap-1.5">
-          <span
-            className="type-label opacity-0 transition-opacity group-hover:opacity-100"
-            style={{ color: "var(--color-text-tertiary)" }}
-          >
-            view athlete
-          </span>
-          <ChevronRight
-            className="h-3.5 w-3.5"
-            style={{ color: "var(--color-text-tertiary)" }}
-          />
+        {/* Delta — one place, sized per tier */}
+        <div className="ml-2 flex w-[92px] shrink-0 items-baseline justify-end">
+          {row.read.kind === "vot" ? (
+            <span
+              className={
+                isEscalate
+                  ? "type-num text-[21px] font-semibold"
+                  : "type-num text-[14px] font-semibold"
+              }
+              style={{
+                color: isEscalate
+                  ? "var(--color-escalate-ink)"
+                  : "var(--color-text-primary)",
+              }}
+            >
+              {deltaText}
+            </span>
+          ) : (
+            <span className="inline-flex items-baseline gap-0.5">
+              <span
+                className={
+                  isEscalate
+                    ? "type-num text-[21px] font-semibold"
+                    : "type-num text-[14px] font-semibold"
+                }
+                style={{
+                  color: isEscalate
+                    ? "var(--color-escalate-ink)"
+                    : "var(--color-text-primary)",
+                }}
+              >
+                {`${row.read.gapPts >= 0 ? "+" : ""}${row.read.gapPts}`}
+              </span>
+              <span
+                className="type-data-label"
+                style={{ color: "var(--color-text-tertiary)" }}
+              >
+                pts
+              </span>
+            </span>
+          )}
         </div>
       </button>
     </li>
   );
 }
 
-/* ---------- Tier 2 row — data to check ---------- */
-
-function Tier2Row({
-  count,
-  expanded,
-  onToggle,
-  athletes,
+/* Track-only signed gap for the row read (no delta — that lives at right) */
+function GapMiniTrack({
+  externalPct,
+  internalPct,
 }: {
-  count: number;
-  expanded: boolean;
-  onToggle: () => void;
-  athletes: Array<{ name: string; cov: number }>;
+  externalPct: number;
+  internalPct: number;
 }) {
+  const W = 40;
+  const toPos = (v: number) =>
+    ((Math.max(-W, Math.min(W, v)) + W) / (W * 2)) * 100;
+  const extPos = toPos(externalPct);
+  const intPos = toPos(internalPct);
+  const left = Math.min(extPos, intPos);
+  const right = Math.max(extPos, intPos);
+
+  return (
+    <div className="relative h-5">
+      <div
+        className="absolute left-0 right-0 top-1/2 h-[6px] -translate-y-1/2 rounded-full"
+        style={{ backgroundColor: "var(--color-data-band)" }}
+      />
+      <div
+        className="absolute top-1/2 h-3 w-[2px] -translate-x-1/2 -translate-y-1/2 rounded-sm"
+        style={{ left: "50%", backgroundColor: "var(--color-data-reference)" }}
+      />
+      <div
+        className="absolute top-1/2 h-[2px] -translate-y-1/2"
+        style={{
+          left: `${left}%`,
+          width: `${right - left}%`,
+          backgroundColor: "var(--color-slate-400)",
+        }}
+      />
+      <div
+        className="absolute top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full ring-2 ring-white"
+        style={{ left: `${extPos}%`, backgroundColor: "var(--color-axis-work)" }}
+      />
+      <div
+        className="absolute top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white"
+        style={{
+          left: `${intPos}%`,
+          border: "2px solid var(--color-axis-cost)",
+        }}
+      />
+    </div>
+  );
+}
+
+/* ---------- Outside-scope escalation neutral line ---------- */
+
+function OutsideEscalationLine() {
   return (
     <div
-      className="border-t"
+      className="border-t px-5 py-2.5 text-[12.5px]"
+      style={{
+        borderColor: "var(--color-border)",
+        color: "var(--color-text-secondary)",
+      }}
+    >
+      {copy("attention.filtered.escalationOutside")}
+    </div>
+  );
+}
+
+/* ---------- Accounting line (A5) ---------- */
+
+function AccountingLine({
+  lowCov,
+  buildCount,
+}: {
+  lowCov: Array<{ name: string; cov: number }>;
+  buildCount: number;
+}) {
+  if (lowCov.length === 0 && buildCount === 0) return null;
+
+  const parts: Array<React.ReactNode> = [];
+
+  if (lowCov.length > 0) {
+    parts.push(
+      <span key="prefix" style={{ color: "var(--color-text-tertiary)" }}>
+        {copy("attention.accountingLine.prefix")} —{" "}
+      </span>,
+    );
+    lowCov.forEach((a, i) => {
+      parts.push(
+        <span
+          key={`n-${a.name}`}
+          title={`${a.cov}% HR coverage`}
+          className="cursor-help"
+          style={{ color: "var(--color-text-secondary)" }}
+        >
+          {a.name}{" "}
+          <span className="type-num" style={{ color: "var(--color-text-tertiary)" }}>
+            {a.cov}
+            {i === lowCov.length - 1 ? "% HR cov" : ""}
+          </span>
+        </span>,
+      );
+      if (i < lowCov.length - 1) {
+        parts.push(
+          <span key={`sep-${i}`} style={{ color: "var(--color-text-tertiary)" }}>
+            {" · "}
+          </span>,
+        );
+      }
+    });
+  }
+
+  if (buildCount > 0) {
+    if (parts.length > 0) {
+      parts.push(
+        <span key="build-sep" style={{ color: "var(--color-text-tertiary)" }}>
+          {"  ·  "}
+        </span>,
+      );
+    }
+    parts.push(
+      <span key="build" style={{ color: "var(--color-text-secondary)" }}>
+        B. Köhler —{" "}
+        {tmpl("attention.baseline.suffixTemplate", {
+          done: BUILDING_SESSIONS_TO_MIN,
+          min: BUILDING_BASELINE_MIN_SESSIONS,
+        })}
+      </span>,
+    );
+  }
+
+  return (
+    <div
+      className="border-t px-5 py-2.5 text-[12.5px]"
       style={{
         borderColor: "var(--color-border)",
         backgroundColor: "var(--color-slate-50)",
       }}
     >
-      <div className="flex items-center gap-3 px-5 py-2.5">
-        <span
-          className="type-label"
-          style={{ color: "var(--color-text-tertiary)" }}
-        >
-          To check
-        </span>
-        <span className="text-[12.5px]" style={{ color: "var(--color-text-secondary)" }}>
-          {count} to check · HR coverage below {COVERAGE_MIN}%
-        </span>
-        <button
-          onClick={onToggle}
-          className="ml-auto inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[12px] transition-colors hover:bg-[color:var(--color-slate-100)]"
-          style={{ color: "var(--color-text-secondary)" }}
-        >
-          <span>{expanded ? "Hide athletes" : "Show athletes"}</span>
-          {expanded ? (
-            <ChevronDown className="h-3 w-3" />
-          ) : (
-            <ChevronRight className="h-3 w-3" />
-          )}
-        </button>
-      </div>
-      {expanded && (
-        <ul className="px-5 pb-3 pt-1">
-          {athletes.map((a) => (
-            <li
-              key={a.name}
-              className="flex items-center gap-3 py-1.5 text-[12.5px]"
-              style={{ color: "var(--color-text-secondary)" }}
-            >
-              <span
-                className="h-1.5 w-1.5 rounded-full"
-                style={{ backgroundColor: "var(--color-trust-dot)" }}
-                aria-hidden
-              />
-              <span style={{ color: "var(--color-text-primary)" }}>{a.name}</span>
-              <span className="type-num" style={{ color: "var(--color-text-tertiary)" }}>
-                — {a.cov}% cov
-              </span>
-            </li>
-          ))}
-        </ul>
-      )}
+      {parts}
     </div>
   );
 }
 
-/* ---------- Synthesis line ---------- */
+/* ---------- Card close (A6) ---------- */
 
-function SynthesisLine({
-  isAllClear,
-  cantSay,
-  filterIsDefault,
-}: {
-  isAllClear: boolean;
-  cantSay: boolean;
-  filterIsDefault: boolean;
-}) {
-  // Squad answer only — never re-scopes to the filter subset.
-  const scopePrefix = !filterIsDefault ? (
-    <span
-      className="type-label mr-2"
-      style={{ color: "var(--color-text-tertiary)" }}
-    >
-      Squad ·
-    </span>
-  ) : null;
-
-  if (cantSay) {
-    return (
-      <div
-        className="border-t px-5 py-3"
-        style={{ borderColor: "var(--color-border)" }}
-      >
-        <div
-          className="flex items-baseline text-[13px]"
-          style={{ color: "var(--color-text-tertiary)" }}
-        >
-          {scopePrefix}
-          <span>Not enough coverage to read the squad's load today.</span>
-        </div>
-      </div>
-    );
-  }
-
-  if (isAllClear) {
-    return (
-      <div
-        className="border-t px-5 py-3"
-        style={{ borderColor: "var(--color-border)" }}
-      >
-        <div
-          className="flex items-baseline text-[13px]"
-          style={{ color: "var(--color-text-secondary)" }}
-        >
-          {scopePrefix}
-          <span>A steady session — loads in each athlete's typical range.</span>
-        </div>
-      </div>
-    );
-  }
+function CloserLine() {
   return (
     <div
-      className="border-t px-5 py-3"
-      style={{ borderColor: "var(--color-border)" }}
+      className="border-t px-5 py-3 text-[13px] font-medium"
+      style={{
+        borderColor: "var(--color-border)",
+        color: "var(--color-text-primary)",
+      }}
     >
-      <div className="flex items-center gap-2">
-        {scopePrefix}
-        <span
-          className="type-micro rounded px-1.5 py-0.5"
-          style={{
-            border: "1px solid var(--color-text-primary)",
-            color: "var(--color-text-primary)",
-          }}
-        >
-          notable
-        </span>
-        <span
-          className="text-[13px] font-medium"
-          style={{ color: "var(--color-text-primary)" }}
-        >
-          {copy("attention.closer")}
-        </span>
-      </div>
+      {copy("attention.closer")}
     </div>
   );
 }
 
 /* ---------- All-clear body ---------- */
 
-function AllClearBody({ totalInScope }: { totalInScope: number }) {
-  const lines = [
-    "Loads within each athlete's typical range",
-    "No internal-external divergence",
-    `HR coverage checked on all ${totalInScope}`,
-  ];
+function AllClearBody({ buildCount }: { buildCount: number }) {
   return (
-    <div className="px-5 pb-4 pt-4">
-      <ul className="space-y-2">
-        {lines.map((l) => (
-          <li
-            key={l}
-            className="flex items-center gap-2.5 text-[13px]"
-            style={{ color: "var(--color-text-secondary)" }}
-          >
-            <span
-              className="h-1.5 w-1.5 rounded-full"
-              style={{ backgroundColor: "var(--color-clear-ink)" }}
-              aria-hidden
-            />
-            {l}
-          </li>
-        ))}
-      </ul>
-      <div className="mt-4 flex items-center gap-1.5">
+    <div className="px-5 pb-4 pt-3">
+      {buildCount > 0 && (
+        <div
+          className="text-[12.5px]"
+          style={{ color: "var(--color-text-secondary)" }}
+        >
+          B. Köhler —{" "}
+          {tmpl("attention.baseline.suffixTemplate", {
+            done: BUILDING_SESSIONS_TO_MIN,
+            min: BUILDING_BASELINE_MIN_SESSIONS,
+          })}
+        </div>
+      )}
+      <div className="mt-3">
         <button
           onClick={() => {
             document
               .getElementById("summary")
               ?.scrollIntoView({ behavior: "smooth", block: "start" });
           }}
-          className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[12.5px] transition-colors hover:bg-[color:var(--color-slate-100)]"
+          className="inline-flex items-center gap-1 rounded text-[12.5px] underline-offset-2 hover:underline"
           style={{ color: "var(--color-text-primary)", fontWeight: 500 }}
         >
-          <span>Read the squad summary</span>
+          <span>{copy("attention.allClear.link")}</span>
           <ChevronDown className="h-3.5 w-3.5" />
         </button>
       </div>
     </div>
+  );
+}
+
+/* ---------- Coverage-thin body ---------- */
+
+function CovThinBody({
+  rows,
+}: {
+  rows: Array<{ name: string; cov: number }>;
+}) {
+  return (
+    <ul className="px-5 pb-4 pt-3">
+      {rows.map((a) => (
+        <li
+          key={a.name}
+          className="flex items-baseline gap-3 py-1 text-[13px]"
+          style={{ color: "var(--color-text-secondary)" }}
+        >
+          <span
+            className="h-1.5 w-1.5 rounded-full"
+            style={{
+              backgroundColor: "transparent",
+              border: "1.25px solid var(--color-trust-dot)",
+            }}
+            aria-hidden
+          />
+          <span style={{ color: "var(--color-text-primary)" }}>{a.name}</span>
+          <span className="type-num" style={{ color: "var(--color-text-tertiary)" }}>
+            {a.cov}% HR cov
+          </span>
+        </li>
+      ))}
+    </ul>
   );
 }
