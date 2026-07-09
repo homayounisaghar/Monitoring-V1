@@ -74,7 +74,11 @@ export function GapPair({
 
   const trackH = compact ? "h-5" : "h-8";
   const trackBandH = compact ? "h-[6px]" : "h-[7px]";
-  const dotDim = compact ? "h-3 w-3" : "h-3.5 w-3.5";
+  const dotDim = heavy
+    ? compact ? "h-[18px] w-[18px]" : "h-[22px] w-[22px]"
+    : compact ? "h-3 w-3" : "h-3.5 w-3.5";
+  const connectorH = heavy ? "h-[4px]" : "h-[2px]";
+  const connectorInk = heavy ? "var(--color-slate-500)" : "var(--color-slate-400)";
   const deltaInk =
     tone === "escalate"
       ? "var(--color-escalate-ink)"
