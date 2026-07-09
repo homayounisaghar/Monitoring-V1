@@ -547,28 +547,27 @@ function Cell({
       );
     }
     const v = valueFor(a, m);
-    return (
-      <div className="flex flex-col items-end">
+    // Q2: full "N′ · scaled" prints once, beside the minutes.
+    if (rowScaled && v != null) {
+      return (
         <span
           className="type-num text-[13px]"
           style={{ color: "var(--color-text-primary)" }}
         >
-          {v}'
+          {tmpl("squad.row.scaledTagTemplate", { min: v })}
         </span>
-        {rowScaled && (
-          <span
-            className="type-label"
-            style={{ color: "var(--color-text-tertiary)" }}
-          >
-            {tmpl("squad.row.scaledTagTemplate", { min: v ?? "" }).replace(
-              /^\d+′\s·\s/,
-              "· ",
-            )}
-          </span>
-        )}
-      </div>
+      );
+    }
+    return (
+      <span
+        className="type-num text-[13px]"
+        style={{ color: "var(--color-text-primary)" }}
+      >
+        {v}'
+      </span>
     );
   }
+
 
   if (state === "dnp" || state === "empty") {
     return (
