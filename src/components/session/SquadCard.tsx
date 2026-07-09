@@ -696,10 +696,11 @@ function AvgCell({
   const deltaPct = rawDelta != null && Number.isFinite(rawDelta) ? Math.round(rawDelta) : null;
 
   return (
-    <div className="flex flex-col items-end">
+    <div className="flex flex-col items-end" suppressHydrationWarning>
       <span
         className="type-num text-[12px] font-semibold"
         style={{ color: "var(--color-text-secondary)" }}
+        suppressHydrationWarning
       >
         {printed}
         {suffix}
@@ -708,6 +709,7 @@ function AvgCell({
         <span
           className="type-num text-[10px]"
           style={{ color: "var(--color-text-tertiary)" }}
+          suppressHydrationWarning
         >
           {deltaPct >= 0 ? "+" : ""}
           {deltaPct}%
