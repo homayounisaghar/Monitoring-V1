@@ -84,6 +84,7 @@ export type SessionScope = {
   // Effective (scenario-adjusted) participants — every read uses this.
   effectiveParticipants: Athlete[];
   tier1Rows: Tier1Row[];
+  sessionIsTraining: boolean;
 
   // derived
   activeAthletes: Athlete[];
