@@ -302,13 +302,6 @@
   line-height: 1.4;
   color: var(--color-text-secondary);
 }
-@utility type-label {
-  font-size: 10.5px;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  font-weight: 600;
-  color: var(--color-text-tertiary);
-}
 @utility type-data-label {
   font-size: 11px;
   color: var(--color-text-secondary);
