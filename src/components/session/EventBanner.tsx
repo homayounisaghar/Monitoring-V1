@@ -1,4 +1,4 @@
-import { Pencil, Share2, ChevronDown } from "lucide-react";
+import { Pencil, Share2 } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { currentSession } from "@/lib/session-data";
 
@@ -25,10 +25,10 @@ export function EventBanner() {
         color: "var(--color-text-on-brand)",
       }}
     >
-      <div className="flex items-center justify-between gap-6 px-6 py-4">
-        {/* Left — identity */}
-        <div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1">
-          <h1 className="text-[18px] font-semibold tracking-tight">
+      <div className="flex h-[52px] items-center justify-between gap-6 px-5">
+        {/* Left — identity, single line */}
+        <div className="flex min-w-0 items-baseline gap-x-2.5 truncate">
+          <h1 className="truncate text-[16px] font-semibold tracking-tight">
             {s.label}{s.result ? ` · ${s.result}` : ""}
           </h1>
           <span
@@ -41,62 +41,38 @@ export function EventBanner() {
             {s.kind === "match" ? "Match" : "Training"}
           </span>
           <span
-            className="text-[12.5px]"
+            className="whitespace-nowrap text-[12.5px]"
             style={{ color: "var(--color-slate-300)" }}
           >
             {formatDate(s.dateISO)}
-          </span>
-          <span style={{ color: "var(--color-slate-500)" }}>·</span>
-          <span
-            className="type-num text-[12.5px]"
-            style={{ color: "var(--color-slate-300)" }}
-          >
-            {s.durationMin}' total
-          </span>
-          {s.venue && (
-            <>
-              <span style={{ color: "var(--color-slate-500)" }}>·</span>
-              <span className="text-[12.5px]" style={{ color: "var(--color-slate-300)" }}>
+            <Sep />
+            <span className="type-num">{s.durationMin}' total</span>
+            {s.venue && (
+              <>
+                <Sep />
                 {s.venue}
-              </span>
-            </>
-          )}
-          {s.weather && (
-            <>
-              <span style={{ color: "var(--color-slate-500)" }}>·</span>
-              <span
-                className="type-num text-[12.5px]"
-                style={{ color: "var(--color-slate-400)" }}
-              >
-                {s.weather.tempC}°C · {s.weather.humidityPct}% RH
-              </span>
-            </>
-          )}
+              </>
+            )}
+            {s.weather && (
+              <>
+                <Sep />
+                <span className="type-num">
+                  {s.weather.tempC}°C · {s.weather.humidityPct}% RH
+                </span>
+              </>
+            )}
+          </span>
         </div>
 
-        {/* Right — one quiet action cluster */}
-        <div className="flex items-center gap-1.5" ref={menuRef}>
-          <button
-            className="flex h-8 items-center gap-1.5 rounded px-2.5 text-[12.5px] transition-colors"
-            style={{ color: "var(--color-slate-300)" }}
-            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "color-mix(in oklab, white 8%, transparent)")}
-            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
-          >
-            <Pencil className="h-3 w-3" />
-            <span>Edit session</span>
-          </button>
-
+        {/* Right — icon-only actions */}
+        <div className="flex items-center gap-1" ref={menuRef}>
+          <IconBtn label="Edit session">
+            <Pencil className="h-3.5 w-3.5" />
+          </IconBtn>
           <div className="relative">
-            <button
-              onClick={() => setMenuOpen((o) => !o)}
-              aria-label="Share / export"
-              className="grid h-8 w-8 place-items-center rounded transition-colors"
-              style={{ color: "var(--color-slate-300)" }}
-              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "color-mix(in oklab, white 8%, transparent)")}
-              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
-            >
+            <IconBtn label="Share / export" onClick={() => setMenuOpen((o) => !o)}>
               <Share2 className="h-3.5 w-3.5" />
-            </button>
+            </IconBtn>
             {menuOpen && (
               <div
                 className="absolute right-0 top-9 z-30 w-40 overflow-hidden rounded-md border shadow-lg"
@@ -120,6 +96,41 @@ export function EventBanner() {
         </div>
       </div>
     </div>
+  );
+}
+
+function Sep() {
+  return (
+    <span className="mx-1.5" style={{ color: "var(--color-slate-500)" }}>
+      ·
+    </span>
+  );
+}
+
+function IconBtn({
+  children,
+  label,
+  onClick,
+}: {
+  children: React.ReactNode;
+  label: string;
+  onClick?: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      aria-label={label}
+      title={label}
+      className="grid h-8 w-8 place-items-center rounded transition-colors"
+      style={{ color: "var(--color-slate-300)" }}
+      onMouseEnter={(e) =>
+        (e.currentTarget.style.backgroundColor =
+          "color-mix(in oklab, white 8%, transparent)")
+      }
+      onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
+    >
+      {children}
+    </button>
   );
 }
 
