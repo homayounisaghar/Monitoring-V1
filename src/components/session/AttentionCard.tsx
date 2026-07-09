@@ -309,6 +309,7 @@ function Tier1RowUI({ row }: { row: Tier1Row }) {
               referenceBandPct={row.read.bandFrac}
               size="compact"
               showValue={false}
+              showDelta={false}
               deltaTone="default"
             />
           ) : (
