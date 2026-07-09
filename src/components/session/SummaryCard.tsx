@@ -283,7 +283,7 @@ export function SummaryCard() {
                     className="flex h-7 items-center text-[13px]"
                     style={{ color: "var(--color-text-tertiary)" }}
                   >
-                    Not collected this session
+                    {copy("srpe.empty")}
                   </div>
                 ) : srpeState === "filled" ? (
                   <ValueOnTrack
