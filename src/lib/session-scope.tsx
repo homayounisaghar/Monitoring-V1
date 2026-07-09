@@ -66,7 +66,8 @@ export type DemoScenario =
   | "all_clear"
   | "srpe_none"
   | "srpe_full"
-  | "coverage_thin";
+  | "coverage_thin"
+  | "training_day";
 
 export type SessionScope = {
   reference: { kind: ReferenceKind; label: string };
