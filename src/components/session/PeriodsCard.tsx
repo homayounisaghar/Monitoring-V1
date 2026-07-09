@@ -148,7 +148,7 @@ export function PeriodsCard() {
         <div className="flex items-baseline gap-2 flex-wrap">
           <h2 className="type-section-h">Periods</h2>
           <span
-            className="type-card-eyebrow"
+            className="type-label"
             style={{ color: "var(--color-text-tertiary)" }}
           >
             — How load was distributed through the match · within-session
@@ -170,7 +170,7 @@ export function PeriodsCard() {
           style={{ borderColor: "var(--color-border)" }}
         >
           <span
-            className="type-card-eyebrow"
+            className="type-label"
             style={{ color: "var(--color-text-tertiary)" }}
           >
             different question from Summary · this is within THIS session,
@@ -331,7 +331,7 @@ export function PeriodsCard() {
             >
               <div className="mb-1.5 flex items-baseline justify-between">
                 <span
-                  className="type-card-eyebrow"
+                  className="type-label"
                   style={{ color: "var(--color-text-tertiary)" }}
                 >
                   gap delta · {pinDelta.a.label} → {pinDelta.b.label}
@@ -383,7 +383,7 @@ export function PeriodsCard() {
           }}
         >
           <span
-            className="type-card-eyebrow"
+            className="type-label"
             style={{ color: "var(--color-text-tertiary)" }}
           >
             peak = the block with the highest internal-load rate

@@ -32,7 +32,7 @@ export function EventBanner() {
             {s.label}{s.result ? ` · ${s.result}` : ""}
           </h1>
           <span
-            className="type-card-eyebrow rounded px-1.5 py-0.5"
+            className="type-microcaps rounded px-1.5 py-0.5"
             style={{
               backgroundColor: "color-mix(in oklab, white 12%, transparent)",
               color: "var(--color-slate-300)",

@@ -18,6 +18,7 @@ import {
   type Tier1Row,
 } from "@/lib/session-flags";
 import { SeverityGlyph } from "@/components/data/SeverityGlyph";
+import { copy } from "@/lib/copy-deck";
 import { ValueOnTrack } from "@/components/data/ValueOnTrack";
 import { GapPair } from "@/components/data/GapPair";
 
@@ -76,7 +77,7 @@ export function AttentionCard() {
           <h2 className="type-section-h">Attention</h2>
           {!filterIsDefault && scopeLabel && (
             <span
-              className="type-card-eyebrow"
+              className="type-label"
               style={{ color: "var(--color-text-tertiary)" }}
             >
               — {scopeLabel}
@@ -200,7 +201,7 @@ export function AttentionCard() {
             }}
           >
             <span
-              className="type-card-eyebrow"
+              className="type-label"
               style={{ color: "var(--color-text-tertiary)" }}
             >
               Building baseline
@@ -225,7 +226,7 @@ export function AttentionCard() {
           style={{ backgroundColor: "var(--color-border)" }}
         />
         <div
-          className="type-card-eyebrow pt-3"
+          className="type-label pt-3"
           style={{ color: "var(--color-text-tertiary)" }}
         >
           Depth — Summary · Periods · Squad
@@ -264,7 +265,7 @@ function Tier1RowUI({ row }: { row: Tier1Row }) {
             {athlete.name}
           </div>
           <div
-            className="type-card-eyebrow"
+            className="type-label"
             style={{ color: "var(--color-text-tertiary)" }}
           >
             {athlete.posDetail}
@@ -304,7 +305,7 @@ function Tier1RowUI({ row }: { row: Tier1Row }) {
 
         <div className="ml-2 flex w-[92px] shrink-0 items-center justify-end gap-1.5">
           <span
-            className="type-card-eyebrow opacity-0 transition-opacity group-hover:opacity-100"
+            className="type-label opacity-0 transition-opacity group-hover:opacity-100"
             style={{ color: "var(--color-text-tertiary)" }}
           >
             view athlete
@@ -342,7 +343,7 @@ function Tier2Row({
     >
       <div className="flex items-center gap-3 px-5 py-2.5">
         <span
-          className="type-card-eyebrow"
+          className="type-label"
           style={{ color: "var(--color-text-tertiary)" }}
         >
           To check
@@ -402,7 +403,7 @@ function SynthesisLine({
   // Squad answer only — never re-scopes to the filter subset.
   const scopePrefix = !filterIsDefault ? (
     <span
-      className="type-card-eyebrow mr-2"
+      className="type-label mr-2"
       style={{ color: "var(--color-text-tertiary)" }}
     >
       Squad ·
@@ -462,7 +463,7 @@ function SynthesisLine({
           className="text-[13px] font-medium"
           style={{ color: "var(--color-text-primary)" }}
         >
-          A hard, high-intensity match — external work ran ahead of cardio cost, led by the front line.
+          {copy("attention.closer")}
         </span>
       </div>
     </div>

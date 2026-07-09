@@ -26,7 +26,7 @@ export function DemoPill() {
           }}
         >
           <div
-            className="type-card-eyebrow border-b px-3 py-2"
+            className="type-microcaps border-b px-3 py-2"
             style={{
               borderColor: "var(--color-border)",
               color: "var(--color-text-tertiary)",
@@ -76,7 +76,7 @@ export function DemoPill() {
         }}
       >
         <FlaskConical className="h-3 w-3" />
-        <span className="type-card-eyebrow" style={{ color: "var(--color-slate-300)" }}>
+        <span className="type-microcaps" style={{ color: "var(--color-slate-300)" }}>
           Demo
         </span>
         <span className="text-[12px] font-medium">{active.label}</span>

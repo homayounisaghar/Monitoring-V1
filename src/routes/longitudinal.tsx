@@ -21,7 +21,7 @@ function LongitudinalRoute() {
         }}
       >
         <div
-          className="type-card-eyebrow"
+          className="type-label"
           style={{ color: "var(--color-text-tertiary)" }}
         >
           Longitudinal

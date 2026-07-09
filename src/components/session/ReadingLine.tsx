@@ -160,7 +160,7 @@ function ChipOptions<T extends ReferenceKind | BenchmarkKind>({
   return (
     <>
       <div
-        className="type-card-eyebrow border-b px-3 py-2"
+        className="type-label border-b px-3 py-2"
         style={{
           borderColor: "var(--color-border)",
           color: "var(--color-text-tertiary)",
@@ -185,7 +185,7 @@ function ChipOptions<T extends ReferenceKind | BenchmarkKind>({
                 <span>{opt.label}</span>
                 <span className="flex items-center gap-2">
                   {isDefault && (
-                    <span className="type-card-eyebrow" style={{ color: "var(--color-text-tertiary)" }}>
+                    <span className="type-label" style={{ color: "var(--color-text-tertiary)" }}>
                       default
                     </span>
                   )}
@@ -335,7 +335,7 @@ function HowToReadPopover() {
 function Row({ term, children }: { term: string; children: React.ReactNode }) {
   return (
     <div className="grid grid-cols-[90px_1fr] gap-3">
-      <dt className="type-card-eyebrow" style={{ color: "var(--color-text-tertiary)" }}>{term}</dt>
+      <dt className="type-label" style={{ color: "var(--color-text-tertiary)" }}>{term}</dt>
       <dd>{children}</dd>
     </div>
   );

@@ -154,15 +154,22 @@ export function ValueOnTrack({
 
       {withValue ? (
         <div className="flex min-w-[130px] items-baseline justify-end gap-2">
-          <span className="relative inline-flex items-baseline">
+          <span
+            className="inline-flex items-baseline gap-1.5"
+            title={!qualified ? "coverage below read-safe threshold" : undefined}
+          >
             {!qualified && (
               <span
-                className="veil-hatch absolute inset-x-[-2px] top-1/2 -translate-y-1/2 h-4 rounded-sm opacity-70"
+                className="inline-block h-2 w-2 shrink-0 translate-y-[-1px] rounded-full"
+                style={{
+                  backgroundColor: "transparent",
+                  border: "1.25px solid var(--color-trust-dot)",
+                }}
                 aria-hidden
               />
             )}
             <span
-              className="type-num text-sm font-semibold relative"
+              className="type-num text-sm font-semibold"
               style={{ color: qualified ? "var(--color-text-primary)" : "var(--color-text-tertiary)" }}
             >
               {value.toLocaleString()}

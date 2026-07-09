@@ -25,7 +25,7 @@ function Placeholder({ title }: { title: string }) {
         }}
       >
         <div
-          className="type-card-eyebrow"
+          className="type-label"
           style={{ color: "var(--color-text-tertiary)" }}
         >
           {title}

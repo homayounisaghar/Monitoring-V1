@@ -10,6 +10,7 @@ import { Info } from "lucide-react";
 import { useSessionScope, currentSession, COVERAGE_MIN } from "@/lib/session-scope";
 import type { ParticipationTag } from "@/lib/session-data";
 import { ValueOnTrack } from "@/components/data/ValueOnTrack";
+import { copy } from "@/lib/copy-deck";
 
 /* ---------- Static (curated) squad averages, keyed to Benchmark ---------- */
 
@@ -152,7 +153,7 @@ export function SummaryCard() {
         <div className="flex items-baseline gap-2 flex-wrap">
           <h2 className="type-section-h">Summary</h2>
           <span
-            className="type-card-eyebrow"
+            className="type-label"
             style={{ color: "var(--color-text-tertiary)" }}
           >
             — Squad load vs {benchmark.label}
@@ -282,7 +283,7 @@ export function SummaryCard() {
                     className="flex h-7 items-center text-[13px]"
                     style={{ color: "var(--color-text-tertiary)" }}
                   >
-                    Not collected this session
+                    {copy("srpe.empty")}
                   </div>
                 ) : srpeState === "filled" ? (
                   <ValueOnTrack
@@ -323,7 +324,7 @@ export function SummaryCard() {
             <div className="flex items-baseline gap-2 flex-wrap">
               <span className="type-col-head">Z4+Z5 high-intensity share</span>
               <span
-                className="type-card-eyebrow"
+                className="type-label"
                 style={{ color: "var(--color-text-tertiary)" }}
               >
                 · {basisWord}
@@ -371,7 +372,7 @@ export function SummaryCard() {
         >
           <div className="mb-2 flex items-baseline justify-between gap-4">
             <span
-              className="type-card-eyebrow"
+              className="type-label"
               style={{ color: "var(--color-text-tertiary)" }}
             >
               vs a typical full match — scale 0–150%, tick = full match
@@ -488,7 +489,7 @@ function CoverageBadge({
             borderColor: "var(--color-border)",
           }}
         >
-          <div className="type-card-eyebrow mb-1">Below {COVERAGE_MIN}% coverage</div>
+          <div className="type-label mb-1">Below {COVERAGE_MIN}% coverage</div>
           <ul className="space-y-1">
             {below.map((a) => (
               <li
@@ -542,7 +543,7 @@ function SrpeBadge({
             borderColor: "var(--color-border)",
           }}
         >
-          <div className="type-card-eyebrow mb-1">Responders — never imputed</div>
+          <div className="type-label mb-1">Responders — never imputed</div>
           <div className="text-[12px]" style={{ color: "var(--color-text-secondary)" }}>
             {responders.join(", ")}
           </div>
@@ -690,7 +691,7 @@ function ParticipationCard({
           <h3 className="type-section-h">Participation</h3>
           {filterActive && (
             <span
-              className="type-card-eyebrow"
+              className="type-label"
               style={{ color: "var(--color-text-tertiary)" }}
             >
               — {total} in scope
@@ -766,7 +767,7 @@ function ParticipationCard({
             backgroundColor: "var(--color-slate-50)",
           }}
         >
-          <div className="type-card-eyebrow mb-1">{popover} — {counts[popover].length}</div>
+          <div className="type-label mb-1">{popover} — {counts[popover].length}</div>
           <div className="flex flex-wrap gap-x-3 gap-y-1 text-[12px]"
             style={{ color: "var(--color-text-secondary)" }}
           >

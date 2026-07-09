@@ -22,7 +22,7 @@ export function SourceSidebar() {
       <div className="flex h-10 items-center justify-between px-2">
         {!collapsed && (
           <span
-            className="type-card-eyebrow px-1.5"
+            className="type-microcaps px-1.5"
             style={{ color: "var(--color-text-tertiary)" }}
           >
             Source
@@ -144,7 +144,7 @@ function CollapsedRail() {
         aria-hidden
       />
       <span
-        className="type-card-eyebrow rotate-180 [writing-mode:vertical-rl]"
+        className="type-microcaps rotate-180 [writing-mode:vertical-rl]"
         style={{ color: "var(--color-text-secondary)" }}
       >
         {currentSession.label}
