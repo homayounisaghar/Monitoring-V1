@@ -82,7 +82,7 @@ export function GapPair({
   return (
     <div className={compact ? "flex items-center gap-2.5" : "space-y-2"}>
       {!compact && basisLabel && (
-        <div className="type-card-eyebrow">basis · {basisLabel}</div>
+        <div className="type-label">basis · {basisLabel}</div>
       )}
       <div className={compact ? `relative ${trackH} flex-1` : `relative ${trackH}`}>
         <div

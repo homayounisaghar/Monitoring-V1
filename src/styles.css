@@ -215,7 +215,7 @@
 
 /* ============================================================
  * TYPE SCALE — five slots. These are the ratified hierarchy.
- * Legacy `type-section-*`, `type-card-eyebrow`, `type-data-label`,
+ * Legacy `type-section-*`, `type-label`, `type-data-label`,
  * `type-col-head`, `type-micro` are kept below for back-compat while
  * sections are re-clothed one prompt at a time.
  * ============================================================ */
@@ -302,7 +302,7 @@
   line-height: 1.4;
   color: var(--color-text-secondary);
 }
-@utility type-card-eyebrow {
+@utility type-label {
   font-size: 10.5px;
   text-transform: uppercase;
   letter-spacing: 0.08em;

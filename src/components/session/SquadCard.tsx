@@ -177,7 +177,7 @@ export function SquadCard() {
         <div className="flex items-baseline gap-2 flex-wrap">
           <h2 className="type-section-h">Squad</h2>
           <span
-            className="type-card-eyebrow"
+            className="type-label"
             style={{ color: "var(--color-text-tertiary)" }}
           >
             — Every athlete on this session · sort, scan, drill
@@ -432,7 +432,7 @@ function TableBody({
           >
             <td className="px-3 py-2">
               <span
-                className="type-card-eyebrow"
+                className="type-label"
                 style={{ color: "var(--color-text-tertiary)" }}
               >
                 Squad avg · {scopeCount}
@@ -486,14 +486,14 @@ function TableBody({
                     </button>
                   )}
                   <span
-                    className="type-card-eyebrow ml-1"
+                    className="type-label ml-1"
                     style={{ color: "var(--color-text-tertiary)" }}
                   >
                     {a.posDetail}
                   </span>
                   {a.participation === null && (
                     <span
-                      className="type-card-eyebrow ml-2"
+                      className="type-label ml-2"
                       style={{ color: "var(--color-text-tertiary)" }}
                     >
                       · did not participate
@@ -552,7 +552,7 @@ function Cell({ a, m, display }: { a: Athlete; m: Metric; display: DisplayMode }
           {display === "percent" ? "—" : formatValue(v, m)}
         </span>
         <span
-          className="type-card-eyebrow italic"
+          className="type-label italic"
           style={{ color: "var(--color-text-tertiary)" }}
         >
           building baseline
@@ -571,7 +571,7 @@ function Cell({ a, m, display }: { a: Athlete; m: Metric; display: DisplayMode }
           {formatValue(v, m)}
         </span>
         <span
-          className="type-card-eyebrow"
+          className="type-label"
           style={{ color: "var(--color-text-tertiary)" }}
         >
           · not compared
@@ -621,7 +621,7 @@ function Cell({ a, m, display }: { a: Athlete; m: Metric; display: DisplayMode }
         </span>
         {lowCov && (
           <span
-            className="type-card-eyebrow ml-1"
+            className="type-label ml-1"
             style={{ color: "var(--color-text-tertiary)" }}
           >
             · {cov}% cov
@@ -639,7 +639,7 @@ function Cell({ a, m, display }: { a: Athlete; m: Metric; display: DisplayMode }
       )}
       {cellIsPercent && scaledTag && (
         <span
-          className="type-card-eyebrow"
+          className="type-label"
           style={{ color: "var(--color-text-tertiary)" }}
         >
           · scaled
@@ -776,7 +776,7 @@ function ChartBody({
           Ranked by {metric.label}
         </span>
         <span
-          className="type-card-eyebrow"
+          className="type-label"
           style={{ color: "var(--color-text-tertiary)" }}
         >
           delta vs own typical for this day-type · shared scale 0–{formatScale(metric, scaleMax)}
@@ -808,7 +808,7 @@ function ChartBody({
           }}
         >
           <div
-            className="type-card-eyebrow mb-1"
+            className="type-label mb-1"
             style={{ color: "var(--color-text-tertiary)" }}
           >
             No data on this metric
@@ -891,7 +891,7 @@ function ChartRow({
           )}
         </div>
         <div
-          className="type-card-eyebrow"
+          className="type-label"
           style={{ color: "var(--color-text-tertiary)" }}
         >
           {a.posDetail} · {a.minutes}'
@@ -920,7 +920,7 @@ function ChartRow({
               )}
             </div>
             <span
-              className="w-[140px] text-right type-card-eyebrow italic"
+              className="w-[140px] text-right type-label italic"
               style={{ color: "var(--color-text-tertiary)" }}
             >
               building baseline
@@ -933,7 +933,7 @@ function ChartRow({
               style={{ backgroundColor: "var(--color-data-band)" }}
             />
             <span
-              className="w-[140px] text-right type-card-eyebrow"
+              className="w-[140px] text-right type-label"
               style={{ color: "var(--color-text-tertiary)" }}
             >
               · not compared
@@ -963,7 +963,7 @@ function ChartRow({
         )}
         {isScaled(a, m) && state === "ok" && (
           <div
-            className="type-card-eyebrow mt-0.5"
+            className="type-label mt-0.5"
             style={{ color: "var(--color-text-tertiary)" }}
           >
             · scaled to {a.minutes}'
@@ -1029,7 +1029,7 @@ function ColumnsPicker({
               Columns
             </div>
             <div
-              className="type-card-eyebrow"
+              className="type-label"
               style={{ color: "var(--color-text-tertiary)" }}
             >
               {selected.size} of max {MAX_COLUMNS} · remove one to add another
@@ -1098,7 +1098,7 @@ function ColumnsPicker({
           style={{ borderColor: "var(--color-border)" }}
         >
           <span
-            className="type-card-eyebrow"
+            className="type-label"
             style={{ color: "var(--color-text-tertiary)" }}
           >
             Need something that isn't here? The full data is in Export.

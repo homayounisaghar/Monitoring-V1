@@ -281,7 +281,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   return (
     <div>
       <div
-        className="type-card-eyebrow mb-1.5"
+        className="type-label mb-1.5"
         style={{ color: "var(--color-text-tertiary)" }}
       >
         {title}
@@ -398,7 +398,7 @@ function AthletePicker({
                 style={{ color: "var(--color-text-primary)" }}
               >
                 <span>{a.name}</span>
-                <span className="type-card-eyebrow" style={{ color: "var(--color-text-tertiary)" }}>
+                <span className="type-microcaps" style={{ color: "var(--color-text-tertiary)" }}>
                   {a.posDetail}
                 </span>
               </button>

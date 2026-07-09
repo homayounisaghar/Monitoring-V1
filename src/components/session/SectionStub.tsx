@@ -42,7 +42,7 @@ export function SectionStub({ kind }: { kind: Kind }) {
           <h2 className="type-section-h">{meta.title}</h2>
           {inlineScope && (
             <span
-              className="type-card-eyebrow"
+              className="type-label"
               style={{ color: "var(--color-text-tertiary)" }}
             >
               — {inlineScope}
@@ -67,7 +67,7 @@ export function SectionStub({ kind }: { kind: Kind }) {
         }}
       >
         <div
-          className="type-card-eyebrow"
+          className="type-label"
           style={{ color: "var(--color-text-tertiary)" }}
         >
           {meta.title} — built next

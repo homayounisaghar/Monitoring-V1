@@ -55,7 +55,7 @@ function Card({
         border: "1px solid var(--color-border)",
       }}
     >
-      {eyebrow ? <div className="type-card-eyebrow mb-3">{eyebrow}</div> : null}
+      {eyebrow ? <div className="type-label mb-3">{eyebrow}</div> : null}
       {children}
     </div>
   );
@@ -270,7 +270,7 @@ function Styleguide() {
             <div className="space-y-1">
               <h2 className="type-section-h">Section header</h2>
               <p className="type-section-desc">One-line descriptor sits under every section header.</p>
-              <div className="type-card-eyebrow">Card eyebrow</div>
+              <div className="type-label">Card eyebrow</div>
               <div className="type-data-label">Data label — 11px, text-secondary</div>
               <div className="type-col-head">Column head</div>
               <div className="type-micro">Micro label</div>
