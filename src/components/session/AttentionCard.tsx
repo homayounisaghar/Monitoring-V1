@@ -18,6 +18,7 @@ import {
   type Tier1Row,
 } from "@/lib/session-flags";
 import { SeverityGlyph } from "@/components/data/SeverityGlyph";
+import { copy } from "@/lib/copy-deck";
 import { ValueOnTrack } from "@/components/data/ValueOnTrack";
 import { GapPair } from "@/components/data/GapPair";
 
