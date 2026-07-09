@@ -50,22 +50,38 @@ function SessionRoute() {
             </div>
           </div>
 
-          {/* Sticky anchor row — subordinate to product tabs */}
-          <div className="sticky top-[96px] z-20">
-            <AnchorRow />
-          </div>
-
           {/* Content column */}
           <main className="mx-auto max-w-[1320px] px-6 py-8">
-            <div className="space-y-10">
+            <section id="attention">
               <AttentionCard />
-              <SummaryCard />
-              <PeriodsCard />
-              <SquadCard />
+            </section>
+
+            {/* Seam — form only: tone step down + hairline crossing the column */}
+            <div
+              className="mt-10"
+              style={{ backgroundColor: "var(--color-canvas-sunken, var(--color-slate-100))" }}
+            >
+              <div
+                aria-hidden
+                className="h-px w-full"
+                style={{ backgroundColor: "var(--color-border)" }}
+              />
+              <div className="space-y-10 pt-10">
+                <section id="summary">
+                  <SummaryCard />
+                </section>
+                <section id="periods">
+                  <PeriodsCard />
+                </section>
+                <section id="squad">
+                  <SquadCard />
+                </section>
+              </div>
             </div>
           </main>
         </div>
       </div>
+
 
       <DemoPill />
     </SessionScopeProvider>
