@@ -957,7 +957,7 @@ function ChartRow({
                 className="w-[140px] text-right type-label italic"
                 style={{ color: "var(--color-text-tertiary)" }}
               >
-                building baseline
+                {copy("canonical.squad.chart.buildingBaseline")}
               </span>
             </div>
           ) : (
@@ -1024,7 +1024,7 @@ function ChartRow({
             scaleMin={0}
             scaleMax={scaleMax}
             referenceBandPct={scaleMax * 0.05}
-            scaleLabel={`his typical: ${formatValue(ref, m)}`}
+            scaleLabel={`${copy("canonical.squad.chart.hisTypicalPrefix")}${formatValue(ref, m)}`}
             unit={m.unit === "%" ? "%" : m.unit}
             showValue={true}
             size="compact"
