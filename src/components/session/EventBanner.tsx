@@ -47,7 +47,7 @@ export function EventBanner() {
           >
             {formatDate(s.dateISO)}
             <Sep />
-            <span className="type-num">{s.durationMin}' total</span>
+            <span className="type-num">{s.durationMin}{copy("canonical.eventBanner.totalSuffix")}</span>
             {s.venue && (
               <>
                 <Sep />
