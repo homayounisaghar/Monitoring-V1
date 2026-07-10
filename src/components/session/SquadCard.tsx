@@ -992,7 +992,7 @@ function ChartRow({
                   className="type-data-label italic"
                   style={{ color: "var(--color-text-tertiary)" }}
                 >
-                  building
+                  {copy("canonical.squad.chart.building")}
                 </span>
               </div>
             </div>
@@ -1087,7 +1087,7 @@ function ColumnsPicker({
         <div className="mb-3 flex items-baseline justify-between">
           <div>
             <div className="text-[15px] font-semibold" style={{ color: "var(--color-text-primary)" }}>
-              Columns
+              {copy("canonical.squad.picker.title")}
             </div>
             <div
               className="type-label"
@@ -1122,7 +1122,7 @@ function ColumnsPicker({
                       : "var(--color-axis-cost)",
                 }}
               />
-              {g.group === "external" ? "External — work" : "Internal — cost"}
+              {g.group === "external" ? copy("canonical.axisGroup.externalWork") : copy("canonical.axisGroup.internalCost")}
             </div>
             <div className="grid grid-cols-2 gap-2">
               {g.ids.map((id) => {
@@ -1157,7 +1157,7 @@ function ColumnsPicker({
                       className="type-num text-[10px]"
                       style={{ color: "var(--color-text-tertiary)" }}
                     >
-                      {on ? "on" : "off"}
+                      {on ? copy("canonical.squad.picker.on") : copy("canonical.squad.picker.off")}
                     </span>
                   </button>
                 );
@@ -1188,7 +1188,7 @@ function ColumnsPicker({
               onClick={onClose}
               className="rounded bg-[color:var(--color-slate-900)] px-3 py-1 text-[12px] font-medium text-white transition-colors hover:bg-[color:var(--color-slate-800)]"
             >
-              Done
+              {copy("canonical.squad.picker.done")}
             </button>
           </div>
         </div>
