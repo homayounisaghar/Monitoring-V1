@@ -27,7 +27,7 @@ export function ReadingLine() {
         onReset={() => setReference(REFERENCE_OPTIONS[0])}
         renderPopover={(close) => (
           <ChipOptions
-            title="Reference · per athlete"
+            title={copy("menu.titleReference")}
             options={REFERENCE_OPTIONS}
             activeKind={reference.kind}
             glossKey={(kind) => `readingLine.gloss.${kind}`}
@@ -48,7 +48,7 @@ export function ReadingLine() {
         onReset={() => setBenchmark(BENCHMARK_OPTIONS[0])}
         renderPopover={(close) => (
           <ChipOptions
-            title="Benchmark · squad"
+            title={copy("menu.titleBenchmark")}
             options={BENCHMARK_OPTIONS}
             activeKind={benchmark.kind}
             glossKey={(kind) => `readingLine.bgloss.${kind}`}
@@ -125,8 +125,8 @@ function EditableChip({
         {changed && (
           <button
             onClick={onReset}
-            aria-label="Reset to default"
-            title="Reset"
+            aria-label={copy("control.reset")}
+            title={copy("control.reset")}
             className="ml-0.5 mr-1 grid h-4 w-4 place-items-center rounded transition-colors hover:bg-[color:var(--color-slate-200)]"
             style={{ color: "var(--color-text-tertiary)" }}
           >
@@ -262,7 +262,7 @@ function HowToReadPopover() {
         style={{ color: "var(--color-text-tertiary)" }}
       >
         <HelpCircle className="h-3 w-3" />
-        <span>How to read this</span>
+        <span>{copy("control.legend")}</span>
       </button>
       {open && (
         <div

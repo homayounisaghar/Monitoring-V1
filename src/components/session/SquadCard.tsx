@@ -426,7 +426,7 @@ function TableBody({
                 className="type-label"
                 style={{ color: "var(--color-text-tertiary)" }}
               >
-                Squad avg · {scopeCount}
+                {copy("squad.avgRow")} · {scopeCount}
               </span>
             </td>
             {columns.map((id) => {
@@ -472,7 +472,7 @@ function TableBody({
                           e.stopPropagation();
                           onScrollToAttention();
                         }}
-                        title="Flagged in Attention — view"
+                        title={copy("flag.hover")}
                         className="inline-flex h-4 w-4 items-center justify-center rounded transition-colors hover:bg-[color:var(--color-slate-200)]"
                         aria-label={`${a.name} flagged in Attention`}
                       >
@@ -493,7 +493,7 @@ function TableBody({
                         className="type-label ml-2"
                         style={{ color: "var(--color-text-tertiary)" }}
                       >
-                        · did not participate
+                        · {copy("squad.dnpRow")}
                       </span>
                     )}
                   </div>
@@ -568,7 +568,7 @@ function Cell({
           className="type-num text-[13px]"
           style={{ color: "var(--color-text-primary)" }}
         >
-          {v}' · building baseline
+          {v}' · {copy("row.baseline")}
         </span>
       );
     }
@@ -812,16 +812,16 @@ function ChartBody({
           style={{ color: "var(--color-text-secondary)" }}
         >
           {display === "percent"
-            ? `Ranked by delta · ${metric.label}`
-            : `Ranked by ${metric.label}`}
+            ? tmpl("chart.captionPercent", { metric: metric.label })
+            : tmpl("chart.captionAbsolute", { metric: metric.label })}
         </span>
         <span
           className="type-label"
           style={{ color: "var(--color-text-tertiary)" }}
         >
           {display === "percent"
-            ? "Each row re-based to its own typical · ticks align at 100%"
-            : `Shared unit axis · 0 — ${formatScale(metric, scaleMax)}`}
+            ? copy("chart.axisPercentNote")
+            : tmpl("chart.axisAbsoluteNote", { max: formatScale(metric, scaleMax) })}
         </span>
       </div>
       <ul>
@@ -854,7 +854,7 @@ function ChartBody({
             className="type-label mb-1"
             style={{ color: "var(--color-text-tertiary)" }}
           >
-            No data on this metric
+            {copy("chart.noData")}
           </div>
           <ul className="flex flex-wrap gap-x-4 gap-y-1">
             {tray.map((a) => (
@@ -864,7 +864,7 @@ function ChartBody({
                 style={{ color: "var(--color-text-secondary)" }}
               >
                 {a.name}
-                {a.participation === null ? " · DNP" : ""}
+                {a.participation === null ? ` · ${copy("squad.dnpChart")}` : ""}
               </li>
             ))}
           </ul>
@@ -927,7 +927,7 @@ function ChartRow({
                 e.stopPropagation();
                 onFlagClick();
               }}
-              title="Flagged in Attention — view"
+              title={copy("flag.hover")}
               className="inline-flex h-4 w-4 items-center justify-center rounded hover:bg-[color:var(--color-slate-200)]"
             >
               <Flag
@@ -1135,7 +1135,7 @@ function ColumnsPicker({
                     disabled={disabled}
                     title={
                       disabled
-                        ? `At the ${MAX_COLUMNS}-column cap — remove one to add another`
+                        ? copy("columns.capReason")
                         : undefined
                     }
                     className={`flex items-center justify-between rounded border px-2 py-1.5 text-left text-[12.5px] transition-colors ${
@@ -1182,7 +1182,7 @@ function ColumnsPicker({
               className="rounded px-2 py-1 text-[12px] transition-colors hover:bg-[color:var(--color-slate-100)]"
               style={{ color: "var(--color-text-secondary)" }}
             >
-              Reset to default
+              {copy("control.reset")}
             </button>
             <button
               onClick={onClose}

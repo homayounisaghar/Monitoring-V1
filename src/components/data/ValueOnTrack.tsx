@@ -1,3 +1,4 @@
+import { copy } from "@/lib/copy-deck";
 /**
  * ValueOnTrack — canonical comparison object (foundation anatomy).
  * Band always rendered. Reference band + tick honor baseline state
@@ -125,7 +126,7 @@ export function ValueOnTrack({
               width: `${bandRightPct - bandLeftPct}%`,
               backgroundColor: "var(--color-reference-band)",
             }}
-            aria-label="reference band — typical variation"
+            aria-label={copy("vot.bandHover")}
           />
         )}
         {!withheld && (
@@ -159,7 +160,7 @@ export function ValueOnTrack({
           <div className="flex min-w-[130px] items-baseline justify-end gap-2">
             <span
               className="inline-flex items-baseline gap-1.5"
-              title={!qualified ? "coverage below read-safe threshold" : undefined}
+              title={!qualified ? copy("trust.hoverGeneric") : undefined}
             >
               {!qualified && (
                 <span
@@ -182,7 +183,7 @@ export function ValueOnTrack({
             {withheld ? (
               <span
                 className="type-data-label italic"
-                title="Baseline still building — no reference yet"
+                title={copy("vot.baselineHover")}
               >
                 baseline building
               </span>
@@ -199,7 +200,7 @@ export function ValueOnTrack({
         ) : withheld ? (
           <span
             className="type-data-label w-[54px] shrink-0 text-right italic"
-            title="Baseline still building — no reference yet"
+            title={copy("vot.baselineHover")}
           >
             building
           </span>

@@ -1,3 +1,4 @@
+import { copy } from "@/lib/copy-deck";
 /**
  * ST2 — Session > Periods card.
  * Within-session distribution: how load was distributed through the match.
@@ -161,7 +162,7 @@ export function PeriodsCard() {
             <span
               className="type-data-label text-right"
               style={{ color: "var(--color-text-tertiary)" }}
-              title="external minus internal, in per-minute-rate points"
+              title={copy("periods.gapHover")}
             >
               GAP E−I · pts
             </span>
@@ -204,7 +205,7 @@ export function PeriodsCard() {
                           backgroundColor: "var(--color-slate-200)",
                           color: "var(--color-text-secondary)",
                         }}
-                        title="highest internal-load rate"
+                        title={copy("periods.peakHover")}
                       >
                         peak
                       </span>

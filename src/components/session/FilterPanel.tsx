@@ -1,3 +1,4 @@
+import { copy } from "@/lib/copy-deck";
 import { useState, useRef, useEffect, useMemo } from "react";
 import { SlidersHorizontal, X, Search } from "lucide-react";
 import {
@@ -260,7 +261,7 @@ function FilterPanel({
               className="text-[12px] transition-colors hover:underline"
               style={{ color: "var(--color-text-secondary)" }}
             >
-              Clear all
+              {copy("control.clearAll")}
             </button>
           )}
           <button

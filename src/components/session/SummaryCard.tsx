@@ -551,7 +551,7 @@ function SrpeBadge({
             borderColor: "var(--color-border)",
           }}
         >
-          <div className="type-label mb-1">Responders — never imputed</div>
+          <div className="type-label mb-1">{copy("srpe.respondersHover")}</div>
           <div className="text-[12px]" style={{ color: "var(--color-text-secondary)" }}>
             {responders.join(", ")}
           </div>
@@ -805,7 +805,7 @@ function ParticipationCard({
             <span
               className="type-num text-[11px] cursor-default"
               style={{ color: "var(--color-text-tertiary)" }}
-              aria-label="Categories with zero athletes"
+              aria-label={copy("participation.zerosHover")}
             >
               ·
             </span>

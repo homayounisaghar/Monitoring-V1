@@ -160,13 +160,7 @@ function Headline({
             className="text-[18px] font-semibold tracking-tight"
             style={{ color: "var(--color-text-primary)" }}
           >
-            Nothing needs attention
-          </span>
-          <span
-            className="text-[12.5px]"
-            style={{ color: "var(--color-text-secondary)" }}
-          >
-            · {tmpl("attention.headline.metaTemplate", { clear: clearCount, total: totalSquad })}
+            {tmpl("attention.allClear", { n: clearCount, total: totalSquad })}
           </span>
         </div>
       </div>
@@ -208,7 +202,7 @@ function Headline({
           }}
           className="inline-flex h-5 w-5 items-center justify-center rounded-full transition-colors hover:bg-[color:var(--color-slate-100)]"
           style={{ color: "var(--color-text-tertiary)" }}
-          aria-label="How to read this"
+          aria-label={copy("control.legend")}
         >
           <Info className="h-3.5 w-3.5" />
         </button>
