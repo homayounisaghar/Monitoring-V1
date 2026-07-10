@@ -1,3 +1,4 @@
+import { copy } from "@/lib/copy-deck";
 /**
  * TrustMark — trust grammar.
  *
