@@ -1,3 +1,4 @@
+import { copy } from "@/lib/copy-deck";
 /**
  * SeverityGlyph — two named tiers, always glyph + word.
  * Exists only inside the Attention card.
