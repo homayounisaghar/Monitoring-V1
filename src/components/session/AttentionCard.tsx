@@ -351,7 +351,7 @@ function Tier1RowUI({ row }: { row: Tier1Row }) {
                 className="type-data-label"
                 style={{ color: "var(--color-text-tertiary)" }}
               >
-                pts
+                {copy("canonical.attention.pts")}
               </span>
             </span>
           )}
@@ -449,14 +449,14 @@ function AccountingLine({
       parts.push(
         <span
           key={`n-${a.name}`}
-          title={`${a.cov}% HR coverage`}
+          title={`${a.cov}${copy("canonical.attention.hrCoverageSuffix")}`}
           className="cursor-help"
           style={{ color: "var(--color-text-secondary)" }}
         >
           {a.name}{" "}
           <span className="type-num" style={{ color: "var(--color-text-tertiary)" }}>
             {a.cov}
-            {i === lowCov.length - 1 ? "% HR cov" : ""}
+            {i === lowCov.length - 1 ? copy("canonical.attention.hrCovSuffix") : ""}
           </span>
         </span>,
       );
@@ -578,7 +578,7 @@ function CovThinBody({
           />
           <span style={{ color: "var(--color-text-primary)" }}>{a.name}</span>
           <span className="type-num" style={{ color: "var(--color-text-tertiary)" }}>
-            {a.cov}% HR cov
+            {a.cov}{copy("canonical.attention.hrCovSuffix")}
           </span>
         </li>
       ))}
