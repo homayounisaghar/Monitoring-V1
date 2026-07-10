@@ -227,11 +227,15 @@ export function SummaryCard() {
 
           {/* Internal — Cost */}
           <div className="p-5">
-            <div className="space-y-5">
+            <div className="grid grid-cols-1 gap-x-5 gap-y-4">
               {/* Cardio Load */}
-              <div className="space-y-1.5">
-                <div className="flex items-baseline justify-between">
-                  <span className="type-data-label">{copy("canonical.summary.metric.cardioLoad")}</span>
+              <CostMark
+                label={copy("canonical.summary.metric.cardioLoad")}
+                value={marks.cardioLoadCL}
+                reference={refs.refCardioLoadCL}
+                unit="CL"
+                qualified={clQualified}
+                badge={
                   <CoverageBadge
                     covered={coveredCount}
                     total={effectiveParticipants.length}
@@ -240,46 +244,43 @@ export function SummaryCard() {
                       cov: a.hrCoveragePct ?? 0,
                     }))}
                   />
-                </div>
-                <CostMark
-                  value={marks.cardioLoadCL}
-                  reference={refs.refCardioLoadCL}
-                  unit="CL"
-                  qualified={clQualified}
-                />
-              </div>
+                }
+              />
 
               {/* sRPE */}
-              <div className="space-y-1.5">
-                <div className="flex items-baseline justify-between">
-                  <span className="type-data-label">{copy("canonical.summary.metric.srpe")}</span>
-                  {srpeState === "partial" && (
-                    <SrpeBadge
-                      submitted={submitters.length}
-                      total={effectiveParticipants.length}
-                      responders={submitters.map((a) => a.name)}
-                    />
-                  )}
-                </div>
-                {srpeState === "none" ? (
-                  <div
-                    className="flex h-7 items-center text-[13px]"
-                    style={{ color: "var(--color-text-tertiary)" }}
-                  >
-                    {copy("srpe.empty")}
+              {srpeState === "none" ? (
+                <div className="space-y-1">
+                  <div className="flex items-baseline justify-between">
+                    <span className="type-data-label">{copy("canonical.summary.metric.srpe")}</span>
+                    <span
+                      className="type-num text-[13px]"
+                      style={{ color: "var(--color-text-tertiary)" }}
+                    >
+                      {copy("srpe.empty")}
+                    </span>
                   </div>
-                ) : (
-                  <CostMark
-                    value={
-                      srpeState === "filled"
-                        ? marks.srpeMean
-                        : Number((marks.srpeMean * 0.97).toFixed(1))
-                    }
-                    reference={refs.refSrpeMean}
-                    unit="/10"
-                  />
-                )}
-              </div>
+                </div>
+              ) : (
+                <CostMark
+                  label={copy("canonical.summary.metric.srpe")}
+                  value={
+                    srpeState === "filled"
+                      ? marks.srpeMean
+                      : Number((marks.srpeMean * 0.97).toFixed(1))
+                  }
+                  reference={refs.refSrpeMean}
+                  unit="/10"
+                  badge={
+                    srpeState === "partial" ? (
+                      <SrpeBadge
+                        submitted={submitters.length}
+                        total={effectiveParticipants.length}
+                        responders={submitters.map((a) => a.name)}
+                      />
+                    ) : null
+                  }
+                />
+              )}
             </div>
           </div>
         </div>
@@ -418,19 +419,27 @@ function WorkMark({
 }
 
 function CostMark({
+  label,
   value,
   reference,
   unit,
   qualified = true,
+  badge,
 }: {
+  label: string;
   value: number;
   reference: number;
   unit: string;
   qualified?: boolean;
+  badge?: React.ReactNode;
 }) {
   return (
     <div className="space-y-1">
-      <div className="flex items-baseline justify-end">
+      <div className="flex items-baseline justify-between gap-2">
+        <span className="type-data-label inline-flex items-baseline gap-2">
+          {label}
+          {badge}
+        </span>
         <span
           className="type-num text-[25px] font-semibold leading-none"
           style={{ color: "var(--color-text-primary)" }}
