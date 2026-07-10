@@ -38,7 +38,7 @@ import {
   type Metric,
   type MetricId,
 } from "@/lib/squad-metrics";
-import { flaggedIds } from "@/lib/session-flags";
+import { BUILDING_ID, flaggedIds } from "@/lib/session-flags";
 import { ValueOnTrack } from "@/components/data/ValueOnTrack";
 
 /* ============================================================ */
