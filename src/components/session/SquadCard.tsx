@@ -426,7 +426,7 @@ function TableBody({
                 className="type-label"
                 style={{ color: "var(--color-text-tertiary)" }}
               >
-                Squad avg · {scopeCount}
+                {copy("squad.avgRow")} · {scopeCount}
               </span>
             </td>
             {columns.map((id) => {
