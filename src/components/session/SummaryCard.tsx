@@ -735,14 +735,6 @@ function ParticipationCard({
       <div className="mb-3 flex items-baseline justify-between">
         <div className="flex items-baseline gap-3">
           <h3 className="type-section-h">Participation</h3>
-          {filterActive && (
-            <span
-              className="type-label"
-              style={{ color: "var(--color-text-tertiary)" }}
-            >
-              — {total} in scope
-            </span>
-          )}
         </div>
         <div
           className="type-num text-[18px] font-semibold"
