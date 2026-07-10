@@ -27,7 +27,7 @@ export function SeverityGlyph({
         <svg width={dim} height={dim} viewBox="0 0 10 10" aria-hidden>
           <polygon points="5,1 9.5,9 0.5,9" fill="currentColor" />
         </svg>
-        escalate
+        {copy("canonical.severity.escalate")}
       </span>
     );
   }
