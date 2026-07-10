@@ -154,12 +154,12 @@ export function SummaryCard() {
     <section id="summary" className="scroll-mt-28">
       <header className="mb-3 flex items-baseline justify-between gap-4">
         <div className="flex items-baseline gap-2 flex-wrap">
-          <h2 className="type-section-h">Summary</h2>
+          <h2 className="type-section-h">{copy("canonical.section.summary")}</h2>
           <span
             className="type-label"
             style={{ color: "var(--color-text-tertiary)" }}
           >
-            — Squad load vs {benchmark.label}
+            {copy("canonical.summary.subtitlePrefix")}{benchmark.label}
           </span>
         </div>
         <ScopeTag />
@@ -183,11 +183,11 @@ export function SummaryCard() {
             style={{ borderColor: "var(--color-border)" }}
           >
             <AxisDot axis="work" />
-            <span className="type-col-head">External — work</span>
+            <span className="type-col-head">{copy("canonical.axisGroup.externalWork")}</span>
           </div>
           <div className="px-5 py-3 flex items-center gap-2">
             <AxisDot axis="cost" />
-            <span className="type-col-head">Internal — cost</span>
+            <span className="type-col-head">{copy("canonical.axisGroup.internalCost")}</span>
           </div>
         </div>
 
@@ -199,25 +199,25 @@ export function SummaryCard() {
           >
             <div className="grid grid-cols-2 gap-x-5 gap-y-4">
               <WorkMark
-                label="Total distance"
+                label={copy("canonical.summary.metric.totalDistance")}
                 value={marks.totalDistanceM}
                 reference={refs.refTotalDistanceM}
                 unit="m"
               />
               <WorkMark
-                label="Relative distance"
+                label={copy("canonical.summary.metric.relativeDistance")}
                 value={marks.relDistanceMpm}
                 reference={refs.refRelDistanceMpm}
                 unit="m/min"
               />
               <WorkMark
-                label="HSR"
+                label={copy("canonical.summary.metric.hsr")}
                 value={marks.hsrM}
                 reference={refs.refHsrM}
                 unit="m"
               />
               <WorkMark
-                label="Acc–Dec"
+                label={copy("canonical.summary.metric.accDec")}
                 value={marks.accDec}
                 reference={refs.refAccDec}
                 unit="ct"
@@ -231,7 +231,7 @@ export function SummaryCard() {
               {/* Cardio Load */}
               <div className="space-y-1.5">
                 <div className="flex items-baseline justify-between">
-                  <span className="type-data-label">Cardio Load</span>
+                  <span className="type-data-label">{copy("canonical.summary.metric.cardioLoad")}</span>
                   <CoverageBadge
                     covered={coveredCount}
                     total={effectiveParticipants.length}
@@ -252,7 +252,7 @@ export function SummaryCard() {
               {/* sRPE */}
               <div className="space-y-1.5">
                 <div className="flex items-baseline justify-between">
-                  <span className="type-data-label">sRPE</span>
+                  <span className="type-data-label">{copy("canonical.summary.metric.srpe")}</span>
                   {srpeState === "partial" && (
                     <SrpeBadge
                       submitted={submitters.length}
@@ -291,21 +291,21 @@ export function SummaryCard() {
         >
           <div className="mb-2 flex items-baseline justify-between gap-4">
             <div className="flex items-baseline gap-2 flex-wrap">
-              <span className="type-col-head">Z4+Z5 high-intensity share</span>
+              <span className="type-col-head">{copy("canonical.summary.zones.head")}</span>
               <span
                 className="type-num text-[15px] font-semibold"
                 style={{ color: "var(--color-text-primary)" }}
               >
                 — {zoneShares.hi}%
               </span>
-              <RefParen>typical {zoneShares.typ}%</RefParen>
+              <RefParen>{copy("canonical.summary.zones.typicalPrefix")}{zoneShares.typ}%</RefParen>
             </div>
             <SegmentedToggle
               value={zoneBasis}
               onChange={setZoneBasis}
               options={[
-                { id: "distance", label: "Distance" },
-                { id: "duration", label: "Duration" },
+                { id: "distance", label: copy("canonical.summary.zones.basis.distance") },
+                { id: "duration", label: copy("canonical.summary.zones.basis.duration") },
               ]}
             />
           </div>
@@ -336,8 +336,8 @@ export function SummaryCard() {
               {copy("summary.vsFullMatch.label")}
             </span>
             <div className="flex items-baseline gap-4">
-              <CollapsedFullRead label="Volume" pct={SESSION_VS_FULL.volumePct} />
-              <CollapsedFullRead label="Intensity" pct={SESSION_VS_FULL.intensityPct} />
+              <CollapsedFullRead label={copy("canonical.summary.vsFullMatch.volume")} pct={SESSION_VS_FULL.volumePct} />
+              <CollapsedFullRead label={copy("canonical.summary.vsFullMatch.intensity")} pct={SESSION_VS_FULL.intensityPct} />
             </div>
           </div>
         ) : (
@@ -357,8 +357,8 @@ export function SummaryCard() {
               </span>
             </div>
             <div className="grid grid-cols-2 gap-6">
-              <FullMatchRead label="Volume" pct={SESSION_VS_FULL.volumePct} />
-              <FullMatchRead label="Intensity" pct={SESSION_VS_FULL.intensityPct} />
+              <FullMatchRead label={copy("canonical.summary.vsFullMatch.volume")} pct={SESSION_VS_FULL.volumePct} />
+              <FullMatchRead label={copy("canonical.summary.vsFullMatch.intensity")} pct={SESSION_VS_FULL.intensityPct} />
             </div>
           </div>
         )}
@@ -497,7 +497,7 @@ function CoverageBadge({
             borderColor: "var(--color-border)",
           }}
         >
-          <div className="type-label mb-1">Below {COVERAGE_MIN}% coverage</div>
+          <div className="type-label mb-1">{tmpl("canonical.summary.coverageBelowTemplate", { pct: COVERAGE_MIN })}</div>
           <ul className="space-y-1">
             {below.map((a) => (
               <li
@@ -656,7 +656,7 @@ function FullMatchRead({ label, pct }: { label: string; pct: number }) {
         scaleMin={0}
         scaleMax={150}
         referenceBandPct={5}
-        scaleLabel="full match"
+        scaleLabel={copy("canonical.summary.vsFullMatch.fullMatchScale")}
         size="compact"
         showValue={false}
       />
@@ -665,9 +665,9 @@ function FullMatchRead({ label, pct }: { label: string; pct: number }) {
         className="flex justify-between type-num text-[10px]"
         style={{ color: "var(--color-text-tertiary)" }}
       >
-        <span>0</span>
-        <span>100</span>
-        <span>150</span>
+        <span>{copy("canonical.summary.vsFullMatch.tick0")}</span>
+        <span>{copy("canonical.summary.vsFullMatch.tick100")}</span>
+        <span>{copy("canonical.summary.vsFullMatch.tick150")}</span>
       </div>
     </div>
   );
@@ -734,13 +734,13 @@ function ParticipationCard({
     >
       <div className="mb-3 flex items-baseline justify-between">
         <div className="flex items-baseline gap-3">
-          <h3 className="type-section-h">Participation</h3>
+          <h3 className="type-section-h">{copy("canonical.section.participation")}</h3>
         </div>
         <div
           className="type-num text-[18px] font-semibold"
           style={{ color: "var(--color-text-primary)" }}
         >
-          {fullPct}% <span className="type-data-label ml-0.5">full</span>
+          {fullPct}% <span className="type-data-label ml-0.5">{copy("canonical.summary.fullSuffix")}</span>
         </div>
       </div>
 
@@ -818,7 +818,7 @@ function ParticipationCard({
                 zIndex: 40,
               }}
             >
-              none: {absent.map((x) => x.tag).join(" · ")}
+              {copy("canonical.summary.zonesNonePrefix")}{absent.map((x) => x.tag).join(" · ")}
             </span>
           </span>
         )}
