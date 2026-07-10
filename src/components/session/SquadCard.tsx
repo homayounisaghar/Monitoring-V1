@@ -172,7 +172,7 @@ export function SquadCard() {
     <section id="squad" className="scroll-mt-28">
       <header className="mb-3 flex items-baseline justify-between gap-4">
         <div className="flex items-baseline gap-2 flex-wrap">
-          <h2 className="type-section-h">Squad</h2>
+          <h2 className="type-section-h">{copy("canonical.section.squad")}</h2>
           <span
             className="type-label"
             style={{ color: "var(--color-text-tertiary)" }}
@@ -195,8 +195,8 @@ export function SquadCard() {
           value={view}
           onChange={(v) => setView(v)}
           options={[
-            { id: "table", label: "Table" },
-            { id: "chart", label: "Chart" },
+            { id: "table", label: copy("canonical.squad.toolbar.table") },
+            { id: "chart", label: copy("canonical.squad.toolbar.chart") },
           ]}
         />
         <div className="flex items-center gap-2">
@@ -225,8 +225,8 @@ export function SquadCard() {
             value={display}
             onChange={(v) => setDisplay(v)}
             options={[
-              { id: "absolute", label: "Absolute" },
-              { id: "percent", label: "%" },
+              { id: "absolute", label: copy("canonical.squad.toolbar.absolute") },
+              { id: "percent", label: copy("canonical.squad.toolbar.percent") },
             ]}
           />
           {view === "table" && (
@@ -238,7 +238,7 @@ export function SquadCard() {
                 color: "var(--color-text-secondary)",
               }}
             >
-              Columns
+              {copy("canonical.squad.toolbar.columns")}
             </button>
           )}
         </div>
@@ -342,7 +342,7 @@ function TableBody({
             }}
           >
             <th className="px-3 py-2 text-left type-col-head" style={{ minWidth: 200 }}>
-              Athlete
+              {copy("canonical.squad.tableHead.athlete")}
             </th>
             {columns.map((id) => {
               const m = METRICS[id];
@@ -361,7 +361,7 @@ function TableBody({
                   <button
                     className="ml-auto inline-flex items-center gap-1.5"
                     onClick={() => onSort(id)}
-                    title={`Sort by ${m.label}`}
+                    title={`${copy("canonical.squad.sortByPrefix")}${m.label}`}
                   >
                     <span
                       className="h-1.5 w-1.5 rounded-full"
@@ -941,7 +941,7 @@ function ChartRow({
           className="type-label"
           style={{ color: "var(--color-text-tertiary)" }}
         >
-          {a.posDetail} · {a.minutes}'{rowScaled ? " · scaled" : ""}
+          {a.posDetail} · {a.minutes}'{rowScaled ? copy("canonical.squad.chart.scaledSuffix") : ""}
         </div>
       </div>
       <div className="min-w-0 flex-1">
