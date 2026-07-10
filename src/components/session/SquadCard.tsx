@@ -957,7 +957,7 @@ function ChartRow({
                 className="w-[140px] text-right type-label italic"
                 style={{ color: "var(--color-text-tertiary)" }}
               >
-                {copy("canonical.squad.chart.buildingBaseline")}
+                {copy("row.baseline")}
               </span>
             </div>
           ) : (
