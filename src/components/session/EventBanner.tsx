@@ -1,6 +1,7 @@
 import { Pencil, Share2 } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { currentSession } from "@/lib/session-data";
+import { copy } from "@/lib/copy-deck";
 
 export function EventBanner() {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -38,7 +39,7 @@ export function EventBanner() {
               color: "var(--color-slate-300)",
             }}
           >
-            {s.kind === "match" ? "Match" : "Training"}
+            {s.kind === "match" ? copy("canonical.eventBanner.match") : copy("canonical.eventBanner.training")}
           </span>
           <span
             className="whitespace-nowrap text-[12.5px]"
@@ -46,7 +47,7 @@ export function EventBanner() {
           >
             {formatDate(s.dateISO)}
             <Sep />
-            <span className="type-num">{s.durationMin}' total</span>
+            <span className="type-num">{s.durationMin}{copy("canonical.eventBanner.totalSuffix")}</span>
             {s.venue && (
               <>
                 <Sep />
@@ -66,11 +67,11 @@ export function EventBanner() {
 
         {/* Right — icon-only actions */}
         <div className="flex items-center gap-1" ref={menuRef}>
-          <IconBtn label="Edit session">
+          <IconBtn label={copy("canonical.eventBanner.editSession")}>
             <Pencil className="h-3.5 w-3.5" />
           </IconBtn>
           <div className="relative">
-            <IconBtn label="Share / export" onClick={() => setMenuOpen((o) => !o)}>
+            <IconBtn label={copy("canonical.eventBanner.shareExport")} onClick={() => setMenuOpen((o) => !o)}>
               <Share2 className="h-3.5 w-3.5" />
             </IconBtn>
             {menuOpen && (
@@ -82,7 +83,7 @@ export function EventBanner() {
                   color: "var(--color-text-primary)",
                 }}
               >
-                {["Export CSV", "Export PDF", "Copy link"].map((label) => (
+                {[copy("canonical.eventBanner.exportCsv"), copy("canonical.eventBanner.exportPdf"), copy("canonical.eventBanner.copyLink")].map((label) => (
                   <button
                     key={label}
                     className="block w-full px-3 py-2 text-left text-[12.5px] transition-colors hover:bg-[color:var(--color-slate-100)]"

@@ -1,3 +1,4 @@
+import { copy } from "@/lib/copy-deck";
 /**
  * TrustMark — trust grammar.
  *
@@ -21,7 +22,7 @@ export function TrustMark({
   value,
   unit,
   coverage,
-  coverageOf = "coverage",
+  coverageOf = copy("canonical.trust.coverage"),
 }: TrustMarkProps) {
   const dot = { sm: "h-1.5 w-1.5", md: "h-2 w-2", lg: "h-2.5 w-2.5" }[size];
   const num = { sm: "text-xs", md: "text-sm", lg: "text-base" }[size];

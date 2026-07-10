@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
+import { copy } from "@/lib/copy-deck";
 
 const ANCHORS = [
-  { id: "attention", label: "Attention" },
-  { id: "summary",   label: "Summary" },
-  { id: "periods",   label: "Periods" },
-  { id: "squad",     label: "Squad" },
+  { id: "attention", label: copy("canonical.anchor.attention") },
+  { id: "summary",   label: copy("canonical.anchor.summary") },
+  { id: "periods",   label: copy("canonical.anchor.periods") },
+  { id: "squad",     label: copy("canonical.anchor.squad") },
 ] as const;
 
 export function AnchorRow() {

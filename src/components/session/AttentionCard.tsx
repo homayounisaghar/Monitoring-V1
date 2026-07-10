@@ -66,7 +66,7 @@ export function AttentionCard() {
   return (
     <section id="attention" className="scroll-mt-28">
       <header className="mb-3">
-        <h2 className="type-section-h">Attention</h2>
+        <h2 className="type-section-h">{copy("canonical.section.attention")}</h2>
       </header>
 
       <div
@@ -254,7 +254,7 @@ function Tier1RowUI({ row }: { row: Tier1Row }) {
               <svg width={10} height={10} viewBox="0 0 10 10" aria-hidden>
                 <polygon points="5,1 9.5,9 0.5,9" fill="currentColor" />
               </svg>
-              escalate
+              {copy("canonical.severity.escalate")}
             </span>
           ) : (
             <span
@@ -267,7 +267,7 @@ function Tier1RowUI({ row }: { row: Tier1Row }) {
                   fill="var(--color-notice-ink)"
                 />
               </svg>
-              notice
+              {copy("canonical.severity.notice")}
             </span>
           )}
         </div>
@@ -351,7 +351,7 @@ function Tier1RowUI({ row }: { row: Tier1Row }) {
                 className="type-data-label"
                 style={{ color: "var(--color-text-tertiary)" }}
               >
-                pts
+                {copy("canonical.attention.pts")}
               </span>
             </span>
           )}
@@ -449,14 +449,14 @@ function AccountingLine({
       parts.push(
         <span
           key={`n-${a.name}`}
-          title={`${a.cov}% HR coverage`}
+          title={`${a.cov}${copy("canonical.attention.hrCoverageSuffix")}`}
           className="cursor-help"
           style={{ color: "var(--color-text-secondary)" }}
         >
           {a.name}{" "}
           <span className="type-num" style={{ color: "var(--color-text-tertiary)" }}>
             {a.cov}
-            {i === lowCov.length - 1 ? "% HR cov" : ""}
+            {i === lowCov.length - 1 ? copy("canonical.attention.hrCovSuffix") : ""}
           </span>
         </span>,
       );
@@ -578,7 +578,7 @@ function CovThinBody({
           />
           <span style={{ color: "var(--color-text-primary)" }}>{a.name}</span>
           <span className="type-num" style={{ color: "var(--color-text-tertiary)" }}>
-            {a.cov}% HR cov
+            {a.cov}{copy("canonical.attention.hrCovSuffix")}
           </span>
         </li>
       ))}

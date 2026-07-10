@@ -172,7 +172,7 @@ export function SquadCard() {
     <section id="squad" className="scroll-mt-28">
       <header className="mb-3 flex items-baseline justify-between gap-4">
         <div className="flex items-baseline gap-2 flex-wrap">
-          <h2 className="type-section-h">Squad</h2>
+          <h2 className="type-section-h">{copy("canonical.section.squad")}</h2>
           <span
             className="type-label"
             style={{ color: "var(--color-text-tertiary)" }}
@@ -195,8 +195,8 @@ export function SquadCard() {
           value={view}
           onChange={(v) => setView(v)}
           options={[
-            { id: "table", label: "Table" },
-            { id: "chart", label: "Chart" },
+            { id: "table", label: copy("canonical.squad.toolbar.table") },
+            { id: "chart", label: copy("canonical.squad.toolbar.chart") },
           ]}
         />
         <div className="flex items-center gap-2">
@@ -225,8 +225,8 @@ export function SquadCard() {
             value={display}
             onChange={(v) => setDisplay(v)}
             options={[
-              { id: "absolute", label: "Absolute" },
-              { id: "percent", label: "%" },
+              { id: "absolute", label: copy("canonical.squad.toolbar.absolute") },
+              { id: "percent", label: copy("canonical.squad.toolbar.percent") },
             ]}
           />
           {view === "table" && (
@@ -238,7 +238,7 @@ export function SquadCard() {
                 color: "var(--color-text-secondary)",
               }}
             >
-              Columns
+              {copy("canonical.squad.toolbar.columns")}
             </button>
           )}
         </div>
@@ -342,7 +342,7 @@ function TableBody({
             }}
           >
             <th className="px-3 py-2 text-left type-col-head" style={{ minWidth: 200 }}>
-              Athlete
+              {copy("canonical.squad.tableHead.athlete")}
             </th>
             {columns.map((id) => {
               const m = METRICS[id];
@@ -361,7 +361,7 @@ function TableBody({
                   <button
                     className="ml-auto inline-flex items-center gap-1.5"
                     onClick={() => onSort(id)}
-                    title={`Sort by ${m.label}`}
+                    title={`${copy("canonical.squad.sortByPrefix")}${m.label}`}
                   >
                     <span
                       className="h-1.5 w-1.5 rounded-full"
@@ -474,7 +474,7 @@ function TableBody({
                         }}
                         title={copy("flag.hover")}
                         className="inline-flex h-4 w-4 items-center justify-center rounded transition-colors hover:bg-[color:var(--color-slate-200)]"
-                        aria-label={`${a.name} flagged in Attention`}
+                        aria-label={`${a.name} ${copy("canonical.attention.flaggedInAttentionSuffix")}`}
                       >
                         <Flag
                           className="h-3 w-3"
@@ -941,7 +941,7 @@ function ChartRow({
           className="type-label"
           style={{ color: "var(--color-text-tertiary)" }}
         >
-          {a.posDetail} · {a.minutes}'{rowScaled ? " · scaled" : ""}
+          {a.posDetail} · {a.minutes}'{rowScaled ? copy("canonical.squad.chart.scaledSuffix") : ""}
         </div>
       </div>
       <div className="min-w-0 flex-1">
@@ -957,7 +957,7 @@ function ChartRow({
                 className="w-[140px] text-right type-label italic"
                 style={{ color: "var(--color-text-tertiary)" }}
               >
-                building baseline
+                {copy("canonical.squad.chart.buildingBaseline")}
               </span>
             </div>
           ) : (
@@ -992,7 +992,7 @@ function ChartRow({
                   className="type-data-label italic"
                   style={{ color: "var(--color-text-tertiary)" }}
                 >
-                  building
+                  {copy("canonical.squad.chart.building")}
                 </span>
               </div>
             </div>
@@ -1024,7 +1024,7 @@ function ChartRow({
             scaleMin={0}
             scaleMax={scaleMax}
             referenceBandPct={scaleMax * 0.05}
-            scaleLabel={`his typical: ${formatValue(ref, m)}`}
+            scaleLabel={`${copy("canonical.squad.chart.hisTypicalPrefix")}${formatValue(ref, m)}`}
             unit={m.unit === "%" ? "%" : m.unit}
             showValue={true}
             size="compact"
@@ -1087,7 +1087,7 @@ function ColumnsPicker({
         <div className="mb-3 flex items-baseline justify-between">
           <div>
             <div className="text-[15px] font-semibold" style={{ color: "var(--color-text-primary)" }}>
-              Columns
+              {copy("canonical.squad.picker.title")}
             </div>
             <div
               className="type-label"
@@ -1122,7 +1122,7 @@ function ColumnsPicker({
                       : "var(--color-axis-cost)",
                 }}
               />
-              {g.group === "external" ? "External — work" : "Internal — cost"}
+              {g.group === "external" ? copy("canonical.axisGroup.externalWork") : copy("canonical.axisGroup.internalCost")}
             </div>
             <div className="grid grid-cols-2 gap-2">
               {g.ids.map((id) => {
@@ -1157,7 +1157,7 @@ function ColumnsPicker({
                       className="type-num text-[10px]"
                       style={{ color: "var(--color-text-tertiary)" }}
                     >
-                      {on ? "on" : "off"}
+                      {on ? copy("canonical.squad.picker.on") : copy("canonical.squad.picker.off")}
                     </span>
                   </button>
                 );
@@ -1188,7 +1188,7 @@ function ColumnsPicker({
               onClick={onClose}
               className="rounded bg-[color:var(--color-slate-900)] px-3 py-1 text-[12px] font-medium text-white transition-colors hover:bg-[color:var(--color-slate-800)]"
             >
-              Done
+              {copy("canonical.squad.picker.done")}
             </button>
           </div>
         </div>

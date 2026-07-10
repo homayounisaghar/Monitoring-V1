@@ -1,3 +1,4 @@
+import { copy } from "@/lib/copy-deck";
 /**
  * SeverityGlyph — two named tiers, always glyph + word.
  * Exists only inside the Attention card.
@@ -26,7 +27,7 @@ export function SeverityGlyph({
         <svg width={dim} height={dim} viewBox="0 0 10 10" aria-hidden>
           <polygon points="5,1 9.5,9 0.5,9" fill="currentColor" />
         </svg>
-        escalate
+        {copy("canonical.severity.escalate")}
       </span>
     );
   }
@@ -41,7 +42,7 @@ export function SeverityGlyph({
       <svg width={dim} height={dim} viewBox="0 0 10 10" aria-hidden>
         <polygon points="5,1 9,5 5,9 1,5" fill="currentColor" />
       </svg>
-      notice
+      {copy("canonical.severity.notice")}
     </span>
   );
 }

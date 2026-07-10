@@ -133,14 +133,14 @@ export function ValueOnTrack({
           <div
             className={`absolute top-1/2 ${tickH} w-[2px] -translate-x-1/2 -translate-y-1/2 rounded-sm`}
             style={{ left: `${refPct}%`, backgroundColor: "var(--color-data-reference)" }}
-            aria-label="reference"
+            aria-label={copy("canonical.vot.reference")}
             title={scaleLabel}
           />
         )}
         <div
           className={`absolute top-1/2 ${dotDim} -translate-x-1/2 -translate-y-1/2 rounded-full ring-2 ring-white`}
           style={{ left: `${posPct}%`, backgroundColor: color }}
-          aria-label="value"
+          aria-label={copy("canonical.vot.value")}
         />
         {clamped && !withheld && (
           <div
@@ -185,7 +185,7 @@ export function ValueOnTrack({
                 className="type-data-label italic"
                 title={copy("vot.baselineHover")}
               >
-                baseline building
+                {copy("canonical.vot.baselineBuilding")}
               </span>
             ) : (
               <span
@@ -202,7 +202,7 @@ export function ValueOnTrack({
             className="type-data-label w-[54px] shrink-0 text-right italic"
             title={copy("vot.baselineHover")}
           >
-            building
+            {copy("canonical.vot.building")}
           </span>
         ) : (
           <span

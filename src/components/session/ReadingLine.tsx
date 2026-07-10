@@ -19,7 +19,7 @@ export function ReadingLine() {
 
   return (
     <div className="flex min-w-0 items-center gap-1.5 text-[13px]" style={{ color: "var(--color-text-secondary)" }}>
-      <span>each athlete vs</span>
+      <span>{copy("canonical.readingLine.athletePrefix")}</span>
 
       <EditableChip
         value={reference.label}
@@ -39,8 +39,8 @@ export function ReadingLine() {
         )}
       />
 
-      <span>·</span>
-      <span>squad vs</span>
+      <span>{copy("canonical.readingLine.separator")}</span>
+      <span>{copy("canonical.readingLine.squadPrefix")}</span>
 
       <EditableChip
         value={benchmark.label}
@@ -202,7 +202,7 @@ function ChipOptions<T extends ReferenceKind | BenchmarkKind>({
                         className="type-label"
                         style={{ color: "var(--color-text-tertiary)" }}
                       >
-                        default
+                        {copy("canonical.readingLine.default")}
                       </span>
                     )}
                     {active && (
