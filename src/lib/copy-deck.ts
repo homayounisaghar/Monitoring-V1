@@ -50,6 +50,33 @@ export const COPY = {
   "legend.trustDot": "trust dot — coverage under 80%",
   "legend.flagGlyph": "flag glyph — flagged in Attention",
 
+  // ---------- Register-class hovers / labels (v2 + v3) ----------
+  "flag.hover": "Flagged in Attention — view",
+  "trust.hoverGeneric": "coverage under 80%",
+  "columns.capReason": "At the 12-column cap — remove one to add another",
+  "chart.captionAbsolute": "Ranked by {metric}",
+  "chart.captionPercent": "Ranked by delta · {metric}",
+  "chart.noData": "No data on this metric",
+  "row.baseline": "building baseline",
+  "menu.titleReference": "Reference · per athlete",
+  "menu.titleBenchmark": "Benchmark · squad",
+  "attention.allClear": "Nothing needs attention · {n} of {total} clear",
+  "chart.axisPercentNote": "Each row re-based to its own typical · ticks align at 100%",
+  "chart.axisAbsoluteNote": "Shared unit axis · 0 — {max}",
+  "periods.peakHover": "highest internal-load rate",
+  "periods.gapHover": "external minus internal, in per-minute-rate points",
+  "vot.bandHover": "reference band — typical variation",
+  "vot.baselineHover": "Baseline still building — no reference yet",
+  "srpe.respondersHover": "Mean of responders only",
+  "participation.zerosHover": "Categories with zero athletes",
+  "control.reset": "Reset to default",
+  "control.legend": "How to read this",
+  "control.clearAll": "Clear all",
+  "squad.dnpRow": "did not participate",
+  "squad.dnpChart": "DNP",
+  "squad.avgRow": "Squad avg",
+  "gap.typicalHover": "his typical",
+
   // ---------- Reading-line menu glosses (per option kind) ----------
   "readingLine.cohortGloss": "cohort — same position group, this season",
   // Reference (per-athlete) glosses — DRAFT
