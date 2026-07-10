@@ -42,7 +42,7 @@ export function SeverityGlyph({
       <svg width={dim} height={dim} viewBox="0 0 10 10" aria-hidden>
         <polygon points="5,1 9,5 5,9 1,5" fill="currentColor" />
       </svg>
-      notice
+      {copy("canonical.severity.notice")}
     </span>
   );
 }
