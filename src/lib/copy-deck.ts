@@ -106,7 +106,7 @@ export const COPY = {
   "summary.vsFullMatch.label": "Vs typical full match",
 
   // ---------- Squad ----------
-  // Section-header descriptor — deck cuts "· sort, scan, drill".
+  // Section-header descriptor.
   "squad.section.desc": "Every athlete on this session",
   // Row-level scaled tag pattern; consumers substitute the minutes.
   "squad.row.scaledTagTemplate": "{min}′ · scaled",
