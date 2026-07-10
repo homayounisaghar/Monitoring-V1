@@ -100,7 +100,7 @@ export function GapPair({
           <div
             className="absolute top-1/2 h-3 w-[2px] -translate-x-1/2 -translate-y-1/2 rounded-sm"
             style={{ left: "50%", backgroundColor: "var(--color-data-reference)" }}
-            title="his typical"
+            title={copy("gap.typicalHover")}
           />
         )}
         <div

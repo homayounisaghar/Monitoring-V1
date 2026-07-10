@@ -260,7 +260,7 @@ function FilterPanel({
               className="text-[12px] transition-colors hover:underline"
               style={{ color: "var(--color-text-secondary)" }}
             >
-              Clear all
+              {copy("control.clearAll")}
             </button>
           )}
           <button
