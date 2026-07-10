@@ -38,7 +38,7 @@ import {
   type Metric,
   type MetricId,
 } from "@/lib/squad-metrics";
-import { flaggedIds } from "@/lib/session-flags";
+import { BUILDING_ID, flaggedIds } from "@/lib/session-flags";
 import { ValueOnTrack } from "@/components/data/ValueOnTrack";
 
 /* ============================================================ */
@@ -444,7 +444,8 @@ function TableBody({
             const rowScaled =
               a.participation !== null &&
               a.minutes < 60 &&
-              a.id !== "koehler"; // building baseline speaks for itself
+              a.id !== BUILDING_ID;
+            const rowBuilding = a.id === BUILDING_ID;
             return (
               <tr
                 key={a.id}
@@ -506,6 +507,7 @@ function TableBody({
                         m={m}
                         display={display}
                         rowScaled={rowScaled}
+                        rowBuilding={rowBuilding}
                       />
                     </td>
                   );
@@ -526,11 +528,13 @@ function Cell({
   m,
   display,
   rowScaled,
+  rowBuilding,
 }: {
   a: Athlete;
   m: Metric;
   display: DisplayMode;
   rowScaled: boolean;
+  rowBuilding: boolean;
 }) {
   const state = cellState(a, m);
 
@@ -558,6 +562,16 @@ function Cell({
         </span>
       );
     }
+    if (rowBuilding && v != null) {
+      return (
+        <span
+          className="type-num text-[13px]"
+          style={{ color: "var(--color-text-primary)" }}
+        >
+          {v}' · building baseline
+        </span>
+      );
+    }
     return (
       <span
         className="type-num text-[13px]"
@@ -582,20 +596,12 @@ function Cell({
   if (state === "building") {
     const v = valueFor(a, m);
     return (
-      <div className="flex flex-col items-end">
-        <span
-          className="type-num text-[13px]"
-          style={{ color: "var(--color-text-primary)" }}
-        >
-          {display === "percent" ? "—" : formatValue(v, m)}
-        </span>
-        <span
-          className="type-label italic"
-          style={{ color: "var(--color-text-tertiary)" }}
-        >
-          building baseline
-        </span>
-      </div>
+      <span
+        className="type-num text-[13px]"
+        style={{ color: "var(--color-text-primary)" }}
+      >
+        {display === "percent" ? "—" : formatValue(v, m)}
+      </span>
     );
   }
   if (state === "not_compared") {
