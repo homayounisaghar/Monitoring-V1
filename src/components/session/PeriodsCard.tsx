@@ -123,12 +123,12 @@ export function PeriodsCard() {
     <section id="periods" className="scroll-mt-28">
       <header className="mb-3 flex items-baseline justify-between gap-4">
         <div className="flex items-baseline gap-2 flex-wrap">
-          <h2 className="type-section-h">Periods</h2>
+          <h2 className="type-section-h">{copy("canonical.section.periods")}</h2>
           <span
             className="type-label"
             style={{ color: "var(--color-text-tertiary)" }}
           >
-            — How load was distributed through the match
+            {copy("canonical.periods.subtitle")}
           </span>
         </div>
         <div className="flex items-center gap-3">
@@ -151,20 +151,20 @@ export function PeriodsCard() {
               className="type-data-label"
               style={{ color: "var(--color-text-tertiary)" }}
             >
-              Period
+              {copy("canonical.periods.tableHead.period")}
             </span>
             <div
               className="type-data-label"
               style={{ color: "var(--color-text-tertiary)" }}
             >
-              per-minute rate — external ● / internal ○
+              {copy("canonical.periods.tableHead.rate")}
             </div>
             <span
               className="type-data-label text-right"
               style={{ color: "var(--color-text-tertiary)" }}
               title={copy("periods.gapHover")}
             >
-              GAP E−I · pts
+              {copy("canonical.periods.tableHead.gap")}
             </span>
           </div>
 
@@ -207,7 +207,7 @@ export function PeriodsCard() {
                         }}
                         title={copy("periods.peakHover")}
                       >
-                        peak
+                        {copy("canonical.periods.peak")}
                       </span>
                     )}
                   </div>
@@ -267,7 +267,7 @@ export function PeriodsCard() {
                       fontWeight: prominent ? 600 : 400,
                     }}
                   >
-                    {g}%{prominent ? " · session avg" : ""}
+                    {g}%{prominent ? copy("canonical.periods.sessionAvgSuffix") : ""}
                   </span>
                 );
               })}
@@ -290,8 +290,8 @@ function GranularityToggle({
   onChange: (v: "halves" | "15min") => void;
 }) {
   const options: Array<{ id: "halves" | "15min"; label: string }> = [
-    { id: "halves", label: "Halves" },
-    { id: "15min", label: "15' blocks" },
+    { id: "halves", label: copy("canonical.filter.granularity.halves") },
+    { id: "15min", label: copy("canonical.filter.granularity.blocks15") },
   ];
   return (
     <div
