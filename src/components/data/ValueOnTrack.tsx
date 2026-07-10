@@ -133,14 +133,14 @@ export function ValueOnTrack({
           <div
             className={`absolute top-1/2 ${tickH} w-[2px] -translate-x-1/2 -translate-y-1/2 rounded-sm`}
             style={{ left: `${refPct}%`, backgroundColor: "var(--color-data-reference)" }}
-            aria-label="reference"
+            aria-label={copy("canonical.vot.reference")}
             title={scaleLabel}
           />
         )}
         <div
           className={`absolute top-1/2 ${dotDim} -translate-x-1/2 -translate-y-1/2 rounded-full ring-2 ring-white`}
           style={{ left: `${posPct}%`, backgroundColor: color }}
-          aria-label="value"
+          aria-label={copy("canonical.vot.value")}
         />
         {clamped && !withheld && (
           <div

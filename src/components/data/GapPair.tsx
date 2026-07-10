@@ -115,7 +115,7 @@ export function GapPair({
         <div
           className={`absolute top-1/2 ${dotDim} -translate-x-1/2 -translate-y-1/2 rounded-full ring-2 ring-white`}
           style={{ left: `${extPos}%`, backgroundColor: "var(--color-axis-work)" }}
-          aria-label="external — work"
+          aria-label={copy("canonical.axisGroup.externalWorkLower")}
         />
         {internalTrust && (
           <span
@@ -131,7 +131,7 @@ export function GapPair({
             left: `${intPos}%`,
             border: "2px solid var(--color-axis-cost)",
           }}
-          aria-label="internal — cost"
+          aria-label={copy("canonical.axisGroup.internalCostLower")}
           title={internalTrust ? `internal · ${internalTrust.coverage}% cov` : undefined}
         />
       </div>
@@ -152,14 +152,14 @@ export function GapPair({
                   className="h-2.5 w-2.5 rounded-full"
                   style={{ backgroundColor: "var(--color-axis-work)" }}
                 />
-                External — work
+                {copy("canonical.axisGroup.externalWork")}
               </span>
               <span className="inline-flex items-center gap-1.5">
                 <span
                   className="h-2.5 w-2.5 rounded-full bg-white"
                   style={{ border: "2px solid var(--color-axis-cost)" }}
                 />
-                Internal — cost
+                {copy("canonical.axisGroup.internalCost")}
               </span>
             </div>
             <span
