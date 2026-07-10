@@ -78,7 +78,7 @@ export function FilterCluster() {
         }
       >
         <SlidersHorizontal className="h-3.5 w-3.5" />
-        <span>Filter</span>
+        <span>{copy("canonical.filter.button")}</span>
       </button>
 
       {open && (
@@ -123,7 +123,7 @@ function FilterPanel({
     >
       <div className="max-h-[70vh] overflow-y-auto p-4 space-y-4">
         {/* Participation */}
-        <Section title="Participation">
+        <Section title={copy("canonical.filter.group.participation")}>
           <div className="flex flex-wrap gap-1">
             <ToggleAll
               active={filter.participation.size === 0}
@@ -145,7 +145,7 @@ function FilterPanel({
         </Section>
 
         {/* Position */}
-        <Section title="Position">
+        <Section title={copy("canonical.filter.group.position")}>
           <div className="flex flex-wrap gap-1">
             <ToggleAll
               active={filter.positions.size === 0}
@@ -167,7 +167,7 @@ function FilterPanel({
         </Section>
 
         {/* Periods */}
-        <Section title="Time window">
+        <Section title={copy("canonical.filter.group.timeWindow")}>
           <div
             className="mb-2 flex rounded-md border p-0.5"
             style={{ borderColor: "var(--color-border)" }}
@@ -183,7 +183,7 @@ function FilterPanel({
                   (filter.period.granularity === g ? "sel-active" : "sel-idle")
                 }
               >
-                {g === "halves" ? "Halves" : "15' blocks"}
+                {g === "halves" ? copy("canonical.filter.granularity.halves") : copy("canonical.filter.granularity.blocks15")}
               </button>
             ))}
           </div>
@@ -210,14 +210,14 @@ function FilterPanel({
         </Section>
 
         {/* Athletes */}
-        <Section title="Athletes">
+        <Section title={copy("canonical.filter.group.athletes")}>
           <AthletePicker
             selected={filter.athletes}
             onChange={(next) => patch({ athletes: next })}
           />
           <div className="mt-2 flex gap-1">
             <QuickAdd
-              label="+ Return-to-play"
+              label={copy("canonical.filter.quickAdd.rtp")}
               onClick={() => {
                 const next = new Set(filter.athletes);
                 savedSubsets.rtp.forEach((id) => next.add(id));
@@ -225,7 +225,7 @@ function FilterPanel({
               }}
             />
             <QuickAdd
-              label="+ Set-piece unit"
+              label={copy("canonical.filter.quickAdd.setpiece")}
               onClick={() => {
                 const next = new Set(filter.athletes);
                 savedSubsets.setpiece.forEach((id) => next.add(id));
@@ -245,7 +245,7 @@ function FilterPanel({
         }}
       >
         <span className="text-[12px]" style={{ color: "var(--color-text-secondary)" }}>
-          Showing <span className="type-num font-semibold" style={{ color: "var(--color-text-primary)" }}>{showingCount}</span> of {participants.length}
+          {copy("canonical.filter.showingPrefix")} <span className="type-num font-semibold" style={{ color: "var(--color-text-primary)" }}>{showingCount}</span> {copy("canonical.filter.showingConnector")} {participants.length}
         </span>
         <div className="flex items-center gap-2">
           {!isFilterDefault(filter) && (
@@ -268,7 +268,7 @@ function FilterPanel({
             onClick={onClose}
             className="rounded px-3 py-1 text-[12px] font-medium sel-active"
           >
-            Done
+            {copy("canonical.filter.done")}
           </button>
         </div>
       </div>
@@ -319,7 +319,7 @@ function ToggleAll({ active, onClick }: { active: boolean; onClick: () => void }
       }
       style={{ borderColor: active ? "transparent" : "var(--color-border)" }}
     >
-      All
+      {copy("canonical.filter.all")}
     </button>
   );
 }
@@ -371,7 +371,7 @@ function AthletePicker({
           onChange={(e) => setQ(e.target.value)}
           onFocus={() => setFocus(true)}
           onBlur={() => setTimeout(() => setFocus(false), 120)}
-          placeholder="Find athletes…"
+          placeholder={copy("canonical.filter.findAthletes")}
           className="w-full bg-transparent text-[12px] outline-none"
           style={{ color: "var(--color-text-primary)" }}
         />
@@ -491,7 +491,7 @@ function activeChips(f: Filter): ChipDescriptor[] {
   if (f.athletes.size > 0) {
     chips.push({
       key: "ath",
-      label: `${f.athletes.size} athlete${f.athletes.size > 1 ? "s" : ""}`,
+      label: `${f.athletes.size} ${f.athletes.size > 1 ? copy("canonical.filter.athletesChip.many") : copy("canonical.filter.athletesChip.one")}`,
       remove: (setFilter, current) => () =>
         setFilter({ ...current, athletes: new Set() }),
     });
