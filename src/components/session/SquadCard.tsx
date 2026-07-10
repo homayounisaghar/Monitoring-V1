@@ -444,7 +444,8 @@ function TableBody({
             const rowScaled =
               a.participation !== null &&
               a.minutes < 60 &&
-              a.id !== "koehler"; // building baseline speaks for itself
+              a.id !== BUILDING_ID;
+            const rowBuilding = a.id === BUILDING_ID;
             return (
               <tr
                 key={a.id}
@@ -506,6 +507,7 @@ function TableBody({
                         m={m}
                         display={display}
                         rowScaled={rowScaled}
+                        rowBuilding={rowBuilding}
                       />
                     </td>
                   );
