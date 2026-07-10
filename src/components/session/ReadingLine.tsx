@@ -7,7 +7,7 @@ import {
   type ReferenceKind,
   type BenchmarkKind,
 } from "@/lib/session-scope";
-import { copy } from "@/lib/copy-deck";
+import { copy, type CopyKey } from "@/lib/copy-deck";
 
 export function ReadingLine() {
   const {
