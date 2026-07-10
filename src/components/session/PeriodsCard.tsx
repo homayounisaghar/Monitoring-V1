@@ -1,3 +1,4 @@
+import { copy } from "@/lib/copy-deck";
 /**
  * ST2 — Session > Periods card.
  * Within-session distribution: how load was distributed through the match.

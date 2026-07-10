@@ -1,3 +1,4 @@
+import { copy } from "@/lib/copy-deck";
 /**
  * GapPair — external (blue filled) vs internal (purple open ring) on
  * one shared track. Slate connector = the gap.

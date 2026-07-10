@@ -1,3 +1,4 @@
+import { copy } from "@/lib/copy-deck";
 import { useState, useRef, useEffect, useMemo } from "react";
 import { SlidersHorizontal, X, Search } from "lucide-react";
 import {

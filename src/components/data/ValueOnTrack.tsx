@@ -1,3 +1,4 @@
+import { copy } from "@/lib/copy-deck";
 /**
  * ValueOnTrack — canonical comparison object (foundation anatomy).
  * Band always rendered. Reference band + tick honor baseline state
