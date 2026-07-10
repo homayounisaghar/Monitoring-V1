@@ -419,19 +419,27 @@ function WorkMark({
 }
 
 function CostMark({
+  label,
   value,
   reference,
   unit,
   qualified = true,
+  badge,
 }: {
+  label: string;
   value: number;
   reference: number;
   unit: string;
   qualified?: boolean;
+  badge?: React.ReactNode;
 }) {
   return (
     <div className="space-y-1">
-      <div className="flex items-baseline justify-end">
+      <div className="flex items-baseline justify-between gap-2">
+        <span className="type-data-label inline-flex items-baseline gap-2">
+          {label}
+          {badge}
+        </span>
         <span
           className="type-num text-[25px] font-semibold leading-none"
           style={{ color: "var(--color-text-primary)" }}
