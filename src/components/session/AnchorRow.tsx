@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { copy } from "@/lib/copy-deck";
 
 const ANCHORS = [
   { id: "attention", label: "Attention" },
