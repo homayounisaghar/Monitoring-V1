@@ -185,7 +185,7 @@ export function ValueOnTrack({
                 className="type-data-label italic"
                 title={copy("vot.baselineHover")}
               >
-                baseline building
+                {copy("canonical.vot.baselineBuilding")}
               </span>
             ) : (
               <span
@@ -202,7 +202,7 @@ export function ValueOnTrack({
             className="type-data-label w-[54px] shrink-0 text-right italic"
             title={copy("vot.baselineHover")}
           >
-            building
+            {copy("canonical.vot.building")}
           </span>
         ) : (
           <span
