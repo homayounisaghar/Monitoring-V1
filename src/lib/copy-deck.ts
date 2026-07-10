@@ -47,9 +47,8 @@ export const COPY = {
   "legend.band": "band — his normal range",
   "legend.tick": "tick — reference",
   "legend.dot": "dot — this session",
-  // DRAFT — ≤6-word glosses
-  "legend.trustDot": "coverage below the read-safe threshold",
-  "legend.flagGlyph": "flagged in Attention this session",
+  "legend.trustDot": "trust dot — coverage under 80%",
+  "legend.flagGlyph": "flag glyph — flagged in Attention",
 
   // ---------- Reading-line menu glosses (per option kind) ----------
   "readingLine.cohortGloss": "cohort — same position group, this season",

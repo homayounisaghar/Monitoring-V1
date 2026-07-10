@@ -7,7 +7,7 @@ import {
   type ReferenceKind,
   type BenchmarkKind,
 } from "@/lib/session-scope";
-import { copy } from "@/lib/copy-deck";
+import { copy, type CopyKey } from "@/lib/copy-deck";
 
 export function ReadingLine() {
   const {
@@ -246,12 +246,12 @@ function HowToReadPopover() {
     return () => document.removeEventListener("mousedown", onDoc);
   }, [open]);
 
-  const KEY: Array<{ term: string; gloss: string }> = [
-    { term: "band",       gloss: copy("legend.band") },
-    { term: "tick",       gloss: copy("legend.tick") },
-    { term: "dot",        gloss: copy("legend.dot") },
-    { term: "trust dot",  gloss: copy("legend.trustDot") },
-    { term: "flag glyph", gloss: copy("legend.flagGlyph") },
+  const KEYS: CopyKey[] = [
+    "legend.band",
+    "legend.tick",
+    "legend.dot",
+    "legend.trustDot",
+    "legend.flagGlyph",
   ];
 
   return (
@@ -273,19 +273,13 @@ function HowToReadPopover() {
             color: "var(--color-text-secondary)",
           }}
         >
-          <dl className="space-y-1.5">
-            {KEY.map(({ term, gloss }) => (
-              <div key={term} className="grid grid-cols-[74px_1fr] gap-3 text-[12px] leading-snug">
-                <dt
-                  className="type-label"
-                  style={{ color: "var(--color-text-tertiary)" }}
-                >
-                  {term}
-                </dt>
-                <dd style={{ color: "var(--color-text-secondary)" }}>{gloss}</dd>
+          <div className="space-y-1.5">
+            {KEYS.map((k) => (
+              <div key={k} className="text-[12px] leading-snug" style={{ color: "var(--color-text-secondary)" }}>
+                {copy(k)}
               </div>
             ))}
-          </dl>
+          </div>
         </div>
       )}
     </span>
