@@ -1,6 +1,7 @@
 import { Pencil, Share2 } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { currentSession } from "@/lib/session-data";
+import { copy } from "@/lib/copy-deck";
 
 export function EventBanner() {
   const [menuOpen, setMenuOpen] = useState(false);
