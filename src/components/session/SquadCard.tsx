@@ -474,7 +474,7 @@ function TableBody({
                         }}
                         title={copy("flag.hover")}
                         className="inline-flex h-4 w-4 items-center justify-center rounded transition-colors hover:bg-[color:var(--color-slate-200)]"
-                        aria-label={`${a.name} flagged in Attention`}
+                        aria-label={`${a.name} ${copy("canonical.attention.flaggedInAttentionSuffix")}`}
                       >
                         <Flag
                           className="h-3 w-3"
