@@ -24,6 +24,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { useSessionScope, COVERAGE_MIN } from "@/lib/session-scope";
 import { squad, POSITION_LABEL, type Athlete } from "@/lib/session-data";
 import { ScopeTag } from "@/components/session/ScopeTag";
+import { TrustMark } from "@/components/data/TrustMark";
 import { copy, tmpl } from "@/lib/copy-deck";
 import {
   METRICS,
@@ -634,27 +635,16 @@ function Cell({
 
   return (
     <div className="flex flex-col items-end">
-      <span
-        className="inline-flex items-baseline gap-1.5"
-        title={lowCov ? `${cov}% HR coverage` : undefined}
-      >
-        {lowCov && (
-          <span
-            className="inline-block h-2 w-2 shrink-0 translate-y-[-1px] rounded-full"
-            style={{
-              backgroundColor: "transparent",
-              border: "1.25px solid var(--color-trust-dot)",
-            }}
-            aria-hidden
-          />
-        )}
+      {lowCov ? (
+        <TrustMark size="sm" value={primary} coverage={cov} coverageOf="HR coverage" />
+      ) : (
         <span
           className="type-num text-[13px]"
           style={{ color: primaryInk }}
         >
           {primary}
         </span>
-      </span>
+      )}
       {/* Delta once, muted, in absolute mode only. No per-cell "· scaled". */}
       {!cellIsPercent && deltaPct != null && (
         <span
