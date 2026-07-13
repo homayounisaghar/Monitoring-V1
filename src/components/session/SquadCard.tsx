@@ -24,6 +24,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { useSessionScope, COVERAGE_MIN } from "@/lib/session-scope";
 import { squad, POSITION_LABEL, type Athlete } from "@/lib/session-data";
 import { ScopeTag } from "@/components/session/ScopeTag";
+import { TrustMark } from "@/components/data/TrustMark";
 import { copy, tmpl } from "@/lib/copy-deck";
 import {
   METRICS,
