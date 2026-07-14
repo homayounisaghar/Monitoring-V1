@@ -3,6 +3,7 @@ import { SessionScopeProvider } from "@/lib/session-scope";
 import { SourceSidebar } from "@/components/shell/SourceSidebar";
 import { DemoPill } from "@/components/shell/DemoPill";
 import { EventBanner } from "@/components/session/EventBanner";
+import { AnchorRow } from "@/components/session/AnchorRow";
 import { ReadingLine } from "@/components/session/ReadingLine";
 import { FilterCluster } from "@/components/session/FilterPanel";
 import { AttentionCard } from "@/components/session/AttentionCard";
