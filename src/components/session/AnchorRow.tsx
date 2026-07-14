@@ -12,7 +12,7 @@ export function AnchorRow() {
   const [active, setActive] = useState<string>("attention");
 
   useEffect(() => {
-    const ids = ANCHORS.map((a) => a.id);
+    const ids: string[] = ANCHORS.map((a) => a.id);
     let raf = 0;
 
     const compute = () => {
