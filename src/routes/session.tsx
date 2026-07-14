@@ -51,6 +51,11 @@ function SessionRoute() {
             </div>
           </div>
 
+          {/* Sticky section anchor-nav — orientation + jump aid over the single scroll */}
+          <div className="sticky top-24 z-20">
+            <AnchorRow />
+          </div>
+
           {/* Content column */}
           <main className="mx-auto max-w-[1320px] px-6 pt-8">
             <AttentionCard />
