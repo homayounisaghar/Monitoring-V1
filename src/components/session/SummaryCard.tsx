@@ -151,7 +151,7 @@ export function SummaryCard() {
   const isMatch = !sessionIsTraining;
 
   return (
-    <section id="summary" className="scroll-mt-28">
+    <section id="summary" className="scroll-mt-36">
       <header className="mb-3 flex items-baseline justify-between gap-4">
         <div className="flex items-baseline gap-2 flex-wrap">
           <h2 className="type-section-h">{copy("canonical.section.summary")}</h2>

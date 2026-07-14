@@ -170,7 +170,7 @@ export function SquadCard() {
   };
 
   return (
-    <section id="squad" className="scroll-mt-28">
+    <section id="squad" className="scroll-mt-36">
       <header className="mb-3 flex items-baseline justify-between gap-4">
         <div className="flex items-baseline gap-2 flex-wrap">
           <h2 className="type-section-h">{copy("canonical.section.squad")}</h2>
