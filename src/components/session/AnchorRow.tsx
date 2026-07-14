@@ -12,24 +12,48 @@ export function AnchorRow() {
   const [active, setActive] = useState<string>("attention");
 
   useEffect(() => {
-    const els = ANCHORS
-      .map((a) => document.getElementById(a.id))
-      .filter((el): el is HTMLElement => Boolean(el));
-    if (els.length === 0) return;
+    const ids = ANCHORS.map((a) => a.id);
+    let raf = 0;
 
-    const io = new IntersectionObserver(
-      (entries) => {
-        const visible = entries
-          .filter((e) => e.isIntersecting)
-          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
-        if (visible[0]?.target.id) setActive(visible[0].target.id);
-      },
-      { rootMargin: "-120px 0px -60% 0px", threshold: 0 }
-    );
+    const compute = () => {
+      raf = 0;
+      const anchorLine = 140; // sticky shell (48) + anchor strip (36) + buffer
+      const els = ids
+        .map((id) => ({ id, el: document.getElementById(id) }))
+        .filter((x): x is { id: string; el: HTMLElement } => Boolean(x.el));
+      if (els.length === 0) return;
 
-    els.forEach((el) => io.observe(el));
-    return () => io.disconnect();
+      // At page bottom, force last section.
+      const nearBottom =
+        window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 2;
+      if (nearBottom) {
+        setActive(els[els.length - 1].id);
+        return;
+      }
+
+      let current = els[0].id;
+      for (const { id, el } of els) {
+        if (el.getBoundingClientRect().top <= anchorLine) current = id;
+        else break;
+      }
+      setActive(current);
+    };
+
+    const onScroll = () => {
+      if (raf) return;
+      raf = requestAnimationFrame(compute);
+    };
+
+    compute();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll);
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+      if (raf) cancelAnimationFrame(raf);
+    };
   }, []);
+
 
   return (
     <div
