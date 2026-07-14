@@ -64,7 +64,7 @@ export function AttentionCard() {
     : [];
 
   return (
-    <section id="attention" className="scroll-mt-28">
+    <section id="attention" className="scroll-mt-36">
       <header className="mb-3">
         <h2 className="type-section-h">{copy("canonical.section.attention")}</h2>
       </header>

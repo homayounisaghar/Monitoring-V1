@@ -120,7 +120,7 @@ export function PeriodsCard() {
   const HEAVY_GAP = 15;
 
   return (
-    <section id="periods" className="scroll-mt-28">
+    <section id="periods" className="scroll-mt-36">
       <header className="mb-3 flex items-baseline justify-between gap-4">
         <div className="flex items-baseline gap-2 flex-wrap">
           <h2 className="type-section-h">{copy("canonical.section.periods")}</h2>

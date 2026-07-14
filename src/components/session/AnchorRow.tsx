@@ -39,18 +39,22 @@ export function AnchorRow() {
         backgroundColor: "var(--color-canvas)",
       }}
     >
-      <div className="mx-auto flex h-9 max-w-[1320px] items-center gap-5 px-6">
+      <nav aria-label="Session sections" className="mx-auto flex h-9 max-w-[1320px] items-center gap-5 px-6">
         {ANCHORS.map((a) => {
           const isActive = active === a.id;
           return (
             <a
               key={a.id}
               href={`#${a.id}`}
+              aria-current={isActive ? "true" : undefined}
               onClick={(e) => {
                 e.preventDefault();
-                document.getElementById(a.id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+                const el = document.getElementById(a.id);
+                if (!el) return;
+                const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+                el.scrollIntoView({ behavior: prefersReduced ? "auto" : "smooth", block: "start" });
               }}
-              className="relative flex h-9 items-center text-[12px] transition-colors"
+              className="relative flex h-9 items-center text-[12px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
               style={{
                 color: isActive ? "var(--color-text-primary)" : "var(--color-text-tertiary)",
                 fontWeight: isActive ? 500 : 400,
@@ -67,7 +71,7 @@ export function AnchorRow() {
             </a>
           );
         })}
-      </div>
+      </nav>
     </div>
   );
 }
