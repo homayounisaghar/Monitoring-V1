@@ -1,9 +1,6 @@
-import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
+import { Link, useRouterState } from "@tanstack/react-router";
 import { Search, Bell, Settings, ChevronDown } from "lucide-react";
-import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import { useSidebarWidth } from "@/lib/sidebar-store";
-
+import { useState } from "react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,6 +11,7 @@ import {
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
 } from "@/components/ui/dropdown-menu";
+import { useSidebarWidth } from "@/lib/sidebar-store";
 
 const TABS = [
   { to: "/session", label: "Session" },
@@ -26,31 +24,7 @@ const SQUADS = ["First Team", "Under-23s", "Women's"] as const;
 export function NavFrame() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const [squad, setSquad] = useState<string>(SQUADS[0]);
-  const navigate = useNavigate();
-  const [email, setEmail] = useState<string | null>(null);
   const sidebarWidth = useSidebarWidth();
-
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => setEmail(data.session?.user.email ?? null));
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
-      setEmail(session?.user.email ?? null);
-    });
-    return () => sub.subscription.unsubscribe();
-  }, []);
-
-  const initials = email
-    ? email
-        .split("@")[0]
-        .split(/[._-]/)
-        .map((s) => s[0]?.toUpperCase() ?? "")
-        .join("")
-        .slice(0, 2) || "U"
-    : "";
-
-  async function onSignOut() {
-    await supabase.auth.signOut();
-    navigate({ to: "/auth" });
-  }
 
   return (
     <header
@@ -72,10 +46,7 @@ export function NavFrame() {
               style={{ backgroundColor: "var(--color-brand)" }}
               aria-hidden
             >
-              <span
-                className="text-[11px] font-bold"
-                style={{ color: "var(--color-text-on-brand)" }}
-              >
+              <span className="text-[11px] font-bold" style={{ color: "var(--color-text-on-brand)" }}>
                 S
               </span>
             </span>
@@ -87,11 +58,7 @@ export function NavFrame() {
             </span>
           </Link>
 
-          <span
-            aria-hidden
-            className="h-4 w-px"
-            style={{ backgroundColor: "var(--color-border)" }}
-          />
+          <span aria-hidden className="h-4 w-px" style={{ backgroundColor: "var(--color-border)" }} />
 
           <DropdownMenu>
             <DropdownMenuTrigger
@@ -119,7 +86,7 @@ export function NavFrame() {
         {/* RIGHT of sidebar — mirrors the page content column grid */}
         <div className="min-w-0 flex-1">
           <div className="mx-auto flex h-full max-w-[1320px] items-center justify-between gap-6 px-6">
-            {/* Tabs — left-aligned to content column */}
+            {/* Tabs — left-aligned to the content column */}
             <nav className="flex items-center gap-8" aria-label="Primary">
               {TABS.map((t) => {
                 const active =
@@ -130,9 +97,7 @@ export function NavFrame() {
                     to={t.to}
                     className="relative flex h-12 items-center text-[13px] font-medium transition-colors"
                     style={{
-                      color: active
-                        ? "var(--color-text-primary)"
-                        : "var(--color-text-secondary)",
+                      color: active ? "var(--color-text-primary)" : "var(--color-text-secondary)",
                     }}
                   >
                     {t.label}
@@ -148,7 +113,7 @@ export function NavFrame() {
               })}
             </nav>
 
-            {/* Utility cluster — right-aligned to content column */}
+            {/* Utility cluster — right-aligned to the content column */}
             <div className="flex items-center gap-1.5">
               <div
                 className="flex h-8 w-56 items-center gap-2 rounded-md border px-2.5"
@@ -157,11 +122,7 @@ export function NavFrame() {
                   backgroundColor: "var(--color-canvas)",
                 }}
               >
-                <Search
-                  className="h-3.5 w-3.5"
-                  style={{ color: "var(--color-text-tertiary)" }}
-                  aria-hidden
-                />
+                <Search className="h-3.5 w-3.5" style={{ color: "var(--color-text-tertiary)" }} aria-hidden />
                 <input
                   type="search"
                   placeholder="Search athletes, sessions…"
@@ -195,41 +156,27 @@ export function NavFrame() {
                 <Settings className="h-4 w-4" aria-hidden />
               </button>
 
-              <span
-                aria-hidden
-                className="mx-1.5 h-5 w-px"
-                style={{ backgroundColor: "var(--color-border)" }}
-              />
+              <span aria-hidden className="mx-1.5 h-5 w-px" style={{ backgroundColor: "var(--color-border)" }} />
 
-              {email ? (
-                <DropdownMenu>
-                  <DropdownMenuTrigger
-                    className="grid h-8 w-8 place-items-center rounded-full outline-none transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:ring-[var(--color-brand)] focus-visible:ring-offset-1"
-                    style={{ backgroundColor: "var(--color-brand)" }}
-                    aria-label="Account menu"
-                  >
-                    <span
-                      className="text-[11px] font-semibold"
-                      style={{ color: "var(--color-text-on-brand)" }}
-                    >
-                      {initials}
-                    </span>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="min-w-[200px]">
-                    <DropdownMenuLabel className="truncate">{email}</DropdownMenuLabel>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem onSelect={onSignOut}>Sign out</DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              ) : (
-                <Link
-                  to="/auth"
-                  className="inline-flex h-8 items-center rounded-md px-3 text-[12.5px] font-medium outline-none transition-colors hover:bg-[var(--color-canvas)] focus-visible:ring-2 focus-visible:ring-[var(--color-brand)] focus-visible:ring-offset-1"
-                  style={{ color: "var(--color-text-primary)" }}
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  className="grid h-8 w-8 place-items-center rounded-full outline-none transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:ring-[var(--color-brand)] focus-visible:ring-offset-1"
+                  style={{ backgroundColor: "var(--color-brand)" }}
+                  aria-label="Account menu"
                 >
-                  Sign in
-                </Link>
-              )}
+                  <span className="text-[11px] font-semibold" style={{ color: "var(--color-text-on-brand)" }}>
+                    AK
+                  </span>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="min-w-[160px]">
+                  <DropdownMenuLabel>Account</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem>Profile</DropdownMenuItem>
+                  <DropdownMenuItem>Settings</DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem>Sign out</DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
         </div>
