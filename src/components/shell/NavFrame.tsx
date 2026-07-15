@@ -199,8 +199,7 @@ export function NavFrame() {
           </DropdownMenu>
         </div>
       </div>
-
-      </div>
     </header>
+
   );
 }
