@@ -2,6 +2,7 @@ import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { Search, Bell, Settings, ChevronDown } from "lucide-react";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useSidebarWidth } from "@/lib/sidebar-store";
 
 import {
   DropdownMenu,
@@ -27,6 +28,7 @@ export function NavFrame() {
   const [squad, setSquad] = useState<string>(SQUADS[0]);
   const navigate = useNavigate();
   const [email, setEmail] = useState<string | null>(null);
+  const sidebarWidth = useSidebarWidth();
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setEmail(data.session?.user.email ?? null));
@@ -50,19 +52,20 @@ export function NavFrame() {
     navigate({ to: "/auth" });
   }
 
-
   return (
     <header
       className="sticky top-0 z-40 h-12 border-b"
       style={{
-        
         backgroundColor: "var(--color-surface-card)",
         borderColor: "var(--color-border)",
       }}
     >
-      <div className="mx-auto grid h-full max-w-[1320px] grid-cols-[auto_1fr_auto] items-center gap-6 px-6">
-        {/* LEFT — brand + team context */}
-        <div className="flex items-center gap-3">
+      <div className="flex h-full">
+        {/* LEFT — over the sidebar: brand + team selector */}
+        <div
+          className="flex h-full shrink-0 items-center gap-3 px-6 transition-[width] duration-200"
+          style={{ width: sidebarWidth }}
+        >
           <Link to="/session" className="flex items-center gap-2" aria-label="ST2 home">
             <span
               className="grid h-6 w-6 place-items-center rounded"
@@ -84,22 +87,20 @@ export function NavFrame() {
             </span>
           </Link>
 
-          {/* Divider between brand and context */}
           <span
             aria-hidden
             className="h-4 w-px"
             style={{ backgroundColor: "var(--color-border)" }}
           />
 
-          {/* Team selector — quiet, subordinate */}
           <DropdownMenu>
             <DropdownMenuTrigger
-              className="flex h-8 items-center gap-1 rounded-md px-2 text-[12.5px] font-medium outline-none transition-colors hover:bg-[var(--color-canvas)] focus-visible:ring-2 focus-visible:ring-[var(--color-brand)] focus-visible:ring-offset-1"
+              className="flex h-8 min-w-0 items-center gap-1 rounded-md px-2 text-[12.5px] font-medium outline-none transition-colors hover:bg-[var(--color-canvas)] focus-visible:ring-2 focus-visible:ring-[var(--color-brand)] focus-visible:ring-offset-1"
               style={{ color: "var(--color-text-secondary)" }}
               aria-label="Select team"
             >
-              <span>{squad}</span>
-              <ChevronDown className="h-3.5 w-3.5 opacity-70" aria-hidden />
+              <span className="truncate">{squad}</span>
+              <ChevronDown className="h-3.5 w-3.5 shrink-0 opacity-70" aria-hidden />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="min-w-[180px]">
               <DropdownMenuLabel>Team</DropdownMenuLabel>
@@ -115,126 +116,124 @@ export function NavFrame() {
           </DropdownMenu>
         </div>
 
-        {/* CENTER — primary navigation, optically balanced across the bar */}
-        <nav className="flex items-center justify-center gap-8" aria-label="Primary">
-          {TABS.map((t) => {
-            const active =
-              pathname === t.to || (t.to === "/session" && pathname === "/");
-            return (
-              <Link
-                key={t.to}
-                to={t.to}
-                className="relative flex h-12 items-center text-[13px] font-medium transition-colors"
+        {/* RIGHT of sidebar — mirrors the page content column grid */}
+        <div className="min-w-0 flex-1">
+          <div className="mx-auto flex h-full max-w-[1320px] items-center justify-between gap-6 px-6">
+            {/* Tabs — left-aligned to content column */}
+            <nav className="flex items-center gap-8" aria-label="Primary">
+              {TABS.map((t) => {
+                const active =
+                  pathname === t.to || (t.to === "/session" && pathname === "/");
+                return (
+                  <Link
+                    key={t.to}
+                    to={t.to}
+                    className="relative flex h-12 items-center text-[13px] font-medium transition-colors"
+                    style={{
+                      color: active
+                        ? "var(--color-text-primary)"
+                        : "var(--color-text-secondary)",
+                    }}
+                  >
+                    {t.label}
+                    {active && (
+                      <span
+                        className="absolute inset-x-0 bottom-0 h-[2px]"
+                        style={{ backgroundColor: "var(--color-brand)" }}
+                        aria-hidden
+                      />
+                    )}
+                  </Link>
+                );
+              })}
+            </nav>
+
+            {/* Utility cluster — right-aligned to content column */}
+            <div className="flex items-center gap-1.5">
+              <div
+                className="flex h-8 w-56 items-center gap-2 rounded-md border px-2.5"
                 style={{
-                  color: active
-                    ? "var(--color-text-primary)"
-                    : "var(--color-text-secondary)",
+                  borderColor: "var(--color-border)",
+                  backgroundColor: "var(--color-canvas)",
                 }}
               >
-                {t.label}
-                {active && (
-                  <span
-                    className="absolute inset-x-0 bottom-0 h-[2px]"
-                    style={{ backgroundColor: "var(--color-brand)" }}
-                    aria-hidden
-                  />
-                )}
-              </Link>
-            );
-          })}
-        </nav>
+                <Search
+                  className="h-3.5 w-3.5"
+                  style={{ color: "var(--color-text-tertiary)" }}
+                  aria-hidden
+                />
+                <input
+                  type="search"
+                  placeholder="Search athletes, sessions…"
+                  aria-label="Search athletes and sessions"
+                  className="w-full bg-transparent text-[12.5px] outline-none placeholder:opacity-70"
+                  style={{ color: "var(--color-text-primary)" }}
+                />
+              </div>
 
-        {/* RIGHT — utility cluster */}
-        <div className="flex items-center gap-1.5">
-          {/* Search */}
-          <div
-            className="flex h-8 w-56 items-center gap-2 rounded-md border px-2.5"
-            style={{
-              borderColor: "var(--color-border)",
-              backgroundColor: "var(--color-canvas)",
-            }}
-          >
-            <Search
-              className="h-3.5 w-3.5"
-              style={{ color: "var(--color-text-tertiary)" }}
-              aria-hidden
-            />
-            <input
-              type="search"
-              placeholder="Search athletes, sessions…"
-              aria-label="Search athletes and sessions"
-              className="w-full bg-transparent text-[12.5px] outline-none placeholder:opacity-70"
-              style={{ color: "var(--color-text-primary)" }}
-            />
-          </div>
-
-          {/* Notifications */}
-          <button
-            type="button"
-            aria-label="Notifications"
-            className="relative grid h-8 w-8 place-items-center rounded-md outline-none transition-colors hover:bg-[var(--color-canvas)] focus-visible:ring-2 focus-visible:ring-[var(--color-brand)] focus-visible:ring-offset-1"
-            style={{ color: "var(--color-text-secondary)" }}
-          >
-            <Bell className="h-4 w-4" aria-hidden />
-            <span
-              aria-hidden
-              className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full"
-              style={{ backgroundColor: "var(--color-text-secondary)" }}
-            />
-            <span className="sr-only">Unread notifications</span>
-          </button>
-
-          {/* Settings */}
-          <button
-            type="button"
-            aria-label="Settings"
-            className="grid h-8 w-8 place-items-center rounded-md outline-none transition-colors hover:bg-[var(--color-canvas)] focus-visible:ring-2 focus-visible:ring-[var(--color-brand)] focus-visible:ring-offset-1"
-            style={{ color: "var(--color-text-secondary)" }}
-          >
-            <Settings className="h-4 w-4" aria-hidden />
-          </button>
-
-          {/* Hairline separator before identity */}
-          <span
-            aria-hidden
-            className="mx-1.5 h-5 w-px"
-            style={{ backgroundColor: "var(--color-border)" }}
-          />
-
-          {/* Account */}
-          {email ? (
-            <DropdownMenu>
-              <DropdownMenuTrigger
-                className="grid h-8 w-8 place-items-center rounded-full outline-none transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:ring-[var(--color-brand)] focus-visible:ring-offset-1"
-                style={{ backgroundColor: "var(--color-brand)" }}
-                aria-label="Account menu"
+              <button
+                type="button"
+                aria-label="Notifications"
+                className="relative grid h-8 w-8 place-items-center rounded-md outline-none transition-colors hover:bg-[var(--color-canvas)] focus-visible:ring-2 focus-visible:ring-[var(--color-brand)] focus-visible:ring-offset-1"
+                style={{ color: "var(--color-text-secondary)" }}
               >
+                <Bell className="h-4 w-4" aria-hidden />
                 <span
-                  className="text-[11px] font-semibold"
-                  style={{ color: "var(--color-text-on-brand)" }}
-                >
-                  {initials}
-                </span>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="min-w-[200px]">
-                <DropdownMenuLabel className="truncate">{email}</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onSelect={onSignOut}>Sign out</DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          ) : (
-            <Link
-              to="/auth"
-              className="inline-flex h-8 items-center rounded-md px-3 text-[12.5px] font-medium outline-none transition-colors hover:bg-[var(--color-canvas)] focus-visible:ring-2 focus-visible:ring-[var(--color-brand)] focus-visible:ring-offset-1"
-              style={{ color: "var(--color-text-primary)" }}
-            >
-              Sign in
-            </Link>
-          )}
+                  aria-hidden
+                  className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full"
+                  style={{ backgroundColor: "var(--color-text-secondary)" }}
+                />
+                <span className="sr-only">Unread notifications</span>
+              </button>
 
+              <button
+                type="button"
+                aria-label="Settings"
+                className="grid h-8 w-8 place-items-center rounded-md outline-none transition-colors hover:bg-[var(--color-canvas)] focus-visible:ring-2 focus-visible:ring-[var(--color-brand)] focus-visible:ring-offset-1"
+                style={{ color: "var(--color-text-secondary)" }}
+              >
+                <Settings className="h-4 w-4" aria-hidden />
+              </button>
+
+              <span
+                aria-hidden
+                className="mx-1.5 h-5 w-px"
+                style={{ backgroundColor: "var(--color-border)" }}
+              />
+
+              {email ? (
+                <DropdownMenu>
+                  <DropdownMenuTrigger
+                    className="grid h-8 w-8 place-items-center rounded-full outline-none transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:ring-[var(--color-brand)] focus-visible:ring-offset-1"
+                    style={{ backgroundColor: "var(--color-brand)" }}
+                    aria-label="Account menu"
+                  >
+                    <span
+                      className="text-[11px] font-semibold"
+                      style={{ color: "var(--color-text-on-brand)" }}
+                    >
+                      {initials}
+                    </span>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="min-w-[200px]">
+                    <DropdownMenuLabel className="truncate">{email}</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onSelect={onSignOut}>Sign out</DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              ) : (
+                <Link
+                  to="/auth"
+                  className="inline-flex h-8 items-center rounded-md px-3 text-[12.5px] font-medium outline-none transition-colors hover:bg-[var(--color-canvas)] focus-visible:ring-2 focus-visible:ring-[var(--color-brand)] focus-visible:ring-offset-1"
+                  style={{ color: "var(--color-text-primary)" }}
+                >
+                  Sign in
+                </Link>
+              )}
+            </div>
+          </div>
         </div>
       </div>
     </header>
-
   );
 }
