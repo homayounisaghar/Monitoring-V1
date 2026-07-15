@@ -25,6 +25,31 @@ const SQUADS = ["First Team", "Under-23s", "Women's"] as const;
 export function NavFrame() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const [squad, setSquad] = useState<string>(SQUADS[0]);
+  const navigate = useNavigate();
+  const [email, setEmail] = useState<string | null>(null);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => setEmail(data.session?.user.email ?? null));
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
+      setEmail(session?.user.email ?? null);
+    });
+    return () => sub.subscription.unsubscribe();
+  }, []);
+
+  const initials = email
+    ? email
+        .split("@")[0]
+        .split(/[._-]/)
+        .map((s) => s[0]?.toUpperCase() ?? "")
+        .join("")
+        .slice(0, 2) || "U"
+    : "";
+
+  async function onSignOut() {
+    await supabase.auth.signOut();
+    navigate({ to: "/auth" });
+  }
+
 
   return (
     <header
