@@ -21,7 +21,7 @@ export function SourceSidebar() {
     <aside
       className="sticky top-12 h-[calc(100vh-3rem)] shrink-0 border-r transition-[width] duration-200"
       style={{
-        width: collapsed ? 44 : 260,
+        width: collapsed ? SIDEBAR_COLLAPSED : SIDEBAR_EXPANDED,
         backgroundColor: "var(--color-surface-card)",
         borderColor: "var(--color-border)",
       }}
@@ -36,7 +36,7 @@ export function SourceSidebar() {
           </span>
         )}
         <button
-          onClick={() => setCollapsed((c) => !c)}
+          onClick={() => toggleSidebarCollapsed()}
           className="ml-auto grid h-7 w-7 place-items-center rounded transition-colors hover:bg-[color:var(--color-slate-100)]"
           aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
         >
