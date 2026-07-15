@@ -26,9 +26,9 @@ export function NavFrame() {
 
   return (
     <header
-      className="sticky top-0 z-40 h-13 border-b"
+      className="sticky top-0 z-40 h-12 border-b"
       style={{
-        height: "52px",
+        
         backgroundColor: "var(--color-surface-card)",
         borderColor: "var(--color-border)",
       }}
@@ -97,7 +97,7 @@ export function NavFrame() {
                   to={t.to}
                   className="relative flex h-13 items-center text-[13px] font-medium transition-colors"
                   style={{
-                    height: "52px",
+                    
                     color: active
                       ? "var(--color-text-primary)"
                       : "var(--color-text-secondary)",
