@@ -1,6 +1,8 @@
-import { Link, useRouterState } from "@tanstack/react-router";
+import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { Search, Bell, Settings, ChevronDown } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
+
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -23,6 +25,31 @@ const SQUADS = ["First Team", "Under-23s", "Women's"] as const;
 export function NavFrame() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const [squad, setSquad] = useState<string>(SQUADS[0]);
+  const navigate = useNavigate();
+  const [email, setEmail] = useState<string | null>(null);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => setEmail(data.session?.user.email ?? null));
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
+      setEmail(session?.user.email ?? null);
+    });
+    return () => sub.subscription.unsubscribe();
+  }, []);
+
+  const initials = email
+    ? email
+        .split("@")[0]
+        .split(/[._-]/)
+        .map((s) => s[0]?.toUpperCase() ?? "")
+        .join("")
+        .slice(0, 2) || "U"
+    : "";
+
+  async function onSignOut() {
+    await supabase.auth.signOut();
+    navigate({ to: "/auth" });
+  }
+
 
   return (
     <header
@@ -175,28 +202,36 @@ export function NavFrame() {
           />
 
           {/* Account */}
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              className="grid h-8 w-8 place-items-center rounded-full outline-none transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:ring-[var(--color-brand)] focus-visible:ring-offset-1"
-              style={{ backgroundColor: "var(--color-brand)" }}
-              aria-label="Account menu"
-            >
-              <span
-                className="text-[11px] font-semibold"
-                style={{ color: "var(--color-text-on-brand)" }}
+          {email ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                className="grid h-8 w-8 place-items-center rounded-full outline-none transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:ring-[var(--color-brand)] focus-visible:ring-offset-1"
+                style={{ backgroundColor: "var(--color-brand)" }}
+                aria-label="Account menu"
               >
-                AK
-              </span>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="min-w-[160px]">
-              <DropdownMenuLabel>Account</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem>Profile</DropdownMenuItem>
-              <DropdownMenuItem>Settings</DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem>Sign out</DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+                <span
+                  className="text-[11px] font-semibold"
+                  style={{ color: "var(--color-text-on-brand)" }}
+                >
+                  {initials}
+                </span>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="min-w-[200px]">
+                <DropdownMenuLabel className="truncate">{email}</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onSelect={onSignOut}>Sign out</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : (
+            <Link
+              to="/auth"
+              className="inline-flex h-8 items-center rounded-md px-3 text-[12.5px] font-medium outline-none transition-colors hover:bg-[var(--color-canvas)] focus-visible:ring-2 focus-visible:ring-[var(--color-brand)] focus-visible:ring-offset-1"
+              style={{ color: "var(--color-text-primary)" }}
+            >
+              Sign in
+            </Link>
+          )}
+
         </div>
       </div>
     </header>
