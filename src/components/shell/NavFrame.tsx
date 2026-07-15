@@ -95,7 +95,7 @@ export function NavFrame() {
                 <Link
                   key={t.to}
                   to={t.to}
-                  className="relative flex h-13 items-center text-[13px] font-medium transition-colors"
+                  className="relative flex h-12 items-center text-[13px] font-medium transition-colors"
                   style={{
                     
                     color: active
