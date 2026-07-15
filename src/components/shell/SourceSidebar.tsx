@@ -2,9 +2,15 @@ import { useState } from "react";
 import { ChevronLeft, ChevronRight, Calendar, Tag } from "lucide-react";
 import { copy } from "@/lib/copy-deck";
 import { sessionLibrary, currentSession } from "@/lib/session-data";
+import {
+  SIDEBAR_COLLAPSED,
+  SIDEBAR_EXPANDED,
+  toggleSidebarCollapsed,
+  useSidebarCollapsed,
+} from "@/lib/sidebar-store";
 
 export function SourceSidebar() {
-  const [collapsed, setCollapsed] = useState(false);
+  const collapsed = useSidebarCollapsed();
   const [split, setSplit] = useState<"all" | "match" | "training">("all");
 
   const filtered = sessionLibrary.filter((s) =>
