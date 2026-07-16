@@ -306,20 +306,6 @@ function ToggleAll({ active, onClick }: { active: boolean; onClick: () => void }
   );
 }
 
-function QuickAdd({ label, onClick }: { label: string; onClick: () => void }) {
-  return (
-    <button
-      onClick={onClick}
-      className="rounded-md border px-2 py-1 text-[11.5px] transition-colors hover:bg-[color:var(--color-slate-100)]"
-      style={{
-        borderColor: "var(--color-border)",
-        color: "var(--color-text-secondary)",
-      }}
-    >
-      {label}
-    </button>
-  );
-}
 
 function AthletePicker({
   selected,
