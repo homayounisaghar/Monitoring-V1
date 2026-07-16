@@ -9,7 +9,6 @@ import {
 import {
   timeline,
   participants,
-  savedSubsets,
   POSITION_LABEL,
   type ParticipationTag,
   type PositionCode,
