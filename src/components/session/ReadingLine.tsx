@@ -23,11 +23,11 @@ export function ReadingLine() {
       <EditableChip
         value={reference.label}
         changed={!referenceIsDefault}
-        onReset={() => setReference(REFERENCE_OPTIONS[0])}
+        onReset={() => setReference(defaultReference)}
         renderPopover={(close) => (
           <ChipOptions
             title={copy("menu.titleReference")}
-            options={REFERENCE_OPTIONS}
+            options={referenceOptions}
             activeKind={reference.kind}
             glossKey={(kind) => `readingLine.gloss.${kind}`}
             onSelect={(opt) => {
