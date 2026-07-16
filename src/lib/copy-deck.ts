@@ -177,8 +177,6 @@ export const COPY = {
   "canonical.filter.group.athletes": "Athletes",
   "canonical.filter.granularity.halves": "Halves",
   "canonical.filter.granularity.blocks15": "15' blocks",
-  "canonical.filter.quickAdd.rtp": "+ Return-to-play",
-  "canonical.filter.quickAdd.setpiece": "+ Set-piece unit",
   "canonical.filter.done": "Done",
   "canonical.filter.all": "All",
   "canonical.filter.findAthletes": "Find athletes…",
