@@ -76,10 +76,12 @@ const PARTICIPATION_TAGS: ParticipationTag[] = [
 // Category carried by texture, not hue.
 const TAG_TEXTURE: Record<ParticipationTag, string> = {
   Full:     "bg-[color:var(--color-slate-500)]",
-  Part:     "bg-[color:var(--color-slate-400)] bg-[repeating-linear-gradient(45deg,var(--color-slate-400)_0_6px,var(--color-slate-300)_6px_12px)]",
-  Modified: "bg-[color:var(--color-slate-400)] bg-[repeating-linear-gradient(-45deg,var(--color-slate-400)_0_4px,var(--color-slate-300)_4px_8px)]",
-  Rehab:    "bg-[color:var(--color-slate-300)] bg-[repeating-linear-gradient(90deg,var(--color-slate-300)_0_5px,var(--color-slate-200)_5px_10px)]",
-  Injury:   "bg-[color:var(--color-slate-400)] bg-[repeating-linear-gradient(0deg,var(--color-slate-400)_0_3px,var(--color-slate-200)_3px_6px)]",
+  // Part — wider stripe pitch, high-contrast slate pair for arm's-length read.
+  Part:     "bg-[color:var(--color-slate-500)] bg-[repeating-linear-gradient(45deg,var(--color-slate-500)_0_5px,var(--color-slate-100)_5px_10px)]",
+  Modified: "bg-[color:var(--color-slate-400)] bg-[repeating-linear-gradient(-45deg,var(--color-slate-400)_0_4px,var(--color-slate-200)_4px_8px)]",
+  Rehab:    "bg-[color:var(--color-slate-300)] bg-[repeating-linear-gradient(90deg,var(--color-slate-300)_0_5px,var(--color-slate-100)_5px_10px)]",
+  // Injury — darker base + lighter stripes; horizontal, distinct from Part.
+  Injury:   "bg-[color:var(--color-slate-700)] bg-[repeating-linear-gradient(0deg,var(--color-slate-700)_0_3px,var(--color-slate-200)_3px_7px)]",
   Other:    "bg-[color:var(--color-slate-300)]",
 };
 
@@ -637,19 +639,25 @@ function ZoneBar({
         ))}
       </div>
       <div className="flex text-[11px]">
-        {shares.map((s) => (
-          <div
-            key={s.id}
-            className="type-num"
-            style={{
-              width: `${s.pct}%`,
-              color: "var(--color-text-secondary)",
-              paddingLeft: 4,
-            }}
-          >
-            Z{s.ramp} — {s.pct}%
-          </div>
-        ))}
+        {shares.map((s) => {
+          // Full label "Zn — nn%" is ~52px at 11px; drop it under ~12%
+          // (the segment's title/hover still carries it). Never truncate.
+          const showLabel = s.pct >= 12;
+          return (
+            <div
+              key={s.id}
+              className="type-num"
+              style={{
+                width: `${s.pct}%`,
+                color: "var(--color-text-secondary)",
+                paddingLeft: 4,
+              }}
+              title={`Z${s.ramp} — ${s.pct}%`}
+            >
+              {showLabel ? `Z${s.ramp} — ${s.pct}%` : "\u00a0"}
+            </div>
+          );
+        })}
       </div>
     </div>
   );
