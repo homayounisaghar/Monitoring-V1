@@ -510,9 +510,13 @@ function Lane({
               </div>
             </HoverCardTrigger>
             <HoverCardContent
-              className="w-72 p-3"
+              className="w-72 p-3 border-transparent shadow-lg"
               side="top"
               align="center"
+              style={{
+                backgroundColor: "var(--color-slate-900)",
+                color: "var(--color-slate-50)",
+              }}
             >
               <BlockHover
                 row={r}
@@ -523,6 +527,7 @@ function Lane({
                 coveredMin={coveredMin}
               />
             </HoverCardContent>
+
           </HoverCard>
         );
       })}
