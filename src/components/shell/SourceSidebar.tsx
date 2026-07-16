@@ -12,10 +12,17 @@ import {
 export function SourceSidebar() {
   const collapsed = useSidebarCollapsed();
   const [split, setSplit] = useState<"all" | "match" | "training">("all");
+  const [query, setQuery] = useState("");
 
-  const filtered = sessionLibrary.filter((s) =>
-    split === "all" ? true : split === "match" ? s.kind === "match" : s.kind === "training"
-  );
+  const q = query.trim().toLowerCase();
+  const filtered = sessionLibrary.filter((s) => {
+    if (split !== "all" && s.kind !== split) return false;
+    if (q) {
+      const displayName = stripDayCodePrefix(s.label, s.dayCode);
+      if (!displayName.toLowerCase().includes(q)) return false;
+    }
+    return true;
+  });
 
   return (
     <aside
