@@ -47,16 +47,21 @@ import { ValueOnTrack } from "@/components/data/ValueOnTrack";
 
 type ViewMode = "table" | "chart";
 type DisplayMode = "absolute" | "percent";
+type ChartArrangement = "position" | "ranked";
+type SortKey = MetricId | "position";
 
 const PREFS_STORAGE_KEY = "st2.session.squad.prefs.v1";
 
-type SortState = { key: MetricId; dir: "asc" | "desc" };
+const POSITION_ORDER: PositionCode[] = ["GK", "DEF", "MID", "ATT"];
+
+type SortState = { key: SortKey; dir: "asc" | "desc" };
 
 type SquadPrefs = {
   view: ViewMode;
   display: DisplayMode;
   columns: MetricId[];
   chartMetric: MetricId;
+  chartArrangement: ChartArrangement;
   sort: SortState;
 };
 
@@ -65,11 +70,16 @@ const DEFAULT_PREFS: SquadPrefs = {
   display: "absolute",
   columns: DEFAULT_COLUMNS,
   chartMetric: "totalDistance",
-  sort: { key: "totalDistance", dir: "desc" },
+  chartArrangement: "position",
+  sort: { key: "position", dir: "desc" },
 };
 
 function isMetricId(x: unknown): x is MetricId {
   return typeof x === "string" && Object.prototype.hasOwnProperty.call(METRICS, x);
+}
+
+function isSortKey(x: unknown): x is SortKey {
+  return x === "position" || isMetricId(x);
 }
 
 function loadPrefs(): SquadPrefs {
@@ -84,17 +94,22 @@ function loadPrefs(): SquadPrefs {
     const columnsArr = Array.isArray(p.columns) ? p.columns.filter(isMetricId) : [];
     const columns = columnsArr.length > 0 ? (columnsArr as MetricId[]) : DEFAULT_PREFS.columns;
     const chartMetric: MetricId = isMetricId(p.chartMetric) ? p.chartMetric : DEFAULT_PREFS.chartMetric;
-    const sortKey: MetricId =
-      p.sort && isMetricId(p.sort.key) ? p.sort.key : DEFAULT_PREFS.sort.key;
+    const chartArrangement: ChartArrangement =
+      p.chartArrangement === "position" || p.chartArrangement === "ranked"
+        ? p.chartArrangement
+        : DEFAULT_PREFS.chartArrangement;
+    const sortKey: SortKey =
+      p.sort && isSortKey(p.sort.key) ? p.sort.key : DEFAULT_PREFS.sort.key;
     const sortDir: "asc" | "desc" =
       p.sort && (p.sort.dir === "asc" || p.sort.dir === "desc")
         ? p.sort.dir
         : DEFAULT_PREFS.sort.dir;
-    return { view, display, columns, chartMetric, sort: { key: sortKey, dir: sortDir } };
+    return { view, display, columns, chartMetric, chartArrangement, sort: { key: sortKey, dir: sortDir } };
   } catch {
     return DEFAULT_PREFS;
   }
 }
+
 
 export function SquadCard() {
   const {
