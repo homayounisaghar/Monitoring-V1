@@ -41,7 +41,9 @@ export function EventBanner() {
               color: "var(--color-slate-300)",
             }}
           >
-            {s.kind === "match" ? copy("canonical.eventBanner.match") : copy("canonical.eventBanner.training")}
+            {s.kind === "match"
+              ? copy("canonical.eventBanner.match")
+              : `${copy("canonical.eventBanner.training")}${dayCode ? ` · ${dayCode}` : ""}`}
           </span>
           <span
             className="whitespace-nowrap text-[12.5px]"
