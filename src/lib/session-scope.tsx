@@ -294,6 +294,8 @@ export function SessionScopeProvider({ children }: { children: ReactNode }) {
   const value: SessionScope = {
     reference,
     setReference,
+    referenceOptions,
+    defaultReference,
     benchmark,
     setBenchmark,
     benchmarkOptions,
