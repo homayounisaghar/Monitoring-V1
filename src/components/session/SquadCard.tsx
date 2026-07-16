@@ -125,6 +125,7 @@ export function SquadCard() {
   const [columns, setColumns] = useState<MetricId[]>(initial.columns);
   const [sort, setSort] = useState<SortState>(initial.sort);
   const [chartMetric, setChartMetric] = useState<MetricId>(initial.chartMetric);
+  const [chartArrangement, setChartArrangement] = useState<ChartArrangement>(initial.chartArrangement);
   const [pickerOpen, setPickerOpen] = useState(false);
   const navigate = useNavigate();
 
@@ -132,12 +133,13 @@ export function SquadCard() {
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
-      const payload: SquadPrefs = { view, display, columns, chartMetric, sort };
+      const payload: SquadPrefs = { view, display, columns, chartMetric, chartArrangement, sort };
       window.localStorage.setItem(PREFS_STORAGE_KEY, JSON.stringify(payload));
     } catch {
       /* ignore quota / disabled storage */
     }
-  }, [view, display, columns, chartMetric, sort]);
+  }, [view, display, columns, chartMetric, chartArrangement, sort]);
+
 
   /* --- rows in scope --- */
 
