@@ -9,7 +9,6 @@ import {
 import {
   timeline,
   participants,
-  savedSubsets,
   POSITION_LABEL,
   type ParticipationTag,
   type PositionCode,
@@ -215,25 +214,8 @@ function FilterPanel({
             selected={filter.athletes}
             onChange={(next) => patch({ athletes: next })}
           />
-          <div className="mt-2 flex gap-1">
-            <QuickAdd
-              label={copy("canonical.filter.quickAdd.rtp")}
-              onClick={() => {
-                const next = new Set(filter.athletes);
-                savedSubsets.rtp.forEach((id) => next.add(id));
-                patch({ athletes: next });
-              }}
-            />
-            <QuickAdd
-              label={copy("canonical.filter.quickAdd.setpiece")}
-              onClick={() => {
-                const next = new Set(filter.athletes);
-                savedSubsets.setpiece.forEach((id) => next.add(id));
-                patch({ athletes: next });
-              }}
-            />
-          </div>
         </Section>
+
       </div>
 
       {/* Footer */}
@@ -324,20 +306,6 @@ function ToggleAll({ active, onClick }: { active: boolean; onClick: () => void }
   );
 }
 
-function QuickAdd({ label, onClick }: { label: string; onClick: () => void }) {
-  return (
-    <button
-      onClick={onClick}
-      className="rounded-md border px-2 py-1 text-[11.5px] transition-colors hover:bg-[color:var(--color-slate-100)]"
-      style={{
-        borderColor: "var(--color-border)",
-        color: "var(--color-text-secondary)",
-      }}
-    >
-      {label}
-    </button>
-  );
-}
 
 function AthletePicker({
   selected,

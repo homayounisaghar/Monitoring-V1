@@ -1,6 +1,7 @@
 import { Pencil, Share2 } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { currentSession } from "@/lib/session-data";
+import { useSessionScope } from "@/lib/session-scope";
 import { copy } from "@/lib/copy-deck";
 
 export function EventBanner() {
@@ -17,6 +18,7 @@ export function EventBanner() {
   }, [menuOpen]);
 
   const s = currentSession;
+  const { dayCode } = useSessionScope();
 
   return (
     <div
@@ -39,7 +41,9 @@ export function EventBanner() {
               color: "var(--color-slate-300)",
             }}
           >
-            {s.kind === "match" ? copy("canonical.eventBanner.match") : copy("canonical.eventBanner.training")}
+            {s.kind === "match"
+              ? copy("canonical.eventBanner.match")
+              : `${copy("canonical.eventBanner.training")}${dayCode ? ` · ${dayCode}` : ""}`}
           </span>
           <span
             className="whitespace-nowrap text-[12.5px]"

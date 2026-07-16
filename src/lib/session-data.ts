@@ -100,12 +100,6 @@ export const sessionLibrary: Array<Session & { selected?: boolean }> = [
   { id: "s-2026-06-21", kind: "match",    label: "vs Bayer 04",      dateISO: "2026-06-21", durationMin: 96, halves: [47, 49], result: "3–2 W" },
 ];
 
-/* ---------- Saved subsets (quick-add actions, not state) ---------- */
-
-export const savedSubsets = {
-  rtp:      ["voss", "lange", "brandt"],        // return-to-play
-  setpiece: ["schaefer", "roth", "koehler", "fischer", "hofmann"],
-} as const;
 
 /* ---------- Timeline helper — derived, never hardcoded (rule 9) ---------- */
 
