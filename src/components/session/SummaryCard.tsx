@@ -203,7 +203,9 @@ export function SummaryCard() {
                 value={marks.totalDistanceM}
                 reference={refs.refTotalDistanceM}
                 unit="m"
+                basisLabel={`100 · ${benchmark.label.toLowerCase()}`}
               />
+
               <WorkMark
                 label={copy("canonical.summary.metric.relativeDistance")}
                 value={marks.relDistanceMpm}
@@ -387,11 +389,13 @@ function WorkMark({
   value,
   reference,
   unit,
+  basisLabel,
 }: {
   label: string;
   value: number;
   reference: number;
   unit: string;
+  basisLabel?: string;
 }) {
   return (
     <div className="space-y-1">
@@ -414,6 +418,14 @@ function WorkMark({
         showValue={false}
         showDelta={false}
       />
+      {basisLabel && (
+        <div
+          className="type-num text-[10px] text-center"
+          style={{ color: "var(--color-text-tertiary)" }}
+        >
+          {basisLabel}
+        </div>
+      )}
     </div>
   );
 }
@@ -683,8 +695,6 @@ function FullMatchRead({ label, pct }: { label: string; pct: number }) {
 }
 
 function CollapsedFullRead({ label, pct }: { label: string; pct: number }) {
-  const delta = pct - 100;
-  const deltaLabel = `${delta >= 0 ? "+" : ""}${delta}%`;
   return (
     <span className="inline-flex items-baseline gap-1.5">
       <span
@@ -698,12 +708,6 @@ function CollapsedFullRead({ label, pct }: { label: string; pct: number }) {
         style={{ color: "var(--color-text-primary)" }}
       >
         {pct}%
-      </span>
-      <span
-        className="type-num text-[11px]"
-        style={{ color: "var(--color-text-tertiary)" }}
-      >
-        {deltaLabel}
       </span>
     </span>
   );
