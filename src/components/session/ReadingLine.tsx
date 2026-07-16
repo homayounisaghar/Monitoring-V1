@@ -184,9 +184,6 @@ function ChipOptions<T extends ReferenceKind | BenchmarkKind>({
             showFamilyDividers &&
             idx < options.length - 1 &&
             (opt.kind === "season" || opt.kind === "cohort");
-          const dividerAfter =
-            showFamilyDividers &&
-            (opt.kind === "season" || opt.kind === "cohort");
           return (
             <li key={opt.kind}>
               <button
