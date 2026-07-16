@@ -115,22 +115,6 @@ export function NavFrame() {
 
             {/* Utility cluster — right-aligned to the content column */}
             <div className="flex items-center gap-1.5">
-              <div
-                className="flex h-8 w-56 items-center gap-2 rounded-md border px-2.5"
-                style={{
-                  borderColor: "var(--color-border)",
-                  backgroundColor: "var(--color-canvas)",
-                }}
-              >
-                <Search className="h-3.5 w-3.5" style={{ color: "var(--color-text-tertiary)" }} aria-hidden />
-                <input
-                  type="search"
-                  placeholder="Search athletes, sessions…"
-                  aria-label="Search athletes and sessions"
-                  className="w-full bg-transparent text-[12.5px] outline-none placeholder:opacity-70"
-                  style={{ color: "var(--color-text-primary)" }}
-                />
-              </div>
 
               <button
                 type="button"
