@@ -191,23 +191,64 @@ export function SquadCard() {
     return v;
   };
 
-  const sortedRows = useMemo(() => {
+  // Row-render descriptors. When sort is "position", we render group
+  // subheader rows before each visible position group and pin DNP/no-data
+  // to the foot (never inside a group).
+  type RowItem =
+    | { kind: "header"; pos: PositionCode }
+    | { kind: "row"; a: Athlete };
+
+  const renderItems = useMemo<RowItem[]>(() => {
     const rows = [...tableRows];
+    if (sort.key === "position") {
+      // "has data" for position sort uses Total distance as the within-group ranker.
+      const rankKey: MetricId = "totalDistance";
+      const inGroup: Athlete[] = [];
+      const foot: Athlete[] = [];
+      for (const a of rows) {
+        if (hasSortData(a, rankKey)) inGroup.push(a);
+        else foot.push(a);
+      }
+      inGroup.sort((a, b) => {
+        const ap = POSITION_ORDER.indexOf(a.position);
+        const bp = POSITION_ORDER.indexOf(b.position);
+        if (ap !== bp) return ap - bp;
+        const av = sortValue(a, rankKey);
+        const bv = sortValue(b, rankKey);
+        if (av === bv) return a.name.localeCompare(b.name);
+        return bv - av;
+      });
+      foot.sort((a, b) => a.name.localeCompare(b.name));
+      const items: RowItem[] = [];
+      let currentPos: PositionCode | null = null;
+      for (const a of inGroup) {
+        if (a.position !== currentPos) {
+          items.push({ kind: "header", pos: a.position });
+          currentPos = a.position;
+        }
+        items.push({ kind: "row", a });
+      }
+      for (const a of foot) items.push({ kind: "row", a });
+      return items;
+    }
+
+    // Metric sort — flat, existing behavior.
+    const key = sort.key as MetricId;
     rows.sort((a, b) => {
-      // DNP + no-data pin to foot explicitly, regardless of dir.
-      const aHas = hasSortData(a, sort.key);
-      const bHas = hasSortData(b, sort.key);
+      const aHas = hasSortData(a, key);
+      const bHas = hasSortData(b, key);
       if (!aHas && bHas) return 1;
       if (aHas && !bHas) return -1;
       if (!aHas && !bHas) return a.name.localeCompare(b.name);
-      const av = sortValue(a, sort.key);
-      const bv = sortValue(b, sort.key);
+      const av = sortValue(a, key);
+      const bv = sortValue(b, key);
       if (av === bv) return a.name.localeCompare(b.name);
       return sort.dir === "asc" ? av - bv : bv - av;
     });
-    return rows;
+    return rows.map((a) => ({ kind: "row" as const, a }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tableRows, sort, display]);
+
 
   /* --- squad-avg row (in-scope participants) --- */
 
