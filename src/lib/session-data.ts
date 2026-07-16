@@ -38,6 +38,7 @@ export type Session = {
   id: string;
   kind: "match" | "training";
   label: string; // e.g. "vs Borussia Dortmund"
+  dayCode: string; // "MD", "MD-1", "MD+1", …
   dateISO: string;
   durationMin: number;
   halves: [number, number]; // half durations, minutes
@@ -52,6 +53,7 @@ export const currentSession: Session = {
   id: "s-2026-07-04-dortmund",
   kind: "match",
   label: "vs Borussia Dortmund",
+  dayCode: "MD",
   dateISO: "2026-07-04",
   durationMin: 95,
   halves: [47, 48],
@@ -59,6 +61,7 @@ export const currentSession: Session = {
   weather: { tempC: 14, humidityPct: 72 },
   result: "2–1 W",
 };
+
 
 /* ---------- Squad (19) — Sturm is squad but did not participate ---------- */
 
