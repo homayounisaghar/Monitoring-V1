@@ -216,7 +216,7 @@ export function SummaryCard() {
                 value={marks.totalDistanceM}
                 reference={refs.refTotalDistanceM}
                 unit="m"
-                basisLabel={`100 · ${benchmark.label.toLowerCase()}`}
+                basisLabel={`100 · ${benchmark.label.charAt(0).toLowerCase()}${benchmark.label.slice(1)}`}
               />
 
               <WorkMark
