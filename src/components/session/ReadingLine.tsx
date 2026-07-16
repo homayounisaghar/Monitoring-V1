@@ -18,27 +18,6 @@ export function ReadingLine() {
 
   return (
     <div className="flex min-w-0 items-center gap-1.5 text-[13px]" style={{ color: "var(--color-text-secondary)" }}>
-      <span>{copy("canonical.readingLine.athletePrefix")}</span>
-
-      <EditableChip
-        value={reference.label}
-        changed={!referenceIsDefault}
-        onReset={() => setReference(defaultReference)}
-        renderPopover={(close) => (
-          <ChipOptions
-            title={copy("menu.titleReference")}
-            options={referenceOptions}
-            activeKind={reference.kind}
-            glossKey={(kind) => `readingLine.gloss.${kind}`}
-            onSelect={(opt) => {
-              setReference(opt);
-              close();
-            }}
-          />
-        )}
-      />
-
-      <span>{copy("canonical.readingLine.separator")}</span>
       <span>{copy("canonical.readingLine.squadPrefix")}</span>
 
       <EditableChip
@@ -53,6 +32,28 @@ export function ReadingLine() {
             glossKey={(kind) => `readingLine.bgloss.${kind}`}
             onSelect={(opt) => {
               setBenchmark(opt);
+              close();
+            }}
+          />
+        )}
+      />
+
+      <span>{copy("canonical.readingLine.separator")}</span>
+      <span>{copy("canonical.readingLine.athletePrefix")}</span>
+
+      <EditableChip
+        value={reference.label}
+        changed={!referenceIsDefault}
+        onReset={() => setReference(defaultReference)}
+        renderPopover={(close) => (
+          <ChipOptions
+            title={copy("menu.titleReference")}
+            options={referenceOptions}
+            activeKind={reference.kind}
+            glossKey={(kind) => `readingLine.gloss.${kind}`}
+            showFamilyDividers
+            onSelect={(opt) => {
+              setReference(opt);
               close();
             }}
           />
@@ -154,12 +155,14 @@ function ChipOptions<T extends ReferenceKind | BenchmarkKind>({
   activeKind,
   glossKey,
   onSelect,
+  showFamilyDividers,
 }: {
   title: string;
   options: Array<{ kind: T; label: string }>;
   activeKind: T;
   glossKey: (kind: T) => string;
   onSelect: (opt: { kind: T; label: string }) => void;
+  showFamilyDividers?: boolean;
 }) {
   return (
     <>
@@ -177,6 +180,9 @@ function ChipOptions<T extends ReferenceKind | BenchmarkKind>({
           const active = opt.kind === activeKind;
           const isDefault = opt.kind === options[0].kind;
           const gloss = copy(glossKey(opt.kind));
+          const dividerAfter =
+            showFamilyDividers &&
+            (opt.kind === "season" || opt.kind === "cohort");
           return (
             <li key={opt.kind}>
               <button
@@ -222,6 +228,13 @@ function ChipOptions<T extends ReferenceKind | BenchmarkKind>({
                   </span>
                 )}
               </button>
+              {dividerAfter && (
+                <div
+                  aria-hidden
+                  className="mx-2 my-1 h-px"
+                  style={{ backgroundColor: "var(--color-border)" }}
+                />
+              )}
             </li>
           );
         })}
