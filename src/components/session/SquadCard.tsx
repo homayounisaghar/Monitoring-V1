@@ -900,7 +900,7 @@ function ChartRow({
   onFlagClick: () => void;
 }) {
   const rowScaled =
-    a.participation !== null && a.minutes < 60 && a.id !== "koehler";
+    a.participation !== null && a.minutes < 60 && a.id !== BUILDING_ID;
   return (
     <li
       onClick={onClick}
@@ -1005,7 +1005,7 @@ function ChartRow({
                       className="type-data-label italic ml-1"
                       style={{ color: "var(--color-text-tertiary)" }}
                     >
-                      {copy("canonical.squad.chart.building")}
+                      {copy("row.baseline")}
                     </span>
                   </div>
                 </div>

@@ -243,7 +243,7 @@ export const COPY = {
   "canonical.squad.picker.done": "Done",
   "canonical.squad.chart.hisTypicalPrefix": "his typical: ",
   
-  "canonical.squad.chart.building": "building",
+  
   "canonical.squad.chart.scaledSuffix": " · scaled",
 
   "canonical.gap.basisPrefix": "basis · ",
