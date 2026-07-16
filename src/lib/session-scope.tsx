@@ -261,7 +261,7 @@ export function SessionScopeProvider({ children }: { children: ReactNode }) {
     if (dayCode) {
       const dayTypeOpt: BenchmarkOption = {
         kind: "typical_daytype",
-        label: `Typical ${dayCode}`,
+        label: `typical ${dayCode}`,
       };
       const benchOpts = [
         dayTypeOpt,
