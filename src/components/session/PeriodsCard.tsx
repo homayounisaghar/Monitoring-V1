@@ -854,10 +854,11 @@ function BlockHover({
     rows.push({ label, body });
   };
 
-  push("periods.hover.rowLabel.total", row.cells.totalDistance, "periods.unit.m");
-  push("periods.hover.rowLabel.hsr", row.cells.hsr, "periods.unit.m");
-  push("periods.hover.rowLabel.accDec", row.cells.accelDecel, "periods.unit.ct");
-  push("periods.hover.rowLabel.cardio", row.cells.cardioLoad, "periods.unit.cl");
+  push("canonical.summary.metric.totalDistance", row.cells.totalDistance, "periods.unit.m");
+  push("canonical.summary.metric.hsr", row.cells.hsr, "periods.unit.m");
+  push("canonical.summary.metric.accDec", row.cells.accelDecel, "periods.unit.ct");
+  push("canonical.summary.metric.cardioLoad", row.cells.cardioLoad, "periods.unit.cl");
+
 
   const gapBody =
     gap === null
