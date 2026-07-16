@@ -56,6 +56,8 @@ export const COPY = {
   "columns.capReason": "At the 12-column cap — remove one to add another",
   "chart.captionAbsolute": "Ranked by {metric}",
   "chart.captionPercent": "Ranked by delta · {metric}",
+  "chart.captionGroupedAbsolute": "By position · ranked by {metric} within each line",
+  "chart.captionGroupedPercent": "By position · ranked by delta · {metric} within each line",
   "chart.noData": "No data on this metric",
   "row.baseline": "building baseline",
   "menu.titleReference": "Reference · per athlete",
