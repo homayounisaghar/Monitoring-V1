@@ -7,7 +7,7 @@
  * (participants overrides + tier-1 flag set) and every component
  * reads only that — no per-component demo branches.
  */
-import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   participants as rawParticipants,
   currentSession,
@@ -33,10 +33,13 @@ export type ReferenceKind =
   | "season"
   | "same_opponent";
 export type BenchmarkKind =
+  | "typical_daytype"
   | "typical_match"
   | "last_match"
   | "last_5"
   | "same_opponent";
+
+export type BenchmarkOption = { kind: BenchmarkKind; label: string };
 
 export const REFERENCE_OPTIONS: Array<{ kind: ReferenceKind; label: string }> = [
   { kind: "own_typical",   label: "their typical match" },
@@ -47,12 +50,16 @@ export const REFERENCE_OPTIONS: Array<{ kind: ReferenceKind; label: string }> = 
   { kind: "same_opponent", label: "same opponent" },
 ];
 
-export const BENCHMARK_OPTIONS: Array<{ kind: BenchmarkKind; label: string }> = [
+// Match menu — the day-type typical of a match IS "typical match".
+export const BENCHMARK_OPTIONS: BenchmarkOption[] = [
   { kind: "typical_match", label: "typical match" },
   { kind: "last_match",    label: "last match" },
   { kind: "last_5",        label: "last 5 matches" },
   { kind: "same_opponent", label: "same opponent" },
 ];
+
+// Demo day code for the training-day scenario. Placeholder like the rest.
+export const TRAINING_DAY_CODE = "MD-2";
 
 export type Filter = {
   participation: Set<ParticipationTag>;
