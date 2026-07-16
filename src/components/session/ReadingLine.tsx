@@ -2,7 +2,6 @@ import { useState, useRef, useEffect } from "react";
 import { ChevronDown, X, HelpCircle } from "lucide-react";
 import {
   useSessionScope,
-  REFERENCE_OPTIONS,
   type ReferenceKind,
   type BenchmarkKind,
 } from "@/lib/session-scope";
@@ -11,10 +10,11 @@ import { copy, type CopyKey } from "@/lib/copy-deck";
 export function ReadingLine() {
   const {
     reference, setReference, benchmark, setBenchmark,
+    referenceOptions, defaultReference,
     benchmarkOptions, defaultBenchmark, benchmarkIsDefault,
   } = useSessionScope();
 
-  const referenceIsDefault = reference.kind === REFERENCE_OPTIONS[0].kind;
+  const referenceIsDefault = reference.kind === defaultReference.kind;
 
   return (
     <div className="flex min-w-0 items-center gap-1.5 text-[13px]" style={{ color: "var(--color-text-secondary)" }}>
