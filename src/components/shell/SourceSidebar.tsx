@@ -172,6 +172,14 @@ export function SourceSidebar() {
               );
             })}
           </ul>
+          {filtered.length === 0 && (
+            <div
+              className="px-2.5 py-2 text-[12px]"
+              style={{ color: "var(--color-text-tertiary)" }}
+            >
+              {copy("sidebar.searchEmpty")}
+            </div>
+          )}
 
         </div>
       )}
