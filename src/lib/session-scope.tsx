@@ -41,10 +41,12 @@ export type BenchmarkKind =
 
 export type BenchmarkOption = { kind: BenchmarkKind; label: string };
 
-export const REFERENCE_OPTIONS: Array<{ kind: ReferenceKind; label: string }> = [
+export type ReferenceOption = { kind: ReferenceKind; label: string };
+
+export const REFERENCE_OPTIONS: ReferenceOption[] = [
   { kind: "own_typical",   label: "their typical match" },
   { kind: "positional",    label: "positional norm" },
-  { kind: "cohort",        label: "cohort" },
+  { kind: "cohort",        label: "squad average" },
   { kind: "last_n",        label: "last 5 matches" },
   { kind: "season",        label: "season average" },
   { kind: "same_opponent", label: "same opponent" },
@@ -77,8 +79,10 @@ export type DemoScenario =
   | "training_day";
 
 export type SessionScope = {
-  reference: { kind: ReferenceKind; label: string };
-  setReference: (r: { kind: ReferenceKind; label: string }) => void;
+  reference: ReferenceOption;
+  setReference: (r: ReferenceOption) => void;
+  referenceOptions: ReferenceOption[];
+  defaultReference: ReferenceOption;
   benchmark: BenchmarkOption;
   setBenchmark: (b: BenchmarkOption) => void;
   benchmarkOptions: BenchmarkOption[];
@@ -243,26 +247,45 @@ export function SessionScopeProvider({ children }: { children: ReactNode }) {
   const sessionIsTraining = demo === "training_day";
   const dayCode = sessionIsTraining ? TRAINING_DAY_CODE : null;
 
-  const { benchmarkOptions, defaultBenchmark } = useMemo(() => {
+  const { benchmarkOptions, defaultBenchmark, referenceOptions, defaultReference } = useMemo(() => {
+    const filteredRef = sessionIsTraining
+      ? REFERENCE_OPTIONS.filter((o) => o.kind !== "same_opponent")
+      : REFERENCE_OPTIONS;
+    const refOpts: ReferenceOption[] = filteredRef.map((o) =>
+      o.kind === "own_typical" && dayCode
+        ? { kind: "own_typical", label: `their typical ${dayCode}` }
+        : o,
+    );
+    const defRef = refOpts[0];
+
     if (dayCode) {
       const dayTypeOpt: BenchmarkOption = {
         kind: "typical_daytype",
         label: `Typical ${dayCode}`,
       };
+      const benchOpts = [
+        dayTypeOpt,
+        ...BENCHMARK_OPTIONS.filter((o) => o.kind !== "same_opponent"),
+      ];
       return {
-        benchmarkOptions: [dayTypeOpt, ...BENCHMARK_OPTIONS],
+        benchmarkOptions: benchOpts,
         defaultBenchmark: dayTypeOpt,
+        referenceOptions: refOpts,
+        defaultReference: defRef,
       };
     }
     return {
       benchmarkOptions: BENCHMARK_OPTIONS,
       defaultBenchmark: BENCHMARK_OPTIONS[0],
+      referenceOptions: refOpts,
+      defaultReference: defRef,
     };
-  }, [dayCode]);
+  }, [dayCode, sessionIsTraining]);
 
-  // Reset benchmark to the per-session default when the session type flips.
+  // Reset benchmark + reference to the per-session defaults when the session type flips.
   useEffect(() => {
     setBenchmark(defaultBenchmark);
+    setReference(defaultReference);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionIsTraining]);
 
@@ -271,6 +294,8 @@ export function SessionScopeProvider({ children }: { children: ReactNode }) {
   const value: SessionScope = {
     reference,
     setReference,
+    referenceOptions,
+    defaultReference,
     benchmark,
     setBenchmark,
     benchmarkOptions,

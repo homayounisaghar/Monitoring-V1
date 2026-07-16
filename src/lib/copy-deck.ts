@@ -105,11 +105,11 @@ export const COPY = {
   // ---------- Reading-line menu glosses (per option kind) ----------
   "readingLine.cohortGloss": "cohort — same position group, this season",
   // Reference (per-athlete) glosses — DRAFT
-  "readingLine.gloss.own_typical": "his usual output for this match type",
+  "readingLine.gloss.own_typical": "their own typical for sessions of this type",
   "readingLine.gloss.positional": "typical for his position group",
-  "readingLine.gloss.cohort": "same position group, this season",
+  "readingLine.gloss.cohort": "the squad's average for sessions of this type",
   "readingLine.gloss.last_n": "average of his last five matches",
-  "readingLine.gloss.season": "his rolling season average",
+  "readingLine.gloss.season": "their season average for sessions of this type",
   "readingLine.gloss.same_opponent": "his output vs this opponent before",
   // Benchmark (squad) glosses — DRAFT
  "readingLine.bgloss.typical_daytype": "a typical session of this day type",
