@@ -462,10 +462,10 @@ function Lane({
       className="grid items-stretch"
       style={{ gridTemplateColumns: gridTemplate }}
     >
-      {/* left rail — metric name + unit */}
-      <div className="flex flex-col justify-center py-2 pr-3">
+      {/* left rail — metric name + unit, anchored to lane top */}
+      <div className="flex flex-col items-start justify-start pt-1 pr-3">
         <span
-          className="type-num text-[12.5px] font-medium"
+          className="type-label"
           style={{ color: "var(--color-text-primary)" }}
         >
           {copy(metric.labelKey)}
@@ -477,6 +477,7 @@ function Lane({
           {unit}
         </span>
       </div>
+
 
       {rows.map((r) => {
         const cell = r.cells[metric.key];
