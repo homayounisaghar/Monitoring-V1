@@ -105,7 +105,8 @@ function computeAggregates(
   const labels =
     view === "15min"
       ? blocks.map((b) => b.label)
-      : ["1st 0–45'", "2nd 45–95'"];
+      : [copy("periods.halfLabel.first"), copy("periods.halfLabel.second")];
+
 
   const rows: Aggregate[] = buckets.map((bucket, i) => {
     const minutes = bucket.reduce((s, b) => s + b.minutes, 0);
