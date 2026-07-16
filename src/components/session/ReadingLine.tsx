@@ -3,7 +3,6 @@ import { ChevronDown, X, HelpCircle } from "lucide-react";
 import {
   useSessionScope,
   REFERENCE_OPTIONS,
-  BENCHMARK_OPTIONS,
   type ReferenceKind,
   type BenchmarkKind,
 } from "@/lib/session-scope";
@@ -12,10 +11,10 @@ import { copy, type CopyKey } from "@/lib/copy-deck";
 export function ReadingLine() {
   const {
     reference, setReference, benchmark, setBenchmark,
+    benchmarkOptions, defaultBenchmark, benchmarkIsDefault,
   } = useSessionScope();
 
   const referenceIsDefault = reference.kind === REFERENCE_OPTIONS[0].kind;
-  const benchmarkIsDefault = benchmark.kind === BENCHMARK_OPTIONS[0].kind;
 
   return (
     <div className="flex min-w-0 items-center gap-1.5 text-[13px]" style={{ color: "var(--color-text-secondary)" }}>
@@ -45,11 +44,11 @@ export function ReadingLine() {
       <EditableChip
         value={benchmark.label}
         changed={!benchmarkIsDefault}
-        onReset={() => setBenchmark(BENCHMARK_OPTIONS[0])}
+        onReset={() => setBenchmark(defaultBenchmark)}
         renderPopover={(close) => (
           <ChipOptions
             title={copy("menu.titleBenchmark")}
-            options={BENCHMARK_OPTIONS}
+            options={benchmarkOptions}
             activeKind={benchmark.kind}
             glossKey={(kind) => `readingLine.bgloss.${kind}`}
             onSelect={(opt) => {

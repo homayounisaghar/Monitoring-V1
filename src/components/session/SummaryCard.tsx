@@ -13,7 +13,12 @@ import { ScopeTag } from "@/components/session/ScopeTag";
 
 /* ---------- Static (curated) squad averages, keyed to Benchmark ---------- */
 
-type BenchKey = "typical_match" | "last_match" | "last_5" | "same_opponent";
+type BenchKey =
+  | "typical_daytype"
+  | "typical_match"
+  | "last_match"
+  | "last_5"
+  | "same_opponent";
 
 type BenchRefs = {
   refTotalDistanceM: number;
@@ -27,6 +32,12 @@ type BenchRefs = {
 };
 
 const SQUAD_REF: Record<BenchKey, BenchRefs> = {
+  typical_daytype: {
+    refTotalDistanceM: 6800, refRelDistanceMpm: 95,
+    refHsrM: 380, refAccDec: 88,
+    refCardioLoadCL: 150, refSrpeMean: 5.4,
+    z4z5TypicalDistance: 14, z4z5TypicalDuration: 9,
+  },
   typical_match: {
     refTotalDistanceM: 9010, refRelDistanceMpm: 102,
     refHsrM: 665, refAccDec: 108,
@@ -205,7 +216,7 @@ export function SummaryCard() {
                 value={marks.totalDistanceM}
                 reference={refs.refTotalDistanceM}
                 unit="m"
-                basisLabel={`100 · ${benchmark.label.toLowerCase()}`}
+                basisLabel={`100 · ${benchmark.label.charAt(0).toLowerCase()}${benchmark.label.slice(1)}`}
               />
 
               <WorkMark

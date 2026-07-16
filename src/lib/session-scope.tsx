@@ -7,7 +7,7 @@
  * (participants overrides + tier-1 flag set) and every component
  * reads only that — no per-component demo branches.
  */
-import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   participants as rawParticipants,
   currentSession,
@@ -33,10 +33,13 @@ export type ReferenceKind =
   | "season"
   | "same_opponent";
 export type BenchmarkKind =
+  | "typical_daytype"
   | "typical_match"
   | "last_match"
   | "last_5"
   | "same_opponent";
+
+export type BenchmarkOption = { kind: BenchmarkKind; label: string };
 
 export const REFERENCE_OPTIONS: Array<{ kind: ReferenceKind; label: string }> = [
   { kind: "own_typical",   label: "their typical match" },
@@ -47,12 +50,16 @@ export const REFERENCE_OPTIONS: Array<{ kind: ReferenceKind; label: string }> = 
   { kind: "same_opponent", label: "same opponent" },
 ];
 
-export const BENCHMARK_OPTIONS: Array<{ kind: BenchmarkKind; label: string }> = [
+// Match menu — the day-type typical of a match IS "typical match".
+export const BENCHMARK_OPTIONS: BenchmarkOption[] = [
   { kind: "typical_match", label: "typical match" },
   { kind: "last_match",    label: "last match" },
   { kind: "last_5",        label: "last 5 matches" },
   { kind: "same_opponent", label: "same opponent" },
 ];
+
+// Demo day code for the training-day scenario. Placeholder like the rest.
+export const TRAINING_DAY_CODE = "MD-2";
 
 export type Filter = {
   participation: Set<ParticipationTag>;
@@ -72,8 +79,12 @@ export type DemoScenario =
 export type SessionScope = {
   reference: { kind: ReferenceKind; label: string };
   setReference: (r: { kind: ReferenceKind; label: string }) => void;
-  benchmark: { kind: BenchmarkKind; label: string };
-  setBenchmark: (b: { kind: BenchmarkKind; label: string }) => void;
+  benchmark: BenchmarkOption;
+  setBenchmark: (b: BenchmarkOption) => void;
+  benchmarkOptions: BenchmarkOption[];
+  defaultBenchmark: BenchmarkOption;
+  benchmarkIsDefault: boolean;
+  dayCode: string | null;
 
   filter: Filter;
   setFilter: (f: Filter) => void;
@@ -229,18 +240,50 @@ export function SessionScopeProvider({ children }: { children: ReactNode }) {
     };
   }, [filter, effectiveParticipants]);
 
+  const sessionIsTraining = demo === "training_day";
+  const dayCode = sessionIsTraining ? TRAINING_DAY_CODE : null;
+
+  const { benchmarkOptions, defaultBenchmark } = useMemo(() => {
+    if (dayCode) {
+      const dayTypeOpt: BenchmarkOption = {
+        kind: "typical_daytype",
+        label: `Typical ${dayCode}`,
+      };
+      return {
+        benchmarkOptions: [dayTypeOpt, ...BENCHMARK_OPTIONS],
+        defaultBenchmark: dayTypeOpt,
+      };
+    }
+    return {
+      benchmarkOptions: BENCHMARK_OPTIONS,
+      defaultBenchmark: BENCHMARK_OPTIONS[0],
+    };
+  }, [dayCode]);
+
+  // Reset benchmark to the per-session default when the session type flips.
+  useEffect(() => {
+    setBenchmark(defaultBenchmark);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionIsTraining]);
+
+  const benchmarkIsDefault = benchmark.kind === defaultBenchmark.kind;
+
   const value: SessionScope = {
     reference,
     setReference,
     benchmark,
     setBenchmark,
+    benchmarkOptions,
+    defaultBenchmark,
+    benchmarkIsDefault,
+    dayCode,
     filter,
     setFilter,
     demo,
     setDemo,
     effectiveParticipants,
     tier1Rows,
-    sessionIsTraining: demo === "training_day",
+    sessionIsTraining,
     ...derived,
   };
 
