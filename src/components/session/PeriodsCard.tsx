@@ -51,14 +51,14 @@ const METRICS: Array<{
   key: MetricKey;
   labelKey: string;
   unitKey: string;
-  hoverLabelKey: string;
   axis: Axis;
 }> = [
-  { key: "totalDistance", labelKey: "canonical.summary.metric.totalDistance", unitKey: "periods.unit.m",  hoverLabelKey: "periods.hover.rowLabel.total",  axis: "work" },
-  { key: "hsr",           labelKey: "canonical.summary.metric.hsr",           unitKey: "periods.unit.m",  hoverLabelKey: "periods.hover.rowLabel.hsr",    axis: "work" },
-  { key: "accelDecel",    labelKey: "canonical.summary.metric.accDec",        unitKey: "periods.unit.ct", hoverLabelKey: "periods.hover.rowLabel.accDec", axis: "work" },
-  { key: "cardioLoad",    labelKey: "canonical.summary.metric.cardioLoad",    unitKey: "periods.unit.cl", hoverLabelKey: "periods.hover.rowLabel.cardio", axis: "cost" },
+  { key: "totalDistance", labelKey: "canonical.summary.metric.totalDistance", unitKey: "periods.unit.m",  axis: "work" },
+  { key: "hsr",           labelKey: "canonical.summary.metric.hsr",           unitKey: "periods.unit.m",  axis: "work" },
+  { key: "accelDecel",    labelKey: "canonical.summary.metric.accDec",        unitKey: "periods.unit.ct", axis: "work" },
+  { key: "cardioLoad",    labelKey: "canonical.summary.metric.cardioLoad",    unitKey: "periods.unit.cl", axis: "cost" },
 ];
+
 
 /* ---------- Aggregation ---------- */
 
@@ -105,7 +105,8 @@ function computeAggregates(
   const labels =
     view === "15min"
       ? blocks.map((b) => b.label)
-      : ["1st 0–45'", "2nd 45–95'"];
+      : [copy("periods.halfLabel.first"), copy("periods.halfLabel.second")];
+
 
   const rows: Aggregate[] = buckets.map((bucket, i) => {
     const minutes = bucket.reduce((s, b) => s + b.minutes, 0);
@@ -205,9 +206,10 @@ export function PeriodsCard() {
 
   const gridTemplate = useMemo(
     () =>
-      `200px ${rows.map((r) => `${r.weight}fr`).join(" ")} 40px`,
+      `200px ${rows.map((r) => `minmax(0, ${r.weight}fr)`).join(" ")} 40px`,
     [rows],
   );
+
 
   return (
     <section id="periods" className="scroll-mt-36">
@@ -397,7 +399,7 @@ function TimeHeader({
             onMouseLeave={() => setHoverCol(null)}
           >
             <span
-              className="type-num text-[12px]"
+              className="type-num text-[12px] whitespace-nowrap"
               style={{
                 color: "var(--color-text-primary)",
                 fontWeight: isPeak ? 600 : 500,
@@ -405,6 +407,7 @@ function TimeHeader({
             >
               {r.label}
             </span>
+
             {isPeak && (
               <span
                 className="rounded px-1 py-[1px] type-data-label text-[10px]"
@@ -459,10 +462,10 @@ function Lane({
       className="grid items-stretch"
       style={{ gridTemplateColumns: gridTemplate }}
     >
-      {/* left rail — metric name + unit */}
-      <div className="flex flex-col justify-center py-2 pr-3">
+      {/* left rail — metric name + unit, anchored to lane top */}
+      <div className="flex flex-col items-start justify-start pt-1 pr-3">
         <span
-          className="type-num text-[12.5px] font-medium"
+          className="type-label"
           style={{ color: "var(--color-text-primary)" }}
         >
           {copy(metric.labelKey)}
@@ -474,6 +477,7 @@ function Lane({
           {unit}
         </span>
       </div>
+
 
       {rows.map((r) => {
         const cell = r.cells[metric.key];
@@ -506,9 +510,13 @@ function Lane({
               </div>
             </HoverCardTrigger>
             <HoverCardContent
-              className="w-72 p-3"
+              className="w-72 p-3 border-transparent shadow-lg"
               side="top"
               align="center"
+              style={{
+                backgroundColor: "var(--color-slate-900)",
+                color: "var(--color-slate-50)",
+              }}
             >
               <BlockHover
                 row={r}
@@ -519,6 +527,7 @@ function Lane({
                 coveredMin={coveredMin}
               />
             </HoverCardContent>
+
           </HoverCard>
         );
       })}
@@ -845,10 +854,11 @@ function BlockHover({
     rows.push({ label, body });
   };
 
-  push("periods.hover.rowLabel.total", row.cells.totalDistance, "periods.unit.m");
-  push("periods.hover.rowLabel.hsr", row.cells.hsr, "periods.unit.m");
-  push("periods.hover.rowLabel.accDec", row.cells.accelDecel, "periods.unit.ct");
-  push("periods.hover.rowLabel.cardio", row.cells.cardioLoad, "periods.unit.cl");
+  push("canonical.summary.metric.totalDistance", row.cells.totalDistance, "periods.unit.m");
+  push("canonical.summary.metric.hsr", row.cells.hsr, "periods.unit.m");
+  push("canonical.summary.metric.accDec", row.cells.accelDecel, "periods.unit.ct");
+  push("canonical.summary.metric.cardioLoad", row.cells.cardioLoad, "periods.unit.cl");
+
 
   const gapBody =
     gap === null
@@ -865,7 +875,7 @@ function BlockHover({
     <div className="space-y-2">
       <div
         className="type-num text-[12.5px] font-semibold"
-        style={{ color: "var(--color-text-primary)" }}
+        style={{ color: "var(--color-slate-50)" }}
       >
         {row.label} · {row.minutes} min
       </div>
@@ -874,13 +884,13 @@ function BlockHover({
           <div key={i} className="flex items-baseline justify-between gap-3">
             <span
               className="type-data-label text-[11px]"
-              style={{ color: "var(--color-text-tertiary)" }}
+              style={{ color: "var(--color-slate-400)" }}
             >
               {r.label}
             </span>
             <span
               className="type-num text-[11.5px] text-right"
-              style={{ color: "var(--color-text-primary)" }}
+              style={{ color: "var(--color-slate-50)" }}
             >
               {r.body}
             </span>
@@ -891,7 +901,7 @@ function BlockHover({
       {row.id === peakId && (
         <div
           className="type-num text-[11px] pt-1"
-          style={{ color: "var(--color-text-secondary)" }}
+          style={{ color: "var(--color-slate-300)" }}
         >
           {copy("periods.hover.peakLine")}
         </div>
@@ -899,7 +909,7 @@ function BlockHover({
       {includesUnconfirmed && (
         <div
           className="type-num text-[11px]"
-          style={{ color: "var(--color-text-secondary)" }}
+          style={{ color: "var(--color-slate-300)" }}
         >
           {copy("periods.hover.includesUnconfirmed")}
         </div>
@@ -907,7 +917,7 @@ function BlockHover({
       {view === "halves" && row.internalMissingMin > 0 && (
         <div
           className="type-num text-[11px]"
-          style={{ color: "var(--color-text-tertiary)" }}
+          style={{ color: "var(--color-slate-400)" }}
         >
           {tmpl("periods.hover.halvesCovTemplate", {
             covered: row.internalCoveredMin,
@@ -919,8 +929,8 @@ function BlockHover({
         <div
           className="type-num text-[11px] border-t pt-1 mt-1"
           style={{
-            color: "var(--color-text-tertiary)",
-            borderColor: "var(--color-border)",
+            color: "var(--color-slate-400)",
+            borderColor: "var(--color-slate-700)",
           }}
         >
           {tmpl("periods.hover.covFootTemplate", {
@@ -933,52 +943,66 @@ function BlockHover({
   );
 }
 
+
 function Legend() {
+  const tertiary = { color: "var(--color-text-tertiary)" };
+  const terms = copy("periods.legend.states").split(" · ");
+  const swatches = [
+    // thin coverage — trust dot
+    <span
+      key="dot"
+      className="inline-block h-1.5 w-1.5 shrink-0 rounded-full"
+      style={{ backgroundColor: "var(--color-trust-dot)" }}
+      aria-hidden
+    />,
+    // unconfirmed — ring on hatched chip
+    <span
+      key="hatch"
+      className="relative inline-block h-3 w-4 shrink-0 rounded-sm"
+      style={{
+        backgroundColor: "var(--color-slate-400)",
+        backgroundImage:
+          "repeating-linear-gradient(-45deg, rgba(255,255,255,0.55) 0 2px, transparent 2px 5px)",
+      }}
+      aria-hidden
+    >
+      <span
+        className="absolute left-1/2 top-1/2 h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full"
+        style={{ backgroundColor: "#fff", border: "1px solid var(--color-slate-500)" }}
+      />
+    </span>,
+    // break — chip with white slashes
+    <span
+      key="break"
+      className="relative inline-block h-3 w-4 shrink-0 overflow-hidden rounded-sm"
+      style={{ backgroundColor: "var(--color-slate-500)" }}
+      aria-hidden
+    >
+      <span className="absolute left-0 right-0" style={{ top: 3, height: 1.5, backgroundColor: "#fff", transform: "skewY(-18deg)" }} />
+      <span className="absolute left-0 right-0" style={{ top: 7, height: 1.5, backgroundColor: "#fff", transform: "skewY(-18deg)" }} />
+    </span>,
+    // no data — em-dash glyph
+    <span key="dash" className="type-num" aria-hidden>—</span>,
+  ];
   return (
-    <div className="flex flex-col gap-1">
-      <div className="flex items-center gap-4 flex-wrap">
-        <span className="inline-flex items-center gap-1.5">
-          <span
-            className="h-2 w-2 rounded-full"
-            style={{ backgroundColor: "var(--color-axis-work)" }}
-            aria-hidden
-          />
-          <span
-            className="h-2 w-2 rounded-full"
-            style={{ backgroundColor: "var(--color-axis-cost)" }}
-            aria-hidden
-          />
-          <span
-            className="type-num text-[11px]"
-            style={{ color: "var(--color-text-secondary)" }}
-          >
-            {copy("periods.legend.axes")}
+    <div className="flex flex-col gap-1.5">
+      <div className="flex items-center gap-x-3 gap-y-1 flex-wrap type-num text-[11px]" style={tertiary}>
+        {terms.map((term, i) => (
+          <span key={i} className="inline-flex items-center gap-1.5">
+            {i > 0 && <span aria-hidden className="mr-1">·</span>}
+            {swatches[i]}
+            <span>{term.replace(/^—\s*/, "")}</span>
           </span>
-        </span>
-        <span
-          className="type-num text-[11px]"
-          style={{ color: "var(--color-text-tertiary)" }}
-        >
-          {copy("periods.legend.columns")}
-        </span>
+        ))}
       </div>
-      <div className="flex items-center gap-4 flex-wrap">
-        <span
-          className="type-num text-[11px]"
-          style={{ color: "var(--color-text-tertiary)" }}
-        >
-          {copy("periods.legend.states")}
-        </span>
-        <span
-          className="type-num text-[11px]"
-          style={{ color: "var(--color-text-tertiary)" }}
-        >
-          {copy("periods.legend.gap")}
-        </span>
+      <div className="type-num text-[11px]" style={tertiary}>
+        {copy("periods.legend.gap")}
       </div>
     </div>
   );
 }
+
+
 
 /* ---------- Granularity toggle (unchanged shape) ---------- */
 
