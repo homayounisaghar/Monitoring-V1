@@ -206,9 +206,10 @@ export function PeriodsCard() {
 
   const gridTemplate = useMemo(
     () =>
-      `200px ${rows.map((r) => `${r.weight}fr`).join(" ")} 40px`,
+      `200px ${rows.map((r) => `minmax(0, ${r.weight}fr)`).join(" ")} 40px`,
     [rows],
   );
+
 
   return (
     <section id="periods" className="scroll-mt-36">
