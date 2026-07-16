@@ -157,3 +157,39 @@ export function timeline(
   }
   return blocks;
 }
+
+/* ---------- Periods — per-block staged data (Session > Periods) ----------
+ * Values are placeholders that exercise the section's honest states:
+ * thin coverage (30–45'), unconfirmed (60–75' accel+decel), an over-scale
+ * clamp (75–90' HSR), a below-floor absence (90–95'+), and the peak block
+ * (75–90'). Rates are computed in the component from these raw loads.
+ */
+export type PeriodBlock = {
+  id: string;
+  label: string;
+  startMin: number;
+  endMin: number;
+  minutes: number;
+  totalDistance: number; // m
+  hsr: number;           // m
+  accelDecel: number;    // ct
+  cardioLoad: number;    // CL (team aggregate)
+  hrCoverage: number;    // athletes with HR data, of 18
+  unconfirmed?: { accelDecel?: boolean };
+};
+
+export const PERIODS_DISPLAY_FLOOR = 8;   // athletes — below this, internal is absent
+export const PERIODS_DOMAIN_MIN = 30;      // rate points — drawn scale floor
+export const PERIODS_DOMAIN_MAX = 150;     // rate points — drawn scale ceiling
+export const PERIODS_SQUAD_SIZE = 18;      // "of 18" invariant
+
+export const periodsBlocks: PeriodBlock[] = [
+  { id: "b0",       label: "0–15'",   startMin:  0, endMin: 15, minutes: 15, totalDistance: 1613, hsr: 101, accelDecel: 19, cardioLoad: 35, hrCoverage: 18 },
+  { id: "b15",      label: "15–30'",  startMin: 15, endMin: 30, minutes: 15, totalDistance: 1675, hsr: 149, accelDecel: 20, cardioLoad: 31, hrCoverage: 18 },
+  { id: "b30",      label: "30–45'",  startMin: 30, endMin: 45, minutes: 15, totalDistance: 1504, hsr: 112, accelDecel: 18, cardioLoad: 30, hrCoverage: 13 },
+  { id: "b45",      label: "45–60'",  startMin: 45, endMin: 60, minutes: 15, totalDistance: 1411, hsr:  94, accelDecel: 16, cardioLoad: 33, hrCoverage: 18 },
+  { id: "b60",      label: "60–75'",  startMin: 60, endMin: 75, minutes: 15, totalDistance: 1489, hsr: 128, accelDecel: 19, cardioLoad: 31, hrCoverage: 18, unconfirmed: { accelDecel: true } },
+  { id: "b75",      label: "75–90'",  startMin: 75, endMin: 90, minutes: 15, totalDistance: 1768, hsr: 214, accelDecel: 23, cardioLoad: 47, hrCoverage: 18 },
+  { id: "stoppage", label: "90–95'+", startMin: 90, endMin: 95, minutes:  5, totalDistance:  360, hsr:  14, accelDecel:  3, cardioLoad:  9, hrCoverage:  3 },
+];
+
