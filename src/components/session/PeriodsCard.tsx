@@ -494,7 +494,11 @@ function Lane({
                   cell={cell}
                   unit={unit}
                   isCardio={metric.key === "cardioLoad"}
+                  partialCoverage={
+                    metric.key === "cardioLoad" && r.internalMissingMin > 0
+                  }
                 />
+
                 <Column
                   cell={cell}
                   axis={metric.axis}
@@ -565,10 +569,12 @@ function NumeralHead({
   cell,
   unit,
   isCardio,
+  partialCoverage = false,
 }: {
   cell: MetricCell;
   unit: string;
   isCardio: boolean;
+  partialCoverage?: boolean;
 }) {
   if (cell.value === null || cell.rate === null) {
     return (
@@ -581,8 +587,9 @@ function NumeralHead({
     );
   }
   const clamped = cell.rate > PERIODS_DOMAIN_MAX || cell.rate < PERIODS_DOMAIN_MIN;
-  const thinCoverage =
+  const thinAthletes =
     isCardio && cell.covered !== undefined && cell.total !== undefined && cell.covered < cell.total;
+  const thinCoverage = isCardio && (thinAthletes || partialCoverage);
   return (
     <span
       className="type-num inline-flex items-baseline gap-1 text-[11px]"
