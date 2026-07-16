@@ -51,14 +51,14 @@ const METRICS: Array<{
   key: MetricKey;
   labelKey: string;
   unitKey: string;
-  hoverLabelKey: string;
   axis: Axis;
 }> = [
-  { key: "totalDistance", labelKey: "canonical.summary.metric.totalDistance", unitKey: "periods.unit.m",  hoverLabelKey: "periods.hover.rowLabel.total",  axis: "work" },
-  { key: "hsr",           labelKey: "canonical.summary.metric.hsr",           unitKey: "periods.unit.m",  hoverLabelKey: "periods.hover.rowLabel.hsr",    axis: "work" },
-  { key: "accelDecel",    labelKey: "canonical.summary.metric.accDec",        unitKey: "periods.unit.ct", hoverLabelKey: "periods.hover.rowLabel.accDec", axis: "work" },
-  { key: "cardioLoad",    labelKey: "canonical.summary.metric.cardioLoad",    unitKey: "periods.unit.cl", hoverLabelKey: "periods.hover.rowLabel.cardio", axis: "cost" },
+  { key: "totalDistance", labelKey: "canonical.summary.metric.totalDistance", unitKey: "periods.unit.m",  axis: "work" },
+  { key: "hsr",           labelKey: "canonical.summary.metric.hsr",           unitKey: "periods.unit.m",  axis: "work" },
+  { key: "accelDecel",    labelKey: "canonical.summary.metric.accDec",        unitKey: "periods.unit.ct", axis: "work" },
+  { key: "cardioLoad",    labelKey: "canonical.summary.metric.cardioLoad",    unitKey: "periods.unit.cl", axis: "cost" },
 ];
+
 
 /* ---------- Aggregation ---------- */
 
