@@ -194,9 +194,8 @@ export function SquadCard() {
   // Row-render descriptors. When sort is "position", we render group
   // subheader rows before each visible position group and pin DNP/no-data
   // to the foot (never inside a group).
-  type RowItem =
-    | { kind: "header"; pos: PositionCode }
-    | { kind: "row"; a: Athlete };
+
+
 
   const renderItems = useMemo<RowItem[]>(() => {
     const rows = [...tableRows];
