@@ -73,15 +73,18 @@ export function ValueOnTrack({
   let bandLeftPct = 0;
   let bandRightPct = 0;
   let clamped = false;
+  let clampDir: "high" | "low" | null = null;
 
   if (mode === "deviation") {
     const raw = (value - reference) / reference;
     if (raw > windowPct) {
       posPct = 100;
       clamped = true;
+      clampDir = "high";
     } else if (raw < -windowPct) {
       posPct = 0;
       clamped = true;
+      clampDir = "low";
     } else {
       posPct = ((raw + windowPct) / (windowPct * 2)) * 100;
     }
@@ -92,12 +95,23 @@ export function ValueOnTrack({
   } else {
     const min = scaleMin ?? 0;
     const max = scaleMax ?? 1;
-    posPct = Math.max(0, Math.min(100, ((value - min) / (max - min)) * 100));
+    if (value > max) {
+      posPct = 100;
+      clamped = true;
+      clampDir = "high";
+    } else if (value < min) {
+      posPct = 0;
+      clamped = true;
+      clampDir = "low";
+    } else {
+      posPct = ((value - min) / (max - min)) * 100;
+    }
     refPct = Math.max(0, Math.min(100, ((reference - min) / (max - min)) * 100));
     const halfBandAbs = referenceBandPct ?? (max - min) * 0.05;
     bandLeftPct = Math.max(0, ((reference - halfBandAbs - min) / (max - min)) * 100);
     bandRightPct = Math.min(100, ((reference + halfBandAbs - min) / (max - min)) * 100);
   }
+
 
   const trackH = compact ? "h-5" : "h-7";
   const trackBandH = compact ? "h-[6px]" : "h-[7px]";
