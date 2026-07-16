@@ -428,8 +428,12 @@ export function SquadCard() {
 /* Table body                                                    */
 /* ============================================================ */
 
+type RowItem =
+  | { kind: "header"; pos: PositionCode }
+  | { kind: "row"; a: Athlete };
+
 function TableBody({
-  rows,
+  items,
   columns,
   display,
   sort,
@@ -441,11 +445,11 @@ function TableBody({
   scopeCount,
   onScrollToAttention,
 }: {
-  rows: Athlete[];
+  items: RowItem[];
   columns: MetricId[];
   display: DisplayMode;
-  sort: { key: MetricId; dir: "asc" | "desc" };
-  onSort: (key: MetricId) => void;
+  sort: SortState;
+  onSort: (key: SortKey) => void;
   flagged: Set<string>;
   srpeCoverage: { submitted: number; total: number };
   onRowClick: (a: Athlete) => void;
@@ -453,6 +457,8 @@ function TableBody({
   scopeCount: number;
   onScrollToAttention: () => void;
 }) {
+  const athleteActive = sort.key === "position";
+  const totalCols = 1 + columns.length;
   return (
     <div
       className="overflow-x-auto rounded-b-lg border"
@@ -470,8 +476,34 @@ function TableBody({
               backgroundColor: "var(--color-slate-50)",
             }}
           >
-            <th className="px-3 py-2 text-left type-col-head" style={{ minWidth: 200 }}>
-              {copy("canonical.squad.tableHead.athlete")}
+            <th
+              className="px-3 py-2 text-left"
+              style={{
+                minWidth: 200,
+                backgroundColor: athleteActive ? "var(--color-slate-100)" : undefined,
+              }}
+            >
+              <button
+                className="inline-flex items-center gap-1.5"
+                onClick={() => onSort("position")}
+                title={`${copy("canonical.squad.sortByPrefix")}${copy("canonical.squad.sortByPosition")}`}
+              >
+                <span
+                  className="type-col-head"
+                  style={{
+                    color: athleteActive
+                      ? "var(--color-text-primary)"
+                      : "var(--color-text-secondary)",
+                  }}
+                >
+                  {copy("canonical.squad.tableHead.athlete")}
+                </span>
+                {athleteActive ? (
+                  <ChevronDown className="h-3 w-3" />
+                ) : (
+                  <span className="w-3" />
+                )}
+              </button>
             </th>
             {columns.map((id) => {
               const m = METRICS[id];
@@ -569,7 +601,24 @@ function TableBody({
             })}
           </tr>
 
-          {rows.map((a) => {
+          {items.map((it, idx) => {
+            if (it.kind === "header") {
+              return (
+                <tr
+                  key={`h-${it.pos}-${idx}`}
+                  style={{ backgroundColor: "var(--color-slate-50)" }}
+                >
+                  <td
+                    colSpan={totalCols}
+                    className="px-3 py-1.5 type-label"
+                    style={{ color: "var(--color-text-tertiary)" }}
+                  >
+                    {POSITION_LABEL[it.pos]}
+                  </td>
+                </tr>
+              );
+            }
+            const a = it.a;
             const rowScaled =
               a.participation !== null &&
               a.minutes < 60 &&
@@ -648,6 +697,7 @@ function TableBody({
       </table>
     </div>
   );
+
 }
 
 /* ---------- individual cell renderers ---------- */
