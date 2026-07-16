@@ -79,8 +79,10 @@ export type DemoScenario =
   | "training_day";
 
 export type SessionScope = {
-  reference: { kind: ReferenceKind; label: string };
-  setReference: (r: { kind: ReferenceKind; label: string }) => void;
+  reference: ReferenceOption;
+  setReference: (r: ReferenceOption) => void;
+  referenceOptions: ReferenceOption[];
+  defaultReference: ReferenceOption;
   benchmark: BenchmarkOption;
   setBenchmark: (b: BenchmarkOption) => void;
   benchmarkOptions: BenchmarkOption[];
