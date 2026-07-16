@@ -911,7 +911,7 @@ function ChartRow({
         className="type-num w-7 text-right text-[12px]"
         style={{ color: "var(--color-text-tertiary)" }}
       >
-        {rank}
+        {display === "percent" && state === "building" ? "—" : rank}
       </span>
       <div className="w-[190px] shrink-0">
         <div className="flex items-center gap-1.5">
@@ -961,41 +961,56 @@ function ChartRow({
               </span>
             </div>
           ) : (
-            <div className="flex items-center gap-3">
-              <div
-                className="relative h-5 flex-1 rounded-full"
-                style={{ backgroundColor: "var(--color-data-band)" }}
-              >
-                {value != null && (
-                  <span
-                    className="absolute top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full ring-2 ring-white"
-                    style={{
-                      left: `${Math.min(100, (value / scaleMax) * 100)}%`,
-                      backgroundColor:
-                        m.axis === "work"
-                          ? "var(--color-axis-work)"
-                          : m.axis === "cost"
-                            ? "var(--color-axis-cost)"
-                            : "var(--color-slate-500)",
-                    }}
-                  />
-                )}
-              </div>
-              <div className="w-[140px] flex items-baseline justify-end gap-2">
-                <span
-                  className="type-num text-sm font-semibold"
-                  style={{ color: "var(--color-text-primary)" }}
-                >
-                  {formatValue(value, m)}
-                </span>
-                <span
-                  className="type-data-label italic"
-                  style={{ color: "var(--color-text-tertiary)" }}
-                >
-                  {copy("canonical.squad.chart.building")}
-                </span>
-              </div>
-            </div>
+            (() => {
+              const overflow = value != null && value > scaleMax;
+              const leftPct = value != null ? Math.min(100, (value / scaleMax) * 100) : 0;
+              return (
+                <div className="flex items-center gap-3">
+                  <div
+                    className="relative h-5 flex-1 rounded-full"
+                    style={{ backgroundColor: "var(--color-data-band)" }}
+                  >
+                    {value != null && (
+                      <span
+                        className="absolute top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full ring-2 ring-white"
+                        style={{
+                          left: `${leftPct}%`,
+                          backgroundColor:
+                            m.axis === "work"
+                              ? "var(--color-axis-work)"
+                              : m.axis === "cost"
+                                ? "var(--color-axis-cost)"
+                                : "var(--color-slate-500)",
+                        }}
+                      />
+                    )}
+                  </div>
+                  <div className="w-[140px] flex items-baseline justify-end gap-1">
+                    <span
+                      className="type-num text-sm font-semibold"
+                      style={{ color: "var(--color-text-primary)" }}
+                    >
+                      {formatValue(value, m)}
+                    </span>
+                    {overflow && (
+                      <span
+                        className="type-num text-[10px] font-semibold"
+                        style={{ color: "var(--color-text-secondary)" }}
+                        aria-hidden
+                      >
+                        ▸
+                      </span>
+                    )}
+                    <span
+                      className="type-data-label italic ml-1"
+                      style={{ color: "var(--color-text-tertiary)" }}
+                    >
+                      {copy("canonical.squad.chart.building")}
+                    </span>
+                  </div>
+                </div>
+              );
+            })()
           )
         ) : value == null || ref == null ? (
           <div
