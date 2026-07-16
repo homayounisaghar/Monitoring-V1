@@ -946,66 +946,54 @@ function BlockHover({
 
 function Legend() {
   const tertiary = { color: "var(--color-text-tertiary)" };
-  const swatchBase = "inline-block shrink-0";
+  const terms = copy("periods.legend.states").split(" · ");
+  const swatches = [
+    // thin coverage — trust dot
+    <span
+      key="dot"
+      className="inline-block h-1.5 w-1.5 shrink-0 rounded-full"
+      style={{ backgroundColor: "var(--color-trust-dot)" }}
+      aria-hidden
+    />,
+    // unconfirmed — ring on hatched chip
+    <span
+      key="hatch"
+      className="relative inline-block h-3 w-4 shrink-0 rounded-sm"
+      style={{
+        backgroundColor: "var(--color-slate-400)",
+        backgroundImage:
+          "repeating-linear-gradient(-45deg, rgba(255,255,255,0.55) 0 2px, transparent 2px 5px)",
+      }}
+      aria-hidden
+    >
+      <span
+        className="absolute left-1/2 top-1/2 h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full"
+        style={{ backgroundColor: "#fff", border: "1px solid var(--color-slate-500)" }}
+      />
+    </span>,
+    // break — chip with white slashes
+    <span
+      key="break"
+      className="relative inline-block h-3 w-4 shrink-0 overflow-hidden rounded-sm"
+      style={{ backgroundColor: "var(--color-slate-500)" }}
+      aria-hidden
+    >
+      <span className="absolute left-0 right-0" style={{ top: 3, height: 1.5, backgroundColor: "#fff", transform: "skewY(-18deg)" }} />
+      <span className="absolute left-0 right-0" style={{ top: 7, height: 1.5, backgroundColor: "#fff", transform: "skewY(-18deg)" }} />
+    </span>,
+    // no data — em-dash glyph
+    <span key="dash" className="type-num" aria-hidden>—</span>,
+  ];
   return (
     <div className="flex flex-col gap-1.5">
-      <div className="flex items-center gap-x-4 gap-y-1 flex-wrap type-num text-[11px]" style={tertiary}>
-        {/* thin coverage — trust dot */}
-        <span className="inline-flex items-center gap-1.5">
-          <span
-            className={`${swatchBase} h-1.5 w-1.5 rounded-full`}
-            style={{ backgroundColor: "var(--color-trust-dot)" }}
-            aria-hidden
-          />
-          <span>thin coverage</span>
-        </span>
-        <span aria-hidden style={tertiary}>·</span>
-        {/* unconfirmed — small ring on hatched chip */}
-        <span className="inline-flex items-center gap-1.5">
-          <span
-            className={`${swatchBase} relative h-3 w-4 rounded-sm`}
-            style={{
-              backgroundColor: "var(--color-slate-400)",
-              backgroundImage:
-                "repeating-linear-gradient(-45deg, rgba(255,255,255,0.55) 0 2px, transparent 2px 5px)",
-            }}
-            aria-hidden
-          >
-            <span
-              className="absolute left-1/2 top-1/2 h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full"
-              style={{
-                backgroundColor: "#fff",
-                border: "1px solid var(--color-slate-500)",
-              }}
-            />
+      <div className="flex items-center gap-x-3 gap-y-1 flex-wrap type-num text-[11px]" style={tertiary}>
+        {terms.map((term, i) => (
+          <span key={i} className="inline-flex items-center gap-1.5">
+            {i > 0 && <span aria-hidden className="mr-1">·</span>}
+            {swatches[i]}
+            <span>{term.replace(/^—\s*/, "")}</span>
           </span>
-          <span>ring + hatch unconfirmed</span>
-        </span>
-        <span aria-hidden style={tertiary}>·</span>
-        {/* break — chip with white slashes */}
-        <span className="inline-flex items-center gap-1.5">
-          <span
-            className={`${swatchBase} relative h-3 w-4 rounded-sm overflow-hidden`}
-            style={{ backgroundColor: "var(--color-slate-500)" }}
-            aria-hidden
-          >
-            <span
-              className="absolute left-0 right-0"
-              style={{ top: 3, height: 1.5, backgroundColor: "#fff", transform: "skewY(-18deg)" }}
-            />
-            <span
-              className="absolute left-0 right-0"
-              style={{ top: 7, height: 1.5, backgroundColor: "#fff", transform: "skewY(-18deg)" }}
-            />
-          </span>
-          <span>break = beyond chart range, exact % shown</span>
-        </span>
-        <span aria-hidden style={tertiary}>·</span>
-        {/* no data — em-dash */}
-        <span className="inline-flex items-center gap-1.5">
-          <span className="type-num" aria-hidden>—</span>
-          <span>no data</span>
-        </span>
+        ))}
       </div>
       <div className="type-num text-[11px]" style={tertiary}>
         {copy("periods.legend.gap")}
@@ -1013,6 +1001,7 @@ function Legend() {
     </div>
   );
 }
+
 
 
 /* ---------- Granularity toggle (unchanged shape) ---------- */
