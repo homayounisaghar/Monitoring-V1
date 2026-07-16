@@ -38,6 +38,7 @@ export type Session = {
   id: string;
   kind: "match" | "training";
   label: string; // e.g. "vs Borussia Dortmund"
+  dayCode: string; // "MD", "MD-1", "MD+1", …
   dateISO: string;
   durationMin: number;
   halves: [number, number]; // half durations, minutes
@@ -52,6 +53,7 @@ export const currentSession: Session = {
   id: "s-2026-07-04-dortmund",
   kind: "match",
   label: "vs Borussia Dortmund",
+  dayCode: "MD",
   dateISO: "2026-07-04",
   durationMin: 95,
   halves: [47, 48],
@@ -59,6 +61,7 @@ export const currentSession: Session = {
   weather: { tempC: 14, humidityPct: 72 },
   result: "2–1 W",
 };
+
 
 /* ---------- Squad (19) — Sturm is squad but did not participate ---------- */
 
@@ -92,12 +95,13 @@ export const participants: Athlete[] = squad.filter((a) => a.participation !== n
 
 export const sessionLibrary: Array<Session & { selected?: boolean }> = [
   { ...currentSession, selected: true },
-  { id: "s-2026-07-02", kind: "training", label: "MD-2 · Intensive", dateISO: "2026-07-02", durationMin: 82, halves: [41, 41] },
-  { id: "s-2026-07-01", kind: "training", label: "MD-3 · Tactical",  dateISO: "2026-07-01", durationMin: 68, halves: [34, 34] },
-  { id: "s-2026-06-28", kind: "match",    label: "vs FC Köln",       dateISO: "2026-06-28", durationMin: 94, halves: [46, 48], result: "1–1 D" },
-  { id: "s-2026-06-25", kind: "training", label: "MD+1 · Recovery",  dateISO: "2026-06-25", durationMin: 45, halves: [45, 0] },
-  { id: "s-2026-06-24", kind: "training", label: "MD-1 · Activation",dateISO: "2026-06-24", durationMin: 52, halves: [26, 26] },
-  { id: "s-2026-06-21", kind: "match",    label: "vs Bayer 04",      dateISO: "2026-06-21", durationMin: 96, halves: [47, 49], result: "3–2 W" },
+  { id: "s-2026-07-02", kind: "training", label: "MD-2 · Intensive", dayCode: "MD-2", dateISO: "2026-07-02", durationMin: 82, halves: [41, 41] },
+  { id: "s-2026-07-01", kind: "training", label: "MD-3 · Tactical",  dayCode: "MD-3", dateISO: "2026-07-01", durationMin: 68, halves: [34, 34] },
+  { id: "s-2026-06-28", kind: "match",    label: "vs FC Köln",       dayCode: "MD",   dateISO: "2026-06-28", durationMin: 94, halves: [46, 48], result: "1–1 D" },
+  { id: "s-2026-06-25", kind: "training", label: "MD+1 · Recovery",  dayCode: "MD+1", dateISO: "2026-06-25", durationMin: 45, halves: [45, 0] },
+  { id: "s-2026-06-24", kind: "training", label: "MD-1 · Activation",dayCode: "MD-1", dateISO: "2026-06-24", durationMin: 52, halves: [26, 26] },
+  { id: "s-2026-06-21", kind: "match",    label: "vs Bayer 04",      dayCode: "MD",   dateISO: "2026-06-21", durationMin: 96, halves: [47, 49], result: "3–2 W" },
+
 ];
 
 

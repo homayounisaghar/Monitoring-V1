@@ -93,34 +93,23 @@ export function SourceSidebar() {
           <ul className="flex flex-col gap-0.5">
             {filtered.map((s) => {
               const selected = s.id === currentSession.id;
+              const displayName = stripDayCodePrefix(s.label, s.dayCode);
               return (
                 <li key={s.id}>
                   <button
-                    className="flex w-full items-start gap-2 rounded px-1.5 py-1.5 text-left transition-colors"
+                    className="flex w-full items-center gap-2 rounded px-1.5 py-1.5 text-left transition-colors"
                     style={{
                       backgroundColor: selected ? "var(--color-slate-100)" : "transparent",
                     }}
                   >
-                    <span
-                      className="mt-[3px] grid h-4 w-4 shrink-0 place-items-center rounded-sm text-[10px] font-bold"
-                      style={{
-                        backgroundColor: "var(--color-slate-100)",
-                        color: "var(--color-text-secondary)",
-                        border: "1px solid var(--color-border)",
-                      }}
-                      aria-label={s.kind}
-                      title={s.kind}
-                    >
-                      {s.kind === "match" ? "M" : "T"}
-                    </span>
-                    <span className="flex min-w-0 flex-col">
+                    <span className="flex min-w-0 flex-1 flex-col">
                       <span
                         className="truncate text-[12.5px] font-medium"
                         style={{
                           color: selected ? "var(--color-text-primary)" : "var(--color-text-secondary)",
                         }}
                       >
-                        {s.label}
+                        {displayName}
                       </span>
                       <span
                         className="type-num text-[10.5px]"
@@ -129,11 +118,24 @@ export function SourceSidebar() {
                         {formatShort(s.dateISO)} · {s.durationMin}'
                       </span>
                     </span>
+                    <span
+                      className="type-num shrink-0 rounded-sm px-1.5 py-0.5 text-[10px] font-semibold"
+                      style={{
+                        backgroundColor: "var(--color-slate-100)",
+                        color: "var(--color-text-secondary)",
+                        border: "1px solid var(--color-border)",
+                      }}
+                      aria-label={`Day code ${s.dayCode}`}
+                      title={s.dayCode}
+                    >
+                      {s.dayCode}
+                    </span>
                   </button>
                 </li>
               );
             })}
           </ul>
+
         </div>
       )}
     </aside>
@@ -164,3 +166,10 @@ function formatShort(iso: string) {
   const d = new Date(iso);
   return d.toLocaleDateString("en-GB", { day: "2-digit", month: "short" });
 }
+
+function stripDayCodePrefix(label: string, dayCode: string) {
+  // Escape regex specials in the day code (e.g. "MD+1", "MD-2").
+  const escaped = dayCode.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return label.replace(new RegExp(`^${escaped}\\s*·\\s*`), "");
+}
+
