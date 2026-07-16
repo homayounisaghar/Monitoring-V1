@@ -318,25 +318,35 @@ export function SquadCard() {
         />
         <div className="flex items-center gap-2">
           {view === "chart" && (
-            <select
-              value={chartMetric}
-              onChange={(e) => setChartMetric(e.target.value as MetricId)}
-              className="rounded-md border px-2 py-1 text-[12px]"
-              style={{
-                borderColor: "var(--color-border)",
-                backgroundColor: "var(--color-canvas)",
-                color: "var(--color-text-primary)",
-              }}
-            >
-              {[...DEFAULT_COLUMNS.filter((c) => c !== "min"),
-                ...COLUMN_LIBRARY.flatMap((g) => g.ids).filter(
-                  (id) => !DEFAULT_COLUMNS.includes(id),
-                )].map((id) => (
-                <option key={id} value={id}>
-                  {METRICS[id].label}
-                </option>
-              ))}
-            </select>
+            <>
+              <SegmentedToggle
+                value={chartArrangement}
+                onChange={(v) => setChartArrangement(v)}
+                options={[
+                  { id: "position", label: copy("canonical.squad.toolbar.byPosition") },
+                  { id: "ranked", label: copy("canonical.squad.toolbar.ranked") },
+                ]}
+              />
+              <select
+                value={chartMetric}
+                onChange={(e) => setChartMetric(e.target.value as MetricId)}
+                className="rounded-md border px-2 py-1 text-[12px]"
+                style={{
+                  borderColor: "var(--color-border)",
+                  backgroundColor: "var(--color-canvas)",
+                  color: "var(--color-text-primary)",
+                }}
+              >
+                {[...DEFAULT_COLUMNS.filter((c) => c !== "min"),
+                  ...COLUMN_LIBRARY.flatMap((g) => g.ids).filter(
+                    (id) => !DEFAULT_COLUMNS.includes(id),
+                  )].map((id) => (
+                  <option key={id} value={id}>
+                    {METRICS[id].label}
+                  </option>
+                ))}
+              </select>
+            </>
           )}
           <SegmentedToggle
             value={display}
@@ -364,7 +374,7 @@ export function SquadCard() {
       {/* Body */}
       {view === "table" ? (
         <TableBody
-          rows={sortedRows}
+          items={renderItems}
           columns={columns}
           display={display}
           sort={sort}
@@ -372,7 +382,7 @@ export function SquadCard() {
             setSort((prev) =>
               prev.key === key
                 ? { key, dir: prev.dir === "asc" ? "desc" : "asc" }
-                : { key, dir: "desc" },
+                : { key, dir: key === "position" ? "desc" : "desc" },
             )
           }
           flagged={flagged}
@@ -389,6 +399,7 @@ export function SquadCard() {
         <ChartBody
           metric={METRICS[chartMetric]}
           display={display}
+          arrangement={chartArrangement}
           rows={activeAthletes}
           allSquadForTray={squad}
           flagged={flagged}
@@ -399,6 +410,7 @@ export function SquadCard() {
           }}
         />
       )}
+
 
       {pickerOpen && (
         <ColumnsPicker
