@@ -399,7 +399,7 @@ function TimeHeader({
             onMouseLeave={() => setHoverCol(null)}
           >
             <span
-              className="type-num text-[12px]"
+              className="type-num text-[12px] whitespace-nowrap"
               style={{
                 color: "var(--color-text-primary)",
                 fontWeight: isPeak ? 600 : 500,
@@ -407,6 +407,7 @@ function TimeHeader({
             >
               {r.label}
             </span>
+
             {isPeak && (
               <span
                 className="rounded px-1 py-[1px] type-data-label text-[10px]"
