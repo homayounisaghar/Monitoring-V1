@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ChevronLeft, ChevronRight, Calendar, Tag } from "lucide-react";
+import { ChevronLeft, ChevronRight, Calendar, Tag, Search, X } from "lucide-react";
 import { copy } from "@/lib/copy-deck";
 import { sessionLibrary, currentSession } from "@/lib/session-data";
 import {
