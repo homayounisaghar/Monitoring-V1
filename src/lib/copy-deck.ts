@@ -126,6 +126,9 @@ export const COPY = {
 
   // ---------- Sidebar ----------
   "sidebar.header": "Sessions",
+  "sidebar.searchPlaceholder": "Search sessions",
+  "sidebar.searchClear": "Clear search",
+  "sidebar.searchEmpty": "No sessions match",
 
   // ---------- Summary ----------
   // DRAFT — the "vs typical full match" module label.

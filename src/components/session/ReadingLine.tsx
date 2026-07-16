@@ -176,12 +176,13 @@ function ChipOptions<T extends ReferenceKind | BenchmarkKind>({
         {title}
       </div>
       <ul className="p-1">
-        {options.map((opt) => {
+        {options.map((opt, idx) => {
           const active = opt.kind === activeKind;
           const isDefault = opt.kind === options[0].kind;
           const gloss = copy(glossKey(opt.kind));
           const dividerAfter =
             showFamilyDividers &&
+            idx < options.length - 1 &&
             (opt.kind === "season" || opt.kind === "cohort");
           return (
             <li key={opt.kind}>
