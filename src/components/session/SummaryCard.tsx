@@ -770,14 +770,20 @@ function ParticipationCard({
         className="relative flex h-8 overflow-hidden rounded-md"
         style={{ border: "1px solid var(--color-border)" }}
       >
-        {present.map((seg) => {
+        {present.map((seg, i) => {
           const pct = (seg.names.length / total) * 100;
+          const isLast = i === present.length - 1;
           return (
             <button
               key={seg.tag}
               onClick={() => setPopover((p) => (p === seg.tag ? null : seg.tag))}
               className={`relative transition-opacity hover:opacity-90 ${TAG_TEXTURE[seg.tag]}`}
-              style={{ width: `${pct}%` }}
+              style={{
+                width: `${pct}%`,
+                borderRight: isLast
+                  ? undefined
+                  : "1px solid var(--color-border)",
+              }}
               title={`${seg.tag} — ${seg.names.length}`}
               aria-label={`${seg.tag}: ${seg.names.length}`}
             />
