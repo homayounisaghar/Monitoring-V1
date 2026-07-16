@@ -160,11 +160,11 @@ export function ValueOnTrack({
           <div
             className="absolute top-1/2 -translate-y-1/2 type-num text-[10px] font-semibold"
             style={{
-              [deltaPct > 0 ? "right" : "left"]: "-4px",
+              [clampDir === "high" ? "right" : "left"]: "-4px",
               color: "var(--color-text-secondary)",
             }}
           >
-            {deltaPct > 0 ? "▸" : "◂"}
+            {clampDir === "high" ? "▸" : "◂"}
           </div>
         )}
       </div>
