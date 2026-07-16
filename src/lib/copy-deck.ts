@@ -234,6 +234,8 @@ export const COPY = {
 
   "canonical.squad.toolbar.table": "Table",
   "canonical.squad.toolbar.chart": "Chart",
+  "canonical.squad.toolbar.byPosition": "By position",
+  "canonical.squad.toolbar.ranked": "Ranked",
   "canonical.squad.toolbar.absolute": "Absolute",
   "canonical.squad.toolbar.percent": "%",
   "canonical.squad.toolbar.columns": "Columns",
