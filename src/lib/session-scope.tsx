@@ -45,10 +45,10 @@ export type ReferenceOption = { kind: ReferenceKind; label: string };
 
 export const REFERENCE_OPTIONS: ReferenceOption[] = [
   { kind: "own_typical",   label: "their typical match" },
-  { kind: "positional",    label: "positional norm" },
-  { kind: "cohort",        label: "squad average" },
   { kind: "last_n",        label: "last 5 matches" },
   { kind: "season",        label: "season average" },
+  { kind: "positional",    label: "positional norm" },
+  { kind: "cohort",        label: "squad average" },
   { kind: "same_opponent", label: "same opponent" },
 ];
 
