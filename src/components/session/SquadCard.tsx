@@ -18,7 +18,7 @@
  * behind digits. Köhler prints his value at his rank; his delta is
  * suppressed with "building baseline".
  */
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ChevronRight, Flag, ChevronUp, ChevronDown, X } from "lucide-react";
 import { useNavigate } from "@tanstack/react-router";
 import { useSessionScope, COVERAGE_MIN } from "@/lib/session-scope";
@@ -48,6 +48,54 @@ import { ValueOnTrack } from "@/components/data/ValueOnTrack";
 type ViewMode = "table" | "chart";
 type DisplayMode = "absolute" | "percent";
 
+const PREFS_STORAGE_KEY = "st2.session.squad.prefs.v1";
+
+type SortState = { key: MetricId; dir: "asc" | "desc" };
+
+type SquadPrefs = {
+  view: ViewMode;
+  display: DisplayMode;
+  columns: MetricId[];
+  chartMetric: MetricId;
+  sort: SortState;
+};
+
+const DEFAULT_PREFS: SquadPrefs = {
+  view: "table",
+  display: "absolute",
+  columns: DEFAULT_COLUMNS,
+  chartMetric: "totalDistance",
+  sort: { key: "totalDistance", dir: "desc" },
+};
+
+function isMetricId(x: unknown): x is MetricId {
+  return typeof x === "string" && Object.prototype.hasOwnProperty.call(METRICS, x);
+}
+
+function loadPrefs(): SquadPrefs {
+  if (typeof window === "undefined") return DEFAULT_PREFS;
+  try {
+    const raw = window.localStorage.getItem(PREFS_STORAGE_KEY);
+    if (!raw) return DEFAULT_PREFS;
+    const p = JSON.parse(raw) as Partial<SquadPrefs>;
+    const view: ViewMode = p.view === "chart" || p.view === "table" ? p.view : DEFAULT_PREFS.view;
+    const display: DisplayMode =
+      p.display === "absolute" || p.display === "percent" ? p.display : DEFAULT_PREFS.display;
+    const columnsArr = Array.isArray(p.columns) ? p.columns.filter(isMetricId) : [];
+    const columns = columnsArr.length > 0 ? (columnsArr as MetricId[]) : DEFAULT_PREFS.columns;
+    const chartMetric: MetricId = isMetricId(p.chartMetric) ? p.chartMetric : DEFAULT_PREFS.chartMetric;
+    const sortKey: MetricId =
+      p.sort && isMetricId(p.sort.key) ? p.sort.key : DEFAULT_PREFS.sort.key;
+    const sortDir: "asc" | "desc" =
+      p.sort && (p.sort.dir === "asc" || p.sort.dir === "desc")
+        ? p.sort.dir
+        : DEFAULT_PREFS.sort.dir;
+    return { view, display, columns, chartMetric, sort: { key: sortKey, dir: sortDir } };
+  } catch {
+    return DEFAULT_PREFS;
+  }
+}
+
 export function SquadCard() {
   const {
     tier1Rows,
@@ -56,16 +104,25 @@ export function SquadCard() {
     filterIsDefault,
   } = useSessionScope();
 
-  const [view, setView] = useState<ViewMode>("table");
-  const [display, setDisplay] = useState<DisplayMode>("absolute");
-  const [columns, setColumns] = useState<MetricId[]>(DEFAULT_COLUMNS);
-  const [sort, setSort] = useState<{ key: MetricId; dir: "asc" | "desc" }>({
-    key: "totalDistance",
-    dir: "desc",
-  });
-  const [chartMetric, setChartMetric] = useState<MetricId>("totalDistance");
+  const initial = useMemo(() => loadPrefs(), []);
+  const [view, setView] = useState<ViewMode>(initial.view);
+  const [display, setDisplay] = useState<DisplayMode>(initial.display);
+  const [columns, setColumns] = useState<MetricId[]>(initial.columns);
+  const [sort, setSort] = useState<SortState>(initial.sort);
+  const [chartMetric, setChartMetric] = useState<MetricId>(initial.chartMetric);
   const [pickerOpen, setPickerOpen] = useState(false);
   const navigate = useNavigate();
+
+  // Persist presentation prefs. Page filters and reading-line selections are per-visit.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const payload: SquadPrefs = { view, display, columns, chartMetric, sort };
+      window.localStorage.setItem(PREFS_STORAGE_KEY, JSON.stringify(payload));
+    } catch {
+      /* ignore quota / disabled storage */
+    }
+  }, [view, display, columns, chartMetric, sort]);
 
   /* --- rows in scope --- */
 
