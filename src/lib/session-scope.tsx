@@ -247,26 +247,45 @@ export function SessionScopeProvider({ children }: { children: ReactNode }) {
   const sessionIsTraining = demo === "training_day";
   const dayCode = sessionIsTraining ? TRAINING_DAY_CODE : null;
 
-  const { benchmarkOptions, defaultBenchmark } = useMemo(() => {
+  const { benchmarkOptions, defaultBenchmark, referenceOptions, defaultReference } = useMemo(() => {
+    const filteredRef = sessionIsTraining
+      ? REFERENCE_OPTIONS.filter((o) => o.kind !== "same_opponent")
+      : REFERENCE_OPTIONS;
+    const refOpts: ReferenceOption[] = filteredRef.map((o) =>
+      o.kind === "own_typical" && dayCode
+        ? { kind: "own_typical", label: `their typical ${dayCode}` }
+        : o,
+    );
+    const defRef = refOpts[0];
+
     if (dayCode) {
       const dayTypeOpt: BenchmarkOption = {
         kind: "typical_daytype",
         label: `Typical ${dayCode}`,
       };
+      const benchOpts = [
+        dayTypeOpt,
+        ...BENCHMARK_OPTIONS.filter((o) => o.kind !== "same_opponent"),
+      ];
       return {
-        benchmarkOptions: [dayTypeOpt, ...BENCHMARK_OPTIONS],
+        benchmarkOptions: benchOpts,
         defaultBenchmark: dayTypeOpt,
+        referenceOptions: refOpts,
+        defaultReference: defRef,
       };
     }
     return {
       benchmarkOptions: BENCHMARK_OPTIONS,
       defaultBenchmark: BENCHMARK_OPTIONS[0],
+      referenceOptions: refOpts,
+      defaultReference: defRef,
     };
-  }, [dayCode]);
+  }, [dayCode, sessionIsTraining]);
 
-  // Reset benchmark to the per-session default when the session type flips.
+  // Reset benchmark + reference to the per-session defaults when the session type flips.
   useEffect(() => {
     setBenchmark(defaultBenchmark);
+    setReference(defaultReference);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionIsTraining]);
 
