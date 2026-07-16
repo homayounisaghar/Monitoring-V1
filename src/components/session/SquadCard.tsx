@@ -39,7 +39,8 @@ import {
   type Metric,
   type MetricId,
 } from "@/lib/squad-metrics";
-import { BUILDING_ID, flaggedIds } from "@/lib/session-flags";
+import { BUILDING_ID, BUILDING_SESSIONS_TO_MIN, flaggedIds } from "@/lib/session-flags";
+import { BUILDING_BASELINE_MIN_SESSIONS } from "@/lib/copy-deck";
 import { ValueOnTrack } from "@/components/data/ValueOnTrack";
 
 /* ============================================================ */
@@ -596,12 +597,21 @@ function Cell({
   }
   if (state === "building") {
     const v = valueFor(a, m);
+    const isPercent = display === "percent";
     return (
       <span
         className="type-num text-[13px]"
-        style={{ color: "var(--color-text-primary)" }}
+        style={{ color: isPercent ? "var(--color-text-tertiary)" : "var(--color-text-primary)" }}
+        title={
+          isPercent
+            ? tmpl("squad.cell.buildingHoverTemplate", {
+                done: BUILDING_SESSIONS_TO_MIN,
+                min: BUILDING_BASELINE_MIN_SESSIONS,
+              })
+            : undefined
+        }
       >
-        {display === "percent" ? "—" : formatValue(v, m)}
+        {isPercent ? "—" : formatValue(v, m)}
       </span>
     );
   }
