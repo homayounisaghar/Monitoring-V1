@@ -112,7 +112,8 @@ export const COPY = {
   "readingLine.gloss.season": "his rolling season average",
   "readingLine.gloss.same_opponent": "his output vs this opponent before",
   // Benchmark (squad) glosses — DRAFT
-  "readingLine.bgloss.typical_match": "a typical match of this type",
+ "readingLine.bgloss.typical_daytype": "a typical session of this day type",
+ "readingLine.bgloss.typical_match": "a typical match of this type",
   "readingLine.bgloss.last_match": "the squad's previous match",
   "readingLine.bgloss.last_5": "average of the squad's last five matches",
   "readingLine.bgloss.same_opponent": "squad output vs this opponent before",
