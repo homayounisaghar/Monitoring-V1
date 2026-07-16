@@ -61,6 +61,35 @@ export function SourceSidebar() {
         <div className="flex flex-col gap-3 px-2 pb-4">
           {/* Filters */}
           <div className="flex flex-col gap-1.5 px-1.5">
+            <div
+              className="flex h-7 items-center gap-1.5 rounded-md border px-1.5"
+              style={{
+                borderColor: "var(--color-border)",
+                backgroundColor: "var(--color-canvas)",
+              }}
+            >
+              <Search className="h-3 w-3 shrink-0" style={{ color: "var(--color-text-tertiary)" }} aria-hidden />
+              <input
+                type="search"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder={copy("sidebar.searchPlaceholder")}
+                aria-label={copy("sidebar.searchPlaceholder")}
+                className="w-full bg-transparent text-[12px] outline-none placeholder:opacity-70"
+                style={{ color: "var(--color-text-primary)" }}
+              />
+              {query && (
+                <button
+                  onClick={() => setQuery("")}
+                  aria-label={copy("sidebar.searchClear")}
+                  title={copy("sidebar.searchClear")}
+                  className="grid h-4 w-4 shrink-0 place-items-center rounded transition-colors hover:bg-[color:var(--color-slate-200)]"
+                  style={{ color: "var(--color-text-tertiary)" }}
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              )}
+            </div>
             <button
               className="flex h-7 items-center gap-1.5 rounded px-1.5 text-[12px] transition-colors hover:bg-[color:var(--color-slate-100)]"
               style={{ color: "var(--color-text-secondary)" }}
@@ -76,6 +105,7 @@ export function SourceSidebar() {
               <span>All tags</span>
             </button>
           </div>
+
 
           {/* Match / Training split — segmented */}
           <div
