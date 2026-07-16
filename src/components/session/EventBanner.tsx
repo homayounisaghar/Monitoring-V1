@@ -18,6 +18,7 @@ export function EventBanner() {
   }, [menuOpen]);
 
   const s = currentSession;
+  const { dayCode } = useSessionScope();
 
   return (
     <div
