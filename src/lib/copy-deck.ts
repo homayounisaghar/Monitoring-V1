@@ -141,6 +141,8 @@ export const COPY = {
   // Replaces per-cell "NOT COMPARED".
   "squad.cell.notCompared": "—",
   "squad.cell.notComparedHoverTemplate": "{min}′ — too short to compare",
+  // DRAFT — hover for the empty %-mode cell on the building-baseline row.
+  "squad.cell.buildingHoverTemplate": "Building baseline · {done} of {min} sessions to minimum history",
   // Column-picker counter.
   "squad.columnPicker.counterTemplate": "{n} / {max}",
   // Full-data pointer.
