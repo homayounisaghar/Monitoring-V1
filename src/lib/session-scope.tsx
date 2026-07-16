@@ -79,8 +79,12 @@ export type DemoScenario =
 export type SessionScope = {
   reference: { kind: ReferenceKind; label: string };
   setReference: (r: { kind: ReferenceKind; label: string }) => void;
-  benchmark: { kind: BenchmarkKind; label: string };
-  setBenchmark: (b: { kind: BenchmarkKind; label: string }) => void;
+  benchmark: BenchmarkOption;
+  setBenchmark: (b: BenchmarkOption) => void;
+  benchmarkOptions: BenchmarkOption[];
+  defaultBenchmark: BenchmarkOption;
+  benchmarkIsDefault: boolean;
+  dayCode: string | null;
 
   filter: Filter;
   setFilter: (f: Filter) => void;
