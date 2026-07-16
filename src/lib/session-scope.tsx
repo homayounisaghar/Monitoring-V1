@@ -240,18 +240,50 @@ export function SessionScopeProvider({ children }: { children: ReactNode }) {
     };
   }, [filter, effectiveParticipants]);
 
+  const sessionIsTraining = demo === "training_day";
+  const dayCode = sessionIsTraining ? TRAINING_DAY_CODE : null;
+
+  const { benchmarkOptions, defaultBenchmark } = useMemo(() => {
+    if (dayCode) {
+      const dayTypeOpt: BenchmarkOption = {
+        kind: "typical_daytype",
+        label: `Typical ${dayCode}`,
+      };
+      return {
+        benchmarkOptions: [dayTypeOpt, ...BENCHMARK_OPTIONS],
+        defaultBenchmark: dayTypeOpt,
+      };
+    }
+    return {
+      benchmarkOptions: BENCHMARK_OPTIONS,
+      defaultBenchmark: BENCHMARK_OPTIONS[0],
+    };
+  }, [dayCode]);
+
+  // Reset benchmark to the per-session default when the session type flips.
+  useEffect(() => {
+    setBenchmark(defaultBenchmark);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionIsTraining]);
+
+  const benchmarkIsDefault = benchmark.kind === defaultBenchmark.kind;
+
   const value: SessionScope = {
     reference,
     setReference,
     benchmark,
     setBenchmark,
+    benchmarkOptions,
+    defaultBenchmark,
+    benchmarkIsDefault,
+    dayCode,
     filter,
     setFilter,
     demo,
     setDemo,
     effectiveParticipants,
     tier1Rows,
-    sessionIsTraining: demo === "training_day",
+    sessionIsTraining,
     ...derived,
   };
 
