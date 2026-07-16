@@ -166,3 +166,10 @@ function formatShort(iso: string) {
   const d = new Date(iso);
   return d.toLocaleDateString("en-GB", { day: "2-digit", month: "short" });
 }
+
+function stripDayCodePrefix(label: string, dayCode: string) {
+  // Escape regex specials in the day code (e.g. "MD+1", "MD-2").
+  const escaped = dayCode.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return label.replace(new RegExp(`^${escaped}\\s*·\\s*`), "");
+}
+
