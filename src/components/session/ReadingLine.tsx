@@ -3,7 +3,6 @@ import { ChevronDown, X, HelpCircle } from "lucide-react";
 import {
   useSessionScope,
   REFERENCE_OPTIONS,
-  BENCHMARK_OPTIONS,
   type ReferenceKind,
   type BenchmarkKind,
 } from "@/lib/session-scope";
@@ -12,6 +11,7 @@ import { copy, type CopyKey } from "@/lib/copy-deck";
 export function ReadingLine() {
   const {
     reference, setReference, benchmark, setBenchmark,
+    benchmarkOptions, defaultBenchmark, benchmarkIsDefault,
   } = useSessionScope();
 
   const referenceIsDefault = reference.kind === REFERENCE_OPTIONS[0].kind;
