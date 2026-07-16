@@ -22,7 +22,7 @@ import { useEffect, useMemo, useState } from "react";
 import { ChevronRight, Flag, ChevronUp, ChevronDown, X } from "lucide-react";
 import { useNavigate } from "@tanstack/react-router";
 import { useSessionScope, COVERAGE_MIN } from "@/lib/session-scope";
-import { squad, POSITION_LABEL, type Athlete } from "@/lib/session-data";
+import { squad, POSITION_LABEL, type Athlete, type PositionCode } from "@/lib/session-data";
 import { ScopeTag } from "@/components/session/ScopeTag";
 import { TrustMark } from "@/components/data/TrustMark";
 import { copy, tmpl } from "@/lib/copy-deck";
@@ -47,16 +47,21 @@ import { ValueOnTrack } from "@/components/data/ValueOnTrack";
 
 type ViewMode = "table" | "chart";
 type DisplayMode = "absolute" | "percent";
+type ChartArrangement = "position" | "ranked";
+type SortKey = MetricId | "position";
 
 const PREFS_STORAGE_KEY = "st2.session.squad.prefs.v1";
 
-type SortState = { key: MetricId; dir: "asc" | "desc" };
+const POSITION_ORDER: PositionCode[] = ["GK", "DEF", "MID", "ATT"];
+
+type SortState = { key: SortKey; dir: "asc" | "desc" };
 
 type SquadPrefs = {
   view: ViewMode;
   display: DisplayMode;
   columns: MetricId[];
   chartMetric: MetricId;
+  chartArrangement: ChartArrangement;
   sort: SortState;
 };
 
@@ -65,11 +70,16 @@ const DEFAULT_PREFS: SquadPrefs = {
   display: "absolute",
   columns: DEFAULT_COLUMNS,
   chartMetric: "totalDistance",
-  sort: { key: "totalDistance", dir: "desc" },
+  chartArrangement: "position",
+  sort: { key: "position", dir: "desc" },
 };
 
 function isMetricId(x: unknown): x is MetricId {
   return typeof x === "string" && Object.prototype.hasOwnProperty.call(METRICS, x);
+}
+
+function isSortKey(x: unknown): x is SortKey {
+  return x === "position" || isMetricId(x);
 }
 
 function loadPrefs(): SquadPrefs {
@@ -84,17 +94,22 @@ function loadPrefs(): SquadPrefs {
     const columnsArr = Array.isArray(p.columns) ? p.columns.filter(isMetricId) : [];
     const columns = columnsArr.length > 0 ? (columnsArr as MetricId[]) : DEFAULT_PREFS.columns;
     const chartMetric: MetricId = isMetricId(p.chartMetric) ? p.chartMetric : DEFAULT_PREFS.chartMetric;
-    const sortKey: MetricId =
-      p.sort && isMetricId(p.sort.key) ? p.sort.key : DEFAULT_PREFS.sort.key;
+    const chartArrangement: ChartArrangement =
+      p.chartArrangement === "position" || p.chartArrangement === "ranked"
+        ? p.chartArrangement
+        : DEFAULT_PREFS.chartArrangement;
+    const sortKey: SortKey =
+      p.sort && isSortKey(p.sort.key) ? p.sort.key : DEFAULT_PREFS.sort.key;
     const sortDir: "asc" | "desc" =
       p.sort && (p.sort.dir === "asc" || p.sort.dir === "desc")
         ? p.sort.dir
         : DEFAULT_PREFS.sort.dir;
-    return { view, display, columns, chartMetric, sort: { key: sortKey, dir: sortDir } };
+    return { view, display, columns, chartMetric, chartArrangement, sort: { key: sortKey, dir: sortDir } };
   } catch {
     return DEFAULT_PREFS;
   }
 }
+
 
 export function SquadCard() {
   const {
@@ -110,6 +125,7 @@ export function SquadCard() {
   const [columns, setColumns] = useState<MetricId[]>(initial.columns);
   const [sort, setSort] = useState<SortState>(initial.sort);
   const [chartMetric, setChartMetric] = useState<MetricId>(initial.chartMetric);
+  const [chartArrangement, setChartArrangement] = useState<ChartArrangement>(initial.chartArrangement);
   const [pickerOpen, setPickerOpen] = useState(false);
   const navigate = useNavigate();
 
@@ -117,12 +133,13 @@ export function SquadCard() {
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
-      const payload: SquadPrefs = { view, display, columns, chartMetric, sort };
+      const payload: SquadPrefs = { view, display, columns, chartMetric, chartArrangement, sort };
       window.localStorage.setItem(PREFS_STORAGE_KEY, JSON.stringify(payload));
     } catch {
       /* ignore quota / disabled storage */
     }
-  }, [view, display, columns, chartMetric, sort]);
+  }, [view, display, columns, chartMetric, chartArrangement, sort]);
+
 
   /* --- rows in scope --- */
 
@@ -174,23 +191,63 @@ export function SquadCard() {
     return v;
   };
 
-  const sortedRows = useMemo(() => {
+  // Row-render descriptors. When sort is "position", we render group
+  // subheader rows before each visible position group and pin DNP/no-data
+  // to the foot (never inside a group).
+
+
+
+  const renderItems = useMemo<RowItem[]>(() => {
     const rows = [...tableRows];
+    if (sort.key === "position") {
+      // "has data" for position sort uses Total distance as the within-group ranker.
+      const rankKey: MetricId = "totalDistance";
+      const inGroup: Athlete[] = [];
+      const foot: Athlete[] = [];
+      for (const a of rows) {
+        if (hasSortData(a, rankKey)) inGroup.push(a);
+        else foot.push(a);
+      }
+      inGroup.sort((a, b) => {
+        const ap = POSITION_ORDER.indexOf(a.position);
+        const bp = POSITION_ORDER.indexOf(b.position);
+        if (ap !== bp) return ap - bp;
+        const av = sortValue(a, rankKey);
+        const bv = sortValue(b, rankKey);
+        if (av === bv) return a.name.localeCompare(b.name);
+        return bv - av;
+      });
+      foot.sort((a, b) => a.name.localeCompare(b.name));
+      const items: RowItem[] = [];
+      let currentPos: PositionCode | null = null;
+      for (const a of inGroup) {
+        if (a.position !== currentPos) {
+          items.push({ kind: "header", pos: a.position });
+          currentPos = a.position;
+        }
+        items.push({ kind: "row", a });
+      }
+      for (const a of foot) items.push({ kind: "row", a });
+      return items;
+    }
+
+    // Metric sort — flat, existing behavior.
+    const key = sort.key as MetricId;
     rows.sort((a, b) => {
-      // DNP + no-data pin to foot explicitly, regardless of dir.
-      const aHas = hasSortData(a, sort.key);
-      const bHas = hasSortData(b, sort.key);
+      const aHas = hasSortData(a, key);
+      const bHas = hasSortData(b, key);
       if (!aHas && bHas) return 1;
       if (aHas && !bHas) return -1;
       if (!aHas && !bHas) return a.name.localeCompare(b.name);
-      const av = sortValue(a, sort.key);
-      const bv = sortValue(b, sort.key);
+      const av = sortValue(a, key);
+      const bv = sortValue(b, key);
       if (av === bv) return a.name.localeCompare(b.name);
       return sort.dir === "asc" ? av - bv : bv - av;
     });
-    return rows;
+    return rows.map((a) => ({ kind: "row" as const, a }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tableRows, sort, display]);
+
 
   /* --- squad-avg row (in-scope participants) --- */
 
@@ -260,25 +317,35 @@ export function SquadCard() {
         />
         <div className="flex items-center gap-2">
           {view === "chart" && (
-            <select
-              value={chartMetric}
-              onChange={(e) => setChartMetric(e.target.value as MetricId)}
-              className="rounded-md border px-2 py-1 text-[12px]"
-              style={{
-                borderColor: "var(--color-border)",
-                backgroundColor: "var(--color-canvas)",
-                color: "var(--color-text-primary)",
-              }}
-            >
-              {[...DEFAULT_COLUMNS.filter((c) => c !== "min"),
-                ...COLUMN_LIBRARY.flatMap((g) => g.ids).filter(
-                  (id) => !DEFAULT_COLUMNS.includes(id),
-                )].map((id) => (
-                <option key={id} value={id}>
-                  {METRICS[id].label}
-                </option>
-              ))}
-            </select>
+            <>
+              <SegmentedToggle
+                value={chartArrangement}
+                onChange={(v) => setChartArrangement(v)}
+                options={[
+                  { id: "position", label: copy("canonical.squad.toolbar.byPosition") },
+                  { id: "ranked", label: copy("canonical.squad.toolbar.ranked") },
+                ]}
+              />
+              <select
+                value={chartMetric}
+                onChange={(e) => setChartMetric(e.target.value as MetricId)}
+                className="rounded-md border px-2 py-1 text-[12px]"
+                style={{
+                  borderColor: "var(--color-border)",
+                  backgroundColor: "var(--color-canvas)",
+                  color: "var(--color-text-primary)",
+                }}
+              >
+                {[...DEFAULT_COLUMNS.filter((c) => c !== "min"),
+                  ...COLUMN_LIBRARY.flatMap((g) => g.ids).filter(
+                    (id) => !DEFAULT_COLUMNS.includes(id),
+                  )].map((id) => (
+                  <option key={id} value={id}>
+                    {METRICS[id].label}
+                  </option>
+                ))}
+              </select>
+            </>
           )}
           <SegmentedToggle
             value={display}
@@ -306,7 +373,7 @@ export function SquadCard() {
       {/* Body */}
       {view === "table" ? (
         <TableBody
-          rows={sortedRows}
+          items={renderItems}
           columns={columns}
           display={display}
           sort={sort}
@@ -314,7 +381,7 @@ export function SquadCard() {
             setSort((prev) =>
               prev.key === key
                 ? { key, dir: prev.dir === "asc" ? "desc" : "asc" }
-                : { key, dir: "desc" },
+                : { key, dir: key === "position" ? "desc" : "desc" },
             )
           }
           flagged={flagged}
@@ -331,6 +398,7 @@ export function SquadCard() {
         <ChartBody
           metric={METRICS[chartMetric]}
           display={display}
+          arrangement={chartArrangement}
           rows={activeAthletes}
           allSquadForTray={squad}
           flagged={flagged}
@@ -341,6 +409,7 @@ export function SquadCard() {
           }}
         />
       )}
+
 
       {pickerOpen && (
         <ColumnsPicker
@@ -358,8 +427,12 @@ export function SquadCard() {
 /* Table body                                                    */
 /* ============================================================ */
 
+type RowItem =
+  | { kind: "header"; pos: PositionCode }
+  | { kind: "row"; a: Athlete };
+
 function TableBody({
-  rows,
+  items,
   columns,
   display,
   sort,
@@ -371,11 +444,11 @@ function TableBody({
   scopeCount,
   onScrollToAttention,
 }: {
-  rows: Athlete[];
+  items: RowItem[];
   columns: MetricId[];
   display: DisplayMode;
-  sort: { key: MetricId; dir: "asc" | "desc" };
-  onSort: (key: MetricId) => void;
+  sort: SortState;
+  onSort: (key: SortKey) => void;
   flagged: Set<string>;
   srpeCoverage: { submitted: number; total: number };
   onRowClick: (a: Athlete) => void;
@@ -383,6 +456,8 @@ function TableBody({
   scopeCount: number;
   onScrollToAttention: () => void;
 }) {
+  const athleteActive = sort.key === "position";
+  const totalCols = 1 + columns.length;
   return (
     <div
       className="overflow-x-auto rounded-b-lg border"
@@ -400,8 +475,34 @@ function TableBody({
               backgroundColor: "var(--color-slate-50)",
             }}
           >
-            <th className="px-3 py-2 text-left type-col-head" style={{ minWidth: 200 }}>
-              {copy("canonical.squad.tableHead.athlete")}
+            <th
+              className="px-3 py-2 text-left"
+              style={{
+                minWidth: 200,
+                backgroundColor: athleteActive ? "var(--color-slate-100)" : undefined,
+              }}
+            >
+              <button
+                className="inline-flex items-center gap-1.5"
+                onClick={() => onSort("position")}
+                title={`${copy("canonical.squad.sortByPrefix")}${copy("canonical.squad.sortByPosition")}`}
+              >
+                <span
+                  className="type-col-head"
+                  style={{
+                    color: athleteActive
+                      ? "var(--color-text-primary)"
+                      : "var(--color-text-secondary)",
+                  }}
+                >
+                  {copy("canonical.squad.tableHead.athlete")}
+                </span>
+                {athleteActive ? (
+                  <ChevronDown className="h-3 w-3" />
+                ) : (
+                  <span className="w-3" />
+                )}
+              </button>
             </th>
             {columns.map((id) => {
               const m = METRICS[id];
@@ -499,7 +600,24 @@ function TableBody({
             })}
           </tr>
 
-          {rows.map((a) => {
+          {items.map((it, idx) => {
+            if (it.kind === "header") {
+              return (
+                <tr
+                  key={`h-${it.pos}-${idx}`}
+                  style={{ backgroundColor: "var(--color-slate-50)" }}
+                >
+                  <td
+                    colSpan={totalCols}
+                    className="px-3 py-1.5 type-label"
+                    style={{ color: "var(--color-text-tertiary)" }}
+                  >
+                    {POSITION_LABEL[it.pos]}
+                  </td>
+                </tr>
+              );
+            }
+            const a = it.a;
             const rowScaled =
               a.participation !== null &&
               a.minutes < 60 &&
@@ -578,6 +696,7 @@ function TableBody({
       </table>
     </div>
   );
+
 }
 
 /* ---------- individual cell renderers ---------- */
@@ -803,6 +922,7 @@ function AvgCell({
 function ChartBody({
   metric,
   display,
+  arrangement,
   rows,
   allSquadForTray,
   flagged,
@@ -811,6 +931,7 @@ function ChartBody({
 }: {
   metric: Metric;
   display: DisplayMode;
+  arrangement: ChartArrangement;
   rows: Athlete[];
   allSquadForTray: Athlete[];
   flagged: Set<string>;
@@ -829,17 +950,33 @@ function ChartBody({
       return { a, v, r, state };
     });
 
-  const ranked = [...withData].sort((x, y) => {
+  const rankKey = (x: { v: number | null; r: number | null }): number | null => {
     if (display === "percent") {
-      const xd = x.r ? (x.v! / x.r) * 100 : null;
-      const yd = y.r ? (y.v! / y.r) * 100 : null;
-      if (xd == null && yd == null) return 0;
-      if (xd == null) return 1;
-      if (yd == null) return -1;
-      return yd - xd;
+      return x.r ? (x.v! / x.r) * 100 : null;
     }
-    return (y.v ?? -Infinity) - (x.v ?? -Infinity);
-  });
+    return x.v ?? null;
+  };
+  const rankCompare = (
+    x: { v: number | null; r: number | null },
+    y: { v: number | null; r: number | null },
+  ): number => {
+    const xd = rankKey(x);
+    const yd = rankKey(y);
+    if (xd == null && yd == null) return 0;
+    if (xd == null) return 1;
+    if (yd == null) return -1;
+    return yd - xd;
+  };
+
+  const ranked = [...withData].sort(rankCompare);
+
+  // Grouped view: same ranking, split into position groups in field order.
+  type Entry = (typeof withData)[number];
+  const groups: { pos: PositionCode; entries: Entry[] }[] = arrangement === "position"
+    ? POSITION_ORDER
+        .map((pos) => ({ pos, entries: ranked.filter((e) => e.a.position === pos) }))
+        .filter((g) => g.entries.length > 0)
+    : [];
 
   // Non-participants + no-data pin to foot explicitly.
   const trayIds = new Set<string>();
@@ -851,6 +988,32 @@ function ChartBody({
   const tray = allSquadForTray.filter((a) => trayIds.has(a.id));
 
   const scaleMax = metric.chartMax;
+
+  const captionKey =
+    arrangement === "position"
+      ? display === "percent"
+        ? "chart.captionGroupedPercent"
+        : "chart.captionGroupedAbsolute"
+      : display === "percent"
+        ? "chart.captionPercent"
+        : "chart.captionAbsolute";
+
+  const renderRow = (r: Entry, rank: number) => (
+    <ChartRow
+      key={r.a.id}
+      rank={rank}
+      a={r.a}
+      m={metric}
+      display={display}
+      value={r.v}
+      ref={r.r}
+      state={r.state}
+      scaleMax={scaleMax}
+      flagged={flagged.has(r.a.id)}
+      onClick={() => onRowClick(r.a)}
+      onFlagClick={onScrollToAttention}
+    />
+  );
 
   return (
     <div
@@ -868,9 +1031,7 @@ function ChartBody({
           className="type-col-head"
           style={{ color: "var(--color-text-secondary)" }}
         >
-          {display === "percent"
-            ? tmpl("chart.captionPercent", { metric: metric.label })
-            : tmpl("chart.captionAbsolute", { metric: metric.label })}
+          {tmpl(captionKey, { metric: metric.label })}
         </span>
         <span
           className="type-label"
@@ -881,24 +1042,31 @@ function ChartBody({
             : tmpl("chart.axisAbsoluteNote", { max: formatScale(metric, scaleMax) })}
         </span>
       </div>
-      <ul>
-        {ranked.map((r, i) => (
-          <ChartRow
-            key={r.a.id}
-            rank={i + 1}
-            a={r.a}
-            m={metric}
-            display={display}
-            value={r.v}
-            ref={r.r}
-            state={r.state}
-            scaleMax={scaleMax}
-            flagged={flagged.has(r.a.id)}
-            onClick={() => onRowClick(r.a)}
-            onFlagClick={onScrollToAttention}
-          />
-        ))}
-      </ul>
+      {arrangement === "position" ? (
+        <ul>
+          {groups.map((g) => (
+            <li key={g.pos}>
+              <div
+                className="px-4 py-1.5 type-label"
+                style={{
+                  color: "var(--color-text-tertiary)",
+                  backgroundColor: "var(--color-slate-50)",
+                }}
+              >
+                {POSITION_LABEL[g.pos]}
+              </div>
+              <ul>
+                {g.entries.map((r, i) => renderRow(r, i + 1))}
+              </ul>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <ul>
+          {ranked.map((r, i) => renderRow(r, i + 1))}
+        </ul>
+      )}
+
       {tray.length > 0 && (
         <div
           className="border-t px-4 py-2"
