@@ -1,5 +1,5 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { Search, Bell, Settings, ChevronDown } from "lucide-react";
+import { Bell, Settings, ChevronDown } from "lucide-react";
 import { useState } from "react";
 import {
   DropdownMenu,
