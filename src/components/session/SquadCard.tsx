@@ -917,9 +917,10 @@ function ChartBody({
   const withData = rows
     .filter((a) => a.participation !== null && valueFor(a, metric) != null)
     .map((a) => {
-      const state = cellState(a, metric);
+      const state = cellState(a, metric, buildingIds);
       const v = valueFor(a, metric);
-      const r = refFor(a, metric);
+      const r = refFor(a, metric, buildingIds);
+
       return { a, v, r, state };
     });
 
