@@ -112,6 +112,11 @@ export type SessionScope = {
   highlightAthleteId: string | null;
   setHighlightAthleteId: (id: string | null) => void;
 
+  // Shared "How to read this" legend open state — the chrome ReadingLine
+  // renders the popover, but the Attention card's ⓘ opens the same one.
+  legendOpen: boolean;
+  setLegendOpen: (open: boolean) => void;
+
   // derived
   activeAthletes: Athlete[];
   showingCount: number;
