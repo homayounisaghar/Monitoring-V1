@@ -76,7 +76,9 @@ export type DemoScenario =
   | "srpe_none"
   | "srpe_full"
   | "coverage_thin"
-  | "training_day";
+  | "training_day"
+  | "early_season"
+  | "no_hr_data";
 
 export type SessionScope = {
   reference: ReferenceOption;
@@ -100,6 +102,8 @@ export type SessionScope = {
   effectiveParticipants: Athlete[];
   tier1Rows: Tier1Row[];
   sessionIsTraining: boolean;
+  buildingIds: Set<string>;
+  comparableCount: number;
 
   // derived
   activeAthletes: Athlete[];
@@ -108,6 +112,7 @@ export type SessionScope = {
   scopeLabel: string | null;
   filterIsDefault: boolean;
 };
+
 
 const emptyFilter: Filter = {
   participation: new Set(),
