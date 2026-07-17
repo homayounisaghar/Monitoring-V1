@@ -54,8 +54,6 @@ export const COPY = {
   "flag.hover": "Flagged in Attention — view",
   "trust.hoverGeneric": "coverage under 80%",
   "columns.capReason": "At the 12-column cap — remove one to add another",
-  "chart.captionAbsolute": "Ranked by {metric}",
-  "chart.captionPercent": "Ranked by delta · {metric}",
   "chart.captionGroupedAbsolute": "By position · ranked by {metric} within each line",
   "chart.captionGroupedPercent": "By position · ranked by delta · {metric} within each line",
   "chart.noData": "No data on this metric",
@@ -228,8 +226,6 @@ export const COPY = {
 
   "canonical.squad.toolbar.table": "Table",
   "canonical.squad.toolbar.chart": "Chart",
-  "canonical.squad.toolbar.byPosition": "By position",
-  "canonical.squad.toolbar.ranked": "Ranked",
   "canonical.squad.toolbar.absolute": "Absolute",
   "canonical.squad.toolbar.percent": "%",
   "canonical.squad.toolbar.columns": "Columns",
