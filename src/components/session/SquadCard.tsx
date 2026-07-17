@@ -674,14 +674,17 @@ function Cell({
   display,
   rowScaled,
   rowBuilding,
+  buildingIds,
 }: {
   a: Athlete;
   m: Metric;
   display: DisplayMode;
   rowScaled: boolean;
   rowBuilding: boolean;
+  buildingIds: Set<string>;
 }) {
-  const state = cellState(a, m);
+  const state = cellState(a, m, buildingIds);
+
 
   // Min column — the single home for row-level "· scaled" (Q2).
   if (m.id === "min") {
