@@ -82,6 +82,6 @@ function SessionRoute() {
 
 
       <DemoPill />
-    </SessionScopeProvider>
+    </>
   );
 }
