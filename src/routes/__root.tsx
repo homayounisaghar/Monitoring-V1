@@ -130,11 +130,13 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <div className="min-h-screen" style={{ backgroundColor: "var(--color-canvas)" }}>
-        <NavFrame />
-        {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-        <Outlet />
-      </div>
+      <SessionScopeProvider>
+        <div className="min-h-screen" style={{ backgroundColor: "var(--color-canvas)" }}>
+          <NavFrame />
+          {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
+          <Outlet />
+        </div>
+      </SessionScopeProvider>
     </QueryClientProvider>
   );
 }
