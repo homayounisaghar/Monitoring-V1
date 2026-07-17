@@ -181,43 +181,19 @@ export function SquadCard() {
     return v;
   };
 
-  // Row-render descriptors. When sort is "position", we render group
-  // subheader rows before each visible position group and pin DNP/no-data
-  // to the foot (never inside a group).
-
-
-
+  // Flat row list — no position grouping. Rows without a sortable value
+  // under the active display mode pin to the foot in name order.
   const renderItems = useMemo<RowItem[]>(() => {
     const rows = [...tableRows];
 
-    if (sort.key === "position") {
-      // Team-sheet default: grouped GK → DEF → MID → ATT, alphabetical
-      // by family name within each group. DNP / no-data pin to the foot.
-      const isFoot = (a: Athlete) => a.participation === null;
-      const inGroup = rows.filter((a) => !isFoot(a));
-      const foot = rows.filter(isFoot);
-      inGroup.sort((a, b) => {
-        const ap = POSITION_ORDER.indexOf(a.position);
-        const bp = POSITION_ORDER.indexOf(b.position);
-        if (ap !== bp) return ap - bp;
-        return familyName(a.name).localeCompare(familyName(b.name));
-      });
-      foot.sort((a, b) => familyName(a.name).localeCompare(familyName(b.name)));
-      const items: RowItem[] = [];
-      let currentPos: PositionCode | null = null;
-      for (const a of inGroup) {
-        if (a.position !== currentPos) {
-          items.push({ kind: "header", pos: a.position });
-          currentPos = a.position;
-        }
-        items.push({ kind: "row", a });
-      }
-      for (const a of foot) items.push({ kind: "row", a });
-      return items;
+    if (sort.key === "name") {
+      const dirMult = sort.dir === "asc" ? 1 : -1;
+      rows.sort(
+        (a, b) => dirMult * familyName(a.name).localeCompare(familyName(b.name)),
+      );
+      return rows.map((a) => ({ kind: "row" as const, a }));
     }
 
-    // Metric sort — flat, no subheaders. Rows without a sortable value
-    // under the active display mode pin to the foot in name order.
     const key = sort.key;
     const dirMult = sort.dir === "asc" ? 1 : -1;
     rows.sort((a, b) => {
@@ -233,6 +209,7 @@ export function SquadCard() {
     return rows.map((a) => ({ kind: "row" as const, a }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tableRows, sort, display]);
+
 
 
   /* --- squad-avg row (in-scope participants) --- */
