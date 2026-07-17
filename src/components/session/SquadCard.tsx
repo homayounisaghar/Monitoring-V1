@@ -113,6 +113,16 @@ export function SquadCard() {
     filterIsDefault,
     buildingIds,
     setHighlightAthleteId,
+    squadView: view,
+    setSquadView: setView,
+    squadDisplay: display,
+    setSquadDisplay: setDisplay,
+    squadSort: sort,
+    setSquadSort: setSort,
+    squadColumns: columns,
+    setSquadColumns: setColumns,
+    squadChartMetric: chartMetric,
+    setSquadChartMetric: setChartMetric,
   } = useSessionScope();
 
   const handleFlagClick = (athleteId: string) => {
@@ -121,25 +131,17 @@ export function SquadCard() {
     el?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
-  const initial = useMemo(() => loadPrefs(), []);
-  const [view, setView] = useState<ViewMode>(initial.view);
-  const [display, setDisplay] = useState<DisplayMode>(initial.display);
-  const [columns, setColumns] = useState<MetricId[]>(initial.columns);
-  const [sort, setSort] = useState<SortState>(DEFAULT_SORT);
-  const [chartMetric, setChartMetric] = useState<MetricId>(initial.chartMetric);
   const [pickerOpen, setPickerOpen] = useState(false);
   const navigate = useNavigate();
-
-  // Persist presentation prefs only. Sort + chart arrangement are per-visit.
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    try {
-      const payload: SquadPrefs = { view, display, columns, chartMetric };
-      window.localStorage.setItem(PREFS_STORAGE_KEY, JSON.stringify(payload));
-    } catch {
-      /* ignore quota / disabled storage */
-    }
-  }, [view, display, columns, chartMetric]);
+  const goToAthlete = (athleteId: string) =>
+    navigate({
+      to: "/athlete",
+      search: {
+        athleteId,
+        sessionId: currentSession.id,
+        timeframe: "session",
+      },
+    });
 
 
   /* --- rows in scope --- */
