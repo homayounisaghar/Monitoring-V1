@@ -35,7 +35,10 @@ export function AttentionCard() {
     activeAthletes,
     filterIsDefault,
     totalParticipants,
+    reference,
+    defaultReference,
   } = useSessionScope();
+  const referenceIsDefault = reference.kind === defaultReference.kind;
 
   // A9 — always squad-wide.
   const tier1 = tier1Rows;
