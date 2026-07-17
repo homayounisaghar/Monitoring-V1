@@ -19,10 +19,10 @@
  * suppressed with "building baseline".
  */
 import { useEffect, useMemo, useState } from "react";
-import { ChevronRight, Flag, ChevronUp, ChevronDown, X } from "lucide-react";
+import { Flag, ChevronUp, ChevronDown, X } from "lucide-react";
 import { useNavigate } from "@tanstack/react-router";
 import { useSessionScope, COVERAGE_MIN } from "@/lib/session-scope";
-import { squad, POSITION_LABEL, type Athlete, type PositionCode } from "@/lib/session-data";
+import { squad, type Athlete } from "@/lib/session-data";
 import { ScopeTag } from "@/components/session/ScopeTag";
 import { TrustMark } from "@/components/data/TrustMark";
 import { copy, tmpl } from "@/lib/copy-deck";
@@ -47,15 +47,14 @@ import { ValueOnTrack } from "@/components/data/ValueOnTrack";
 
 type ViewMode = "table" | "chart";
 type DisplayMode = "absolute" | "percent";
-type SortKey = MetricId | "position";
+type SortKey = MetricId | "name";
 
 const PREFS_STORAGE_KEY = "st2.session.squad.prefs.v1";
 
-const POSITION_ORDER: PositionCode[] = ["GK", "DEF", "MID", "ATT"];
-
 type SortState = { key: SortKey; dir: "asc" | "desc" };
 
-const DEFAULT_SORT: SortState = { key: "position", dir: "desc" };
+const DEFAULT_SORT: SortState = { key: "name", dir: "asc" };
+
 
 /** Persisted presentation prefs (view/display/columns/chart-metric only).
  *  Sort and chart arrangement are analysis state and NEVER persist. */
