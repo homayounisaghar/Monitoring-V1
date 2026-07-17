@@ -832,36 +832,61 @@ function ParticipationCard({
 
       {/* Count-chips keyed by swatch — "Full 13 · Part 3 · Injury 2" */}
       <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5">
-        {present.map((seg, idx) => (
-          <span key={seg.tag} className="inline-flex items-center gap-x-3">
-            {idx > 0 && (
-              <span
-                className="type-num text-[11px]"
-                style={{ color: "var(--color-text-tertiary)" }}
-                aria-hidden
-              >
-                ·
-              </span>
-            )}
-            <button
-              onClick={() => setPopover((p) => (p === seg.tag ? null : seg.tag))}
-              className="inline-flex items-center gap-1.5 text-[11.5px] transition-colors hover:text-[color:var(--color-text-primary)]"
-              style={{ color: "var(--color-text-secondary)" }}
-            >
-              <span
-                className={`h-2.5 w-2.5 rounded-sm ${TAG_TEXTURE[seg.tag]}`}
-                aria-hidden
-              />
-              <span>{seg.tag}</span>
-              <span
-                className="type-num"
-                style={{ color: "var(--color-text-primary)" }}
-              >
-                {seg.names.length}
-              </span>
-            </button>
-          </span>
-        ))}
+        {present.map((seg, idx) => {
+          const inlineNames = seg.tag !== "Full" && seg.names.length > 0 && seg.names.length <= 2;
+          return (
+            <span key={seg.tag} className="inline-flex items-center gap-x-3">
+              {idx > 0 && (
+                <span
+                  className="type-num text-[11px]"
+                  style={{ color: "var(--color-text-tertiary)" }}
+                  aria-hidden
+                >
+                  ·
+                </span>
+              )}
+              {inlineNames ? (
+                <span
+                  className="inline-flex items-center gap-1.5 text-[11.5px]"
+                  style={{ color: "var(--color-text-secondary)" }}
+                >
+                  <span
+                    className={`h-2.5 w-2.5 rounded-sm ${TAG_TEXTURE[seg.tag]}`}
+                    aria-hidden
+                  />
+                  <span>{seg.tag}</span>
+                  <span
+                    className="type-num"
+                    style={{ color: "var(--color-text-primary)" }}
+                  >
+                    {seg.names.length}
+                  </span>
+                  <span style={{ color: "var(--color-text-tertiary)" }}>
+                    — {seg.names.map((n) => n.split(" ").slice(-1)[0]).join(", ")}
+                  </span>
+                </span>
+              ) : (
+                <button
+                  onClick={() => setPopover((p) => (p === seg.tag ? null : seg.tag))}
+                  className="inline-flex items-center gap-1.5 text-[11.5px] transition-colors hover:text-[color:var(--color-text-primary)]"
+                  style={{ color: "var(--color-text-secondary)" }}
+                >
+                  <span
+                    className={`h-2.5 w-2.5 rounded-sm ${TAG_TEXTURE[seg.tag]}`}
+                    aria-hidden
+                  />
+                  <span>{seg.tag}</span>
+                  <span
+                    className="type-num"
+                    style={{ color: "var(--color-text-primary)" }}
+                  >
+                    {seg.names.length}
+                  </span>
+                </button>
+              )}
+            </span>
+          );
+        })}
         {/* Zeros surface on hover only */}
         {absent.length > 0 && (
           <span
