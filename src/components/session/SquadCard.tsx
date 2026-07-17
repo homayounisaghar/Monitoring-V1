@@ -949,28 +949,40 @@ function ChartBody({
 
   const ranked = [...withData].sort(rankCompare);
 
-  // Chart has exactly one arrangement: grouped by position, ordered
-  // by the active metric within each line (per rankCompare above).
   type Entry = (typeof withData)[number];
-  const groups: { pos: PositionCode; entries: Entry[] }[] = POSITION_ORDER
-    .map((pos) => ({ pos, entries: ranked.filter((e) => e.a.position === pos) }))
-    .filter((g) => g.entries.length > 0);
+
+  // Absolute: grouped by position line with per-line rank numbers.
+  // Percent: flat single ladder ranked by delta vs own typical.
+  const isPercent = display === "percent";
+  const rankedForFlat = isPercent
+    ? ranked.filter((e) => rankKey(e) != null)
+    : ranked;
+  const groups: { pos: PositionCode; entries: Entry[] }[] = isPercent
+    ? []
+    : POSITION_ORDER
+        .map((pos) => ({ pos, entries: ranked.filter((e) => e.a.position === pos) }))
+        .filter((g) => g.entries.length > 0);
 
   // Non-participants + no-data pin to foot explicitly.
+  // In % mode, also send entries that have no delta (no reference) to the tray.
   const trayIds = new Set<string>();
   for (const a of allSquadForTray) {
     if (a.participation === null) trayIds.add(a.id);
     else if (rows.some((r) => r.id === a.id) && valueFor(a, metric) == null)
       trayIds.add(a.id);
   }
+  if (isPercent) {
+    for (const e of withData) {
+      if (rankKey(e) == null) trayIds.add(e.a.id);
+    }
+  }
   const tray = allSquadForTray.filter((a) => trayIds.has(a.id));
 
   const scaleMax = metric.chartMax;
 
-  const captionKey =
-    display === "percent"
-      ? "chart.captionGroupedPercent"
-      : "chart.captionGroupedAbsolute";
+  const captionKey = isPercent
+    ? "chart.captionPercent"
+    : "chart.captionGroupedAbsolute";
 
   const renderRow = (r: Entry, rank: number) => (
     <ChartRow
@@ -1016,24 +1028,31 @@ function ChartBody({
             : tmpl("chart.axisAbsoluteNote", { max: formatScale(metric, scaleMax) })}
         </span>
       </div>
-      <ul>
-        {groups.map((g) => (
-          <li key={g.pos}>
-            <div
-              className="px-4 py-1.5 type-label"
-              style={{
-                color: "var(--color-text-tertiary)",
-                backgroundColor: "var(--color-slate-50)",
-              }}
-            >
-              {POSITION_LABEL[g.pos]}
-            </div>
-            <ul>
-              {g.entries.map((r, i) => renderRow(r, i + 1))}
-            </ul>
-          </li>
-        ))}
-      </ul>
+      {isPercent ? (
+        <ul>
+          {rankedForFlat.map((r, i) => renderRow(r, i + 1))}
+        </ul>
+      ) : (
+        <ul>
+          {groups.map((g) => (
+            <li key={g.pos}>
+              <div
+                className="px-4 py-1.5 type-label"
+                style={{
+                  color: "var(--color-text-tertiary)",
+                  backgroundColor: "var(--color-slate-50)",
+                }}
+              >
+                {POSITION_LABEL[g.pos]}
+              </div>
+              <ul>
+                {g.entries.map((r, i) => renderRow(r, i + 1))}
+              </ul>
+            </li>
+          ))}
+        </ul>
+      )}
+
 
       {tray.length > 0 && (
         <div
