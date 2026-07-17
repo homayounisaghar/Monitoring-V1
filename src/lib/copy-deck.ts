@@ -155,6 +155,7 @@ export const COPY = {
   "squad.section.desc": "Every athlete on this session",
   // Row-level scaled tag pattern; consumers substitute the minutes.
   "squad.row.scaledTagTemplate": "{min}′ · scaled",
+  "squad.row.scaledHoverTemplate": "played {min}′ — reference adjusted to minutes",
   // Replaces per-cell "NOT COMPARED".
   "squad.cell.notCompared": "—",
   "squad.cell.notComparedHoverTemplate": "{min}′ — too short to compare",
