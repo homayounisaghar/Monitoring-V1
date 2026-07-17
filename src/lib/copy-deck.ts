@@ -32,6 +32,8 @@ export const COPY = {
   "attention.baseline.suffixTemplate": "baseline, {done} of {min} sessions",
   // The card's only prose — closes the card, replaces the NOTABLE box.
   "attention.closer": "Hard, high-intensity match — external work ran ahead of cardio cost, led by the front line.",
+  // DRAFT — WP-3.3: per-scenario closer for training_day.
+  "attention.closer.trainingDay": "Intensive training session — external work ran ahead of cardio cost, led by the front line.",
   // Pattern for combined-flag rows (replaces "+1 more"). The delta lives
   // once, at right, in the row's own render.
   "attention.combinedMetrics.example": "Sprint distance · HSR",

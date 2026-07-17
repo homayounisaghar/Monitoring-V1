@@ -16,7 +16,7 @@
  */
 import { useNavigate } from "@tanstack/react-router";
 import { Info, ChevronDown } from "lucide-react";
-import { useSessionScope, COVERAGE_MIN } from "@/lib/session-scope";
+import { useSessionScope, COVERAGE_MIN, CLOSER_KEY_BY_SCENARIO } from "@/lib/session-scope";
 import {
   BUILDING_ID,
   BUILDING_SESSIONS_TO_MIN,
@@ -35,7 +35,10 @@ export function AttentionCard() {
     activeAthletes,
     filterIsDefault,
     totalParticipants,
+    reference,
+    defaultReference,
   } = useSessionScope();
+  const referenceIsDefault = reference.kind === defaultReference.kind;
 
   // A9 — always squad-wide.
   const tier1 = tier1Rows;
@@ -102,6 +105,8 @@ export function AttentionCard() {
             {outsideEscalations.length > 0 && (
               <OutsideEscalationLine />
             )}
+
+            {!referenceIsDefault && <BasisNoteLine />}
 
             <AccountingLine
               lowCov={squadLowCov.map((a) => ({ name: a.name, cov: a.hrCoveragePct ?? 0 }))}
@@ -510,7 +515,23 @@ function AccountingLine({
 
 /* ---------- Card close (A6) ---------- */
 
+function BasisNoteLine() {
+  return (
+    <div
+      className="border-t px-5 py-2 type-label"
+      style={{
+        borderColor: "var(--color-border)",
+        color: "var(--color-text-secondary)",
+      }}
+    >
+      {copy("attention.basisNote")}
+    </div>
+  );
+}
+
 function CloserLine() {
+  const { demo } = useSessionScope();
+  const key = CLOSER_KEY_BY_SCENARIO[demo] ?? "attention.closer";
   return (
     <div
       className="border-t px-5 py-3 text-[13px] font-medium"
@@ -519,7 +540,7 @@ function CloserLine() {
         color: "var(--color-text-primary)",
       }}
     >
-      {copy("attention.closer")}
+      {copy(key)}
     </div>
   );
 }

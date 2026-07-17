@@ -145,6 +145,10 @@ const COVERAGE_THIN_LOW: Record<string, number> = {
   meier: 76,
 };
 
+export const CLOSER_KEY_BY_SCENARIO: Partial<Record<DemoScenario, string>> = {
+  training_day: "attention.closer.trainingDay",
+};
+
 function applyOverlay(
   demo: DemoScenario,
   participants: Athlete[],
