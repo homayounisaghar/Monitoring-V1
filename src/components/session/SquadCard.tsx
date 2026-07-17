@@ -903,7 +903,6 @@ function AvgCell({
 function ChartBody({
   metric,
   display,
-  arrangement,
   rows,
   allSquadForTray,
   flagged,
@@ -912,7 +911,6 @@ function ChartBody({
 }: {
   metric: Metric;
   display: DisplayMode;
-  arrangement: ChartArrangement;
   rows: Athlete[];
   allSquadForTray: Athlete[];
   flagged: Set<string>;
@@ -951,13 +949,12 @@ function ChartBody({
 
   const ranked = [...withData].sort(rankCompare);
 
-  // Grouped view: same ranking, split into position groups in field order.
+  // Chart has exactly one arrangement: grouped by position, ordered
+  // by the active metric within each line (per rankCompare above).
   type Entry = (typeof withData)[number];
-  const groups: { pos: PositionCode; entries: Entry[] }[] = arrangement === "position"
-    ? POSITION_ORDER
-        .map((pos) => ({ pos, entries: ranked.filter((e) => e.a.position === pos) }))
-        .filter((g) => g.entries.length > 0)
-    : [];
+  const groups: { pos: PositionCode; entries: Entry[] }[] = POSITION_ORDER
+    .map((pos) => ({ pos, entries: ranked.filter((e) => e.a.position === pos) }))
+    .filter((g) => g.entries.length > 0);
 
   // Non-participants + no-data pin to foot explicitly.
   const trayIds = new Set<string>();
@@ -971,13 +968,9 @@ function ChartBody({
   const scaleMax = metric.chartMax;
 
   const captionKey =
-    arrangement === "position"
-      ? display === "percent"
-        ? "chart.captionGroupedPercent"
-        : "chart.captionGroupedAbsolute"
-      : display === "percent"
-        ? "chart.captionPercent"
-        : "chart.captionAbsolute";
+    display === "percent"
+      ? "chart.captionGroupedPercent"
+      : "chart.captionGroupedAbsolute";
 
   const renderRow = (r: Entry, rank: number) => (
     <ChartRow
@@ -1023,30 +1016,24 @@ function ChartBody({
             : tmpl("chart.axisAbsoluteNote", { max: formatScale(metric, scaleMax) })}
         </span>
       </div>
-      {arrangement === "position" ? (
-        <ul>
-          {groups.map((g) => (
-            <li key={g.pos}>
-              <div
-                className="px-4 py-1.5 type-label"
-                style={{
-                  color: "var(--color-text-tertiary)",
-                  backgroundColor: "var(--color-slate-50)",
-                }}
-              >
-                {POSITION_LABEL[g.pos]}
-              </div>
-              <ul>
-                {g.entries.map((r, i) => renderRow(r, i + 1))}
-              </ul>
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <ul>
-          {ranked.map((r, i) => renderRow(r, i + 1))}
-        </ul>
-      )}
+      <ul>
+        {groups.map((g) => (
+          <li key={g.pos}>
+            <div
+              className="px-4 py-1.5 type-label"
+              style={{
+                color: "var(--color-text-tertiary)",
+                backgroundColor: "var(--color-slate-50)",
+              }}
+            >
+              {POSITION_LABEL[g.pos]}
+            </div>
+            <ul>
+              {g.entries.map((r, i) => renderRow(r, i + 1))}
+            </ul>
+          </li>
+        ))}
+      </ul>
 
       {tray.length > 0 && (
         <div
