@@ -237,7 +237,7 @@ export const COPY = {
   "canonical.squad.picker.on": "on",
   "canonical.squad.picker.off": "off",
   "canonical.squad.picker.done": "Done",
-  "canonical.squad.chart.hisTypicalPrefix": "his typical: ",
+  "canonical.squad.chart.typicalPrefix": "their typical: ",
   
   
   "canonical.squad.chart.scaledSuffix": " · scaled",
