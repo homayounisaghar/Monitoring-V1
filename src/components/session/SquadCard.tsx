@@ -990,30 +990,10 @@ function ChartBody({
             : tmpl("chart.axisAbsoluteNote", { max: formatScale(metric, scaleMax) })}
         </span>
       </div>
-      {isPercent ? (
-        <ul>
-          {rankedForFlat.map((r, i) => renderRow(r, i + 1))}
-        </ul>
-      ) : (
-        <ul>
-          {groups.map((g) => (
-            <li key={g.pos}>
-              <div
-                className="px-4 py-1.5 type-label"
-                style={{
-                  color: "var(--color-text-tertiary)",
-                  backgroundColor: "var(--color-slate-50)",
-                }}
-              >
-                {POSITION_LABEL[g.pos]}
-              </div>
-              <ul>
-                {g.entries.map((r, i) => renderRow(r, i + 1))}
-              </ul>
-            </li>
-          ))}
-        </ul>
-      )}
+      <ul>
+        {rankedForFlat.map((r, i) => renderRow(r, i + 1))}
+      </ul>
+
 
 
       {tray.length > 0 && (
