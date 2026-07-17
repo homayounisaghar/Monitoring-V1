@@ -78,6 +78,9 @@ export function GapPair({
   const dotDim = heavy
     ? compact ? "h-[18px] w-[18px]" : "h-[22px] w-[22px]"
     : compact ? "h-3 w-3" : "h-3.5 w-3.5";
+  const dotDimInternal = heavy
+    ? compact ? "h-[16px] w-[16px]" : "h-[20px] w-[20px]"
+    : compact ? "h-[10px] w-[10px]" : "h-3 w-3";
   const connectorH = heavy ? "h-[4px]" : "h-[2px]";
   const connectorInk = heavy ? "var(--color-slate-500)" : "var(--color-slate-400)";
   const deltaInk =
@@ -126,10 +129,10 @@ export function GapPair({
           />
         )}
         <div
-          className={`absolute top-1/2 ${dotDim} -translate-x-1/2 -translate-y-1/2 rounded-full bg-white`}
+          className={`absolute top-1/2 ${dotDimInternal} -translate-x-1/2 -translate-y-1/2 rounded-full ring-2 ring-white`}
           style={{
             left: `${intPos}%`,
-            border: "2px solid var(--color-axis-cost)",
+            backgroundColor: "var(--color-axis-cost)",
           }}
           aria-label={copy("canonical.axisGroup.internalCostLower")}
           title={internalTrust ? `internal · ${internalTrust.coverage}% cov` : undefined}
