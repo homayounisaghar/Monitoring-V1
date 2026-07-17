@@ -106,6 +106,8 @@ export function AttentionCard() {
               <OutsideEscalationLine />
             )}
 
+            {!referenceIsDefault && <BasisNoteLine />}
+
             <AccountingLine
               lowCov={squadLowCov.map((a) => ({ name: a.name, cov: a.hrCoveragePct ?? 0 }))}
               buildCount={building.length}
