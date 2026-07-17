@@ -1404,7 +1404,7 @@ function ColumnsPicker({
                   >
                     <span>{METRICS[id].label}</span>
                     <span
-                      className="type-num text-[10px]"
+                      className="type-num text-[12px]"
                       style={{ color: "var(--color-text-tertiary)" }}
                     >
                       {on ? copy("canonical.squad.picker.on") : copy("canonical.squad.picker.off")}
