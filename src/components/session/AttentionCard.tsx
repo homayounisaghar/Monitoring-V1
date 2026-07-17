@@ -571,10 +571,10 @@ function CovThinBody({
       {rows.map((a) => (
         <li
           key={a.id}
-          className="flex items-center gap-2.5 py-1 text-[13px]"
+          className="flex items-center gap-3 py-1 text-[13px]"
           style={{ color: "var(--color-text-secondary)" }}
         >
-          <AthleteAvatar id={a.id} name={a.name} size={24} />
+          <AthleteAvatar id={a.id} name={a.name} size={28} />
           <span style={{ color: "var(--color-text-primary)" }}>{a.name}</span>
           <span className="type-num" style={{ color: "var(--color-text-tertiary)" }}>
             {a.cov}{copy("canonical.attention.hrCovSuffix")}
