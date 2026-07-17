@@ -22,7 +22,7 @@ import { useEffect, useMemo, useState } from "react";
 import { ChevronRight, Flag, ChevronUp, ChevronDown, X } from "lucide-react";
 
 import { useNavigate } from "@tanstack/react-router";
-import { useSessionScope, COVERAGE_MIN } from "@/lib/session-scope";
+import { useSessionScope, COVERAGE_MIN, currentSession } from "@/lib/session-scope";
 import { squad, type Athlete } from "@/lib/session-data";
 import { ScopeTag } from "@/components/session/ScopeTag";
 import { TrustMark } from "@/components/data/TrustMark";
@@ -113,6 +113,16 @@ export function SquadCard() {
     filterIsDefault,
     buildingIds,
     setHighlightAthleteId,
+    squadView: view,
+    setSquadView: setView,
+    squadDisplay: display,
+    setSquadDisplay: setDisplay,
+    squadSort: sort,
+    setSquadSort: setSort,
+    squadColumns: columns,
+    setSquadColumns: setColumns,
+    squadChartMetric: chartMetric,
+    setSquadChartMetric: setChartMetric,
   } = useSessionScope();
 
   const handleFlagClick = (athleteId: string) => {
@@ -121,25 +131,17 @@ export function SquadCard() {
     el?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
-  const initial = useMemo(() => loadPrefs(), []);
-  const [view, setView] = useState<ViewMode>(initial.view);
-  const [display, setDisplay] = useState<DisplayMode>(initial.display);
-  const [columns, setColumns] = useState<MetricId[]>(initial.columns);
-  const [sort, setSort] = useState<SortState>(DEFAULT_SORT);
-  const [chartMetric, setChartMetric] = useState<MetricId>(initial.chartMetric);
   const [pickerOpen, setPickerOpen] = useState(false);
   const navigate = useNavigate();
-
-  // Persist presentation prefs only. Sort + chart arrangement are per-visit.
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    try {
-      const payload: SquadPrefs = { view, display, columns, chartMetric };
-      window.localStorage.setItem(PREFS_STORAGE_KEY, JSON.stringify(payload));
-    } catch {
-      /* ignore quota / disabled storage */
-    }
-  }, [view, display, columns, chartMetric]);
+  const goToAthlete = (athleteId: string) =>
+    navigate({
+      to: "/athlete",
+      search: {
+        athleteId,
+        sessionId: currentSession.id,
+        timeframe: "session",
+      },
+    });
 
 
   /* --- rows in scope --- */
@@ -345,16 +347,16 @@ export function SquadCard() {
           display={display}
           sort={sort}
           onSort={(key) => {
-            setSort((prev) =>
-              prev.key === key
-                ? { key, dir: prev.dir === "desc" ? "asc" : "desc" }
-                : { key, dir: key === "name" ? "asc" : "desc" },
-            );
+            const next: SortState =
+              sort.key === key
+                ? { key, dir: sort.dir === "desc" ? "asc" : "desc" }
+                : { key, dir: key === "name" ? "asc" : "desc" };
+            setSort(next);
           }}
 
           flagged={flagged}
           srpeCoverage={{ submitted: srpeSubmitted, total: srpeTotal }}
-          onRowClick={(_a) => navigate({ to: "/athlete" })}
+          onRowClick={(a) => goToAthlete(a.id)}
           avgCell={avgCell}
           scopeCount={activeAthletes.length}
           onFlagClick={handleFlagClick}
@@ -368,7 +370,7 @@ export function SquadCard() {
           rows={activeAthletes}
           allSquadForTray={squad}
           flagged={flagged}
-          onRowClick={() => navigate({ to: "/athlete" })}
+          onRowClick={(a) => goToAthlete(a.id)}
           onFlagClick={handleFlagClick}
           filterIsDefault={filterIsDefault}
           buildingIds={buildingIds}

@@ -1,11 +1,22 @@
-import { Pencil, Share2 } from "lucide-react";
+import { Pencil, Share2, Check } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { currentSession } from "@/lib/session-data";
 import { useSessionScope } from "@/lib/session-scope";
 import { copy } from "@/lib/copy-deck";
+import { buildShareUrl, isShareStateDefault, type ShareDefaults } from "@/lib/share-state";
+
+const DEFAULTS: ShareDefaults = {
+  reference: "own_typical",
+  benchmark: "typical_match",
+  squadView: "table",
+  squadDisplay: "absolute",
+  squadSort: { key: "name", dir: "asc" },
+  squadChartMetric: "totalDistance",
+};
 
 export function EventBanner() {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -18,7 +29,52 @@ export function EventBanner() {
   }, [menuOpen]);
 
   const s = currentSession;
-  const { dayCode } = useSessionScope();
+  const scope = useSessionScope();
+  const {
+    dayCode,
+    reference,
+    benchmark,
+    filter,
+    filterIsDefault,
+    squadView,
+    squadDisplay,
+    squadSort,
+    squadChartMetric,
+  } = scope;
+
+  const shareState = {
+    reference: reference.kind,
+    benchmark: benchmark.kind,
+    filter,
+    squadView,
+    squadDisplay,
+    squadSort,
+    squadChartMetric,
+  };
+  const isDefault = isShareStateDefault(
+    {
+      reference: reference.kind,
+      benchmark: benchmark.kind,
+      squadView,
+      squadDisplay,
+      squadSort,
+      squadChartMetric,
+    },
+    DEFAULTS,
+    filterIsDefault,
+  );
+
+  const handleCopyLink = async () => {
+    if (typeof window === "undefined") return;
+    const url = buildShareUrl(window.location.origin, s.id, shareState, DEFAULTS, filterIsDefault);
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1600);
+    } catch {
+      /* ignore */
+    }
+  };
 
   return (
     <div
@@ -80,27 +136,61 @@ export function EventBanner() {
             </IconBtn>
             {menuOpen && (
               <div
-                className="absolute right-0 top-9 z-30 w-40 overflow-hidden rounded-md border shadow-lg"
+                className="absolute right-0 top-9 z-30 w-64 overflow-hidden rounded-md border shadow-lg"
                 style={{
                   backgroundColor: "var(--color-surface-card)",
                   borderColor: "var(--color-border)",
                   color: "var(--color-text-primary)",
                 }}
               >
-                {[copy("canonical.eventBanner.exportCsv"), copy("canonical.eventBanner.exportPdf"), copy("canonical.eventBanner.copyLink")].map((label) => (
-                  <button
-                    key={label}
-                    className="block w-full px-3 py-2 text-left text-[12.5px] transition-colors hover:bg-[color:var(--color-slate-100)]"
+                <MenuItem label={copy("canonical.eventBanner.exportCsv")} />
+                <MenuItem label={copy("canonical.eventBanner.exportPdf")} />
+                <MenuItem
+                  label={copied ? "Link copied" : copy("canonical.eventBanner.copyLink")}
+                  onClick={handleCopyLink}
+                  icon={copied ? <Check className="h-3.5 w-3.5" /> : null}
+                  data-testid="copy-link"
+                />
+                {!isDefault && (
+                  <div
+                    className="border-t px-3 py-2 text-[11.5px]"
+                    style={{
+                      borderColor: "var(--color-border)",
+                      color: "var(--color-text-tertiary)",
+                    }}
+                    data-testid="share-includes-state"
                   >
-                    {label}
-                  </button>
-                ))}
+                    {copy("share.includesState")}
+                  </div>
+                )}
               </div>
             )}
           </div>
         </div>
       </div>
     </div>
+  );
+}
+
+function MenuItem({
+  label,
+  onClick,
+  icon,
+  ...rest
+}: {
+  label: string;
+  onClick?: () => void;
+  icon?: React.ReactNode;
+} & React.HTMLAttributes<HTMLButtonElement>) {
+  return (
+    <button
+      onClick={onClick}
+      className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-[12.5px] transition-colors hover:bg-[color:var(--color-slate-100)]"
+      {...rest}
+    >
+      <span>{label}</span>
+      {icon}
+    </button>
   );
 }
 

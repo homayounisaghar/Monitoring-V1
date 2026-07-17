@@ -17,7 +17,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { Info, ChevronDown } from "lucide-react";
-import { useSessionScope, COVERAGE_MIN, CLOSER_KEY_BY_SCENARIO } from "@/lib/session-scope";
+import { useSessionScope, COVERAGE_MIN, CLOSER_KEY_BY_SCENARIO, currentSession } from "@/lib/session-scope";
 import { LegendAnchor } from "./LegendPopover";
 import {
   BASELINE_COMPARABLE_MIN,
@@ -308,7 +308,7 @@ function Tier1RowUI({ row }: { row: Tier1Row }) {
     >
       <button
         className={`flex w-full items-center gap-4 px-5 text-left ${rowPad}`}
-        onClick={() => navigate({ to: "/athlete" })}
+        onClick={() => navigate({ to: "/athlete", search: { athleteId: athlete.id, sessionId: currentSession.id, timeframe: "session" } })}
       >
         {/* Tier mark — pigment lives here, not on numerals (unless escalate delta) */}
         <div className="w-[92px] shrink-0">

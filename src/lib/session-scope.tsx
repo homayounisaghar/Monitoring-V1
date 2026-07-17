@@ -25,6 +25,9 @@ import {
   sortTier1,
   type Tier1Row,
 } from "./session-flags";
+import type { MetricId } from "./squad-metrics";
+import { DEFAULT_COLUMNS } from "./squad-metrics";
+import { parseShareUrl, type SquadDisplay, type SquadSort, type SquadView } from "./share-state";
 
 
 export type ReferenceKind =
@@ -116,6 +119,19 @@ export type SessionScope = {
   // renders the popover, but the Attention card's ⓘ opens the same one.
   legendOpen: boolean;
   setLegendOpen: (open: boolean) => void;
+
+  // Squad presentation state — lifted here so a shared URL can hydrate it
+  // and so back-navigation from /athlete restores it.
+  squadView: SquadView;
+  setSquadView: (v: SquadView) => void;
+  squadDisplay: SquadDisplay;
+  setSquadDisplay: (d: SquadDisplay) => void;
+  squadSort: SquadSort;
+  setSquadSort: (s: SquadSort) => void;
+  squadColumns: MetricId[];
+  setSquadColumns: (c: MetricId[]) => void;
+  squadChartMetric: MetricId;
+  setSquadChartMetric: (m: MetricId) => void;
 
   // derived
   activeAthletes: Athlete[];
@@ -239,13 +255,81 @@ function applyOverlay(
 }
 
 
+const SQUAD_PREFS_KEY = "st2.session.squad.prefs.v1";
+type PersistedPrefs = {
+  view?: SquadView;
+  display?: SquadDisplay;
+  columns?: MetricId[];
+  chartMetric?: MetricId;
+};
+
+function loadPrefs(): PersistedPrefs {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = window.localStorage.getItem(SQUAD_PREFS_KEY);
+    return raw ? (JSON.parse(raw) as PersistedPrefs) : {};
+  } catch {
+    return {};
+  }
+}
+
+function readInitialSearch(): URLSearchParams {
+  if (typeof window === "undefined") return new URLSearchParams();
+  return new URLSearchParams(window.location.search);
+}
+
 export function SessionScopeProvider({ children }: { children: ReactNode }) {
-  const [reference, setReference] = useState(REFERENCE_OPTIONS[0]);
-  const [benchmark, setBenchmark] = useState(BENCHMARK_OPTIONS[0]);
-  const [filter, setFilter] = useState<Filter>(emptyFilter);
+  const initial = useMemo(() => {
+    const prefs = loadPrefs();
+    const shared = parseShareUrl(readInitialSearch());
+    return { prefs, shared };
+  }, []);
+
+  const [reference, setReference] = useState<ReferenceOption>(() => {
+    const kind = initial.shared.reference;
+    return REFERENCE_OPTIONS.find((o) => o.kind === kind) ?? REFERENCE_OPTIONS[0];
+  });
+  const [benchmark, setBenchmark] = useState<BenchmarkOption>(() => {
+    const kind = initial.shared.benchmark;
+    return BENCHMARK_OPTIONS.find((o) => o.kind === kind) ?? BENCHMARK_OPTIONS[0];
+  });
+  const [filter, setFilter] = useState<Filter>(() => initial.shared.filter ?? emptyFilter);
   const [demo, setDemo] = useState<DemoScenario>("default");
   const [highlightAthleteId, setHighlightAthleteId] = useState<string | null>(null);
   const [legendOpen, setLegendOpen] = useState(false);
+
+  const [squadView, setSquadView] = useState<SquadView>(
+    initial.shared.squadView ?? initial.prefs.view ?? "table",
+  );
+  const [squadDisplay, setSquadDisplay] = useState<SquadDisplay>(
+    initial.shared.squadDisplay ?? initial.prefs.display ?? "absolute",
+  );
+  const [squadSort, setSquadSort] = useState<SquadSort>(
+    initial.shared.squadSort ?? { key: "name", dir: "asc" },
+  );
+  const [squadColumns, setSquadColumns] = useState<MetricId[]>(() => {
+    const cols = initial.prefs.columns;
+    return Array.isArray(cols) && cols.length > 0 ? cols : DEFAULT_COLUMNS;
+  });
+  const [squadChartMetric, setSquadChartMetric] = useState<MetricId>(
+    initial.shared.squadChartMetric ?? initial.prefs.chartMetric ?? "totalDistance",
+  );
+
+  // Persist presentation prefs only. Sort + shared URL state never persist.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const payload: PersistedPrefs = {
+        view: squadView,
+        display: squadDisplay,
+        columns: squadColumns,
+        chartMetric: squadChartMetric,
+      };
+      window.localStorage.setItem(SQUAD_PREFS_KEY, JSON.stringify(payload));
+    } catch {
+      /* ignore */
+    }
+  }, [squadView, squadDisplay, squadColumns, squadChartMetric]);
 
   const { effectiveParticipants, tier1Rows } = useMemo(() => {
     const overlay = applyOverlay(demo, rawParticipants);
@@ -377,6 +461,16 @@ export function SessionScopeProvider({ children }: { children: ReactNode }) {
     setHighlightAthleteId,
     legendOpen,
     setLegendOpen,
+    squadView,
+    setSquadView,
+    squadDisplay,
+    setSquadDisplay,
+    squadSort,
+    setSquadSort,
+    squadColumns,
+    setSquadColumns,
+    squadChartMetric,
+    setSquadChartMetric,
     ...derived,
 
   };
