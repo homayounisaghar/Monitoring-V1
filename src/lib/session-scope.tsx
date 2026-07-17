@@ -112,6 +112,11 @@ export type SessionScope = {
   highlightAthleteId: string | null;
   setHighlightAthleteId: (id: string | null) => void;
 
+  // Shared "How to read this" legend open state — the chrome ReadingLine
+  // renders the popover, but the Attention card's ⓘ opens the same one.
+  legendOpen: boolean;
+  setLegendOpen: (open: boolean) => void;
+
   // derived
   activeAthletes: Athlete[];
   showingCount: number;
@@ -240,6 +245,7 @@ export function SessionScopeProvider({ children }: { children: ReactNode }) {
   const [filter, setFilter] = useState<Filter>(emptyFilter);
   const [demo, setDemo] = useState<DemoScenario>("default");
   const [highlightAthleteId, setHighlightAthleteId] = useState<string | null>(null);
+  const [legendOpen, setLegendOpen] = useState(false);
 
   const { effectiveParticipants, tier1Rows } = useMemo(() => {
     const overlay = applyOverlay(demo, rawParticipants);
@@ -369,6 +375,8 @@ export function SessionScopeProvider({ children }: { children: ReactNode }) {
     comparableCount,
     highlightAthleteId,
     setHighlightAthleteId,
+    legendOpen,
+    setLegendOpen,
     ...derived,
 
   };

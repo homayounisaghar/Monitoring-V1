@@ -18,6 +18,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { Info, ChevronDown } from "lucide-react";
 import { useSessionScope, COVERAGE_MIN, CLOSER_KEY_BY_SCENARIO } from "@/lib/session-scope";
+import { LegendAnchor } from "./LegendPopover";
 import {
   BASELINE_COMPARABLE_MIN,
   type Tier1Row,
@@ -236,21 +237,27 @@ function Headline({
         >
           {tmpl("attention.headline.metaTemplate", { clear: clearCount, total: totalSquad })}
         </span>
-        <button
-          type="button"
-          onClick={() => {
-            document
-              .getElementById("legend")
-              ?.scrollIntoView({ behavior: "smooth", block: "start" });
-          }}
-          className="inline-flex h-5 w-5 items-center justify-center rounded-full transition-colors hover:bg-[color:var(--color-slate-100)]"
-          style={{ color: "var(--color-text-tertiary)" }}
-          aria-label={copy("control.legend")}
-        >
-          <Info className="h-3.5 w-3.5" />
-        </button>
+        <span className="relative inline-flex">
+          <LegendToggleButton />
+          <LegendAnchor align="right" />
+        </span>
       </div>
     </div>
+  );
+}
+
+function LegendToggleButton() {
+  const { legendOpen, setLegendOpen } = useSessionScope();
+  return (
+    <button
+      type="button"
+      onClick={() => setLegendOpen(!legendOpen)}
+      className="inline-flex h-5 w-5 items-center justify-center rounded-full transition-colors hover:bg-[color:var(--color-slate-100)]"
+      style={{ color: "var(--color-text-tertiary)" }}
+      aria-label={copy("control.legend")}
+    >
+      <Info className="h-3.5 w-3.5" />
+    </button>
   );
 }
 
