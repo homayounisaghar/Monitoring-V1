@@ -147,6 +147,8 @@ export const COPY = {
   // ---------- Summary ----------
   // DRAFT — the "vs typical full match" module label.
   "summary.vsFullMatch.label": "Vs typical full match",
+  "summary.internalNotMeasured": "not measured this session",
+  "summary.zones.typicalTickHover": "typical Z4+Z5 · {pct}%",
 
   // ---------- Squad ----------
   // Section-header descriptor.
