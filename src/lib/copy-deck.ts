@@ -212,12 +212,6 @@ export const COPY = {
   "canonical.periods.sessionAvgSuffix": " · session avg",
 
   "canonical.summary.subtitlePrefix": "— Squad load vs ",
-  "canonical.summary.metric.totalDistance": "Total distance",
-  "canonical.summary.metric.relativeDistance": "Relative distance",
-  "canonical.summary.metric.hsr": "HSR",
-  "canonical.summary.metric.accDec": "Acc–Dec",
-  "canonical.summary.metric.cardioLoad": "Cardio Load",
-  "canonical.summary.metric.srpe": "sRPE",
   "canonical.summary.zones.head": "Z4+Z5 high-intensity share",
   "canonical.summary.zones.typicalPrefix": "typical ",
   "canonical.summary.zones.basis.distance": "Distance",
