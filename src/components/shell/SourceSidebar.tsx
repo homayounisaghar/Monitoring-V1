@@ -70,7 +70,7 @@ export function SourceSidebar() {
             >
               <Search className="h-3 w-3 shrink-0" style={{ color: "var(--color-text-tertiary)" }} aria-hidden />
               <input
-                type="search"
+                type="text"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder={copy("sidebar.searchPlaceholder")}
