@@ -107,6 +107,11 @@ export type SessionScope = {
   buildingIds: Set<string>;
   comparableCount: number;
 
+  // Transient highlight target — set from a Squad flag click, read by
+  // AttentionCard's Tier-1 row for a one-shot pulse. Cleared after ~1.5s.
+  highlightAthleteId: string | null;
+  setHighlightAthleteId: (id: string | null) => void;
+
   // derived
   activeAthletes: Athlete[];
   showingCount: number;
