@@ -943,7 +943,8 @@ function ChartBody({
 
   const captionKey = isPercent
     ? "chart.captionPercent"
-    : "chart.captionGroupedAbsolute";
+    : "chart.captionAbsolute";
+
 
   const renderRow = (r: Entry, rank: number) => (
     <ChartRow
