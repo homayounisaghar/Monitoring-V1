@@ -32,6 +32,11 @@ import {
   HoverCardContent,
   HoverCardTrigger,
 } from "@/components/ui/hover-card";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { SegmentedToggle } from "@/components/data/SegmentedToggle";
 
 /* ---------- Geometry ---------- */
@@ -199,6 +204,7 @@ function computeAggregates(
 export function PeriodsCard() {
   const [view, setView] = useState<"halves" | "15min">("15min");
   const [hoverCol, setHoverCol] = useState<string | null>(null);
+  const [pinnedId, setPinnedId] = useState<string | null>(null);
   const { demo } = useSessionScope();
   const noHr = demo === "no_hr_data";
 
@@ -219,6 +225,17 @@ export function PeriodsCard() {
       `200px ${rows.map((r) => `minmax(0, ${r.weight}fr)`).join(" ")} 40px`,
     [rows],
   );
+
+  // Half-time boundary — cumulative minutes exactly at 45 marks the line.
+  const halfBoundaryIdx = useMemo(() => {
+    let cum = 0;
+    for (let i = 0; i < rows.length; i++) {
+      cum += rows[i].minutes;
+      if (cum === 45) return i + 1; // number of row columns to the LEFT of the line
+    }
+    return null;
+  }, [rows]);
+
 
 
   return (
@@ -250,7 +267,32 @@ export function PeriodsCard() {
           backgroundColor: "var(--color-surface-card)",
         }}
       >
-        <div className="px-5 pt-5 pb-4">
+        <div className="relative px-5 pt-5 pb-4">
+          {/* Half-time rule — spans the full chart stack at the 45' grid line */}
+          {halfBoundaryIdx !== null && (
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-x-5 top-5 bottom-4 grid"
+              style={{ gridTemplateColumns: gridTemplate }}
+            >
+              <span />
+              {rows.map((_, i) => (
+                <span
+                  key={i}
+                  style={
+                    i === halfBoundaryIdx
+                      ? {
+                          borderLeft: "2px solid var(--color-slate-400)",
+                          marginLeft: -1,
+                        }
+                      : undefined
+                  }
+                />
+              ))}
+              <span />
+            </div>
+          )}
+
           {/* External group head */}
           <GroupHead
             axis="work"
@@ -283,6 +325,8 @@ export function PeriodsCard() {
               partialInternal={partialInternal}
               totalMin={totalMin}
               coveredMin={coveredMin}
+              pinnedId={pinnedId}
+              setPinnedId={setPinnedId}
             />
           ))}
 
@@ -332,6 +376,8 @@ export function PeriodsCard() {
                 partialInternal={partialInternal}
                 totalMin={totalMin}
                 coveredMin={coveredMin}
+                pinnedId={pinnedId}
+                setPinnedId={setPinnedId}
               />
             ))
           )}
@@ -349,6 +395,7 @@ export function PeriodsCard() {
             setHoverCol={setHoverCol}
           />
         </div>
+
 
         {/* Legend */}
         <div
@@ -478,6 +525,8 @@ function Lane({
   partialInternal,
   totalMin,
   coveredMin,
+  pinnedId,
+  setPinnedId,
 }: {
   metric: (typeof METRICS)[number];
   rows: Aggregate[];
@@ -491,8 +540,12 @@ function Lane({
   partialInternal: boolean;
   totalMin: number;
   coveredMin: number;
+  pinnedId: string | null;
+  setPinnedId: (id: string | null) => void;
 }) {
   const unit = copy(metric.unitKey);
+  // Compose a unique pin id per lane × block so opening a pin on one
+  // lane doesn't also open a popover in the sibling lane's block.
   return (
     <div
       className="grid items-stretch"
@@ -518,40 +571,73 @@ function Lane({
       {rows.map((r) => {
         const cell = r.cells[metric.key];
         const isHovered = hoverCol === r.id;
+        const pinKey = `${metric.key}:${r.id}`;
+        const isPinned = pinnedId === pinKey;
         return (
-          <HoverCard key={r.id} openDelay={80} closeDelay={40}>
-            <HoverCardTrigger asChild>
-              <div
-                className="relative flex flex-col items-center border-l pt-1 pb-1"
-                style={{
-                  borderColor: "var(--color-border)",
-                  backgroundColor: isHovered ? "var(--color-slate-50)" : "transparent",
-                }}
-                onMouseEnter={() => setHoverCol(r.id)}
-                onMouseLeave={() => setHoverCol(null)}
-              >
-                <NumeralHead
-                  cell={cell}
-                  unit={unit}
-                  isCardio={metric.key === "cardioLoad"}
-                  partialCoverage={
-                    metric.key === "cardioLoad" && r.internalMissingMin > 0
-                  }
-                />
-
-                <Column
-                  cell={cell}
-                  axis={metric.axis}
-                />
-              </div>
-            </HoverCardTrigger>
-            <HoverCardContent
-              className="w-72 p-3 border-transparent shadow-lg"
+          <Popover
+            key={r.id}
+            open={isPinned}
+            onOpenChange={(o) => setPinnedId(o ? pinKey : null)}
+          >
+            <HoverCard openDelay={80} closeDelay={40}>
+              <HoverCardTrigger asChild>
+                <PopoverTrigger asChild>
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    className="relative flex flex-col items-center border-l pt-1 pb-1 cursor-pointer"
+                    style={{
+                      borderColor: "var(--color-border)",
+                      backgroundColor: isHovered || isPinned ? "var(--color-slate-50)" : "transparent",
+                    }}
+                    onMouseEnter={() => setHoverCol(r.id)}
+                    onMouseLeave={() => setHoverCol(null)}
+                  >
+                    <NumeralHead
+                      cell={cell}
+                      unit={unit}
+                      isCardio={metric.key === "cardioLoad"}
+                      partialCoverage={
+                        metric.key === "cardioLoad" && r.internalMissingMin > 0
+                      }
+                    />
+                    <Column
+                      cell={cell}
+                      axis={metric.axis}
+                    />
+                  </div>
+                </PopoverTrigger>
+              </HoverCardTrigger>
+              {!isPinned && (
+                <HoverCardContent
+                  className="w-72 p-3 border-transparent shadow-lg"
+                  side="top"
+                  align="center"
+                  style={{
+                    backgroundColor: "var(--color-slate-900)",
+                    color: "var(--color-slate-50)",
+                  }}
+                >
+                  <BlockHover
+                    row={r}
+                    peakId={peakId}
+                    view={view}
+                    partialInternal={partialInternal}
+                    totalMin={totalMin}
+                    coveredMin={coveredMin}
+                    variant="dark"
+                  />
+                </HoverCardContent>
+              )}
+            </HoverCard>
+            <PopoverContent
+              className="w-72 p-3 shadow-lg"
               side="top"
               align="center"
               style={{
-                backgroundColor: "var(--color-slate-900)",
-                color: "var(--color-slate-50)",
+                backgroundColor: "var(--color-surface-card)",
+                color: "var(--color-text-primary)",
+                border: "1px solid var(--color-border)",
               }}
             >
               <BlockHover
@@ -561,12 +647,13 @@ function Lane({
                 partialInternal={partialInternal}
                 totalMin={totalMin}
                 coveredMin={coveredMin}
+                variant="light"
               />
-            </HoverCardContent>
-
-          </HoverCard>
+            </PopoverContent>
+          </Popover>
         );
       })}
+
 
       {/* right axis rail */}
       <div
@@ -847,6 +934,7 @@ function BlockHover({
   partialInternal,
   totalMin,
   coveredMin,
+  variant = "dark",
 }: {
   row: Aggregate;
   peakId: string | null;
@@ -854,7 +942,14 @@ function BlockHover({
   partialInternal: boolean;
   totalMin: number;
   coveredMin: number;
+  variant?: "dark" | "light";
 }) {
+  const isLight = variant === "light";
+  const cTitle = isLight ? "var(--color-text-primary)" : "var(--color-slate-50)";
+  const cLabel = isLight ? "var(--color-text-tertiary)" : "var(--color-slate-400)";
+  const cValue = isLight ? "var(--color-text-primary)" : "var(--color-slate-50)";
+  const cMuted = isLight ? "var(--color-text-tertiary)" : "var(--color-slate-300)";
+  const cBorder = isLight ? "var(--color-border)" : "var(--color-slate-700)";
   const gap = computeGap(row);
   const extRate = row.cells.totalDistance.rate;
   const rows: Array<{ label: string; body: string }> = [];
@@ -910,7 +1005,7 @@ function BlockHover({
     <div className="space-y-2">
       <div
         className="type-num text-[12.5px] font-semibold"
-        style={{ color: "var(--color-slate-50)" }}
+        style={{ color: cTitle }}
       >
         {row.label} · {row.minutes} min
       </div>
@@ -919,13 +1014,13 @@ function BlockHover({
           <div key={i} className="flex items-baseline justify-between gap-3">
             <span
               className="type-data-label text-[11px]"
-              style={{ color: "var(--color-slate-400)" }}
+              style={{ color: cLabel }}
             >
               {r.label}
             </span>
             <span
               className="type-num text-[11.5px] text-right"
-              style={{ color: "var(--color-slate-50)" }}
+              style={{ color: cValue }}
             >
               {r.body}
             </span>
@@ -936,7 +1031,7 @@ function BlockHover({
       {row.id === peakId && (
         <div
           className="type-num text-[11px] pt-1"
-          style={{ color: "var(--color-slate-300)" }}
+          style={{ color: cMuted }}
         >
           {copy("periods.hover.peakLine")}
         </div>
@@ -944,7 +1039,7 @@ function BlockHover({
       {includesUnconfirmed && (
         <div
           className="type-num text-[11px]"
-          style={{ color: "var(--color-slate-300)" }}
+          style={{ color: cMuted }}
         >
           {copy("periods.hover.includesUnconfirmed")}
         </div>
@@ -952,7 +1047,7 @@ function BlockHover({
       {view === "halves" && row.internalMissingMin > 0 && (
         <div
           className="type-num text-[11px]"
-          style={{ color: "var(--color-slate-400)" }}
+          style={{ color: cLabel }}
         >
           {tmpl("periods.hover.halvesCovTemplate", {
             covered: row.internalCoveredMin,
@@ -964,8 +1059,8 @@ function BlockHover({
         <div
           className="type-num text-[11px] border-t pt-1 mt-1"
           style={{
-            color: "var(--color-slate-400)",
-            borderColor: "var(--color-slate-700)",
+            color: cLabel,
+            borderColor: cBorder,
           }}
         >
           {tmpl("periods.hover.covFootTemplate", {
@@ -977,6 +1072,7 @@ function BlockHover({
     </div>
   );
 }
+
 
 
 function Legend() {
