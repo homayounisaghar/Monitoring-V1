@@ -31,7 +31,8 @@ export type MetricId =
   | "repeatSprints"
   | "z4z5Share"
   | "volumePct"
-  | "intensityPct";
+  | "intensityPct"
+  | "maxVel";
 
 export type Metric = {
   id: MetricId;
