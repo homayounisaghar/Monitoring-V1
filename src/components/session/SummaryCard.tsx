@@ -615,30 +615,53 @@ function SrpeBadge({
 
 function ZoneBar({
   shares,
+  typicalHiSharePct,
 }: {
   shares: Array<{ id: string; pct: number; ramp: 1 | 2 | 3 | 4 | 5 }>;
+  typicalHiSharePct?: number;
 }) {
+  // Tick sits at the boundary that marks the start of the "typical Z4+Z5" band
+  // measured from the right edge of the bar (Z4/Z5 sit on the right).
+  const tickLeftPct =
+    typicalHiSharePct === undefined ? null : Math.max(0, Math.min(100, 100 - typicalHiSharePct));
   return (
     <div className="space-y-1.5">
-      <div
-        className="flex h-6 overflow-hidden rounded-md"
-        style={{ border: "1px solid var(--color-border)" }}
-      >
-        {shares.map((s) => (
+      <div className="relative">
+        <div
+          className="flex h-6 overflow-hidden rounded-md"
+          style={{ border: "1px solid var(--color-border)" }}
+        >
+          {shares.map((s, i) => (
+            <div
+              key={s.id}
+              style={{
+                width: `${s.pct}%`,
+                backgroundColor: `var(--zone-work-${s.ramp})`,
+                borderRight:
+                  i < shares.length - 1 ? "1px solid var(--color-border)" : undefined,
+              }}
+              title={`Z${s.ramp} — ${s.pct}%`}
+            />
+          ))}
+        </div>
+        {tickLeftPct !== null && (
           <div
-            key={s.id}
+            aria-hidden
+            className="absolute"
             style={{
-              width: `${s.pct}%`,
-              backgroundColor: `var(--zone-work-${s.ramp})`,
+              left: `${tickLeftPct}%`,
+              top: "calc(100% + 4px)",
+              width: 2,
+              height: 6,
+              transform: "translateX(-1px)",
+              backgroundColor: "var(--color-slate-600)",
             }}
-            title={`Z${s.ramp} — ${s.pct}%`}
+            title={tmpl("summary.zones.typicalTickHover", { pct: typicalHiSharePct! })}
           />
-        ))}
+        )}
       </div>
-      <div className="flex text-[12px]">
+      <div className="flex text-[12px]" style={{ paddingTop: 6 }}>
         {shares.map((s) => {
-          // Full label "Zn — nn%" is ~52px at 11px; drop it under ~12%
-          // (the segment's title/hover still carries it). Never truncate.
           const showLabel = s.pct >= 12;
           return (
             <div
