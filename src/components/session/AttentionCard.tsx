@@ -16,7 +16,7 @@
  */
 import { useNavigate } from "@tanstack/react-router";
 import { Info, ChevronDown } from "lucide-react";
-import { useSessionScope, COVERAGE_MIN } from "@/lib/session-scope";
+import { useSessionScope, COVERAGE_MIN, CLOSER_KEY_BY_SCENARIO } from "@/lib/session-scope";
 import {
   BUILDING_ID,
   BUILDING_SESSIONS_TO_MIN,
