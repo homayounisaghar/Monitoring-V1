@@ -525,6 +525,8 @@ function Lane({
   partialInternal,
   totalMin,
   coveredMin,
+  pinnedId,
+  setPinnedId,
 }: {
   metric: (typeof METRICS)[number];
   rows: Aggregate[];
@@ -538,8 +540,12 @@ function Lane({
   partialInternal: boolean;
   totalMin: number;
   coveredMin: number;
+  pinnedId: string | null;
+  setPinnedId: (id: string | null) => void;
 }) {
   const unit = copy(metric.unitKey);
+  // Compose a unique pin id per lane × block so opening a pin on one
+  // lane doesn't also open a popover in the sibling lane's block.
   return (
     <div
       className="grid items-stretch"
@@ -565,40 +571,73 @@ function Lane({
       {rows.map((r) => {
         const cell = r.cells[metric.key];
         const isHovered = hoverCol === r.id;
+        const pinKey = `${metric.key}:${r.id}`;
+        const isPinned = pinnedId === pinKey;
         return (
-          <HoverCard key={r.id} openDelay={80} closeDelay={40}>
-            <HoverCardTrigger asChild>
-              <div
-                className="relative flex flex-col items-center border-l pt-1 pb-1"
-                style={{
-                  borderColor: "var(--color-border)",
-                  backgroundColor: isHovered ? "var(--color-slate-50)" : "transparent",
-                }}
-                onMouseEnter={() => setHoverCol(r.id)}
-                onMouseLeave={() => setHoverCol(null)}
-              >
-                <NumeralHead
-                  cell={cell}
-                  unit={unit}
-                  isCardio={metric.key === "cardioLoad"}
-                  partialCoverage={
-                    metric.key === "cardioLoad" && r.internalMissingMin > 0
-                  }
-                />
-
-                <Column
-                  cell={cell}
-                  axis={metric.axis}
-                />
-              </div>
-            </HoverCardTrigger>
-            <HoverCardContent
-              className="w-72 p-3 border-transparent shadow-lg"
+          <Popover
+            key={r.id}
+            open={isPinned}
+            onOpenChange={(o) => setPinnedId(o ? pinKey : null)}
+          >
+            <HoverCard openDelay={80} closeDelay={40}>
+              <HoverCardTrigger asChild>
+                <PopoverTrigger asChild>
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    className="relative flex flex-col items-center border-l pt-1 pb-1 cursor-pointer"
+                    style={{
+                      borderColor: "var(--color-border)",
+                      backgroundColor: isHovered || isPinned ? "var(--color-slate-50)" : "transparent",
+                    }}
+                    onMouseEnter={() => setHoverCol(r.id)}
+                    onMouseLeave={() => setHoverCol(null)}
+                  >
+                    <NumeralHead
+                      cell={cell}
+                      unit={unit}
+                      isCardio={metric.key === "cardioLoad"}
+                      partialCoverage={
+                        metric.key === "cardioLoad" && r.internalMissingMin > 0
+                      }
+                    />
+                    <Column
+                      cell={cell}
+                      axis={metric.axis}
+                    />
+                  </div>
+                </PopoverTrigger>
+              </HoverCardTrigger>
+              {!isPinned && (
+                <HoverCardContent
+                  className="w-72 p-3 border-transparent shadow-lg"
+                  side="top"
+                  align="center"
+                  style={{
+                    backgroundColor: "var(--color-slate-900)",
+                    color: "var(--color-slate-50)",
+                  }}
+                >
+                  <BlockHover
+                    row={r}
+                    peakId={peakId}
+                    view={view}
+                    partialInternal={partialInternal}
+                    totalMin={totalMin}
+                    coveredMin={coveredMin}
+                    variant="dark"
+                  />
+                </HoverCardContent>
+              )}
+            </HoverCard>
+            <PopoverContent
+              className="w-72 p-3 shadow-lg"
               side="top"
               align="center"
               style={{
-                backgroundColor: "var(--color-slate-900)",
-                color: "var(--color-slate-50)",
+                backgroundColor: "var(--color-surface-card)",
+                color: "var(--color-text-primary)",
+                border: "1px solid var(--color-border)",
               }}
             >
               <BlockHover
@@ -608,12 +647,13 @@ function Lane({
                 partialInternal={partialInternal}
                 totalMin={totalMin}
                 coveredMin={coveredMin}
+                variant="light"
               />
-            </HoverCardContent>
-
-          </HoverCard>
+            </PopoverContent>
+          </Popover>
         );
       })}
+
 
       {/* right axis rail */}
       <div
