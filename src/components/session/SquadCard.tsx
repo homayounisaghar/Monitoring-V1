@@ -776,7 +776,7 @@ function Cell({
 
   // ok
   const v = valueFor(a, m);
-  const r = refFor(a, m);
+  const r = refFor(a, m, buildingIds);
   const isCardio = m.id === "cardioLoad";
   const cov = a.hrCoveragePct ?? 100;
   const lowCov = isCardio && cov < COVERAGE_MIN;
