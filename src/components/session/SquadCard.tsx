@@ -22,7 +22,7 @@ import { useEffect, useMemo, useState } from "react";
 import { ChevronRight, Flag, ChevronUp, ChevronDown, X } from "lucide-react";
 
 import { useNavigate } from "@tanstack/react-router";
-import { useSessionScope, COVERAGE_MIN } from "@/lib/session-scope";
+import { useSessionScope, COVERAGE_MIN, currentSession } from "@/lib/session-scope";
 import { squad, type Athlete } from "@/lib/session-data";
 import { ScopeTag } from "@/components/session/ScopeTag";
 import { TrustMark } from "@/components/data/TrustMark";
