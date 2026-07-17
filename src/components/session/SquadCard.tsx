@@ -573,6 +573,18 @@ function TableBody({
             })}
           </tr>
 
+          {items.length === 0 && (
+            <tr>
+              <td
+                colSpan={columns.length + 1}
+                className="px-3 py-6 text-center type-label"
+                style={{ color: "var(--color-text-tertiary)" }}
+              >
+                {copy("scope.emptyLine")}
+              </td>
+            </tr>
+          )}
+
           {items.map((it) => {
 
             const a = it.a;
@@ -598,7 +610,8 @@ function TableBody({
                       dimmed={a.participation === null}
                     />
                     <span
-                      className="text-[13px] font-medium"
+                      className="text-[13px] font-medium truncate min-w-0"
+                      title={a.name}
                       style={{
                         color:
                           a.participation === null
@@ -1025,7 +1038,16 @@ function ChartBody({
         </span>
       </div>
       <ul>
-        {rankedForFlat.map((r, i) => renderRow(r, i + 1))}
+        {rankedForFlat.length === 0 ? (
+          <li
+            className="px-4 py-6 text-center type-label"
+            style={{ color: "var(--color-text-tertiary)" }}
+          >
+            {copy("scope.emptyLine")}
+          </li>
+        ) : (
+          rankedForFlat.map((r, i) => renderRow(r, i + 1))
+        )}
       </ul>
 
 
@@ -1104,11 +1126,12 @@ function ChartRow({
       >
         {display === "percent" && state === "building" ? "—" : rank}
       </span>
-      <div className="w-[220px] shrink-0">
-        <div className="flex items-center gap-2">
+      <div className="w-[220px] shrink-0 min-w-0">
+        <div className="flex items-center gap-2 min-w-0">
           <AthleteAvatar id={a.id} name={a.name} size={24} />
           <span
-            className="text-[13px] font-medium"
+            className="text-[13px] font-medium truncate min-w-0"
+            title={a.name}
             style={{ color: "var(--color-text-primary)" }}
           >
             {a.name}

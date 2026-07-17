@@ -245,23 +245,37 @@ export function SummaryCard() {
           <div className="p-5">
             <div className="grid grid-cols-1 gap-x-5 gap-y-4">
               {/* Cardio Load */}
-              <CostMark
-                label={METRIC_LIB.cardioLoad.label}
-                value={marks.cardioLoadCL}
-                reference={refs.refCardioLoadCL}
-                unit="CL"
-                qualified={clQualified}
-                badge={
-                  <CoverageBadge
-                    covered={coveredCount}
-                    total={effectiveParticipants.length}
-                    below={lowCov.map((a) => ({
-                      name: a.name,
-                      cov: a.hrCoveragePct ?? 0,
-                    }))}
-                  />
-                }
-              />
+              {!clQualified && coveredCount === 0 ? (
+                <div className="space-y-1">
+                  <div className="flex items-baseline justify-between">
+                    <span className="type-data-label">{METRIC_LIB.cardioLoad.label}</span>
+                    <span
+                      className="type-num text-[13px]"
+                      style={{ color: "var(--color-text-tertiary)" }}
+                    >
+                      {copy("summary.internalNotMeasured")}
+                    </span>
+                  </div>
+                </div>
+              ) : (
+                <CostMark
+                  label={METRIC_LIB.cardioLoad.label}
+                  value={marks.cardioLoadCL}
+                  reference={refs.refCardioLoadCL}
+                  unit="CL"
+                  qualified={clQualified}
+                  badge={
+                    <CoverageBadge
+                      covered={coveredCount}
+                      total={effectiveParticipants.length}
+                      below={lowCov.map((a) => ({
+                        name: a.name,
+                        cov: a.hrCoveragePct ?? 0,
+                      }))}
+                    />
+                  }
+                />
+              )}
 
               {/* sRPE */}
               {srpeState === "none" ? (
@@ -769,13 +783,26 @@ function ParticipationCard({
         <div className="flex items-baseline gap-3">
           <h3 className="type-section-h">{copy("canonical.section.participation")}</h3>
         </div>
-        <div
-          className="type-num text-[18px] font-semibold"
-          style={{ color: "var(--color-text-primary)" }}
-        >
-          {fullPct}% <span className="type-data-label ml-0.5">{copy("canonical.summary.fullSuffix")}</span>
-        </div>
+        {total > 0 && (
+          <div
+            className="type-num text-[18px] font-semibold"
+            style={{ color: "var(--color-text-primary)" }}
+          >
+            {fullPct}% <span className="type-data-label ml-0.5">{copy("canonical.summary.fullSuffix")}</span>
+          </div>
+        )}
       </div>
+
+      {total === 0 ? (
+        <div
+          className="type-label py-6 text-center"
+          style={{ color: "var(--color-text-tertiary)" }}
+        >
+          {copy("scope.emptyLine")}
+        </div>
+      ) : (
+        <>
+
 
       {/* Segmented bar — mid-tone, no in-bar labels */}
       <div
@@ -883,6 +910,9 @@ function ParticipationCard({
           </div>
         </div>
       )}
+        </>
+      )}
     </div>
   );
 }
+
