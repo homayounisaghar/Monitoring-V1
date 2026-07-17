@@ -576,11 +576,12 @@ function TableBody({
           {items.map((it) => {
 
             const a = it.a;
+            const rowBuilding = buildingIds.has(a.id);
             const rowScaled =
               a.participation !== null &&
               a.minutes < 60 &&
-              a.id !== BUILDING_ID;
-            const rowBuilding = a.id === BUILDING_ID;
+              !rowBuilding;
+
             return (
               <tr
                 key={a.id}
