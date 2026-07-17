@@ -328,10 +328,10 @@
 
 /* Selection treatment — active pills / toggles / segmented controls */
 @utility sel-active {
-  background-color: var(--color-slate-800);
-  color: #ffffff;
+  background-color: var(--color-slate-200);
+  color: var(--color-text-primary);
   &:hover {
-    background-color: var(--color-slate-700);
+    background-color: var(--color-slate-300);
   }
 }
 @utility sel-idle {
