@@ -201,9 +201,14 @@ export function PeriodsCard() {
   const { demo } = useSessionScope();
   const noHr = demo === "no_hr_data";
 
+  const effectiveBlocks = useMemo(
+    () => (noHr ? periodsBlocks.map((b) => ({ ...b, hrCoverage: 0 })) : periodsBlocks),
+    [noHr],
+  );
+
   const { rows, peakId, totalMin, coveredMin } = useMemo(
-    () => computeAggregates(periodsBlocks, view),
-    [view],
+    () => computeAggregates(effectiveBlocks, view),
+    [effectiveBlocks, view],
   );
 
   const partialInternal = coveredMin < totalMin;
