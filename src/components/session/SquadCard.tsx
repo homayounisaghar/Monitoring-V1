@@ -303,35 +303,25 @@ export function SquadCard() {
         />
         <div className="flex items-center gap-2">
           {view === "chart" && (
-            <>
-              <SegmentedToggle
-                value={chartArrangement}
-                onChange={(v) => setChartArrangement(v)}
-                options={[
-                  { id: "position", label: copy("canonical.squad.toolbar.byPosition") },
-                  { id: "ranked", label: copy("canonical.squad.toolbar.ranked") },
-                ]}
-              />
-              <select
-                value={chartMetric}
-                onChange={(e) => setChartMetric(e.target.value as MetricId)}
-                className="rounded-md border px-2 py-1 text-[12px]"
-                style={{
-                  borderColor: "var(--color-border)",
-                  backgroundColor: "var(--color-canvas)",
-                  color: "var(--color-text-primary)",
-                }}
-              >
-                {[...DEFAULT_COLUMNS.filter((c) => c !== "min"),
-                  ...COLUMN_LIBRARY.flatMap((g) => g.ids).filter(
-                    (id) => !DEFAULT_COLUMNS.includes(id),
-                  )].map((id) => (
-                  <option key={id} value={id}>
-                    {METRICS[id].label}
-                  </option>
-                ))}
-              </select>
-            </>
+            <select
+              value={chartMetric}
+              onChange={(e) => setChartMetric(e.target.value as MetricId)}
+              className="rounded-md border px-2 py-1 text-[12px]"
+              style={{
+                borderColor: "var(--color-border)",
+                backgroundColor: "var(--color-canvas)",
+                color: "var(--color-text-primary)",
+              }}
+            >
+              {[...DEFAULT_COLUMNS.filter((c) => c !== "min"),
+                ...COLUMN_LIBRARY.flatMap((g) => g.ids).filter(
+                  (id) => !DEFAULT_COLUMNS.includes(id),
+                )].map((id) => (
+                <option key={id} value={id}>
+                  {METRICS[id].label}
+                </option>
+              ))}
+            </select>
           )}
           <SegmentedToggle
             value={display}
