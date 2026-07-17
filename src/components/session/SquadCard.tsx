@@ -1421,5 +1421,5 @@ function formatScale(m: Metric, max: number): string {
   return `${max} ${m.unit}`;
 }
 
-export { POSITION_LABEL };
+
 
