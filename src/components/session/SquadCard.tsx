@@ -331,18 +331,15 @@ export function SquadCard() {
           display={display}
           sort={sort}
           onSort={(key) => {
-            // Athlete header: single-action restore of the team-sheet default.
-            if (key === "position") {
-              setSort(DEFAULT_SORT);
-              return;
-            }
-            // Metric header: same key toggles direction; new key starts desc.
+            // Same key toggles direction. New metric key starts descending;
+            // new name key starts ascending (A→Z).
             setSort((prev) =>
               prev.key === key
                 ? { key, dir: prev.dir === "desc" ? "asc" : "desc" }
-                : { key, dir: "desc" },
+                : { key, dir: key === "name" ? "asc" : "desc" },
             );
           }}
+
           flagged={flagged}
           srpeCoverage={{ submitted: srpeSubmitted, total: srpeTotal }}
           onRowClick={(_a) => navigate({ to: "/athlete" })}
