@@ -934,6 +934,7 @@ function BlockHover({
   partialInternal,
   totalMin,
   coveredMin,
+  variant = "dark",
 }: {
   row: Aggregate;
   peakId: string | null;
@@ -941,7 +942,14 @@ function BlockHover({
   partialInternal: boolean;
   totalMin: number;
   coveredMin: number;
+  variant?: "dark" | "light";
 }) {
+  const isLight = variant === "light";
+  const cTitle = isLight ? "var(--color-text-primary)" : "var(--color-slate-50)";
+  const cLabel = isLight ? "var(--color-text-tertiary)" : "var(--color-slate-400)";
+  const cValue = isLight ? "var(--color-text-primary)" : "var(--color-slate-50)";
+  const cMuted = isLight ? "var(--color-text-tertiary)" : "var(--color-slate-300)";
+  const cBorder = isLight ? "var(--color-border)" : "var(--color-slate-700)";
   const gap = computeGap(row);
   const extRate = row.cells.totalDistance.rate;
   const rows: Array<{ label: string; body: string }> = [];
