@@ -830,7 +830,7 @@ function Cell({
       {/* Delta once, muted, in absolute mode only. No per-cell "· scaled". */}
       {!cellIsPercent && deltaPct != null && (
         <span
-          className="type-num text-[10.5px]"
+          className="type-num text-[13.5px]"
           style={{ color: "var(--color-text-tertiary)" }}
         >
           {deltaPct >= 0 ? "+" : ""}
