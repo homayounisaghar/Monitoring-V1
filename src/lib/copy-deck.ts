@@ -35,6 +35,9 @@ export const COPY = {
   // Pattern for combined-flag rows (replaces "+1 more"). The delta lives
   // once, at right, in the row's own render.
   "attention.combinedMetrics.example": "Sprint distance · HSR",
+  "attention.basisNote": "Flags — each athlete vs their own typical for this day type; the reference above doesn't move them.",
+  "attention.baselineThin.headlineTemplate": "Building baselines — {n} of {total} comparable",
+  "attention.baselineThin.leadTemplate": "Building baselines — {n} of {total}",
 
   // ---------- Attention · all-clear state ----------
   "attention.allClear.link": "Squad summary ↓",
@@ -44,11 +47,12 @@ export const COPY = {
   "attention.covThin.headlineTemplate": "Can't read the squad today — {below} of {total} under 80% HR coverage",
 
   // ---------- Legend (the key) ----------
-  "legend.band": "band — his normal range",
+  "legend.band": "band — their normal range",
   "legend.tick": "tick — reference",
   "legend.dot": "dot — this session",
   "legend.trustDot": "trust dot — coverage under 80%",
   "legend.flagGlyph": "flag glyph — flagged in Attention",
+  "legend.gapPair": "pair — external + internal, gap in pts",
 
   // ---------- Register-class hovers / labels (v2 + v3) ----------
   "flag.hover": "Flagged in Attention — view",
@@ -78,6 +82,9 @@ export const COPY = {
   "periods.legend.gap": "gap E−I = distance rate − Cardio Load rate · hover a block for detail",
   "periods.halfLabel.first": "1st half · 0–45′",
   "periods.halfLabel.second": "2nd half · 45–95′",
+  "periods.blockLabelTemplate": "{start}–{end}′",
+  "periods.blockLabelTerminalTemplate": "{start}′+ · added time",
+  "periods.internalNotMeasured": "Cardio Load not measured this session",
   "periods.hover.pastScale": "beyond chart range (30–150)",
   "periods.hover.unconfirmed": "unconfirmed",
   "periods.hover.belowFloorTemplate": "coverage {cov} of {total} · below floor {floor}",
@@ -101,17 +108,17 @@ export const COPY = {
   "squad.dnpRow": "did not participate",
   "squad.dnpChart": "DNP",
   "squad.avgRow": "Squad avg",
-  "gap.typicalHover": "his typical",
+  "gap.typicalHover": "their typical",
 
   // ---------- Reading-line menu glosses (per option kind) ----------
   "readingLine.cohortGloss": "cohort — same position group, this season",
   // Reference (per-athlete) glosses — DRAFT
   "readingLine.gloss.own_typical": "their own typical for sessions of this type",
-  "readingLine.gloss.positional": "typical for his position group",
+  "readingLine.gloss.positional": "typical for their position group",
   "readingLine.gloss.cohort": "the squad's average for sessions of this type",
-  "readingLine.gloss.last_n": "average of his last five matches",
+  "readingLine.gloss.last_n": "average of their last five matches",
   "readingLine.gloss.season": "their season average for sessions of this type",
-  "readingLine.gloss.same_opponent": "his output vs this opponent before",
+  "readingLine.gloss.same_opponent": "their output vs this opponent before",
   // Benchmark (squad) glosses — DRAFT
  "readingLine.bgloss.typical_daytype": "a typical session of this day type",
  "readingLine.bgloss.typical_match": "a typical match of this type",
@@ -125,6 +132,12 @@ export const COPY = {
   // ---------- Unscoped-section micro-tag ----------
   "scope.unscopedTag": "all 18 · full match",
 
+  // ---------- Scope — empty ----------
+  "scope.emptyLine": "No athletes in this filter",
+
+  // ---------- Share ----------
+  "share.includesState": "Link opens this exact view — filters, comparison, sort included",
+
   // ---------- Sidebar ----------
   "sidebar.header": "Sessions",
   "sidebar.searchPlaceholder": "Search sessions",
@@ -134,12 +147,15 @@ export const COPY = {
   // ---------- Summary ----------
   // DRAFT — the "vs typical full match" module label.
   "summary.vsFullMatch.label": "Vs typical full match",
+  "summary.internalNotMeasured": "not measured this session",
+  "summary.zones.typicalTickHover": "typical Z4+Z5 · {pct}%",
 
   // ---------- Squad ----------
   // Section-header descriptor.
   "squad.section.desc": "Every athlete on this session",
   // Row-level scaled tag pattern; consumers substitute the minutes.
   "squad.row.scaledTagTemplate": "{min}′ · scaled",
+  "squad.row.scaledHoverTemplate": "played {min}′ — reference adjusted to minutes",
   // Replaces per-cell "NOT COMPARED".
   "squad.cell.notCompared": "—",
   "squad.cell.notComparedHoverTemplate": "{min}′ — too short to compare",
@@ -237,7 +253,7 @@ export const COPY = {
   "canonical.squad.picker.on": "on",
   "canonical.squad.picker.off": "off",
   "canonical.squad.picker.done": "Done",
-  "canonical.squad.chart.hisTypicalPrefix": "his typical: ",
+  "canonical.squad.chart.typicalPrefix": "their typical: ",
   
   
   "canonical.squad.chart.scaledSuffix": " · scaled",

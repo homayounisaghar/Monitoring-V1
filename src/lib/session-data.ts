@@ -4,6 +4,8 @@
  * never `squad`, so the "of 18" invariant holds by construction.
  */
 
+import { tmpl } from "./copy-deck";
+
 export type PositionCode = "GK" | "DEF" | "MID" | "ATT";
 export type PositionLabel = "GK" | "Defenders" | "Midfielders" | "Attackers";
 export type ParticipationTag =
@@ -182,12 +184,12 @@ export const PERIODS_DOMAIN_MAX = 150;     // rate points — drawn scale ceilin
 export const PERIODS_SQUAD_SIZE = 18;      // "of 18" invariant
 
 export const periodsBlocks: PeriodBlock[] = [
-  { id: "b0",       label: "0–15'",   startMin:  0, endMin: 15, minutes: 15, totalDistance: 1613, hsr: 101, accelDecel: 19, cardioLoad: 35, hrCoverage: 18 },
-  { id: "b15",      label: "15–30'",  startMin: 15, endMin: 30, minutes: 15, totalDistance: 1675, hsr: 149, accelDecel: 20, cardioLoad: 31, hrCoverage: 18 },
-  { id: "b30",      label: "30–45'",  startMin: 30, endMin: 45, minutes: 15, totalDistance: 1504, hsr: 112, accelDecel: 18, cardioLoad: 30, hrCoverage: 13 },
-  { id: "b45",      label: "45–60'",  startMin: 45, endMin: 60, minutes: 15, totalDistance: 1411, hsr:  94, accelDecel: 16, cardioLoad: 33, hrCoverage: 18 },
-  { id: "b60",      label: "60–75'",  startMin: 60, endMin: 75, minutes: 15, totalDistance: 1489, hsr: 128, accelDecel: 19, cardioLoad: 31, hrCoverage: 18, unconfirmed: { accelDecel: true } },
-  { id: "b75",      label: "75–90'",  startMin: 75, endMin: 90, minutes: 15, totalDistance: 1768, hsr: 214, accelDecel: 23, cardioLoad: 47, hrCoverage: 18 },
-  { id: "stoppage", label: "90–95'+", startMin: 90, endMin: 95, minutes:  5, totalDistance:  360, hsr:  14, accelDecel:  3, cardioLoad:  9, hrCoverage:  3 },
+  { id: "b0",       label: tmpl("periods.blockLabelTemplate", { start:  0, end: 15 }), startMin:  0, endMin: 15, minutes: 15, totalDistance: 1613, hsr: 101, accelDecel: 19, cardioLoad: 35, hrCoverage: 18 },
+  { id: "b15",      label: tmpl("periods.blockLabelTemplate", { start: 15, end: 30 }), startMin: 15, endMin: 30, minutes: 15, totalDistance: 1675, hsr: 149, accelDecel: 20, cardioLoad: 31, hrCoverage: 18 },
+  { id: "b30",      label: tmpl("periods.blockLabelTemplate", { start: 30, end: 45 }), startMin: 30, endMin: 45, minutes: 15, totalDistance: 1504, hsr: 112, accelDecel: 18, cardioLoad: 30, hrCoverage: 13 },
+  { id: "b45",      label: tmpl("periods.blockLabelTemplate", { start: 45, end: 60 }), startMin: 45, endMin: 60, minutes: 15, totalDistance: 1411, hsr:  94, accelDecel: 16, cardioLoad: 33, hrCoverage: 18 },
+  { id: "b60",      label: tmpl("periods.blockLabelTemplate", { start: 60, end: 75 }), startMin: 60, endMin: 75, minutes: 15, totalDistance: 1489, hsr: 128, accelDecel: 19, cardioLoad: 31, hrCoverage: 18, unconfirmed: { accelDecel: true } },
+  { id: "b75",      label: tmpl("periods.blockLabelTemplate", { start: 75, end: 90 }), startMin: 75, endMin: 90, minutes: 15, totalDistance: 1768, hsr: 214, accelDecel: 23, cardioLoad: 47, hrCoverage: 18 },
+  { id: "stoppage", label: tmpl("periods.blockLabelTerminalTemplate", { start: 90 }), startMin: 90, endMin: 95, minutes:  5, totalDistance:  360, hsr:  14, accelDecel:  3, cardioLoad:  9, hrCoverage:  3 },
 ];
 
