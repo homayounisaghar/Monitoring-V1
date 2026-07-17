@@ -232,7 +232,7 @@ export function SquadCard() {
       const pcts = scopeParticipants
         .map((a) => {
           const v = valueFor(a, m);
-          const r = refFor(a, m);
+          const r = refFor(a, m, buildingIds);
           if (v == null || r == null || r === 0) return null;
           return (v / r) * 100;
         })
@@ -242,7 +242,7 @@ export function SquadCard() {
     }
     const pairs = scopeParticipants.map((a) => ({
       v: valueFor(a, m),
-      r: refFor(a, m),
+      r: refFor(a, m, buildingIds),
     }));
     const vs = pairs.map((p) => p.v).filter((x): x is number => x != null);
     const rs = pairs.map((p) => p.r).filter((x): x is number => x != null);
@@ -251,6 +251,7 @@ export function SquadCard() {
       ref: rs.length ? mean(rs) : null,
     };
   };
+
 
   return (
     <section id="squad" className="scroll-mt-36">
