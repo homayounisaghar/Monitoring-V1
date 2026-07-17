@@ -44,7 +44,7 @@ export const COPY = {
   "attention.covThin.headlineTemplate": "Can't read the squad today — {below} of {total} under 80% HR coverage",
 
   // ---------- Legend (the key) ----------
-  "legend.band": "band — his normal range",
+  "legend.band": "band — their normal range",
   "legend.tick": "tick — reference",
   "legend.dot": "dot — this session",
   "legend.trustDot": "trust dot — coverage under 80%",
