@@ -204,6 +204,7 @@ function computeAggregates(
 export function PeriodsCard() {
   const [view, setView] = useState<"halves" | "15min">("15min");
   const [hoverCol, setHoverCol] = useState<string | null>(null);
+  const [pinnedId, setPinnedId] = useState<string | null>(null);
   const { demo } = useSessionScope();
   const noHr = demo === "no_hr_data";
 
@@ -224,6 +225,17 @@ export function PeriodsCard() {
       `200px ${rows.map((r) => `minmax(0, ${r.weight}fr)`).join(" ")} 40px`,
     [rows],
   );
+
+  // Half-time boundary — cumulative minutes exactly at 45 marks the line.
+  const halfBoundaryIdx = useMemo(() => {
+    let cum = 0;
+    for (let i = 0; i < rows.length; i++) {
+      cum += rows[i].minutes;
+      if (cum === 45) return i + 1; // number of row columns to the LEFT of the line
+    }
+    return null;
+  }, [rows]);
+
 
 
   return (
