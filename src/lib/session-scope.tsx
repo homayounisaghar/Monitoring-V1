@@ -120,6 +120,19 @@ export type SessionScope = {
   legendOpen: boolean;
   setLegendOpen: (open: boolean) => void;
 
+  // Squad presentation state — lifted here so a shared URL can hydrate it
+  // and so back-navigation from /athlete restores it.
+  squadView: SquadView;
+  setSquadView: (v: SquadView) => void;
+  squadDisplay: SquadDisplay;
+  setSquadDisplay: (d: SquadDisplay) => void;
+  squadSort: SquadSort;
+  setSquadSort: (s: SquadSort) => void;
+  squadColumns: MetricId[];
+  setSquadColumns: (c: MetricId[]) => void;
+  squadChartMetric: MetricId;
+  setSquadChartMetric: (m: MetricId) => void;
+
   // derived
   activeAthletes: Athlete[];
   showingCount: number;
