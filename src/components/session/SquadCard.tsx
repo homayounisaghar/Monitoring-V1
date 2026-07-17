@@ -42,6 +42,7 @@ import {
 } from "@/lib/squad-metrics";
 import { BUILDING_ID, BUILDING_SESSIONS_TO_MIN, flaggedIds } from "@/lib/session-flags";
 import { BUILDING_BASELINE_MIN_SESSIONS } from "@/lib/copy-deck";
+
 import { ValueOnTrack } from "@/components/data/ValueOnTrack";
 import { AthleteAvatar } from "@/components/data/AthleteAvatar";
 
