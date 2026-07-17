@@ -353,13 +353,19 @@ export function SquadCard() {
           columns={columns}
           display={display}
           sort={sort}
-          onSort={(key) =>
+          onSort={(key) => {
+            // Athlete header: single-action restore of the team-sheet default.
+            if (key === "position") {
+              setSort(DEFAULT_SORT);
+              return;
+            }
+            // Metric header: same key toggles direction; new key starts desc.
             setSort((prev) =>
               prev.key === key
-                ? { key, dir: prev.dir === "asc" ? "desc" : "asc" }
-                : { key, dir: key === "position" ? "desc" : "desc" },
-            )
-          }
+                ? { key, dir: prev.dir === "desc" ? "asc" : "desc" }
+                : { key, dir: "desc" },
+            );
+          }}
           flagged={flagged}
           srpeCoverage={{ submitted: srpeSubmitted, total: srpeTotal }}
           onRowClick={(_a) => navigate({ to: "/athlete" })}
@@ -374,7 +380,6 @@ export function SquadCard() {
         <ChartBody
           metric={METRICS[chartMetric]}
           display={display}
-          arrangement={chartArrangement}
           rows={activeAthletes}
           allSquadForTray={squad}
           flagged={flagged}
