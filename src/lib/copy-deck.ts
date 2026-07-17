@@ -132,6 +132,12 @@ export const COPY = {
   // ---------- Unscoped-section micro-tag ----------
   "scope.unscopedTag": "all 18 · full match",
 
+  // ---------- Scope — empty ----------
+  "scope.emptyLine": "No athletes in this filter",
+
+  // ---------- Share ----------
+  "share.includesState": "Link opens this exact view — filters, comparison, sort included",
+
   // ---------- Sidebar ----------
   "sidebar.header": "Sessions",
   "sidebar.searchPlaceholder": "Search sessions",
