@@ -233,6 +233,8 @@ function Tier1RowUI({ row }: { row: Tier1Row }) {
     : "text-[14px] font-medium leading-tight";
   const rowPad = isEscalate ? "py-4" : "py-3";
 
+  const avatarSize = isEscalate ? 36 : 30;
+
   return (
     <li
       className={`group relative border-b last:border-b-0 transition-colors hover:bg-[color:var(--color-slate-50)]`}
@@ -273,8 +275,8 @@ function Tier1RowUI({ row }: { row: Tier1Row }) {
           )}
         </div>
 
-        <div className="flex w-[170px] shrink-0 items-center gap-2.5">
-          <AthleteAvatar id={athlete.id} name={athlete.name} size={28} />
+        <div className="flex w-[170px] shrink-0 items-center gap-3">
+          <AthleteAvatar id={athlete.id} name={athlete.name} size={avatarSize} />
           <div className="min-w-0">
             <div className={nameCls} style={{ color: "var(--color-text-primary)" }}>
               {athlete.name}
@@ -569,10 +571,10 @@ function CovThinBody({
       {rows.map((a) => (
         <li
           key={a.id}
-          className="flex items-center gap-2.5 py-1 text-[13px]"
+          className="flex items-center gap-3 py-1 text-[13px]"
           style={{ color: "var(--color-text-secondary)" }}
         >
-          <AthleteAvatar id={a.id} name={a.name} size={24} />
+          <AthleteAvatar id={a.id} name={a.name} size={28} />
           <span style={{ color: "var(--color-text-primary)" }}>{a.name}</span>
           <span className="type-num" style={{ color: "var(--color-text-tertiary)" }}>
             {a.cov}{copy("canonical.attention.hrCovSuffix")}
