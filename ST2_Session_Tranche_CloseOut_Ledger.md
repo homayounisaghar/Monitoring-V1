@@ -247,10 +247,27 @@ rather than folding them into the WP entry as if they had been.
 
 ## Part C.5 — Commit trail
 
-The agent harness does not expose commit SHAs. The file-level ledger in
-Part C.1 is the authoritative "what changed where" record; SHAs of record
-live on the branch's CI trail. If a SHA-indexed version of this ledger is
-required for archival, regenerate from `git log --oneline` on merge.
+Commits landed this session, in order:
+
+1. `2b544c3283674eb1d1c2a9c7ac11e942fa209dba` — WP-2, string batch (gendered copy, block-label templates, 12 new deck keys)
+2. `8344a372598aeccc89b7b353203b892ee139ddbf` — WP-4, gap-pair recostume (hollow ≡ trust only)
+3. *SHA not captured* — WP-3 (Attention card: basis line, invariant recheck, per-scenario closer). Transport error masked the tool-layer confirmation; edit_id on record is `edt-3fb307c8-813b-43fa-91ef-beb06baea780`. Recorded as SHA-not-captured rather than fabricated.
+4. `d4bbfb39cb678d080d646d191dffbe1fe9ea68a8` — WP-5 foundational refactor (buildingIds generalization, `early_season` / `no_hr_data` scenarios scaffolded)
+5. `2f39fc05773ff947dbc2d5faecab8075b62bd13e` — WP-5 completion (5.1–5.4: empty states, headline precedence + BaselineThinBody, `no_hr_data` UI, truncation)
+6. `f1dbca2289e1e9b40abd2c1b604869c9dec2dc40` — WP-5.3 review fix (periodsBlocks coverage actually zeroed; covered-minutes foot promoted to visible)
+7. `9dc82596204feaa322c483456c8141fd111a4806` — WP-6, squad craft (delta sizing, sticky thead, chevron, flag hit-area + pulse, scaled hover, participation chip names, DNP recheck)
+8. `27015d9bffa8bc22f1542eb5517620740860546d` — WP-7, controls & type floors (shared `SegmentedToggle`, floor sweep)
+9. `c91bddf6d3b95a008ae8ddbb929ae78be06f0681` — root-cause fix, `sel-active` dark-fill (site-wide, found after WP-7)
+10. `014db156c3603c8530988db41f7b8c5d75582ed9` — WP-8, Periods + zone bar (half-time line, click-to-pin, zone-bar separators/tick, CVD-driven Z5 change)
+11. `2079871a60cf03a45a73994e9d5bbf26b6ef8906` — WP-9, legend completion (9-line `LegendPopover`, Attention ⓘ dead-link fix)
+12. `da6afd34fdf53ae42f3132738bad93a4def56eea` — WP-1 initial (route contract, provider lift, share-link encode/decode, disclosure)
+13. `7ab20229d02e57a7cd5917efb36d0585fcbfef3a` — WP-1 review fix (`training_day` static-DEFAULTS bug; real click-through drill verification)
+14. `cad30efaf62f78460e855f2afc90adb8634f1421` — WP-10, this ledger + verification pass
+
+Footnote — provenance: SHAs above come from the tool-layer response received on the user's side of the API, not from git history queried inside this sandbox (the harness disallows stateful git commands, so the agent cannot read commit SHAs directly).
+
+Footnote — data-provenance caution: at least twice this session (WP-9, WP-1) a commit SHA narrated in the agent's chat-facing summary text diverged from the SHA that the tool call actually returned in its structured response. Self-reported SHA citations in chat prose are not reliable on their own and must not be treated as the source of truth; the tool-layer response is authoritative.
+
 
 ---
 
