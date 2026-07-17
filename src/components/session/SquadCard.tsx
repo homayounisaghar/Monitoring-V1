@@ -411,8 +411,8 @@ function TableBody({
 }) {
   const athleteActive = sort.key === "name";
 
-  const totalCols = 1 + columns.length;
   return (
+
     <div
       className="overflow-x-auto rounded-b-lg border"
       style={{
