@@ -24,6 +24,7 @@ import {
 } from "@/lib/session-flags";
 import { copy, tmpl, BUILDING_BASELINE_MIN_SESSIONS } from "@/lib/copy-deck";
 import { ValueOnTrack } from "@/components/data/ValueOnTrack";
+import { AthleteAvatar } from "@/components/data/AthleteAvatar";
 
 /* ---------- Component ---------- */
 
@@ -272,15 +273,18 @@ function Tier1RowUI({ row }: { row: Tier1Row }) {
           )}
         </div>
 
-        <div className="w-[170px] shrink-0">
-          <div className={nameCls} style={{ color: "var(--color-text-primary)" }}>
-            {athlete.name}
-          </div>
-          <div
-            className="type-label"
-            style={{ color: "var(--color-text-tertiary)" }}
-          >
-            {athlete.posDetail}
+        <div className="flex w-[170px] shrink-0 items-center gap-2.5">
+          <AthleteAvatar id={athlete.id} name={athlete.name} size={28} />
+          <div className="min-w-0">
+            <div className={nameCls} style={{ color: "var(--color-text-primary)" }}>
+              {athlete.name}
+            </div>
+            <div
+              className="type-label"
+              style={{ color: "var(--color-text-tertiary)" }}
+            >
+              {athlete.posDetail}
+            </div>
           </div>
         </div>
 
