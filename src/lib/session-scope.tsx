@@ -367,6 +367,8 @@ export function SessionScopeProvider({ children }: { children: ReactNode }) {
     sessionIsTraining,
     buildingIds,
     comparableCount,
+    highlightAthleteId,
+    setHighlightAthleteId,
     ...derived,
 
   };
