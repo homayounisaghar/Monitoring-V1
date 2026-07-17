@@ -47,7 +47,6 @@ import { ValueOnTrack } from "@/components/data/ValueOnTrack";
 
 type ViewMode = "table" | "chart";
 type DisplayMode = "absolute" | "percent";
-type ChartArrangement = "position" | "ranked";
 type SortKey = MetricId | "position";
 
 const PREFS_STORAGE_KEY = "st2.session.squad.prefs.v1";
@@ -56,13 +55,15 @@ const POSITION_ORDER: PositionCode[] = ["GK", "DEF", "MID", "ATT"];
 
 type SortState = { key: SortKey; dir: "asc" | "desc" };
 
+const DEFAULT_SORT: SortState = { key: "position", dir: "desc" };
+
+/** Persisted presentation prefs (view/display/columns/chart-metric only).
+ *  Sort and chart arrangement are analysis state and NEVER persist. */
 type SquadPrefs = {
   view: ViewMode;
   display: DisplayMode;
   columns: MetricId[];
   chartMetric: MetricId;
-  chartArrangement: ChartArrangement;
-  sort: SortState;
 };
 
 const DEFAULT_PREFS: SquadPrefs = {
@@ -70,16 +71,16 @@ const DEFAULT_PREFS: SquadPrefs = {
   display: "absolute",
   columns: DEFAULT_COLUMNS,
   chartMetric: "totalDistance",
-  chartArrangement: "position",
-  sort: { key: "position", dir: "desc" },
 };
 
 function isMetricId(x: unknown): x is MetricId {
   return typeof x === "string" && Object.prototype.hasOwnProperty.call(METRICS, x);
 }
 
-function isSortKey(x: unknown): x is SortKey {
-  return x === "position" || isMetricId(x);
+/** Extract displayed family name (portion after the last space). */
+function familyName(name: string): string {
+  const idx = name.lastIndexOf(" ");
+  return idx >= 0 ? name.slice(idx + 1) : name;
 }
 
 function loadPrefs(): SquadPrefs {
@@ -94,17 +95,7 @@ function loadPrefs(): SquadPrefs {
     const columnsArr = Array.isArray(p.columns) ? p.columns.filter(isMetricId) : [];
     const columns = columnsArr.length > 0 ? (columnsArr as MetricId[]) : DEFAULT_PREFS.columns;
     const chartMetric: MetricId = isMetricId(p.chartMetric) ? p.chartMetric : DEFAULT_PREFS.chartMetric;
-    const chartArrangement: ChartArrangement =
-      p.chartArrangement === "position" || p.chartArrangement === "ranked"
-        ? p.chartArrangement
-        : DEFAULT_PREFS.chartArrangement;
-    const sortKey: SortKey =
-      p.sort && isSortKey(p.sort.key) ? p.sort.key : DEFAULT_PREFS.sort.key;
-    const sortDir: "asc" | "desc" =
-      p.sort && (p.sort.dir === "asc" || p.sort.dir === "desc")
-        ? p.sort.dir
-        : DEFAULT_PREFS.sort.dir;
-    return { view, display, columns, chartMetric, chartArrangement, sort: { key: sortKey, dir: sortDir } };
+    return { view, display, columns, chartMetric };
   } catch {
     return DEFAULT_PREFS;
   }
@@ -123,22 +114,21 @@ export function SquadCard() {
   const [view, setView] = useState<ViewMode>(initial.view);
   const [display, setDisplay] = useState<DisplayMode>(initial.display);
   const [columns, setColumns] = useState<MetricId[]>(initial.columns);
-  const [sort, setSort] = useState<SortState>(initial.sort);
+  const [sort, setSort] = useState<SortState>(DEFAULT_SORT);
   const [chartMetric, setChartMetric] = useState<MetricId>(initial.chartMetric);
-  const [chartArrangement, setChartArrangement] = useState<ChartArrangement>(initial.chartArrangement);
   const [pickerOpen, setPickerOpen] = useState(false);
   const navigate = useNavigate();
 
-  // Persist presentation prefs. Page filters and reading-line selections are per-visit.
+  // Persist presentation prefs only. Sort + chart arrangement are per-visit.
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
-      const payload: SquadPrefs = { view, display, columns, chartMetric, chartArrangement, sort };
+      const payload: SquadPrefs = { view, display, columns, chartMetric };
       window.localStorage.setItem(PREFS_STORAGE_KEY, JSON.stringify(payload));
     } catch {
       /* ignore quota / disabled storage */
     }
-  }, [view, display, columns, chartMetric, chartArrangement, sort]);
+  }, [view, display, columns, chartMetric]);
 
 
   /* --- rows in scope --- */
@@ -199,25 +189,20 @@ export function SquadCard() {
 
   const renderItems = useMemo<RowItem[]>(() => {
     const rows = [...tableRows];
+
     if (sort.key === "position") {
-      // "has data" for position sort uses Total distance as the within-group ranker.
-      const rankKey: MetricId = "totalDistance";
-      const inGroup: Athlete[] = [];
-      const foot: Athlete[] = [];
-      for (const a of rows) {
-        if (hasSortData(a, rankKey)) inGroup.push(a);
-        else foot.push(a);
-      }
+      // Team-sheet default: grouped GK → DEF → MID → ATT, alphabetical
+      // by family name within each group. DNP / no-data pin to the foot.
+      const isFoot = (a: Athlete) => a.participation === null;
+      const inGroup = rows.filter((a) => !isFoot(a));
+      const foot = rows.filter(isFoot);
       inGroup.sort((a, b) => {
         const ap = POSITION_ORDER.indexOf(a.position);
         const bp = POSITION_ORDER.indexOf(b.position);
         if (ap !== bp) return ap - bp;
-        const av = sortValue(a, rankKey);
-        const bv = sortValue(b, rankKey);
-        if (av === bv) return a.name.localeCompare(b.name);
-        return bv - av;
+        return familyName(a.name).localeCompare(familyName(b.name));
       });
-      foot.sort((a, b) => a.name.localeCompare(b.name));
+      foot.sort((a, b) => familyName(a.name).localeCompare(familyName(b.name)));
       const items: RowItem[] = [];
       let currentPos: PositionCode | null = null;
       for (const a of inGroup) {
@@ -231,18 +216,19 @@ export function SquadCard() {
       return items;
     }
 
-    // Metric sort — flat, existing behavior.
-    const key = sort.key as MetricId;
+    // Metric sort — flat, no subheaders. Rows without a sortable value
+    // under the active display mode pin to the foot in name order.
+    const key = sort.key;
+    const dirMult = sort.dir === "asc" ? 1 : -1;
     rows.sort((a, b) => {
       const aHas = hasSortData(a, key);
       const bHas = hasSortData(b, key);
-      if (!aHas && bHas) return 1;
-      if (aHas && !bHas) return -1;
-      if (!aHas && !bHas) return a.name.localeCompare(b.name);
+      if (aHas !== bHas) return aHas ? -1 : 1;
+      if (!aHas) return familyName(a.name).localeCompare(familyName(b.name));
       const av = sortValue(a, key);
       const bv = sortValue(b, key);
-      if (av === bv) return a.name.localeCompare(b.name);
-      return sort.dir === "asc" ? av - bv : bv - av;
+      if (av === bv) return familyName(a.name).localeCompare(familyName(b.name));
+      return dirMult * (av - bv);
     });
     return rows.map((a) => ({ kind: "row" as const, a }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -317,35 +303,25 @@ export function SquadCard() {
         />
         <div className="flex items-center gap-2">
           {view === "chart" && (
-            <>
-              <SegmentedToggle
-                value={chartArrangement}
-                onChange={(v) => setChartArrangement(v)}
-                options={[
-                  { id: "position", label: copy("canonical.squad.toolbar.byPosition") },
-                  { id: "ranked", label: copy("canonical.squad.toolbar.ranked") },
-                ]}
-              />
-              <select
-                value={chartMetric}
-                onChange={(e) => setChartMetric(e.target.value as MetricId)}
-                className="rounded-md border px-2 py-1 text-[12px]"
-                style={{
-                  borderColor: "var(--color-border)",
-                  backgroundColor: "var(--color-canvas)",
-                  color: "var(--color-text-primary)",
-                }}
-              >
-                {[...DEFAULT_COLUMNS.filter((c) => c !== "min"),
-                  ...COLUMN_LIBRARY.flatMap((g) => g.ids).filter(
-                    (id) => !DEFAULT_COLUMNS.includes(id),
-                  )].map((id) => (
-                  <option key={id} value={id}>
-                    {METRICS[id].label}
-                  </option>
-                ))}
-              </select>
-            </>
+            <select
+              value={chartMetric}
+              onChange={(e) => setChartMetric(e.target.value as MetricId)}
+              className="rounded-md border px-2 py-1 text-[12px]"
+              style={{
+                borderColor: "var(--color-border)",
+                backgroundColor: "var(--color-canvas)",
+                color: "var(--color-text-primary)",
+              }}
+            >
+              {[...DEFAULT_COLUMNS.filter((c) => c !== "min"),
+                ...COLUMN_LIBRARY.flatMap((g) => g.ids).filter(
+                  (id) => !DEFAULT_COLUMNS.includes(id),
+                )].map((id) => (
+                <option key={id} value={id}>
+                  {METRICS[id].label}
+                </option>
+              ))}
+            </select>
           )}
           <SegmentedToggle
             value={display}
@@ -377,13 +353,19 @@ export function SquadCard() {
           columns={columns}
           display={display}
           sort={sort}
-          onSort={(key) =>
+          onSort={(key) => {
+            // Athlete header: single-action restore of the team-sheet default.
+            if (key === "position") {
+              setSort(DEFAULT_SORT);
+              return;
+            }
+            // Metric header: same key toggles direction; new key starts desc.
             setSort((prev) =>
               prev.key === key
-                ? { key, dir: prev.dir === "asc" ? "desc" : "asc" }
-                : { key, dir: key === "position" ? "desc" : "desc" },
-            )
-          }
+                ? { key, dir: prev.dir === "desc" ? "asc" : "desc" }
+                : { key, dir: "desc" },
+            );
+          }}
           flagged={flagged}
           srpeCoverage={{ submitted: srpeSubmitted, total: srpeTotal }}
           onRowClick={(_a) => navigate({ to: "/athlete" })}
@@ -398,7 +380,6 @@ export function SquadCard() {
         <ChartBody
           metric={METRICS[chartMetric]}
           display={display}
-          arrangement={chartArrangement}
           rows={activeAthletes}
           allSquadForTray={squad}
           flagged={flagged}
@@ -922,7 +903,6 @@ function AvgCell({
 function ChartBody({
   metric,
   display,
-  arrangement,
   rows,
   allSquadForTray,
   flagged,
@@ -931,7 +911,6 @@ function ChartBody({
 }: {
   metric: Metric;
   display: DisplayMode;
-  arrangement: ChartArrangement;
   rows: Athlete[];
   allSquadForTray: Athlete[];
   flagged: Set<string>;
@@ -970,13 +949,12 @@ function ChartBody({
 
   const ranked = [...withData].sort(rankCompare);
 
-  // Grouped view: same ranking, split into position groups in field order.
+  // Chart has exactly one arrangement: grouped by position, ordered
+  // by the active metric within each line (per rankCompare above).
   type Entry = (typeof withData)[number];
-  const groups: { pos: PositionCode; entries: Entry[] }[] = arrangement === "position"
-    ? POSITION_ORDER
-        .map((pos) => ({ pos, entries: ranked.filter((e) => e.a.position === pos) }))
-        .filter((g) => g.entries.length > 0)
-    : [];
+  const groups: { pos: PositionCode; entries: Entry[] }[] = POSITION_ORDER
+    .map((pos) => ({ pos, entries: ranked.filter((e) => e.a.position === pos) }))
+    .filter((g) => g.entries.length > 0);
 
   // Non-participants + no-data pin to foot explicitly.
   const trayIds = new Set<string>();
@@ -990,13 +968,9 @@ function ChartBody({
   const scaleMax = metric.chartMax;
 
   const captionKey =
-    arrangement === "position"
-      ? display === "percent"
-        ? "chart.captionGroupedPercent"
-        : "chart.captionGroupedAbsolute"
-      : display === "percent"
-        ? "chart.captionPercent"
-        : "chart.captionAbsolute";
+    display === "percent"
+      ? "chart.captionGroupedPercent"
+      : "chart.captionGroupedAbsolute";
 
   const renderRow = (r: Entry, rank: number) => (
     <ChartRow
@@ -1042,30 +1016,24 @@ function ChartBody({
             : tmpl("chart.axisAbsoluteNote", { max: formatScale(metric, scaleMax) })}
         </span>
       </div>
-      {arrangement === "position" ? (
-        <ul>
-          {groups.map((g) => (
-            <li key={g.pos}>
-              <div
-                className="px-4 py-1.5 type-label"
-                style={{
-                  color: "var(--color-text-tertiary)",
-                  backgroundColor: "var(--color-slate-50)",
-                }}
-              >
-                {POSITION_LABEL[g.pos]}
-              </div>
-              <ul>
-                {g.entries.map((r, i) => renderRow(r, i + 1))}
-              </ul>
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <ul>
-          {ranked.map((r, i) => renderRow(r, i + 1))}
-        </ul>
-      )}
+      <ul>
+        {groups.map((g) => (
+          <li key={g.pos}>
+            <div
+              className="px-4 py-1.5 type-label"
+              style={{
+                color: "var(--color-text-tertiary)",
+                backgroundColor: "var(--color-slate-50)",
+              }}
+            >
+              {POSITION_LABEL[g.pos]}
+            </div>
+            <ul>
+              {g.entries.map((r, i) => renderRow(r, i + 1))}
+            </ul>
+          </li>
+        ))}
+      </ul>
 
       {tray.length > 0 && (
         <div
