@@ -189,25 +189,20 @@ export function SquadCard() {
 
   const renderItems = useMemo<RowItem[]>(() => {
     const rows = [...tableRows];
+
     if (sort.key === "position") {
-      // "has data" for position sort uses Total distance as the within-group ranker.
-      const rankKey: MetricId = "totalDistance";
-      const inGroup: Athlete[] = [];
-      const foot: Athlete[] = [];
-      for (const a of rows) {
-        if (hasSortData(a, rankKey)) inGroup.push(a);
-        else foot.push(a);
-      }
+      // Team-sheet default: grouped GK → DEF → MID → ATT, alphabetical
+      // by family name within each group. DNP / no-data pin to the foot.
+      const isFoot = (a: Athlete) => a.participation === null;
+      const inGroup = rows.filter((a) => !isFoot(a));
+      const foot = rows.filter(isFoot);
       inGroup.sort((a, b) => {
         const ap = POSITION_ORDER.indexOf(a.position);
         const bp = POSITION_ORDER.indexOf(b.position);
         if (ap !== bp) return ap - bp;
-        const av = sortValue(a, rankKey);
-        const bv = sortValue(b, rankKey);
-        if (av === bv) return a.name.localeCompare(b.name);
-        return bv - av;
+        return familyName(a.name).localeCompare(familyName(b.name));
       });
-      foot.sort((a, b) => a.name.localeCompare(b.name));
+      foot.sort((a, b) => familyName(a.name).localeCompare(familyName(b.name)));
       const items: RowItem[] = [];
       let currentPos: PositionCode | null = null;
       for (const a of inGroup) {
@@ -221,18 +216,19 @@ export function SquadCard() {
       return items;
     }
 
-    // Metric sort — flat, existing behavior.
-    const key = sort.key as MetricId;
+    // Metric sort — flat, no subheaders. Rows without a sortable value
+    // under the active display mode pin to the foot in name order.
+    const key = sort.key;
+    const dirMult = sort.dir === "asc" ? 1 : -1;
     rows.sort((a, b) => {
       const aHas = hasSortData(a, key);
       const bHas = hasSortData(b, key);
-      if (!aHas && bHas) return 1;
-      if (aHas && !bHas) return -1;
-      if (!aHas && !bHas) return a.name.localeCompare(b.name);
+      if (aHas !== bHas) return aHas ? -1 : 1;
+      if (!aHas) return familyName(a.name).localeCompare(familyName(b.name));
       const av = sortValue(a, key);
       const bv = sortValue(b, key);
-      if (av === bv) return a.name.localeCompare(b.name);
-      return sort.dir === "asc" ? av - bv : bv - av;
+      if (av === bv) return familyName(a.name).localeCompare(familyName(b.name));
+      return dirMult * (av - bv);
     });
     return rows.map((a) => ({ kind: "row" as const, a }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
