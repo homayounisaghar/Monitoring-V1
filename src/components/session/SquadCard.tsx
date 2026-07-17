@@ -347,16 +347,16 @@ export function SquadCard() {
           display={display}
           sort={sort}
           onSort={(key) => {
-            setSort((prev) =>
-              prev.key === key
-                ? { key, dir: prev.dir === "desc" ? "asc" : "desc" }
-                : { key, dir: key === "name" ? "asc" : "desc" },
-            );
+            const next: SortState =
+              sort.key === key
+                ? { key, dir: sort.dir === "desc" ? "asc" : "desc" }
+                : { key, dir: key === "name" ? "asc" : "desc" };
+            setSort(next);
           }}
 
           flagged={flagged}
           srpeCoverage={{ submitted: srpeSubmitted, total: srpeTotal }}
-          onRowClick={(_a) => navigate({ to: "/athlete" })}
+          onRowClick={(a) => goToAthlete(a.id)}
           avgCell={avgCell}
           scopeCount={activeAthletes.length}
           onFlagClick={handleFlagClick}
@@ -370,7 +370,7 @@ export function SquadCard() {
           rows={activeAthletes}
           allSquadForTray={squad}
           flagged={flagged}
-          onRowClick={() => navigate({ to: "/athlete" })}
+          onRowClick={(a) => goToAthlete(a.id)}
           onFlagClick={handleFlagClick}
           filterIsDefault={filterIsDefault}
           buildingIds={buildingIds}
