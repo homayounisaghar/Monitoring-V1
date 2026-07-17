@@ -601,7 +601,7 @@ function TableBody({
               <tr
                 key={a.id}
                 onClick={() => onRowClick(a)}
-                className="cursor-pointer border-b transition-colors hover:bg-[color:var(--color-slate-50)] last:border-b-0"
+                className="group cursor-pointer border-b transition-colors hover:bg-[color:var(--color-slate-50)] last:border-b-0"
                 style={{ borderColor: "var(--color-border)" }}
               >
                 <td className="px-3 py-2">
@@ -628,10 +628,10 @@ function TableBody({
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          onScrollToAttention();
+                          onFlagClick(a.id);
                         }}
                         title={copy("flag.hover")}
-                        className="inline-flex h-4 w-4 items-center justify-center rounded transition-colors hover:bg-[color:var(--color-slate-200)]"
+                        className="inline-flex h-6 w-6 items-center justify-center rounded transition-colors hover:bg-[color:var(--color-slate-200)]"
                         aria-label={`${a.name} ${copy("canonical.attention.flaggedInAttentionSuffix")}`}
                       >
                         <Flag
@@ -656,19 +656,27 @@ function TableBody({
                     )}
                   </div>
                 </td>
-                {columns.map((id) => {
+                {columns.map((id, colIdx) => {
                   const m = METRICS[id];
+                  const isLast = colIdx === columns.length - 1;
                   return (
                     <td key={id} className="px-3 py-2 text-right align-middle">
-                      <Cell
-                        a={a}
-                        m={m}
-                        display={display}
-                        rowScaled={rowScaled}
-                        rowBuilding={rowBuilding}
-                        buildingIds={buildingIds}
-                      />
-
+                      <div className={isLast ? "flex items-center justify-end gap-2" : undefined}>
+                        <Cell
+                          a={a}
+                          m={m}
+                          display={display}
+                          rowScaled={rowScaled}
+                          rowBuilding={rowBuilding}
+                          buildingIds={buildingIds}
+                        />
+                        {isLast && (
+                          <ChevronRight
+                            className="h-3.5 w-3.5 opacity-0 transition-opacity group-hover:opacity-100"
+                            style={{ color: "var(--color-text-tertiary)" }}
+                          />
+                        )}
+                      </div>
                     </td>
                   );
                 })}
