@@ -899,7 +899,7 @@ function AvgCell({
       </span>
       {deltaPct != null && (
         <span
-          className="type-num text-[10px]"
+          className="type-num text-[13.5px]"
           style={{ color: "var(--color-text-tertiary)" }}
           suppressHydrationWarning
         >
