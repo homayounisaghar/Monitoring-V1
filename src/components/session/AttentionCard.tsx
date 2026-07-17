@@ -14,6 +14,7 @@
  *   6. Card close — the squad read as the card's only sentence
  *   7. Edge states — coverage-thin > all-clear > flags
  */
+import { useEffect, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { Info, ChevronDown } from "lucide-react";
 import { useSessionScope, COVERAGE_MIN, CLOSER_KEY_BY_SCENARIO } from "@/lib/session-scope";
