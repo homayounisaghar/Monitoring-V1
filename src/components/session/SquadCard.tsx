@@ -438,7 +438,7 @@ function TableBody({
             >
               <button
                 className="inline-flex items-center gap-1.5"
-                onClick={() => onSort("position")}
+                onClick={() => onSort("name")}
                 title={`${copy("canonical.squad.sortByPrefix")}${copy("canonical.squad.sortByPosition")}`}
               >
                 <span
