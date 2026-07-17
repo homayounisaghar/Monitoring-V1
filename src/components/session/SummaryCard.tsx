@@ -449,7 +449,7 @@ function WorkMark({
       />
       {basisLabel && (
         <div
-          className="type-num text-[10px] text-center"
+          className="type-num text-[12px] text-center"
           style={{ color: "var(--color-text-tertiary)" }}
         >
           {basisLabel}
