@@ -233,6 +233,8 @@ function Tier1RowUI({ row }: { row: Tier1Row }) {
     : "text-[14px] font-medium leading-tight";
   const rowPad = isEscalate ? "py-4" : "py-3";
 
+  const avatarSize = isEscalate ? 36 : 30;
+
   return (
     <li
       className={`group relative border-b last:border-b-0 transition-colors hover:bg-[color:var(--color-slate-50)]`}
@@ -273,8 +275,8 @@ function Tier1RowUI({ row }: { row: Tier1Row }) {
           )}
         </div>
 
-        <div className="flex w-[170px] shrink-0 items-center gap-2.5">
-          <AthleteAvatar id={athlete.id} name={athlete.name} size={28} />
+        <div className="flex w-[170px] shrink-0 items-center gap-3">
+          <AthleteAvatar id={athlete.id} name={athlete.name} size={avatarSize} />
           <div className="min-w-0">
             <div className={nameCls} style={{ color: "var(--color-text-primary)" }}>
               {athlete.name}
