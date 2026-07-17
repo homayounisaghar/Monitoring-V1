@@ -11,6 +11,7 @@ import { ValueOnTrack } from "@/components/data/ValueOnTrack";
 import { copy, tmpl } from "@/lib/copy-deck";
 import { METRICS as METRIC_LIB } from "@/lib/squad-metrics";
 import { ScopeTag } from "@/components/session/ScopeTag";
+import { SegmentedToggle } from "@/components/data/SegmentedToggle";
 
 /* ---------- Static (curated) squad averages, keyed to Benchmark ---------- */
 
@@ -610,37 +611,6 @@ function SrpeBadge({
   );
 }
 
-function SegmentedToggle<T extends string>({
-  value,
-  onChange,
-  options,
-}: {
-  value: T;
-  onChange: (id: T) => void;
-  options: Array<{ id: T; label: string }>;
-}) {
-  return (
-    <div
-      className="inline-flex rounded-md p-0.5"
-      style={{
-        backgroundColor: "var(--color-slate-100)",
-        border: "1px solid var(--color-border)",
-      }}
-    >
-      {options.map((o) => (
-        <button
-          key={o.id}
-          onClick={() => onChange(o.id)}
-          className={`type-micro rounded px-2.5 py-1 transition-colors ${
-            o.id === value ? "sel-active" : "sel-idle"
-          }`}
-        >
-          {o.label}
-        </button>
-      ))}
-    </div>
-  );
-}
 
 function ZoneBar({
   shares,
