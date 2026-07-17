@@ -650,7 +650,9 @@ function TableBody({
                         display={display}
                         rowScaled={rowScaled}
                         rowBuilding={rowBuilding}
+                        buildingIds={buildingIds}
                       />
+
                     </td>
                   );
                 })}
