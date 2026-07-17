@@ -5,13 +5,11 @@ import { useSessionScope } from "@/lib/session-scope";
 import { copy } from "@/lib/copy-deck";
 import { buildShareUrl, isShareStateDefault, type ShareDefaults } from "@/lib/share-state";
 
-const DEFAULTS: ShareDefaults = {
-  reference: "own_typical",
-  benchmark: "typical_match",
-  squadView: "table",
-  squadDisplay: "absolute",
-  squadSort: { key: "name", dir: "asc" },
-  squadChartMetric: "totalDistance",
+const STATIC_DEFAULTS = {
+  squadView: "table" as const,
+  squadDisplay: "absolute" as const,
+  squadSort: { key: "name" as const, dir: "asc" as const },
+  squadChartMetric: "totalDistance" as const,
 };
 
 export function EventBanner() {
@@ -34,6 +32,8 @@ export function EventBanner() {
     dayCode,
     reference,
     benchmark,
+    defaultReference,
+    defaultBenchmark,
     filter,
     filterIsDefault,
     squadView,
@@ -41,6 +41,12 @@ export function EventBanner() {
     squadSort,
     squadChartMetric,
   } = scope;
+
+  const defaults: ShareDefaults = {
+    reference: defaultReference.kind,
+    benchmark: defaultBenchmark.kind,
+    ...STATIC_DEFAULTS,
+  };
 
   const shareState = {
     reference: reference.kind,
@@ -60,13 +66,13 @@ export function EventBanner() {
       squadSort,
       squadChartMetric,
     },
-    DEFAULTS,
+    defaults,
     filterIsDefault,
   );
 
   const handleCopyLink = async () => {
     if (typeof window === "undefined") return;
-    const url = buildShareUrl(window.location.origin, s.id, shareState, DEFAULTS, filterIsDefault);
+    const url = buildShareUrl(window.location.origin, s.id, shareState, defaults, filterIsDefault);
     try {
       await navigator.clipboard.writeText(url);
       setCopied(true);
