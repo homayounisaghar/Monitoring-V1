@@ -18,9 +18,10 @@ import { useNavigate } from "@tanstack/react-router";
 import { Info, ChevronDown } from "lucide-react";
 import { useSessionScope, COVERAGE_MIN, CLOSER_KEY_BY_SCENARIO } from "@/lib/session-scope";
 import {
-  BUILDING_SESSIONS_TO_MIN,
+  BASELINE_COMPARABLE_MIN,
   type Tier1Row,
 } from "@/lib/session-flags";
+import type { Athlete } from "@/lib/session-data";
 import { copy, tmpl, BUILDING_BASELINE_MIN_SESSIONS } from "@/lib/copy-deck";
 import { ValueOnTrack } from "@/components/data/ValueOnTrack";
 import { AthleteAvatar } from "@/components/data/AthleteAvatar";
@@ -37,6 +38,7 @@ export function AttentionCard() {
     reference,
     defaultReference,
     buildingIds,
+    comparableCount,
   } = useSessionScope();
   const referenceIsDefault = reference.kind === defaultReference.kind;
 
@@ -57,10 +59,15 @@ export function AttentionCard() {
   const clearCount = effectiveParticipants.length - flaggedSet.size;
   const manageCount = tier1.length;
 
-  const isAllClear = tier1.length === 0 && squadLowCov.length === 0;
-  const isCovThin =
-    tier1.length === 0 &&
+  const hasFlags = tier1.length > 0;
+  const covThin =
+    effectiveParticipants.length > 0 &&
     squadLowCov.length / effectiveParticipants.length > 0.5;
+  const baselineThin = comparableCount < BASELINE_COMPARABLE_MIN;
+
+  // Precedence: flags > covThin > baselineThin > allClear.
+  const headlineState: "flags" | "covThin" | "baselineThin" | "allClear" =
+    hasFlags ? "flags" : covThin ? "covThin" : baselineThin ? "baselineThin" : "allClear";
 
   // Out-of-scope escalation notice (A9).
   const inScopeIds = new Set(activeAthletes.map((a) => a.id));
@@ -83,18 +90,21 @@ export function AttentionCard() {
       >
         {/* Headline slot */}
         <Headline
-          state={isCovThin ? "covThin" : isAllClear ? "allClear" : "flags"}
+          state={headlineState}
           manageCount={manageCount}
           clearCount={clearCount}
           totalSquad={totalParticipants}
           squadLowCov={squadLowCov.length}
+          comparableCount={comparableCount}
         />
 
         {/* Body by state */}
-        {isCovThin ? (
+        {headlineState === "covThin" ? (
           <CovThinBody rows={squadLowCov.map((a) => ({ id: a.id, name: a.name, cov: a.hrCoveragePct ?? 0 }))} />
-        ) : isAllClear ? (
-          <AllClearBody buildCount={building.length} />
+        ) : headlineState === "baselineThin" ? (
+          <BaselineThinBody building={building} />
+        ) : headlineState === "allClear" ? (
+          <AllClearBody building={building} />
         ) : (
           <>
             <ul>
@@ -111,7 +121,10 @@ export function AttentionCard() {
 
             <AccountingLine
               lowCov={squadLowCov.map((a) => ({ name: a.name, cov: a.hrCoveragePct ?? 0 }))}
-              buildCount={building.length}
+              building={building}
+              baselineThin={baselineThin}
+              comparableCount={comparableCount}
+              totalSquad={totalParticipants}
             />
 
             <CloserLine />
@@ -122,6 +135,7 @@ export function AttentionCard() {
   );
 }
 
+
 /* ---------- Headline ---------- */
 
 function Headline({
@@ -130,13 +144,34 @@ function Headline({
   clearCount,
   totalSquad,
   squadLowCov,
+  comparableCount,
 }: {
-  state: "flags" | "allClear" | "covThin";
+  state: "flags" | "allClear" | "covThin" | "baselineThin";
   manageCount: number;
   clearCount: number;
   totalSquad: number;
   squadLowCov: number;
+  comparableCount: number;
 }) {
+  if (state === "baselineThin") {
+    return (
+      <div
+        className="flex items-baseline justify-between gap-6 border-b px-5 py-4"
+        style={{ borderColor: "var(--color-border)" }}
+      >
+        <span
+          className="type-display"
+          style={{ color: "var(--color-text-primary)" }}
+        >
+          {tmpl("attention.baselineThin.headlineTemplate", {
+            n: comparableCount,
+            total: totalSquad,
+          })}
+        </span>
+      </div>
+    );
+  }
+
   if (state === "covThin") {
     return (
       <div
@@ -284,7 +319,7 @@ function Tier1RowUI({ row }: { row: Tier1Row }) {
         <div className="flex w-[170px] shrink-0 items-center gap-3">
           <AthleteAvatar id={athlete.id} name={athlete.name} size={avatarSize} />
           <div className="min-w-0">
-            <div className={nameCls} style={{ color: "var(--color-text-primary)" }}>
+            <div className={`${nameCls} truncate`} title={athlete.name} style={{ color: "var(--color-text-primary)" }}>
               {athlete.name}
             </div>
             <div
@@ -442,16 +477,41 @@ function OutsideEscalationLine() {
 
 function AccountingLine({
   lowCov,
-  buildCount,
+  building,
+  baselineThin,
+  comparableCount,
+  totalSquad,
 }: {
   lowCov: Array<{ name: string; cov: number }>;
-  buildCount: number;
+  building: Athlete[];
+  baselineThin: boolean;
+  comparableCount: number;
+  totalSquad: number;
 }) {
-  if (lowCov.length === 0 && buildCount === 0) return null;
+  if (lowCov.length === 0 && building.length === 0 && !baselineThin) return null;
 
   const parts: Array<React.ReactNode> = [];
 
+  // Baseline-thin lead segment when it coexists with flags (early_season).
+  if (baselineThin) {
+    parts.push(
+      <span key="baselineLead" style={{ color: "var(--color-text-secondary)" }}>
+        {tmpl("attention.baselineThin.leadTemplate", {
+          n: comparableCount,
+          total: totalSquad,
+        })}
+      </span>,
+    );
+  }
+
   if (lowCov.length > 0) {
+    if (parts.length > 0) {
+      parts.push(
+        <span key="lc-sep" style={{ color: "var(--color-text-tertiary)" }}>
+          {"  ·  "}
+        </span>,
+      );
+    }
     parts.push(
       <span key="prefix" style={{ color: "var(--color-text-tertiary)" }}>
         {copy("attention.accountingLine.prefix")} —{" "}
@@ -482,23 +542,26 @@ function AccountingLine({
     });
   }
 
-  if (buildCount > 0) {
-    if (parts.length > 0) {
+  if (building.length > 0) {
+    building.forEach((a, i) => {
+      if (parts.length > 0) {
+        parts.push(
+          <span key={`build-sep-${i}`} style={{ color: "var(--color-text-tertiary)" }}>
+            {"  ·  "}
+          </span>,
+        );
+      }
+      const done = a.historySessions ?? 0;
       parts.push(
-        <span key="build-sep" style={{ color: "var(--color-text-tertiary)" }}>
-          {"  ·  "}
+        <span key={`build-${a.id}`} style={{ color: "var(--color-text-secondary)" }}>
+          {a.name} —{" "}
+          {tmpl("attention.baseline.suffixTemplate", {
+            done,
+            min: BUILDING_BASELINE_MIN_SESSIONS,
+          })}
         </span>,
       );
-    }
-    parts.push(
-      <span key="build" style={{ color: "var(--color-text-secondary)" }}>
-        B. Köhler —{" "}
-        {tmpl("attention.baseline.suffixTemplate", {
-          done: BUILDING_SESSIONS_TO_MIN,
-          min: BUILDING_BASELINE_MIN_SESSIONS,
-        })}
-      </span>,
-    );
+    });
   }
 
   return (
@@ -513,6 +576,7 @@ function AccountingLine({
     </div>
   );
 }
+
 
 /* ---------- Card close (A6) ---------- */
 
@@ -548,19 +612,23 @@ function CloserLine() {
 
 /* ---------- All-clear body ---------- */
 
-function AllClearBody({ buildCount }: { buildCount: number }) {
+function AllClearBody({ building }: { building: Athlete[] }) {
   return (
     <div className="px-5 pb-4 pt-3">
-      {buildCount > 0 && (
+      {building.length > 0 && (
         <div
-          className="text-[12.5px]"
+          className="text-[12.5px] space-y-0.5"
           style={{ color: "var(--color-text-secondary)" }}
         >
-          B. Köhler —{" "}
-          {tmpl("attention.baseline.suffixTemplate", {
-            done: BUILDING_SESSIONS_TO_MIN,
-            min: BUILDING_BASELINE_MIN_SESSIONS,
-          })}
+          {building.map((a) => (
+            <div key={a.id}>
+              {a.name} —{" "}
+              {tmpl("attention.baseline.suffixTemplate", {
+                done: a.historySessions ?? 0,
+                min: BUILDING_BASELINE_MIN_SESSIONS,
+              })}
+            </div>
+          ))}
         </div>
       )}
       <div className="mt-3">
@@ -580,6 +648,37 @@ function AllClearBody({ buildCount }: { buildCount: number }) {
     </div>
   );
 }
+
+/* ---------- Baseline-thin body (not reachable via any current scenario;
+    implemented per spec). Headline uses the covThin dress; body lists
+    building athletes in the accounting-line dress. ---------- */
+
+function BaselineThinBody({ building }: { building: Athlete[] }) {
+  if (building.length === 0) return null;
+  return (
+    <div
+      className="px-5 py-2.5 text-[12.5px]"
+      style={{
+        backgroundColor: "var(--color-slate-50)",
+        color: "var(--color-text-secondary)",
+      }}
+    >
+      {building.map((a, i) => (
+        <span key={a.id}>
+          {i > 0 && (
+            <span style={{ color: "var(--color-text-tertiary)" }}>{"  ·  "}</span>
+          )}
+          {a.name} —{" "}
+          {tmpl("attention.baseline.suffixTemplate", {
+            done: a.historySessions ?? 0,
+            min: BUILDING_BASELINE_MIN_SESSIONS,
+          })}
+        </span>
+      ))}
+    </div>
+  );
+}
+
 
 /* ---------- Coverage-thin body ---------- */
 

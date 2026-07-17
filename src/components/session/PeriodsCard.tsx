@@ -25,6 +25,7 @@ import {
   PERIODS_SQUAD_SIZE,
   type PeriodBlock,
 } from "@/lib/session-data";
+import { useSessionScope } from "@/lib/session-scope";
 import { ScopeTag } from "@/components/session/ScopeTag";
 import {
   HoverCard,
@@ -197,6 +198,8 @@ function computeAggregates(
 export function PeriodsCard() {
   const [view, setView] = useState<"halves" | "15min">("15min");
   const [hoverCol, setHoverCol] = useState<string | null>(null);
+  const { demo } = useSessionScope();
+  const noHr = demo === "no_hr_data";
 
   const { rows, peakId, totalMin, coveredMin } = useMemo(
     () => computeAggregates(periodsBlocks, view),
@@ -283,23 +286,36 @@ export function PeriodsCard() {
             label={copy("canonical.axisGroup.internalCost")}
           />
 
-          {METRICS.filter((m) => m.axis === "cost").map((m) => (
-            <Lane
-              key={m.key}
-              metric={m}
-              rows={rows}
-              gridTemplate={gridTemplate}
-              peakId={peakId}
-              hoverCol={hoverCol}
-              setHoverCol={setHoverCol}
-              showRightTicks={false}
-              rowsAll={rows}
-              view={view}
-              partialInternal={partialInternal}
-              totalMin={totalMin}
-              coveredMin={coveredMin}
-            />
-          ))}
+          {noHr ? (
+            <div
+              className="mt-3 rounded-md border px-3 py-4 text-center type-label"
+              style={{
+                borderColor: "var(--color-border)",
+                backgroundColor: "var(--color-slate-50)",
+                color: "var(--color-text-tertiary)",
+              }}
+            >
+              {copy("periods.internalNotMeasured")}
+            </div>
+          ) : (
+            METRICS.filter((m) => m.axis === "cost").map((m) => (
+              <Lane
+                key={m.key}
+                metric={m}
+                rows={rows}
+                gridTemplate={gridTemplate}
+                peakId={peakId}
+                hoverCol={hoverCol}
+                setHoverCol={setHoverCol}
+                showRightTicks={false}
+                rowsAll={rows}
+                view={view}
+                partialInternal={partialInternal}
+                totalMin={totalMin}
+                coveredMin={coveredMin}
+              />
+            ))
+          )}
 
           {/* Gap row */}
           <div
