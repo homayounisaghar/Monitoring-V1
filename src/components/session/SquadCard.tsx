@@ -891,6 +891,8 @@ function ChartBody({
   flagged,
   onRowClick,
   onScrollToAttention,
+  filterIsDefault,
+  buildingIds,
 }: {
   metric: Metric;
   display: DisplayMode;
@@ -899,7 +901,10 @@ function ChartBody({
   flagged: Set<string>;
   onRowClick: (a: Athlete) => void;
   onScrollToAttention: () => void;
+  filterIsDefault: boolean;
+  buildingIds: Set<string>;
 }) {
+
   // ranked: everyone with a value AND (in % mode) a reference.
   // building baseline (Köhler) has value in absolute but no ref → he
   // ranks in absolute; in % he sinks to the foot of the ranked list.
