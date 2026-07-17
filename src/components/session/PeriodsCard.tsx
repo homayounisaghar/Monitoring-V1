@@ -32,6 +32,7 @@ import {
   HoverCardContent,
   HoverCardTrigger,
 } from "@/components/ui/hover-card";
+import { SegmentedToggle } from "@/components/data/SegmentedToggle";
 
 /* ---------- Geometry ---------- */
 
@@ -230,7 +231,14 @@ export function PeriodsCard() {
           </span>
         </div>
         <div className="flex items-center gap-3">
-          <GranularityToggle value={view} onChange={setView} />
+          <SegmentedToggle
+            value={view}
+            onChange={setView}
+            options={[
+              { id: "halves", label: copy("canonical.filter.granularity.halves") },
+              { id: "15min", label: copy("canonical.filter.granularity.blocks15") },
+            ]}
+          />
           <ScopeTag full />
         </div>
       </header>
@@ -301,7 +309,7 @@ export function PeriodsCard() {
               }}
             >
               <div>{copy("periods.internalNotMeasured")}</div>
-              <div className="mt-1 type-num text-[11px]">
+              <div className="mt-1 type-num text-[12px]">
                 {tmpl("periods.hover.covFootTemplate", {
                   covered: coveredMin,
                   total: totalMin,
@@ -383,7 +391,7 @@ function GroupHead({
       </div>
       {rightNote && (
         <span
-          className="type-num text-[11px]"
+          className="type-num text-[12px]"
           style={{ color: "var(--color-text-tertiary)" }}
         >
           {rightNote}
@@ -438,7 +446,7 @@ function TimeHeader({
 
             {isPeak && (
               <span
-                className="rounded px-1 py-[1px] type-data-label text-[10px]"
+                className="rounded px-1 py-[1px] type-data-label text-[12px]"
                 style={{
                   backgroundColor: "var(--color-slate-100)",
                   color: "var(--color-text-secondary)",
@@ -499,7 +507,7 @@ function Lane({
           {metric.label}
         </span>
         <span
-          className="type-data-label text-[10.5px]"
+          className="type-data-label text-[12px]"
           style={{ color: "var(--color-text-tertiary)" }}
         >
           {unit}
@@ -575,7 +583,7 @@ function Lane({
               return (
                 <span
                   key={t}
-                  className="absolute left-1 type-num text-[10px]"
+                  className="absolute left-1 type-num text-[10.5px]"
                   style={{
                     top: y - 6,
                     color: "var(--color-text-tertiary)",
@@ -588,7 +596,7 @@ function Lane({
           </>
         ) : (
           <span
-            className="absolute left-1 type-num text-[10px]"
+            className="absolute left-1 type-num text-[10.5px]"
             style={{
               top: 24 + (PERIODS_DOMAIN_MAX - 100) * PX_PER_PT - 6,
               color: "var(--color-text-tertiary)",
@@ -616,7 +624,7 @@ function NumeralHead({
   if (cell.value === null || cell.rate === null) {
     return (
       <span
-        className="type-num text-[11px]"
+        className="type-num text-[13px]"
         style={{ color: "var(--color-text-tertiary)" }}
       >
         —
@@ -629,7 +637,7 @@ function NumeralHead({
   const thinCoverage = isCardio && (thinAthletes || partialCoverage);
   return (
     <span
-      className="type-num inline-flex items-baseline gap-1 text-[11px]"
+      className="type-num inline-flex items-baseline gap-1 text-[13px]"
       style={{ color: "var(--color-text-secondary)" }}
     >
       {thinCoverage && (
@@ -644,7 +652,7 @@ function NumeralHead({
       </span>
       {clamped && (
         <span
-          className="type-num text-[10.5px]"
+          className="type-num text-[13px]"
           style={{ color: "var(--color-text-tertiary)" }}
         >
           · {Math.round(cell.rate)}%
@@ -1013,7 +1021,7 @@ function Legend() {
   ];
   return (
     <div className="flex flex-col gap-1.5">
-      <div className="flex items-center gap-x-3 gap-y-1 flex-wrap type-num text-[11px]" style={tertiary}>
+      <div className="flex items-center gap-x-3 gap-y-1 flex-wrap type-num text-[12px]" style={tertiary}>
         {terms.map((term, i) => (
           <span key={i} className="inline-flex items-center gap-1.5">
             {i > 0 && <span aria-hidden className="mr-1">·</span>}
@@ -1022,7 +1030,7 @@ function Legend() {
           </span>
         ))}
       </div>
-      <div className="type-num text-[11px]" style={tertiary}>
+      <div className="type-num text-[12px]" style={tertiary}>
         {copy("periods.legend.gap")}
       </div>
     </div>
@@ -1031,48 +1039,5 @@ function Legend() {
 
 
 
-/* ---------- Granularity toggle (unchanged shape) ---------- */
 
-function GranularityToggle({
-  value,
-  onChange,
-}: {
-  value: "halves" | "15min";
-  onChange: (v: "halves" | "15min") => void;
-}) {
-  const options: Array<{ id: "halves" | "15min"; label: string }> = [
-    { id: "halves", label: copy("canonical.filter.granularity.halves") },
-    { id: "15min", label: copy("canonical.filter.granularity.blocks15") },
-  ];
-  return (
-    <div
-      className="inline-flex rounded-md border p-0.5"
-      style={{
-        borderColor: "var(--color-border)",
-        backgroundColor: "var(--color-canvas)",
-      }}
-    >
-      {options.map((o) => {
-        const active = o.id === value;
-        return (
-          <button
-            key={o.id}
-            onClick={() => onChange(o.id)}
-            className="rounded px-2.5 py-1 text-[12px] transition-colors"
-            style={{
-              backgroundColor: active
-                ? "var(--color-slate-200)"
-                : "transparent",
-              color: active
-                ? "var(--color-text-primary)"
-                : "var(--color-text-secondary)",
-              fontWeight: active ? 600 : 500,
-            }}
-          >
-            {o.label}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
+

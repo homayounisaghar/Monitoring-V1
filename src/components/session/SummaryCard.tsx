@@ -11,6 +11,7 @@ import { ValueOnTrack } from "@/components/data/ValueOnTrack";
 import { copy, tmpl } from "@/lib/copy-deck";
 import { METRICS as METRIC_LIB } from "@/lib/squad-metrics";
 import { ScopeTag } from "@/components/session/ScopeTag";
+import { SegmentedToggle } from "@/components/data/SegmentedToggle";
 
 /* ---------- Static (curated) squad averages, keyed to Benchmark ---------- */
 
@@ -114,7 +115,7 @@ function AxisDot({ axis }: { axis: "work" | "cost" }) {
 function RefParen({ children }: { children: React.ReactNode }) {
   return (
     <span
-      className="type-num text-[11px]"
+      className="type-num text-[12px]"
       style={{ color: "var(--color-text-tertiary)" }}
     >
       ({children})
@@ -448,7 +449,7 @@ function WorkMark({
       />
       {basisLabel && (
         <div
-          className="type-num text-[10px] text-center"
+          className="type-num text-[12px] text-center"
           style={{ color: "var(--color-text-tertiary)" }}
         >
           {basisLabel}
@@ -516,7 +517,7 @@ function CoverageBadge({
   if (!degraded) {
     return (
       <span
-        className="type-num text-[11px]"
+        className="type-num text-[12px]"
         style={{ color: "var(--color-text-tertiary)" }}
       >
         · {covered} of {total}
@@ -527,7 +528,7 @@ function CoverageBadge({
     <span className="relative">
       <button
         onClick={() => setOpen((o) => !o)}
-        className="inline-flex items-center gap-1 rounded px-1 py-0.5 type-num text-[11px] transition-colors hover:bg-[color:var(--color-slate-100)]"
+        className="inline-flex items-center gap-1 rounded px-1 py-0.5 type-num text-[12px] transition-colors hover:bg-[color:var(--color-slate-100)]"
         style={{ color: "var(--color-text-secondary)" }}
       >
         <span
@@ -581,7 +582,7 @@ function SrpeBadge({
     <span className="relative">
       <button
         onClick={() => setOpen((o) => !o)}
-        className="inline-flex items-center gap-1 rounded px-1 py-0.5 type-num text-[11px] transition-colors hover:bg-[color:var(--color-slate-100)]"
+        className="inline-flex items-center gap-1 rounded px-1 py-0.5 type-num text-[12px] transition-colors hover:bg-[color:var(--color-slate-100)]"
         style={{ color: "var(--color-text-secondary)" }}
       >
         <span
@@ -610,37 +611,6 @@ function SrpeBadge({
   );
 }
 
-function SegmentedToggle<T extends string>({
-  value,
-  onChange,
-  options,
-}: {
-  value: T;
-  onChange: (id: T) => void;
-  options: Array<{ id: T; label: string }>;
-}) {
-  return (
-    <div
-      className="inline-flex rounded-md p-0.5"
-      style={{
-        backgroundColor: "var(--color-slate-100)",
-        border: "1px solid var(--color-border)",
-      }}
-    >
-      {options.map((o) => (
-        <button
-          key={o.id}
-          onClick={() => onChange(o.id)}
-          className={`type-micro rounded px-2.5 py-1 transition-colors ${
-            o.id === value ? "sel-active" : "sel-idle"
-          }`}
-        >
-          {o.label}
-        </button>
-      ))}
-    </div>
-  );
-}
 
 function ZoneBar({
   shares,
@@ -664,7 +634,7 @@ function ZoneBar({
           />
         ))}
       </div>
-      <div className="flex text-[11px]">
+      <div className="flex text-[12px]">
         {shares.map((s) => {
           // Full label "Zn — nn%" is ~52px at 11px; drop it under ~12%
           // (the segment's title/hover still carries it). Never truncate.
@@ -717,7 +687,7 @@ function FullMatchRead({ label, pct }: { label: string; pct: number }) {
       />
       {/* End labels — the axis itself draws them */}
       <div
-        className="flex justify-between type-num text-[10px]"
+        className="flex justify-between type-num text-[10.5px]"
         style={{ color: "var(--color-text-tertiary)" }}
       >
         <span>{copy("canonical.summary.vsFullMatch.tick0")}</span>
@@ -838,7 +808,7 @@ function ParticipationCard({
             <span key={seg.tag} className="inline-flex items-center gap-x-3">
               {idx > 0 && (
                 <span
-                  className="type-num text-[11px]"
+                  className="type-num text-[12px]"
                   style={{ color: "var(--color-text-tertiary)" }}
                   aria-hidden
                 >
@@ -847,7 +817,7 @@ function ParticipationCard({
               )}
               {inlineNames ? (
                 <span
-                  className="inline-flex items-center gap-1.5 text-[11.5px]"
+                  className="inline-flex items-center gap-1.5 text-[12px]"
                   style={{ color: "var(--color-text-secondary)" }}
                 >
                   <span
@@ -868,7 +838,7 @@ function ParticipationCard({
               ) : (
                 <button
                   onClick={() => setPopover((p) => (p === seg.tag ? null : seg.tag))}
-                  className="inline-flex items-center gap-1.5 text-[11.5px] transition-colors hover:text-[color:var(--color-text-primary)]"
+                  className="inline-flex items-center gap-1.5 text-[12px] transition-colors hover:text-[color:var(--color-text-primary)]"
                   style={{ color: "var(--color-text-secondary)" }}
                 >
                   <span
@@ -894,7 +864,7 @@ function ParticipationCard({
             tabIndex={0}
           >
             <span
-              className="type-num text-[11px] cursor-default"
+              className="type-num text-[12px] cursor-default"
               style={{ color: "var(--color-text-tertiary)" }}
               aria-label={copy("participation.zerosHover")}
             >

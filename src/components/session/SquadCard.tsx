@@ -40,6 +40,7 @@ import {
   type Metric,
   type MetricId,
 } from "@/lib/squad-metrics";
+import { SegmentedToggle } from "@/components/data/SegmentedToggle";
 import { BUILDING_SESSIONS_TO_MIN, flaggedIds } from "@/lib/session-flags";
 import { BUILDING_BASELINE_MIN_SESSIONS } from "@/lib/copy-deck";
 
@@ -1403,7 +1404,7 @@ function ColumnsPicker({
                   >
                     <span>{METRICS[id].label}</span>
                     <span
-                      className="type-num text-[10px]"
+                      className="type-num text-[12px]"
                       style={{ color: "var(--color-text-tertiary)" }}
                     >
                       {on ? copy("canonical.squad.picker.on") : copy("canonical.squad.picker.off")}
@@ -1450,44 +1451,6 @@ function ColumnsPicker({
 /* Small pieces                                                  */
 /* ============================================================ */
 
-function SegmentedToggle<T extends string>({
-  value,
-  onChange,
-  options,
-}: {
-  value: T;
-  onChange: (v: T) => void;
-  options: { id: T; label: string }[];
-}) {
-  return (
-    <div
-      className="inline-flex rounded-md border p-0.5"
-      style={{
-        borderColor: "var(--color-border)",
-        backgroundColor: "var(--color-canvas)",
-      }}
-    >
-      {options.map((o) => {
-        const active = value === o.id;
-        return (
-          <button
-            key={o.id}
-            onClick={() => onChange(o.id)}
-            className="rounded px-2.5 py-1 text-[12px] transition-colors"
-            style={{
-              backgroundColor: active
-                ? "var(--color-slate-900)"
-                : "transparent",
-              color: active ? "white" : "var(--color-text-secondary)",
-            }}
-          >
-            {o.label}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
 
 /* ---------- helpers ---------- */
 
