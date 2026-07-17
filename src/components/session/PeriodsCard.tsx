@@ -16,6 +16,7 @@
  */
 import { useMemo, useState } from "react";
 import { copy, tmpl } from "@/lib/copy-deck";
+import { METRICS as METRIC_LIB } from "@/lib/squad-metrics";
 import {
   periodsBlocks,
   PERIODS_DISPLAY_FLOOR,
@@ -49,14 +50,14 @@ type Axis = "work" | "cost";
 
 const METRICS: Array<{
   key: MetricKey;
-  labelKey: string;
+  label: string;
   unitKey: string;
   axis: Axis;
 }> = [
-  { key: "totalDistance", labelKey: "canonical.summary.metric.totalDistance", unitKey: "periods.unit.m",  axis: "work" },
-  { key: "hsr",           labelKey: "canonical.summary.metric.hsr",           unitKey: "periods.unit.m",  axis: "work" },
-  { key: "accelDecel",    labelKey: "canonical.summary.metric.accDec",        unitKey: "periods.unit.ct", axis: "work" },
-  { key: "cardioLoad",    labelKey: "canonical.summary.metric.cardioLoad",    unitKey: "periods.unit.cl", axis: "cost" },
+  { key: "totalDistance", label: METRIC_LIB.totalDistance.label, unitKey: "periods.unit.m",  axis: "work" },
+  { key: "hsr",           label: METRIC_LIB.hsr.label,           unitKey: "periods.unit.m",  axis: "work" },
+  { key: "accelDecel",    label: METRIC_LIB.accDec.label,        unitKey: "periods.unit.ct", axis: "work" },
+  { key: "cardioLoad",    label: METRIC_LIB.cardioLoad.label,    unitKey: "periods.unit.cl", axis: "cost" },
 ];
 
 
@@ -468,7 +469,7 @@ function Lane({
           className="type-label"
           style={{ color: "var(--color-text-primary)" }}
         >
-          {copy(metric.labelKey)}
+          {metric.label}
         </span>
         <span
           className="type-data-label text-[10.5px]"
@@ -823,8 +824,7 @@ function BlockHover({
   const extRate = row.cells.totalDistance.rate;
   const rows: Array<{ label: string; body: string }> = [];
 
-  const push = (labelKey: string, cell: MetricCell, unitKey: string) => {
-    const label = copy(labelKey);
+  const push = (label: string, cell: MetricCell, unitKey: string) => {
     const unit = copy(unitKey);
     if (cell.value === null || cell.rate === null) {
       const covTxt =
@@ -854,10 +854,10 @@ function BlockHover({
     rows.push({ label, body });
   };
 
-  push("canonical.summary.metric.totalDistance", row.cells.totalDistance, "periods.unit.m");
-  push("canonical.summary.metric.hsr", row.cells.hsr, "periods.unit.m");
-  push("canonical.summary.metric.accDec", row.cells.accelDecel, "periods.unit.ct");
-  push("canonical.summary.metric.cardioLoad", row.cells.cardioLoad, "periods.unit.cl");
+  push(METRIC_LIB.totalDistance.label, row.cells.totalDistance, "periods.unit.m");
+  push(METRIC_LIB.hsr.label, row.cells.hsr, "periods.unit.m");
+  push(METRIC_LIB.accDec.label, row.cells.accelDecel, "periods.unit.ct");
+  push(METRIC_LIB.cardioLoad.label, row.cells.cardioLoad, "periods.unit.cl");
 
 
   const gapBody =

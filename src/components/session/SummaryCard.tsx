@@ -9,6 +9,7 @@ import { useSessionScope, currentSession, COVERAGE_MIN } from "@/lib/session-sco
 import type { ParticipationTag } from "@/lib/session-data";
 import { ValueOnTrack } from "@/components/data/ValueOnTrack";
 import { copy, tmpl } from "@/lib/copy-deck";
+import { METRICS as METRIC_LIB } from "@/lib/squad-metrics";
 import { ScopeTag } from "@/components/session/ScopeTag";
 
 /* ---------- Static (curated) squad averages, keyed to Benchmark ---------- */
@@ -212,7 +213,7 @@ export function SummaryCard() {
           >
             <div className="grid grid-cols-2 gap-x-5 gap-y-4">
               <WorkMark
-                label={copy("canonical.summary.metric.totalDistance")}
+                label={METRIC_LIB.totalDistance.label}
                 value={marks.totalDistanceM}
                 reference={refs.refTotalDistanceM}
                 unit="m"
@@ -220,19 +221,19 @@ export function SummaryCard() {
               />
 
               <WorkMark
-                label={copy("canonical.summary.metric.relativeDistance")}
+                label={METRIC_LIB.mMin.label}
                 value={marks.relDistanceMpm}
                 reference={refs.refRelDistanceMpm}
                 unit="m/min"
               />
               <WorkMark
-                label={copy("canonical.summary.metric.hsr")}
+                label={METRIC_LIB.hsr.label}
                 value={marks.hsrM}
                 reference={refs.refHsrM}
                 unit="m"
               />
               <WorkMark
-                label={copy("canonical.summary.metric.accDec")}
+                label={METRIC_LIB.accDec.label}
                 value={marks.accDec}
                 reference={refs.refAccDec}
                 unit="ct"
@@ -245,7 +246,7 @@ export function SummaryCard() {
             <div className="grid grid-cols-1 gap-x-5 gap-y-4">
               {/* Cardio Load */}
               <CostMark
-                label={copy("canonical.summary.metric.cardioLoad")}
+                label={METRIC_LIB.cardioLoad.label}
                 value={marks.cardioLoadCL}
                 reference={refs.refCardioLoadCL}
                 unit="CL"
@@ -266,7 +267,7 @@ export function SummaryCard() {
               {srpeState === "none" ? (
                 <div className="space-y-1">
                   <div className="flex items-baseline justify-between">
-                    <span className="type-data-label">{copy("canonical.summary.metric.srpe")}</span>
+                    <span className="type-data-label">{METRIC_LIB.srpe.label}</span>
                     <span
                       className="type-num text-[13px]"
                       style={{ color: "var(--color-text-tertiary)" }}
@@ -277,7 +278,7 @@ export function SummaryCard() {
                 </div>
               ) : (
                 <CostMark
-                  label={copy("canonical.summary.metric.srpe")}
+                  label={METRIC_LIB.srpe.label}
                   value={
                     srpeState === "filled"
                       ? marks.srpeMean
@@ -419,7 +420,7 @@ function WorkMark({
           style={{ color: "var(--color-text-primary)" }}
         >
           {value.toLocaleString()}
-          <span className="type-data-label ml-0.5">{unit}</span>
+          {label !== unit && <span className="type-data-label ml-0.5">{unit}</span>}
         </span>
       </div>
       <ValueOnTrack
@@ -470,7 +471,7 @@ function CostMark({
           style={{ color: "var(--color-text-primary)" }}
         >
           {value.toLocaleString()}
-          <span className="type-data-label ml-0.5">{unit}</span>
+          {label !== unit && <span className="type-data-label ml-0.5">{unit}</span>}
         </span>
       </div>
       <ValueOnTrack
