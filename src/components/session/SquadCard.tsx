@@ -559,23 +559,8 @@ function TableBody({
             })}
           </tr>
 
-          {items.map((it, idx) => {
-            if (it.kind === "header") {
-              return (
-                <tr
-                  key={`h-${it.pos}-${idx}`}
-                  style={{ backgroundColor: "var(--color-slate-50)" }}
-                >
-                  <td
-                    colSpan={totalCols}
-                    className="px-3 py-1.5 type-label"
-                    style={{ color: "var(--color-text-tertiary)" }}
-                  >
-                    {POSITION_LABEL[it.pos]}
-                  </td>
-                </tr>
-              );
-            }
+          {items.map((it) => {
+
             const a = it.a;
             const rowScaled =
               a.participation !== null &&
