@@ -154,6 +154,19 @@ export const CLOSER_KEY_BY_SCENARIO: Partial<Record<DemoScenario, string>> = {
   training_day: "attention.closer.trainingDay",
 };
 
+export const BUILDING_IDS_BY_SCENARIO: Partial<Record<DemoScenario, string[]>> = {
+  early_season: [
+    "werner", "schaefer", "koehler", "ebel", "frei", "wagner", "albrecht",
+    "brunner", "brandt", "kuhn", "voss", "lange", "hofmann",
+  ],
+};
+
+// Deterministic 1..4 history counts for early-season building athletes.
+const EARLY_SEASON_HISTORY: Record<string, number> = {
+  werner: 4, schaefer: 2, koehler: 3, ebel: 1, frei: 2, wagner: 3,
+  albrecht: 4, brunner: 2, brandt: 1, kuhn: 3, voss: 2, lange: 1, hofmann: 4,
+};
+
 function applyOverlay(
   demo: DemoScenario,
   participants: Athlete[],
@@ -194,8 +207,25 @@ function applyOverlay(
       };
     case "training_day":
       return { participants, tier1: sorted };
+    case "early_season":
+      return {
+        participants: participants.map((a) =>
+          a.id in EARLY_SEASON_HISTORY
+            ? { ...a, historySessions: EARLY_SEASON_HISTORY[a.id] }
+            : a,
+        ),
+        tier1: sorted.filter((r) => r.id === "fischer"),
+      };
+    case "no_hr_data":
+      return {
+        participants: participants.map((a) =>
+          a.hrCoveragePct === null ? a : { ...a, hrCoveragePct: 0 },
+        ),
+        tier1: [],
+      };
   }
 }
+
 
 export function SessionScopeProvider({ children }: { children: ReactNode }) {
   const [reference, setReference] = useState(REFERENCE_OPTIONS[0]);
