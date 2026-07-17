@@ -60,6 +60,7 @@ export const METRICS: Record<MetricId, Metric> = {
   z4z5Share:     { id: "z4z5Share",     label: "Z4+Z5 share",     short: "Z4+5",  axis: "cost",    unit: "%",     group: "internal", scaling: "rate",       decimals: 0, chartMax: 50 },
   volumePct:     { id: "volumePct",     label: "Volume %",        short: "Vol%",  axis: "work",    unit: "%",     group: "external", scaling: "vsFull",     decimals: 0, chartMax: 150 },
   intensityPct:  { id: "intensityPct",  label: "Intensity %",     short: "Int%",  axis: "work",    unit: "%",     group: "external", scaling: "vsFull",     decimals: 0, chartMax: 150 },
+  maxVel:        { id: "maxVel",         label: "Max velocity",    short: "Max vel", axis: "work",  unit: "km/h",  group: "external", scaling: "identity",   decimals: 1, chartMax: 40 },
 };
 
 /** Athlete + 7 metric columns = 8 default columns. */
