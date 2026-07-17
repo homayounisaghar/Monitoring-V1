@@ -1,5 +1,4 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { SessionScopeProvider } from "@/lib/session-scope";
 import { SourceSidebar } from "@/components/shell/SourceSidebar";
 import { DemoPill } from "@/components/shell/DemoPill";
 import { EventBanner } from "@/components/session/EventBanner";
@@ -26,7 +25,7 @@ export const Route = createFileRoute("/session")({
 
 function SessionRoute() {
   return (
-    <SessionScopeProvider>
+    <>
       <div className="flex min-h-[calc(100vh-3rem)]">
         <SourceSidebar />
         <div className="min-w-0 flex-1">
