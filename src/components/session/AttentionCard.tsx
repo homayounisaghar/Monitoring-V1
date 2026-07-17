@@ -24,6 +24,7 @@ import {
 } from "@/lib/session-flags";
 import { copy, tmpl, BUILDING_BASELINE_MIN_SESSIONS } from "@/lib/copy-deck";
 import { ValueOnTrack } from "@/components/data/ValueOnTrack";
+import { AthleteAvatar } from "@/components/data/AthleteAvatar";
 
 /* ---------- Component ---------- */
 
@@ -87,7 +88,7 @@ export function AttentionCard() {
 
         {/* Body by state */}
         {isCovThin ? (
-          <CovThinBody rows={squadLowCov.map((a) => ({ name: a.name, cov: a.hrCoveragePct ?? 0 }))} />
+          <CovThinBody rows={squadLowCov.map((a) => ({ id: a.id, name: a.name, cov: a.hrCoveragePct ?? 0 }))} />
         ) : isAllClear ? (
           <AllClearBody buildCount={building.length} />
         ) : (
@@ -272,15 +273,18 @@ function Tier1RowUI({ row }: { row: Tier1Row }) {
           )}
         </div>
 
-        <div className="w-[170px] shrink-0">
-          <div className={nameCls} style={{ color: "var(--color-text-primary)" }}>
-            {athlete.name}
-          </div>
-          <div
-            className="type-label"
-            style={{ color: "var(--color-text-tertiary)" }}
-          >
-            {athlete.posDetail}
+        <div className="flex w-[170px] shrink-0 items-center gap-2.5">
+          <AthleteAvatar id={athlete.id} name={athlete.name} size={28} />
+          <div className="min-w-0">
+            <div className={nameCls} style={{ color: "var(--color-text-primary)" }}>
+              {athlete.name}
+            </div>
+            <div
+              className="type-label"
+              style={{ color: "var(--color-text-tertiary)" }}
+            >
+              {athlete.posDetail}
+            </div>
           </div>
         </div>
 
@@ -558,24 +562,17 @@ function AllClearBody({ buildCount }: { buildCount: number }) {
 function CovThinBody({
   rows,
 }: {
-  rows: Array<{ name: string; cov: number }>;
+  rows: Array<{ id: string; name: string; cov: number }>;
 }) {
   return (
     <ul className="px-5 pb-4 pt-3">
       {rows.map((a) => (
         <li
-          key={a.name}
-          className="flex items-baseline gap-3 py-1 text-[13px]"
+          key={a.id}
+          className="flex items-center gap-2.5 py-1 text-[13px]"
           style={{ color: "var(--color-text-secondary)" }}
         >
-          <span
-            className="h-1.5 w-1.5 rounded-full"
-            style={{
-              backgroundColor: "transparent",
-              border: "1.25px solid var(--color-trust-dot)",
-            }}
-            aria-hidden
-          />
+          <AthleteAvatar id={a.id} name={a.name} size={24} />
           <span style={{ color: "var(--color-text-primary)" }}>{a.name}</span>
           <span className="type-num" style={{ color: "var(--color-text-tertiary)" }}>
             {a.cov}{copy("canonical.attention.hrCovSuffix")}
