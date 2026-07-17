@@ -201,9 +201,14 @@ export function PeriodsCard() {
   const { demo } = useSessionScope();
   const noHr = demo === "no_hr_data";
 
+  const effectiveBlocks = useMemo(
+    () => (noHr ? periodsBlocks.map((b) => ({ ...b, hrCoverage: 0 })) : periodsBlocks),
+    [noHr],
+  );
+
   const { rows, peakId, totalMin, coveredMin } = useMemo(
-    () => computeAggregates(periodsBlocks, view),
-    [view],
+    () => computeAggregates(effectiveBlocks, view),
+    [effectiveBlocks, view],
   );
 
   const partialInternal = coveredMin < totalMin;
@@ -295,7 +300,13 @@ export function PeriodsCard() {
                 color: "var(--color-text-tertiary)",
               }}
             >
-              {copy("periods.internalNotMeasured")}
+              <div>{copy("periods.internalNotMeasured")}</div>
+              <div className="mt-1 type-num text-[11px]">
+                {tmpl("periods.hover.covFootTemplate", {
+                  covered: coveredMin,
+                  total: totalMin,
+                })}
+              </div>
             </div>
           ) : (
             METRICS.filter((m) => m.axis === "cost").map((m) => (
