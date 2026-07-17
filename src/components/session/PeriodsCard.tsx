@@ -32,6 +32,11 @@ import {
   HoverCardContent,
   HoverCardTrigger,
 } from "@/components/ui/hover-card";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { SegmentedToggle } from "@/components/data/SegmentedToggle";
 
 /* ---------- Geometry ---------- */
