@@ -932,7 +932,7 @@ function ChartBody({
   allSquadForTray: Athlete[];
   flagged: Set<string>;
   onRowClick: (a: Athlete) => void;
-  onScrollToAttention: () => void;
+  onFlagClick: (id: string) => void;
   filterIsDefault: boolean;
   buildingIds: Set<string>;
 }) {
