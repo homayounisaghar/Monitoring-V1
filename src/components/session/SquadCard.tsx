@@ -19,7 +19,8 @@
  * suppressed with "building baseline".
  */
 import { useEffect, useMemo, useState } from "react";
-import { Flag, ChevronUp, ChevronDown, X } from "lucide-react";
+import { ChevronRight, Flag, ChevronUp, ChevronDown, X } from "lucide-react";
+
 import { useNavigate } from "@tanstack/react-router";
 import { useSessionScope, COVERAGE_MIN } from "@/lib/session-scope";
 import { squad, type Athlete } from "@/lib/session-data";
