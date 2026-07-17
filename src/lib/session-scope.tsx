@@ -19,11 +19,13 @@ import {
   type PeriodOption,
 } from "./session-data";
 import {
+  BUILDING_ID,
   COVERAGE_MIN,
   TIER1_ROWS_DEFAULT,
   sortTier1,
   type Tier1Row,
 } from "./session-flags";
+
 
 export type ReferenceKind =
   | "own_typical"
