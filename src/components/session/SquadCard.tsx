@@ -349,10 +349,7 @@ export function SquadCard() {
           onRowClick={(_a) => navigate({ to: "/athlete" })}
           avgCell={avgCell}
           scopeCount={activeAthletes.length}
-          onScrollToAttention={() => {
-            const el = document.getElementById("attention");
-            el?.scrollIntoView({ behavior: "smooth", block: "start" });
-          }}
+          onFlagClick={handleFlagClick}
           filterIsDefault={filterIsDefault}
           buildingIds={buildingIds}
         />
@@ -364,14 +361,12 @@ export function SquadCard() {
           allSquadForTray={squad}
           flagged={flagged}
           onRowClick={() => navigate({ to: "/athlete" })}
-          onScrollToAttention={() => {
-            const el = document.getElementById("attention");
-            el?.scrollIntoView({ behavior: "smooth", block: "start" });
-          }}
+          onFlagClick={handleFlagClick}
           filterIsDefault={filterIsDefault}
           buildingIds={buildingIds}
         />
       )}
+
 
 
 
