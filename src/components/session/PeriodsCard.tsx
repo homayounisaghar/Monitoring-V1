@@ -267,7 +267,32 @@ export function PeriodsCard() {
           backgroundColor: "var(--color-surface-card)",
         }}
       >
-        <div className="px-5 pt-5 pb-4">
+        <div className="relative px-5 pt-5 pb-4">
+          {/* Half-time rule — spans the full chart stack at the 45' grid line */}
+          {halfBoundaryIdx !== null && (
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-x-5 top-5 bottom-4 grid"
+              style={{ gridTemplateColumns: gridTemplate }}
+            >
+              <span />
+              {rows.map((_, i) => (
+                <span
+                  key={i}
+                  style={
+                    i === halfBoundaryIdx
+                      ? {
+                          borderLeft: "2px solid var(--color-slate-400)",
+                          marginLeft: -1,
+                        }
+                      : undefined
+                  }
+                />
+              ))}
+              <span />
+            </div>
+          )}
+
           {/* External group head */}
           <GroupHead
             axis="work"
@@ -300,6 +325,8 @@ export function PeriodsCard() {
               partialInternal={partialInternal}
               totalMin={totalMin}
               coveredMin={coveredMin}
+              pinnedId={pinnedId}
+              setPinnedId={setPinnedId}
             />
           ))}
 
@@ -349,6 +376,8 @@ export function PeriodsCard() {
                 partialInternal={partialInternal}
                 totalMin={totalMin}
                 coveredMin={coveredMin}
+                pinnedId={pinnedId}
+                setPinnedId={setPinnedId}
               />
             ))
           )}
@@ -366,6 +395,7 @@ export function PeriodsCard() {
             setHoverCol={setHoverCol}
           />
         </div>
+
 
         {/* Legend */}
         <div
