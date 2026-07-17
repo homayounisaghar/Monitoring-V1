@@ -430,7 +430,7 @@ function TableBody({
   return (
 
     <div
-      className="overflow-x-auto rounded-b-lg border"
+      className="rounded-b-lg border"
       style={{
         borderColor: "var(--color-border)",
         backgroundColor: "var(--color-surface-card)",
