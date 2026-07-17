@@ -1074,7 +1074,7 @@ function ChartRow({
       >
         {display === "percent" && state === "building" ? "—" : rank}
       </span>
-      <div className="w-[190px] shrink-0">
+      <div className="w-[220px] shrink-0">
         <div className="flex items-center gap-2">
           <AthleteAvatar id={a.id} name={a.name} size={24} />
           <span
