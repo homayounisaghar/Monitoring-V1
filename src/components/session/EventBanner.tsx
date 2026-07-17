@@ -72,7 +72,7 @@ export function EventBanner() {
 
   const handleCopyLink = async () => {
     if (typeof window === "undefined") return;
-    const url = buildShareUrl(window.location.origin, s.id, shareState, DEFAULTS, filterIsDefault);
+    const url = buildShareUrl(window.location.origin, s.id, shareState, defaults, filterIsDefault);
     try {
       await navigator.clipboard.writeText(url);
       setCopied(true);
