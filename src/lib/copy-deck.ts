@@ -35,6 +35,9 @@ export const COPY = {
   // Pattern for combined-flag rows (replaces "+1 more"). The delta lives
   // once, at right, in the row's own render.
   "attention.combinedMetrics.example": "Sprint distance · HSR",
+  "attention.basisNote": "Flags — each athlete vs their own typical for this day type; the reference above doesn't move them.",
+  "attention.baselineThin.headlineTemplate": "Building baselines — {n} of {total} comparable",
+  "attention.baselineThin.leadTemplate": "Building baselines — {n} of {total}",
 
   // ---------- Attention · all-clear state ----------
   "attention.allClear.link": "Squad summary ↓",
