@@ -101,17 +101,17 @@ export const COPY = {
   "squad.dnpRow": "did not participate",
   "squad.dnpChart": "DNP",
   "squad.avgRow": "Squad avg",
-  "gap.typicalHover": "his typical",
+  "gap.typicalHover": "their typical",
 
   // ---------- Reading-line menu glosses (per option kind) ----------
   "readingLine.cohortGloss": "cohort — same position group, this season",
   // Reference (per-athlete) glosses — DRAFT
   "readingLine.gloss.own_typical": "their own typical for sessions of this type",
-  "readingLine.gloss.positional": "typical for his position group",
+  "readingLine.gloss.positional": "typical for their position group",
   "readingLine.gloss.cohort": "the squad's average for sessions of this type",
-  "readingLine.gloss.last_n": "average of his last five matches",
+  "readingLine.gloss.last_n": "average of their last five matches",
   "readingLine.gloss.season": "their season average for sessions of this type",
-  "readingLine.gloss.same_opponent": "his output vs this opponent before",
+  "readingLine.gloss.same_opponent": "their output vs this opponent before",
   // Benchmark (squad) glosses — DRAFT
  "readingLine.bgloss.typical_daytype": "a typical session of this day type",
  "readingLine.bgloss.typical_match": "a typical match of this type",
