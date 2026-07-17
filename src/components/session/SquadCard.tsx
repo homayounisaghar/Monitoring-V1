@@ -1072,6 +1072,7 @@ function ChartRow({
   flagged,
   onClick,
   onFlagClick,
+  buildingIds,
 }: {
   rank: number;
   a: Athlete;
@@ -1084,9 +1085,11 @@ function ChartRow({
   flagged: boolean;
   onClick: () => void;
   onFlagClick: () => void;
+  buildingIds: Set<string>;
 }) {
   const rowScaled =
-    a.participation !== null && a.minutes < 60 && a.id !== BUILDING_ID;
+    a.participation !== null && a.minutes < 60 && !buildingIds.has(a.id);
+
   return (
     <li
       onClick={onClick}
