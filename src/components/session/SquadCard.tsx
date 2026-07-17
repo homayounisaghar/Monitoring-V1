@@ -922,7 +922,7 @@ function ChartBody({
   allSquadForTray,
   flagged,
   onRowClick,
-  onScrollToAttention,
+  onFlagClick,
   filterIsDefault,
   buildingIds,
 }: {
