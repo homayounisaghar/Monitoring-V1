@@ -418,7 +418,7 @@ function TableBody({
   onRowClick: (a: Athlete) => void;
   avgCell: (m: Metric) => { value: number | null; ref: number | null };
   scopeCount: number;
-  onScrollToAttention: () => void;
+  onFlagClick: (id: string) => void;
   filterIsDefault: boolean;
   buildingIds: Set<string>;
 }) {
