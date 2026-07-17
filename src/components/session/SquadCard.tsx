@@ -1451,44 +1451,6 @@ function ColumnsPicker({
 /* Small pieces                                                  */
 /* ============================================================ */
 
-function SegmentedToggle<T extends string>({
-  value,
-  onChange,
-  options,
-}: {
-  value: T;
-  onChange: (v: T) => void;
-  options: { id: T; label: string }[];
-}) {
-  return (
-    <div
-      className="inline-flex rounded-md border p-0.5"
-      style={{
-        borderColor: "var(--color-border)",
-        backgroundColor: "var(--color-canvas)",
-      }}
-    >
-      {options.map((o) => {
-        const active = value === o.id;
-        return (
-          <button
-            key={o.id}
-            onClick={() => onChange(o.id)}
-            className="rounded px-2.5 py-1 text-[12px] transition-colors"
-            style={{
-              backgroundColor: active
-                ? "var(--color-slate-900)"
-                : "transparent",
-              color: active ? "white" : "var(--color-text-secondary)",
-            }}
-          >
-            {o.label}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
 
 /* ---------- helpers ---------- */
 
