@@ -245,6 +245,7 @@ export function SessionScopeProvider({ children }: { children: ReactNode }) {
   const [filter, setFilter] = useState<Filter>(emptyFilter);
   const [demo, setDemo] = useState<DemoScenario>("default");
   const [highlightAthleteId, setHighlightAthleteId] = useState<string | null>(null);
+  const [legendOpen, setLegendOpen] = useState(false);
 
   const { effectiveParticipants, tier1Rows } = useMemo(() => {
     const overlay = applyOverlay(demo, rawParticipants);
