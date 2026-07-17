@@ -239,6 +239,7 @@ export function SessionScopeProvider({ children }: { children: ReactNode }) {
   const [benchmark, setBenchmark] = useState(BENCHMARK_OPTIONS[0]);
   const [filter, setFilter] = useState<Filter>(emptyFilter);
   const [demo, setDemo] = useState<DemoScenario>("default");
+  const [highlightAthleteId, setHighlightAthleteId] = useState<string | null>(null);
 
   const { effectiveParticipants, tier1Rows } = useMemo(() => {
     const overlay = applyOverlay(demo, rawParticipants);
