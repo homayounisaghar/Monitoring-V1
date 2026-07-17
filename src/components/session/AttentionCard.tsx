@@ -515,7 +515,23 @@ function AccountingLine({
 
 /* ---------- Card close (A6) ---------- */
 
+function BasisNoteLine() {
+  return (
+    <div
+      className="border-t px-5 py-2 type-label"
+      style={{
+        borderColor: "var(--color-border)",
+        color: "var(--color-text-secondary)",
+      }}
+    >
+      {copy("attention.basisNote")}
+    </div>
+  );
+}
+
 function CloserLine() {
+  const { demo } = useSessionScope();
+  const key = CLOSER_KEY_BY_SCENARIO[demo] ?? "attention.closer";
   return (
     <div
       className="border-t px-5 py-3 text-[13px] font-medium"
@@ -524,7 +540,7 @@ function CloserLine() {
         color: "var(--color-text-primary)",
       }}
     >
-      {copy("attention.closer")}
+      {copy(key)}
     </div>
   );
 }
