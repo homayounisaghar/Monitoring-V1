@@ -731,6 +731,7 @@ function Cell({
         <span
           className="type-num text-[13px]"
           style={{ color: "var(--color-text-primary)" }}
+          title={tmpl("squad.row.scaledHoverTemplate", { min: v })}
         >
           {tmpl("squad.row.scaledTagTemplate", { min: v })}
         </span>
