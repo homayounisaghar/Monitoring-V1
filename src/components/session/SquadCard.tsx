@@ -914,17 +914,15 @@ function ChartBody({
 
   type Entry = (typeof withData)[number];
 
-  // Absolute: grouped by position line with per-line rank numbers.
-  // Percent: flat single ladder ranked by delta vs own typical.
+  // Flat single ladder in both modes:
+  //  · Absolute → rank by value
+  //  · Percent  → rank by delta vs own typical (rows without a reference
+  //    have no delta and drop to the tray)
   const isPercent = display === "percent";
   const rankedForFlat = isPercent
     ? ranked.filter((e) => rankKey(e) != null)
     : ranked;
-  const groups: { pos: PositionCode; entries: Entry[] }[] = isPercent
-    ? []
-    : POSITION_ORDER
-        .map((pos) => ({ pos, entries: ranked.filter((e) => e.a.position === pos) }))
-        .filter((g) => g.entries.length > 0);
+
 
   // Non-participants + no-data pin to foot explicitly.
   // In % mode, also send entries that have no delta (no reference) to the tray.
