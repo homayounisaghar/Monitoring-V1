@@ -1017,7 +1017,7 @@ function ChartBody({
       scaleMax={scaleMax}
       flagged={flagged.has(r.a.id)}
       onClick={() => onRowClick(r.a)}
-      onFlagClick={onScrollToAttention}
+      onFlagClick={() => onFlagClick(r.a.id)}
       buildingIds={buildingIds}
     />
 
