@@ -257,9 +257,22 @@ function Headline({
 /* ---------- Tier 1 row ---------- */
 
 function Tier1RowUI({ row }: { row: Tier1Row }) {
-  const { effectiveParticipants } = useSessionScope();
+  const { effectiveParticipants, highlightAthleteId, setHighlightAthleteId } = useSessionScope();
   const navigate = useNavigate();
   const athlete = effectiveParticipants.find((a) => a.id === row.id);
+  const [pulsing, setPulsing] = useState(false);
+
+  useEffect(() => {
+    if (highlightAthleteId && highlightAthleteId === row.id) {
+      setPulsing(true);
+      const t = window.setTimeout(() => {
+        setPulsing(false);
+        setHighlightAthleteId(null);
+      }, 1500);
+      return () => window.clearTimeout(t);
+    }
+  }, [highlightAthleteId, row.id, setHighlightAthleteId]);
+
   if (!athlete) return null;
 
   const isEscalate = row.tier === "escalate";
@@ -280,7 +293,11 @@ function Tier1RowUI({ row }: { row: Tier1Row }) {
   return (
     <li
       className={`group relative border-b last:border-b-0 transition-colors hover:bg-[color:var(--color-slate-50)]`}
-      style={{ borderColor: "var(--color-border)" }}
+      style={{
+        borderColor: "var(--color-border)",
+        backgroundColor: pulsing ? "var(--color-slate-50)" : "transparent",
+        transition: "background-color 1.5s ease-out",
+      }}
     >
       <button
         className={`flex w-full items-center gap-4 px-5 text-left ${rowPad}`}
