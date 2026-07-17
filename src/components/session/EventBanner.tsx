@@ -6,8 +6,8 @@ import { copy } from "@/lib/copy-deck";
 import { buildShareUrl, isShareStateDefault, type ShareDefaults } from "@/lib/share-state";
 
 const DEFAULTS: ShareDefaults = {
-  reference: "typical",
-  benchmark: "similar",
+  reference: "own_typical",
+  benchmark: "typical_match",
   squadView: "table",
   squadDisplay: "absolute",
   squadSort: { key: "name", dir: "asc" },
