@@ -46,7 +46,7 @@ export type ShareDefaults = {
   squadChartMetric: MetricId;
 };
 
-const PARTICIPATION_VALUES: ParticipationTag[] = ["Full", "Part", "Injury", "Sick", "DNP"];
+const PARTICIPATION_VALUES: ParticipationTag[] = ["Full", "Part", "Modified", "Rehab", "Injury", "Other"];
 const POSITION_VALUES: PositionCode[] = ["GK", "DEF", "MID", "ATT"];
 
 function isMetricId(x: string | null | undefined): x is MetricId {
