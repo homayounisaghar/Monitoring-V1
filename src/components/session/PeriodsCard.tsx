@@ -32,6 +32,7 @@ import {
   HoverCardContent,
   HoverCardTrigger,
 } from "@/components/ui/hover-card";
+import { SegmentedToggle } from "@/components/data/SegmentedToggle";
 
 /* ---------- Geometry ---------- */
 
@@ -230,7 +231,14 @@ export function PeriodsCard() {
           </span>
         </div>
         <div className="flex items-center gap-3">
-          <GranularityToggle value={view} onChange={setView} />
+          <SegmentedToggle
+            value={view}
+            onChange={setView}
+            options={[
+              { id: "halves", label: copy("canonical.filter.granularity.halves") },
+              { id: "15min", label: copy("canonical.filter.granularity.blocks15") },
+            ]}
+          />
           <ScopeTag full />
         </div>
       </header>
@@ -1031,48 +1039,5 @@ function Legend() {
 
 
 
-/* ---------- Granularity toggle (unchanged shape) ---------- */
 
-function GranularityToggle({
-  value,
-  onChange,
-}: {
-  value: "halves" | "15min";
-  onChange: (v: "halves" | "15min") => void;
-}) {
-  const options: Array<{ id: "halves" | "15min"; label: string }> = [
-    { id: "halves", label: copy("canonical.filter.granularity.halves") },
-    { id: "15min", label: copy("canonical.filter.granularity.blocks15") },
-  ];
-  return (
-    <div
-      className="inline-flex rounded-md border p-0.5"
-      style={{
-        borderColor: "var(--color-border)",
-        backgroundColor: "var(--color-canvas)",
-      }}
-    >
-      {options.map((o) => {
-        const active = o.id === value;
-        return (
-          <button
-            key={o.id}
-            onClick={() => onChange(o.id)}
-            className="rounded px-2.5 py-1 text-[12px] transition-colors"
-            style={{
-              backgroundColor: active
-                ? "var(--color-slate-200)"
-                : "transparent",
-              color: active
-                ? "var(--color-text-primary)"
-                : "var(--color-text-secondary)",
-              fontWeight: active ? 600 : 500,
-            }}
-          >
-            {o.label}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
+
