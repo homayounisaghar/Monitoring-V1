@@ -382,9 +382,7 @@ export function SquadCard() {
 /* Table body                                                    */
 /* ============================================================ */
 
-type RowItem =
-  | { kind: "header"; pos: PositionCode }
-  | { kind: "row"; a: Athlete };
+type RowItem = { kind: "row"; a: Athlete };
 
 function TableBody({
   items,
@@ -411,7 +409,8 @@ function TableBody({
   scopeCount: number;
   onScrollToAttention: () => void;
 }) {
-  const athleteActive = sort.key === "position";
+  const athleteActive = sort.key === "name";
+
   const totalCols = 1 + columns.length;
   return (
     <div
