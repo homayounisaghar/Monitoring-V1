@@ -404,7 +404,7 @@ function TableBody({
   onRowClick,
   avgCell,
   scopeCount,
-  onScrollToAttention,
+  onFlagClick,
   filterIsDefault,
   buildingIds,
 }: {
