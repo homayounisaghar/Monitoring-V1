@@ -129,10 +129,10 @@ export function GapPair({
           />
         )}
         <div
-          className={`absolute top-1/2 ${dotDim} -translate-x-1/2 -translate-y-1/2 rounded-full bg-white`}
+          className={`absolute top-1/2 ${dotDimInternal} -translate-x-1/2 -translate-y-1/2 rounded-full ring-2 ring-white`}
           style={{
             left: `${intPos}%`,
-            border: "2px solid var(--color-axis-cost)",
+            backgroundColor: "var(--color-axis-cost)",
           }}
           aria-label={copy("canonical.axisGroup.internalCostLower")}
           title={internalTrust ? `internal · ${internalTrust.coverage}% cov` : undefined}
