@@ -4,6 +4,8 @@
  * never `squad`, so the "of 18" invariant holds by construction.
  */
 
+import { tmpl } from "./copy-deck";
+
 export type PositionCode = "GK" | "DEF" | "MID" | "ATT";
 export type PositionLabel = "GK" | "Defenders" | "Midfielders" | "Attackers";
 export type ParticipationTag =
