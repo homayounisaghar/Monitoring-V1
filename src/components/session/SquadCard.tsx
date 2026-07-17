@@ -435,7 +435,10 @@ function TableBody({
       }}
     >
       <table className="w-full min-w-[900px] border-collapse text-[13px]">
-        <thead>
+        <thead
+          className="sticky z-10"
+          style={{ top: 132 }}
+        >
           <tr
             className="border-b"
             style={{
