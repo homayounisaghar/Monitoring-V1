@@ -246,6 +246,21 @@ function Headline({
   );
 }
 
+function LegendToggleButton() {
+  const { legendOpen, setLegendOpen } = useSessionScope();
+  return (
+    <button
+      type="button"
+      onClick={() => setLegendOpen(!legendOpen)}
+      className="inline-flex h-5 w-5 items-center justify-center rounded-full transition-colors hover:bg-[color:var(--color-slate-100)]"
+      style={{ color: "var(--color-text-tertiary)" }}
+      aria-label={copy("control.legend")}
+    >
+      <Info className="h-3.5 w-3.5" />
+    </button>
+  );
+}
+
 /* ---------- Tier 1 row ---------- */
 
 function Tier1RowUI({ row }: { row: Tier1Row }) {
