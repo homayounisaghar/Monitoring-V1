@@ -18,6 +18,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { Info, ChevronDown } from "lucide-react";
 import { useSessionScope, COVERAGE_MIN, CLOSER_KEY_BY_SCENARIO } from "@/lib/session-scope";
+import { LegendAnchor } from "./LegendPopover";
 import {
   BASELINE_COMPARABLE_MIN,
   type Tier1Row,
