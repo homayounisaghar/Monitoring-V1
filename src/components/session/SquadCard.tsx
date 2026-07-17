@@ -405,6 +405,8 @@ function TableBody({
   avgCell,
   scopeCount,
   onScrollToAttention,
+  filterIsDefault,
+  buildingIds,
 }: {
   items: RowItem[];
   columns: MetricId[];
@@ -417,7 +419,10 @@ function TableBody({
   avgCell: (m: Metric) => { value: number | null; ref: number | null };
   scopeCount: number;
   onScrollToAttention: () => void;
+  filterIsDefault: boolean;
+  buildingIds: Set<string>;
 }) {
+
   const athleteActive = sort.key === "name";
 
   return (
