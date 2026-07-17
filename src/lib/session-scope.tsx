@@ -375,6 +375,8 @@ export function SessionScopeProvider({ children }: { children: ReactNode }) {
     comparableCount,
     highlightAthleteId,
     setHighlightAthleteId,
+    legendOpen,
+    setLegendOpen,
     ...derived,
 
   };
