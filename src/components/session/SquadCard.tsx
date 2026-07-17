@@ -169,7 +169,7 @@ export function SquadCard() {
     const v = valueFor(a, m);
     if (v == null) return false;
     if (display === "percent") {
-      const r = refFor(a, m);
+      const r = refFor(a, m, buildingIds);
       if (r == null) return false;
     }
     return true;
@@ -179,11 +179,12 @@ export function SquadCard() {
     const m = METRICS[key];
     const v = valueFor(a, m)!;
     if (display === "percent") {
-      const r = refFor(a, m)!;
+      const r = refFor(a, m, buildingIds)!;
       return (v / r) * 100;
     }
     return v;
   };
+
 
   // Flat row list — no position grouping. Rows without a sortable value
   // under the active display mode pin to the foot in name order.
