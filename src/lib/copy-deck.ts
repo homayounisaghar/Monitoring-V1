@@ -232,7 +232,7 @@ export const COPY = {
   "canonical.squad.toolbar.columns": "Columns",
   "canonical.squad.tableHead.athlete": "Athlete",
   "canonical.squad.sortByPrefix": "Sort by ",
-  "canonical.squad.sortByPosition": "Position",
+  
   "canonical.squad.picker.title": "Columns",
   "canonical.squad.picker.on": "on",
   "canonical.squad.picker.off": "off",
