@@ -308,7 +308,7 @@ function Tier1RowUI({ row }: { row: Tier1Row }) {
     >
       <button
         className={`flex w-full items-center gap-4 px-5 text-left ${rowPad}`}
-        onClick={() => navigate({ to: "/athlete" })}
+        onClick={() => navigate({ to: "/athlete", search: { athleteId: athlete.id, sessionId: currentSession.id, timeframe: "session" } })}
       >
         {/* Tier mark — pigment lives here, not on numerals (unless escalate delta) */}
         <div className="w-[92px] shrink-0">
