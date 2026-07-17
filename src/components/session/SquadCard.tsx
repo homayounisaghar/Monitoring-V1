@@ -111,7 +111,14 @@ export function SquadCard() {
     effectiveParticipants,
     filterIsDefault,
     buildingIds,
+    setHighlightAthleteId,
   } = useSessionScope();
+
+  const handleFlagClick = (athleteId: string) => {
+    setHighlightAthleteId(athleteId);
+    const el = document.getElementById("attention");
+    el?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
 
   const initial = useMemo(() => loadPrefs(), []);
   const [view, setView] = useState<ViewMode>(initial.view);
