@@ -1157,7 +1157,7 @@ function ChartRow({
                 onFlagClick();
               }}
               title={copy("flag.hover")}
-              className="inline-flex h-4 w-4 items-center justify-center rounded hover:bg-[color:var(--color-slate-200)]"
+              className="inline-flex h-6 w-6 items-center justify-center rounded hover:bg-[color:var(--color-slate-200)]"
             >
               <Flag
                 className="h-3 w-3"
@@ -1170,7 +1170,12 @@ function ChartRow({
           className="type-label"
           style={{ color: "var(--color-text-tertiary)" }}
         >
-          {a.posDetail} · {a.minutes}'{rowScaled ? copy("canonical.squad.chart.scaledSuffix") : ""}
+          {a.posDetail} · {a.minutes}'
+          {rowScaled && (
+            <span title={tmpl("squad.row.scaledHoverTemplate", { min: a.minutes })}>
+              {copy("canonical.squad.chart.scaledSuffix")}
+            </span>
+          )}
         </div>
       </div>
       <div className="min-w-0 flex-1">
