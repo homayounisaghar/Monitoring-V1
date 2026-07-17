@@ -359,7 +359,10 @@ export function SessionScopeProvider({ children }: { children: ReactNode }) {
     effectiveParticipants,
     tier1Rows,
     sessionIsTraining,
+    buildingIds,
+    comparableCount,
     ...derived,
+
   };
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
