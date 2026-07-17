@@ -439,7 +439,7 @@ function TableBody({
               <button
                 className="inline-flex items-center gap-1.5"
                 onClick={() => onSort("name")}
-                title={`${copy("canonical.squad.sortByPrefix")}${copy("canonical.squad.sortByPosition")}`}
+                title={`${copy("canonical.squad.sortByPrefix")}${copy("canonical.squad.tableHead.athlete")}`}
               >
                 <span
                   className="type-col-head"
@@ -452,11 +452,16 @@ function TableBody({
                   {copy("canonical.squad.tableHead.athlete")}
                 </span>
                 {athleteActive ? (
-                  <ChevronDown className="h-3 w-3" />
+                  sort.dir === "asc" ? (
+                    <ChevronDown className="h-3 w-3" />
+                  ) : (
+                    <ChevronUp className="h-3 w-3" />
+                  )
                 ) : (
                   <span className="w-3" />
                 )}
               </button>
+
             </th>
             {columns.map((id) => {
               const m = METRICS[id];
