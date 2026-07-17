@@ -300,7 +300,13 @@ export function PeriodsCard() {
                 color: "var(--color-text-tertiary)",
               }}
             >
-              {copy("periods.internalNotMeasured")}
+              <div>{copy("periods.internalNotMeasured")}</div>
+              <div className="mt-1 type-num text-[11px]">
+                {tmpl("periods.hover.covFootTemplate", {
+                  covered: coveredMin,
+                  total: totalMin,
+                })}
+              </div>
             </div>
           ) : (
             METRICS.filter((m) => m.axis === "cost").map((m) => (
