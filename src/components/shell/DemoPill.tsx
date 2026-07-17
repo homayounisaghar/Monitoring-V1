@@ -9,7 +9,10 @@ const SCENARIOS: Array<{ id: DemoScenario; label: string }> = [
   { id: "srpe_full",      label: "sRPE full (18 of 18)" },
   { id: "coverage_thin",  label: "Coverage thin" },
   { id: "training_day",   label: "Training day" },
+  { id: "early_season",   label: "Early season" },
+  { id: "no_hr_data",     label: "No HR data" },
 ];
+
 
 export function DemoPill() {
   const { demo, setDemo } = useSessionScope();

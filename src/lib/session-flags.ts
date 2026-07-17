@@ -10,6 +10,10 @@ import type { SeverityTier } from "@/components/data/SeverityGlyph";
 export const COVERAGE_MIN = 80;
 export const BUILDING_ID = "koehler";
 export const BUILDING_SESSIONS_TO_MIN = 3;
+// Comparable-athlete floor for the baseline-thin headline state — placeholder
+// pending real data (same pattern as PERIODS_DISPLAY_FLOOR).
+export const BASELINE_COMPARABLE_MIN = 10;
+
 
 export type Tier1Read =
   | {

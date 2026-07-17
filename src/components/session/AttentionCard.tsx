@@ -18,7 +18,6 @@ import { useNavigate } from "@tanstack/react-router";
 import { Info, ChevronDown } from "lucide-react";
 import { useSessionScope, COVERAGE_MIN, CLOSER_KEY_BY_SCENARIO } from "@/lib/session-scope";
 import {
-  BUILDING_ID,
   BUILDING_SESSIONS_TO_MIN,
   type Tier1Row,
 } from "@/lib/session-flags";
@@ -37,6 +36,7 @@ export function AttentionCard() {
     totalParticipants,
     reference,
     defaultReference,
+    buildingIds,
   } = useSessionScope();
   const referenceIsDefault = reference.kind === defaultReference.kind;
 
@@ -45,7 +45,8 @@ export function AttentionCard() {
   const squadLowCov = effectiveParticipants.filter(
     (a) => a.hrCoveragePct !== null && a.hrCoveragePct < COVERAGE_MIN,
   );
-  const building = effectiveParticipants.filter((a) => a.id === BUILDING_ID);
+  const building = effectiveParticipants.filter((a) => buildingIds.has(a.id));
+
 
   const escalateCount = tier1.filter((r) => r.tier === "escalate").length;
   const flaggedSet = new Set<string>([

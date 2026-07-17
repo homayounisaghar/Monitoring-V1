@@ -103,10 +103,11 @@ function jitter(id: string, m: MetricId): number {
 
 /* ---------- Public API: refFor / valueFor / cell state ---------- */
 
-export function refFor(a: Athlete, m: Metric): number | null {
+export function refFor(a: Athlete, m: Metric, buildingIds?: Set<string>): number | null {
+  const bset = buildingIds ?? new Set([BUILDING_ID]);
   if (a.participation === null) return null;
   if (m.scaling === "identity") return null;
-  if (a.id === BUILDING_ID) return null;
+  if (bset.has(a.id)) return null;
   const pt = posTypical[a.position]?.[m.id];
   if (pt == null) return null;
   if (m.scaling === "cumulative") return pt * (a.minutes / 90);
@@ -134,10 +135,11 @@ export type CellState =
   | "dnp"          // did not participate
   | "empty";       // "—" (no data or non-submitter)
 
-export function cellState(a: Athlete, m: Metric): CellState {
+export function cellState(a: Athlete, m: Metric, buildingIds?: Set<string>): CellState {
+  const bset = buildingIds ?? new Set([BUILDING_ID]);
   if (a.participation === null) return "dnp";
   if (m.scaling === "identity") return "ok";
-  if (a.id === BUILDING_ID) return "building";
+  if (bset.has(a.id)) return "building";
   if (m.scaling === "vsFull" && a.minutes < 60) return "not_compared";
   if (m.id === "srpe" && !a.srpeSubmitted) return "empty";
   if (valueFor(a, m) == null) return "empty";
@@ -145,14 +147,16 @@ export function cellState(a: Athlete, m: Metric): CellState {
 }
 
 /** True where cumulative metric on a partial player — deltas are minutes-scaled and tagged "· scaled". */
-export function isScaled(a: Athlete, m: Metric): boolean {
+export function isScaled(a: Athlete, m: Metric, buildingIds?: Set<string>): boolean {
+  const bset = buildingIds ?? new Set([BUILDING_ID]);
   return (
     m.scaling === "cumulative" &&
     a.participation !== null &&
-    a.id !== BUILDING_ID &&
+    !bset.has(a.id) &&
     a.minutes < 60
   );
 }
+
 
 export function formatValue(v: number | null, m: Metric): string {
   if (v == null) return "—";

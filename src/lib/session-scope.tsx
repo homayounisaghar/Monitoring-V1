@@ -19,11 +19,13 @@ import {
   type PeriodOption,
 } from "./session-data";
 import {
+  BUILDING_ID,
   COVERAGE_MIN,
   TIER1_ROWS_DEFAULT,
   sortTier1,
   type Tier1Row,
 } from "./session-flags";
+
 
 export type ReferenceKind =
   | "own_typical"
@@ -76,7 +78,9 @@ export type DemoScenario =
   | "srpe_none"
   | "srpe_full"
   | "coverage_thin"
-  | "training_day";
+  | "training_day"
+  | "early_season"
+  | "no_hr_data";
 
 export type SessionScope = {
   reference: ReferenceOption;
@@ -100,6 +104,8 @@ export type SessionScope = {
   effectiveParticipants: Athlete[];
   tier1Rows: Tier1Row[];
   sessionIsTraining: boolean;
+  buildingIds: Set<string>;
+  comparableCount: number;
 
   // derived
   activeAthletes: Athlete[];
@@ -108,6 +114,7 @@ export type SessionScope = {
   scopeLabel: string | null;
   filterIsDefault: boolean;
 };
+
 
 const emptyFilter: Filter = {
   participation: new Set(),
@@ -147,6 +154,19 @@ const COVERAGE_THIN_LOW: Record<string, number> = {
 
 export const CLOSER_KEY_BY_SCENARIO: Partial<Record<DemoScenario, string>> = {
   training_day: "attention.closer.trainingDay",
+};
+
+export const BUILDING_IDS_BY_SCENARIO: Partial<Record<DemoScenario, string[]>> = {
+  early_season: [
+    "werner", "schaefer", "koehler", "ebel", "frei", "wagner", "albrecht",
+    "brunner", "brandt", "kuhn", "voss", "lange", "hofmann",
+  ],
+};
+
+// Deterministic 1..4 history counts for early-season building athletes.
+const EARLY_SEASON_HISTORY: Record<string, number> = {
+  werner: 4, schaefer: 2, koehler: 3, ebel: 1, frei: 2, wagner: 3,
+  albrecht: 4, brunner: 2, brandt: 1, kuhn: 3, voss: 2, lange: 1, hofmann: 4,
 };
 
 function applyOverlay(
@@ -189,8 +209,25 @@ function applyOverlay(
       };
     case "training_day":
       return { participants, tier1: sorted };
+    case "early_season":
+      return {
+        participants: participants.map((a) =>
+          a.id in EARLY_SEASON_HISTORY
+            ? { ...a, historySessions: EARLY_SEASON_HISTORY[a.id] }
+            : a,
+        ),
+        tier1: sorted.filter((r) => r.id === "fischer"),
+      };
+    case "no_hr_data":
+      return {
+        participants: participants.map((a) =>
+          a.hrCoveragePct === null ? a : { ...a, hrCoveragePct: 0 },
+        ),
+        tier1: [],
+      };
   }
 }
+
 
 export function SessionScopeProvider({ children }: { children: ReactNode }) {
   const [reference, setReference] = useState(REFERENCE_OPTIONS[0]);
@@ -295,7 +332,16 @@ export function SessionScopeProvider({ children }: { children: ReactNode }) {
 
   const benchmarkIsDefault = benchmark.kind === defaultBenchmark.kind;
 
+  const buildingIds = useMemo(
+    () => new Set(BUILDING_IDS_BY_SCENARIO[demo] ?? [BUILDING_ID]),
+    [demo],
+  );
+  const comparableCount =
+    effectiveParticipants.length -
+    effectiveParticipants.filter((a) => buildingIds.has(a.id)).length;
+
   const value: SessionScope = {
+
     reference,
     setReference,
     referenceOptions,
@@ -313,7 +359,10 @@ export function SessionScopeProvider({ children }: { children: ReactNode }) {
     effectiveParticipants,
     tier1Rows,
     sessionIsTraining,
+    buildingIds,
+    comparableCount,
     ...derived,
+
   };
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

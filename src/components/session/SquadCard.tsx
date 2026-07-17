@@ -40,8 +40,9 @@ import {
   type Metric,
   type MetricId,
 } from "@/lib/squad-metrics";
-import { BUILDING_ID, BUILDING_SESSIONS_TO_MIN, flaggedIds } from "@/lib/session-flags";
+import { BUILDING_SESSIONS_TO_MIN, flaggedIds } from "@/lib/session-flags";
 import { BUILDING_BASELINE_MIN_SESSIONS } from "@/lib/copy-deck";
+
 import { ValueOnTrack } from "@/components/data/ValueOnTrack";
 import { AthleteAvatar } from "@/components/data/AthleteAvatar";
 
@@ -109,6 +110,7 @@ export function SquadCard() {
     activeAthletes,
     effectiveParticipants,
     filterIsDefault,
+    buildingIds,
   } = useSessionScope();
 
   const initial = useMemo(() => loadPrefs(), []);
@@ -153,6 +155,7 @@ export function SquadCard() {
     [tier1Rows, lowCovIds],
   );
 
+
   /* --- sRPE column trust --- */
 
   const srpeSubmitted = activeAthletes.filter((a) => a.srpeSubmitted).length;
@@ -166,7 +169,7 @@ export function SquadCard() {
     const v = valueFor(a, m);
     if (v == null) return false;
     if (display === "percent") {
-      const r = refFor(a, m);
+      const r = refFor(a, m, buildingIds);
       if (r == null) return false;
     }
     return true;
@@ -176,11 +179,12 @@ export function SquadCard() {
     const m = METRICS[key];
     const v = valueFor(a, m)!;
     if (display === "percent") {
-      const r = refFor(a, m)!;
+      const r = refFor(a, m, buildingIds)!;
       return (v / r) * 100;
     }
     return v;
   };
+
 
   // Flat row list — no position grouping. Rows without a sortable value
   // under the active display mode pin to the foot in name order.
@@ -228,7 +232,7 @@ export function SquadCard() {
       const pcts = scopeParticipants
         .map((a) => {
           const v = valueFor(a, m);
-          const r = refFor(a, m);
+          const r = refFor(a, m, buildingIds);
           if (v == null || r == null || r === 0) return null;
           return (v / r) * 100;
         })
@@ -238,7 +242,7 @@ export function SquadCard() {
     }
     const pairs = scopeParticipants.map((a) => ({
       v: valueFor(a, m),
-      r: refFor(a, m),
+      r: refFor(a, m, buildingIds),
     }));
     const vs = pairs.map((p) => p.v).filter((x): x is number => x != null);
     const rs = pairs.map((p) => p.r).filter((x): x is number => x != null);
@@ -247,6 +251,7 @@ export function SquadCard() {
       ref: rs.length ? mean(rs) : null,
     };
   };
+
 
   return (
     <section id="squad" className="scroll-mt-36">
@@ -332,8 +337,6 @@ export function SquadCard() {
           display={display}
           sort={sort}
           onSort={(key) => {
-            // Same key toggles direction. New metric key starts descending;
-            // new name key starts ascending (A→Z).
             setSort((prev) =>
               prev.key === key
                 ? { key, dir: prev.dir === "desc" ? "asc" : "desc" }
@@ -350,6 +353,8 @@ export function SquadCard() {
             const el = document.getElementById("attention");
             el?.scrollIntoView({ behavior: "smooth", block: "start" });
           }}
+          filterIsDefault={filterIsDefault}
+          buildingIds={buildingIds}
         />
       ) : (
         <ChartBody
@@ -363,8 +368,11 @@ export function SquadCard() {
             const el = document.getElementById("attention");
             el?.scrollIntoView({ behavior: "smooth", block: "start" });
           }}
+          filterIsDefault={filterIsDefault}
+          buildingIds={buildingIds}
         />
       )}
+
 
 
       {pickerOpen && (
@@ -397,6 +405,8 @@ function TableBody({
   avgCell,
   scopeCount,
   onScrollToAttention,
+  filterIsDefault,
+  buildingIds,
 }: {
   items: RowItem[];
   columns: MetricId[];
@@ -409,7 +419,10 @@ function TableBody({
   avgCell: (m: Metric) => { value: number | null; ref: number | null };
   scopeCount: number;
   onScrollToAttention: () => void;
+  filterIsDefault: boolean;
+  buildingIds: Set<string>;
 }) {
+
   const athleteActive = sort.key === "name";
 
   return (
@@ -563,11 +576,12 @@ function TableBody({
           {items.map((it) => {
 
             const a = it.a;
+            const rowBuilding = buildingIds.has(a.id);
             const rowScaled =
               a.participation !== null &&
               a.minutes < 60 &&
-              a.id !== BUILDING_ID;
-            const rowBuilding = a.id === BUILDING_ID;
+              !rowBuilding;
+
             return (
               <tr
                 key={a.id}
@@ -636,7 +650,9 @@ function TableBody({
                         display={display}
                         rowScaled={rowScaled}
                         rowBuilding={rowBuilding}
+                        buildingIds={buildingIds}
                       />
+
                     </td>
                   );
                 })}
@@ -658,14 +674,17 @@ function Cell({
   display,
   rowScaled,
   rowBuilding,
+  buildingIds,
 }: {
   a: Athlete;
   m: Metric;
   display: DisplayMode;
   rowScaled: boolean;
   rowBuilding: boolean;
+  buildingIds: Set<string>;
 }) {
-  const state = cellState(a, m);
+  const state = cellState(a, m, buildingIds);
+
 
   // Min column — the single home for row-level "· scaled" (Q2).
   if (m.id === "min") {
@@ -757,7 +776,7 @@ function Cell({
 
   // ok
   const v = valueFor(a, m);
-  const r = refFor(a, m);
+  const r = refFor(a, m, buildingIds);
   const isCardio = m.id === "cardioLoad";
   const cov = a.hrCoveragePct ?? 100;
   const lowCov = isCardio && cov < COVERAGE_MIN;
@@ -878,6 +897,8 @@ function ChartBody({
   flagged,
   onRowClick,
   onScrollToAttention,
+  filterIsDefault,
+  buildingIds,
 }: {
   metric: Metric;
   display: DisplayMode;
@@ -886,16 +907,20 @@ function ChartBody({
   flagged: Set<string>;
   onRowClick: (a: Athlete) => void;
   onScrollToAttention: () => void;
+  filterIsDefault: boolean;
+  buildingIds: Set<string>;
 }) {
+
   // ranked: everyone with a value AND (in % mode) a reference.
   // building baseline (Köhler) has value in absolute but no ref → he
   // ranks in absolute; in % he sinks to the foot of the ranked list.
   const withData = rows
     .filter((a) => a.participation !== null && valueFor(a, metric) != null)
     .map((a) => {
-      const state = cellState(a, metric);
+      const state = cellState(a, metric, buildingIds);
       const v = valueFor(a, metric);
-      const r = refFor(a, metric);
+      const r = refFor(a, metric, buildingIds);
+
       return { a, v, r, state };
     });
 
@@ -967,7 +992,9 @@ function ChartBody({
       flagged={flagged.has(r.a.id)}
       onClick={() => onRowClick(r.a)}
       onFlagClick={onScrollToAttention}
+      buildingIds={buildingIds}
     />
+
   );
 
   return (
@@ -1047,6 +1074,7 @@ function ChartRow({
   flagged,
   onClick,
   onFlagClick,
+  buildingIds,
 }: {
   rank: number;
   a: Athlete;
@@ -1059,9 +1087,11 @@ function ChartRow({
   flagged: boolean;
   onClick: () => void;
   onFlagClick: () => void;
+  buildingIds: Set<string>;
 }) {
   const rowScaled =
-    a.participation !== null && a.minutes < 60 && a.id !== BUILDING_ID;
+    a.participation !== null && a.minutes < 60 && !buildingIds.has(a.id);
+
   return (
     <li
       onClick={onClick}
