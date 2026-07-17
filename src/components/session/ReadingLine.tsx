@@ -1,11 +1,12 @@
 import { useState, useRef, useEffect } from "react";
-import { ChevronDown, X, HelpCircle } from "lucide-react";
+import { ChevronDown, X } from "lucide-react";
 import {
   useSessionScope,
   type ReferenceKind,
   type BenchmarkKind,
 } from "@/lib/session-scope";
-import { copy, type CopyKey } from "@/lib/copy-deck";
+import { copy } from "@/lib/copy-deck";
+import { HowToReadPopover } from "./LegendPopover";
 
 export function ReadingLine() {
   const {
