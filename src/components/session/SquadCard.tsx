@@ -110,6 +110,7 @@ export function SquadCard() {
     activeAthletes,
     effectiveParticipants,
     filterIsDefault,
+    buildingIds,
   } = useSessionScope();
 
   const initial = useMemo(() => loadPrefs(), []);
@@ -153,6 +154,7 @@ export function SquadCard() {
     () => flaggedIds(tier1Rows, lowCovIds),
     [tier1Rows, lowCovIds],
   );
+
 
   /* --- sRPE column trust --- */
 
