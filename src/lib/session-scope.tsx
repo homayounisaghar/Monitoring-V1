@@ -107,6 +107,11 @@ export type SessionScope = {
   buildingIds: Set<string>;
   comparableCount: number;
 
+  // Transient highlight target — set from a Squad flag click, read by
+  // AttentionCard's Tier-1 row for a one-shot pulse. Cleared after ~1.5s.
+  highlightAthleteId: string | null;
+  setHighlightAthleteId: (id: string | null) => void;
+
   // derived
   activeAthletes: Athlete[];
   showingCount: number;
@@ -234,6 +239,7 @@ export function SessionScopeProvider({ children }: { children: ReactNode }) {
   const [benchmark, setBenchmark] = useState(BENCHMARK_OPTIONS[0]);
   const [filter, setFilter] = useState<Filter>(emptyFilter);
   const [demo, setDemo] = useState<DemoScenario>("default");
+  const [highlightAthleteId, setHighlightAthleteId] = useState<string | null>(null);
 
   const { effectiveParticipants, tier1Rows } = useMemo(() => {
     const overlay = applyOverlay(demo, rawParticipants);
@@ -361,6 +367,8 @@ export function SessionScopeProvider({ children }: { children: ReactNode }) {
     sessionIsTraining,
     buildingIds,
     comparableCount,
+    highlightAthleteId,
+    setHighlightAthleteId,
     ...derived,
 
   };

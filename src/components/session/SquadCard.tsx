@@ -111,7 +111,14 @@ export function SquadCard() {
     effectiveParticipants,
     filterIsDefault,
     buildingIds,
+    setHighlightAthleteId,
   } = useSessionScope();
+
+  const handleFlagClick = (athleteId: string) => {
+    setHighlightAthleteId(athleteId);
+    const el = document.getElementById("attention");
+    el?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
 
   const initial = useMemo(() => loadPrefs(), []);
   const [view, setView] = useState<ViewMode>(initial.view);
@@ -349,10 +356,7 @@ export function SquadCard() {
           onRowClick={(_a) => navigate({ to: "/athlete" })}
           avgCell={avgCell}
           scopeCount={activeAthletes.length}
-          onScrollToAttention={() => {
-            const el = document.getElementById("attention");
-            el?.scrollIntoView({ behavior: "smooth", block: "start" });
-          }}
+          onFlagClick={handleFlagClick}
           filterIsDefault={filterIsDefault}
           buildingIds={buildingIds}
         />
@@ -364,14 +368,12 @@ export function SquadCard() {
           allSquadForTray={squad}
           flagged={flagged}
           onRowClick={() => navigate({ to: "/athlete" })}
-          onScrollToAttention={() => {
-            const el = document.getElementById("attention");
-            el?.scrollIntoView({ behavior: "smooth", block: "start" });
-          }}
+          onFlagClick={handleFlagClick}
           filterIsDefault={filterIsDefault}
           buildingIds={buildingIds}
         />
       )}
+
 
 
 
@@ -404,7 +406,7 @@ function TableBody({
   onRowClick,
   avgCell,
   scopeCount,
-  onScrollToAttention,
+  onFlagClick,
   filterIsDefault,
   buildingIds,
 }: {
@@ -418,7 +420,7 @@ function TableBody({
   onRowClick: (a: Athlete) => void;
   avgCell: (m: Metric) => { value: number | null; ref: number | null };
   scopeCount: number;
-  onScrollToAttention: () => void;
+  onFlagClick: (id: string) => void;
   filterIsDefault: boolean;
   buildingIds: Set<string>;
 }) {
@@ -428,14 +430,17 @@ function TableBody({
   return (
 
     <div
-      className="overflow-x-auto rounded-b-lg border"
+      className="rounded-b-lg border"
       style={{
         borderColor: "var(--color-border)",
         backgroundColor: "var(--color-surface-card)",
       }}
     >
       <table className="w-full min-w-[900px] border-collapse text-[13px]">
-        <thead>
+        <thead
+          className="sticky z-10"
+          style={{ top: 132 }}
+        >
           <tr
             className="border-b"
             style={{
@@ -598,7 +603,7 @@ function TableBody({
               <tr
                 key={a.id}
                 onClick={() => onRowClick(a)}
-                className="cursor-pointer border-b transition-colors hover:bg-[color:var(--color-slate-50)] last:border-b-0"
+                className="group cursor-pointer border-b transition-colors hover:bg-[color:var(--color-slate-50)] last:border-b-0"
                 style={{ borderColor: "var(--color-border)" }}
               >
                 <td className="px-3 py-2">
@@ -625,10 +630,10 @@ function TableBody({
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          onScrollToAttention();
+                          onFlagClick(a.id);
                         }}
                         title={copy("flag.hover")}
-                        className="inline-flex h-4 w-4 items-center justify-center rounded transition-colors hover:bg-[color:var(--color-slate-200)]"
+                        className="inline-flex h-6 w-6 items-center justify-center rounded transition-colors hover:bg-[color:var(--color-slate-200)]"
                         aria-label={`${a.name} ${copy("canonical.attention.flaggedInAttentionSuffix")}`}
                       >
                         <Flag
@@ -653,19 +658,27 @@ function TableBody({
                     )}
                   </div>
                 </td>
-                {columns.map((id) => {
+                {columns.map((id, colIdx) => {
                   const m = METRICS[id];
+                  const isLast = colIdx === columns.length - 1;
                   return (
                     <td key={id} className="px-3 py-2 text-right align-middle">
-                      <Cell
-                        a={a}
-                        m={m}
-                        display={display}
-                        rowScaled={rowScaled}
-                        rowBuilding={rowBuilding}
-                        buildingIds={buildingIds}
-                      />
-
+                      <div className={isLast ? "flex items-center justify-end gap-2" : undefined}>
+                        <Cell
+                          a={a}
+                          m={m}
+                          display={display}
+                          rowScaled={rowScaled}
+                          rowBuilding={rowBuilding}
+                          buildingIds={buildingIds}
+                        />
+                        {isLast && (
+                          <ChevronRight
+                            className="h-3.5 w-3.5 opacity-0 transition-opacity group-hover:opacity-100"
+                            style={{ color: "var(--color-text-tertiary)" }}
+                          />
+                        )}
+                      </div>
                     </td>
                   );
                 })}
@@ -718,6 +731,7 @@ function Cell({
         <span
           className="type-num text-[13px]"
           style={{ color: "var(--color-text-primary)" }}
+          title={tmpl("squad.row.scaledHoverTemplate", { min: v })}
         >
           {tmpl("squad.row.scaledTagTemplate", { min: v })}
         </span>
@@ -817,7 +831,7 @@ function Cell({
       {/* Delta once, muted, in absolute mode only. No per-cell "· scaled". */}
       {!cellIsPercent && deltaPct != null && (
         <span
-          className="type-num text-[10.5px]"
+          className="type-num text-[13.5px]"
           style={{ color: "var(--color-text-tertiary)" }}
         >
           {deltaPct >= 0 ? "+" : ""}
@@ -886,7 +900,7 @@ function AvgCell({
       </span>
       {deltaPct != null && (
         <span
-          className="type-num text-[10px]"
+          className="type-num text-[13.5px]"
           style={{ color: "var(--color-text-tertiary)" }}
           suppressHydrationWarning
         >
@@ -909,7 +923,7 @@ function ChartBody({
   allSquadForTray,
   flagged,
   onRowClick,
-  onScrollToAttention,
+  onFlagClick,
   filterIsDefault,
   buildingIds,
 }: {
@@ -919,7 +933,7 @@ function ChartBody({
   allSquadForTray: Athlete[];
   flagged: Set<string>;
   onRowClick: (a: Athlete) => void;
-  onScrollToAttention: () => void;
+  onFlagClick: (id: string) => void;
   filterIsDefault: boolean;
   buildingIds: Set<string>;
 }) {
@@ -1004,7 +1018,7 @@ function ChartBody({
       scaleMax={scaleMax}
       flagged={flagged.has(r.a.id)}
       onClick={() => onRowClick(r.a)}
-      onFlagClick={onScrollToAttention}
+      onFlagClick={() => onFlagClick(r.a.id)}
       buildingIds={buildingIds}
     />
 
@@ -1143,7 +1157,7 @@ function ChartRow({
                 onFlagClick();
               }}
               title={copy("flag.hover")}
-              className="inline-flex h-4 w-4 items-center justify-center rounded hover:bg-[color:var(--color-slate-200)]"
+              className="inline-flex h-6 w-6 items-center justify-center rounded hover:bg-[color:var(--color-slate-200)]"
             >
               <Flag
                 className="h-3 w-3"
@@ -1156,7 +1170,12 @@ function ChartRow({
           className="type-label"
           style={{ color: "var(--color-text-tertiary)" }}
         >
-          {a.posDetail} · {a.minutes}'{rowScaled ? copy("canonical.squad.chart.scaledSuffix") : ""}
+          {a.posDetail} · {a.minutes}'
+          {rowScaled && (
+            <span title={tmpl("squad.row.scaledHoverTemplate", { min: a.minutes })}>
+              {copy("canonical.squad.chart.scaledSuffix")}
+            </span>
+          )}
         </div>
       </div>
       <div className="min-w-0 flex-1">
