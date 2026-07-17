@@ -992,7 +992,9 @@ function ChartBody({
       flagged={flagged.has(r.a.id)}
       onClick={() => onRowClick(r.a)}
       onFlagClick={onScrollToAttention}
+      buildingIds={buildingIds}
     />
+
   );
 
   return (
