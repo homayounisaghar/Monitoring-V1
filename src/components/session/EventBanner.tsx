@@ -32,6 +32,8 @@ export function EventBanner() {
     dayCode,
     reference,
     benchmark,
+    defaultReference,
+    defaultBenchmark,
     filter,
     filterIsDefault,
     squadView,
@@ -39,6 +41,12 @@ export function EventBanner() {
     squadSort,
     squadChartMetric,
   } = scope;
+
+  const defaults: ShareDefaults = {
+    reference: defaultReference.kind,
+    benchmark: defaultBenchmark.kind,
+    ...STATIC_DEFAULTS,
+  };
 
   const shareState = {
     reference: reference.kind,
@@ -58,7 +66,7 @@ export function EventBanner() {
       squadSort,
       squadChartMetric,
     },
-    DEFAULTS,
+    defaults,
     filterIsDefault,
   );
 
