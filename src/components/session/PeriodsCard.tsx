@@ -1005,7 +1005,7 @@ function BlockHover({
     <div className="space-y-2">
       <div
         className="type-num text-[12.5px] font-semibold"
-        style={{ color: "var(--color-slate-50)" }}
+        style={{ color: cTitle }}
       >
         {row.label} · {row.minutes} min
       </div>
@@ -1014,13 +1014,13 @@ function BlockHover({
           <div key={i} className="flex items-baseline justify-between gap-3">
             <span
               className="type-data-label text-[11px]"
-              style={{ color: "var(--color-slate-400)" }}
+              style={{ color: cLabel }}
             >
               {r.label}
             </span>
             <span
               className="type-num text-[11.5px] text-right"
-              style={{ color: "var(--color-slate-50)" }}
+              style={{ color: cValue }}
             >
               {r.body}
             </span>
@@ -1031,7 +1031,7 @@ function BlockHover({
       {row.id === peakId && (
         <div
           className="type-num text-[11px] pt-1"
-          style={{ color: "var(--color-slate-300)" }}
+          style={{ color: cMuted }}
         >
           {copy("periods.hover.peakLine")}
         </div>
@@ -1039,7 +1039,7 @@ function BlockHover({
       {includesUnconfirmed && (
         <div
           className="type-num text-[11px]"
-          style={{ color: "var(--color-slate-300)" }}
+          style={{ color: cMuted }}
         >
           {copy("periods.hover.includesUnconfirmed")}
         </div>
@@ -1047,7 +1047,7 @@ function BlockHover({
       {view === "halves" && row.internalMissingMin > 0 && (
         <div
           className="type-num text-[11px]"
-          style={{ color: "var(--color-slate-400)" }}
+          style={{ color: cLabel }}
         >
           {tmpl("periods.hover.halvesCovTemplate", {
             covered: row.internalCoveredMin,
@@ -1059,8 +1059,8 @@ function BlockHover({
         <div
           className="type-num text-[11px] border-t pt-1 mt-1"
           style={{
-            color: "var(--color-slate-400)",
-            borderColor: "var(--color-slate-700)",
+            color: cLabel,
+            borderColor: cBorder,
           }}
         >
           {tmpl("periods.hover.covFootTemplate", {
@@ -1072,6 +1072,7 @@ function BlockHover({
     </div>
   );
 }
+
 
 
 function Legend() {
