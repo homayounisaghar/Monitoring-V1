@@ -20,9 +20,10 @@
  */
 import { useEffect, useMemo, useState } from "react";
 import { ChevronRight, Flag, ChevronUp, ChevronDown, X } from "lucide-react";
+
 import { useNavigate } from "@tanstack/react-router";
 import { useSessionScope, COVERAGE_MIN } from "@/lib/session-scope";
-import { squad, POSITION_LABEL, type Athlete, type PositionCode } from "@/lib/session-data";
+import { squad, type Athlete } from "@/lib/session-data";
 import { ScopeTag } from "@/components/session/ScopeTag";
 import { TrustMark } from "@/components/data/TrustMark";
 import { copy, tmpl } from "@/lib/copy-deck";
@@ -47,15 +48,14 @@ import { ValueOnTrack } from "@/components/data/ValueOnTrack";
 
 type ViewMode = "table" | "chart";
 type DisplayMode = "absolute" | "percent";
-type SortKey = MetricId | "position";
+type SortKey = MetricId | "name";
 
 const PREFS_STORAGE_KEY = "st2.session.squad.prefs.v1";
 
-const POSITION_ORDER: PositionCode[] = ["GK", "DEF", "MID", "ATT"];
-
 type SortState = { key: SortKey; dir: "asc" | "desc" };
 
-const DEFAULT_SORT: SortState = { key: "position", dir: "desc" };
+const DEFAULT_SORT: SortState = { key: "name", dir: "asc" };
+
 
 /** Persisted presentation prefs (view/display/columns/chart-metric only).
  *  Sort and chart arrangement are analysis state and NEVER persist. */
@@ -181,43 +181,19 @@ export function SquadCard() {
     return v;
   };
 
-  // Row-render descriptors. When sort is "position", we render group
-  // subheader rows before each visible position group and pin DNP/no-data
-  // to the foot (never inside a group).
-
-
-
+  // Flat row list — no position grouping. Rows without a sortable value
+  // under the active display mode pin to the foot in name order.
   const renderItems = useMemo<RowItem[]>(() => {
     const rows = [...tableRows];
 
-    if (sort.key === "position") {
-      // Team-sheet default: grouped GK → DEF → MID → ATT, alphabetical
-      // by family name within each group. DNP / no-data pin to the foot.
-      const isFoot = (a: Athlete) => a.participation === null;
-      const inGroup = rows.filter((a) => !isFoot(a));
-      const foot = rows.filter(isFoot);
-      inGroup.sort((a, b) => {
-        const ap = POSITION_ORDER.indexOf(a.position);
-        const bp = POSITION_ORDER.indexOf(b.position);
-        if (ap !== bp) return ap - bp;
-        return familyName(a.name).localeCompare(familyName(b.name));
-      });
-      foot.sort((a, b) => familyName(a.name).localeCompare(familyName(b.name)));
-      const items: RowItem[] = [];
-      let currentPos: PositionCode | null = null;
-      for (const a of inGroup) {
-        if (a.position !== currentPos) {
-          items.push({ kind: "header", pos: a.position });
-          currentPos = a.position;
-        }
-        items.push({ kind: "row", a });
-      }
-      for (const a of foot) items.push({ kind: "row", a });
-      return items;
+    if (sort.key === "name") {
+      const dirMult = sort.dir === "asc" ? 1 : -1;
+      rows.sort(
+        (a, b) => dirMult * familyName(a.name).localeCompare(familyName(b.name)),
+      );
+      return rows.map((a) => ({ kind: "row" as const, a }));
     }
 
-    // Metric sort — flat, no subheaders. Rows without a sortable value
-    // under the active display mode pin to the foot in name order.
     const key = sort.key;
     const dirMult = sort.dir === "asc" ? 1 : -1;
     rows.sort((a, b) => {
@@ -233,6 +209,7 @@ export function SquadCard() {
     return rows.map((a) => ({ kind: "row" as const, a }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tableRows, sort, display]);
+
 
 
   /* --- squad-avg row (in-scope participants) --- */
@@ -354,18 +331,15 @@ export function SquadCard() {
           display={display}
           sort={sort}
           onSort={(key) => {
-            // Athlete header: single-action restore of the team-sheet default.
-            if (key === "position") {
-              setSort(DEFAULT_SORT);
-              return;
-            }
-            // Metric header: same key toggles direction; new key starts desc.
+            // Same key toggles direction. New metric key starts descending;
+            // new name key starts ascending (A→Z).
             setSort((prev) =>
               prev.key === key
                 ? { key, dir: prev.dir === "desc" ? "asc" : "desc" }
-                : { key, dir: "desc" },
+                : { key, dir: key === "name" ? "asc" : "desc" },
             );
           }}
+
           flagged={flagged}
           srpeCoverage={{ submitted: srpeSubmitted, total: srpeTotal }}
           onRowClick={(_a) => navigate({ to: "/athlete" })}
@@ -408,9 +382,7 @@ export function SquadCard() {
 /* Table body                                                    */
 /* ============================================================ */
 
-type RowItem =
-  | { kind: "header"; pos: PositionCode }
-  | { kind: "row"; a: Athlete };
+type RowItem = { kind: "row"; a: Athlete };
 
 function TableBody({
   items,
@@ -437,9 +409,10 @@ function TableBody({
   scopeCount: number;
   onScrollToAttention: () => void;
 }) {
-  const athleteActive = sort.key === "position";
-  const totalCols = 1 + columns.length;
+  const athleteActive = sort.key === "name";
+
   return (
+
     <div
       className="overflow-x-auto rounded-b-lg border"
       style={{
@@ -465,8 +438,8 @@ function TableBody({
             >
               <button
                 className="inline-flex items-center gap-1.5"
-                onClick={() => onSort("position")}
-                title={`${copy("canonical.squad.sortByPrefix")}${copy("canonical.squad.sortByPosition")}`}
+                onClick={() => onSort("name")}
+                title={`${copy("canonical.squad.sortByPrefix")}${copy("canonical.squad.tableHead.athlete")}`}
               >
                 <span
                   className="type-col-head"
@@ -479,11 +452,16 @@ function TableBody({
                   {copy("canonical.squad.tableHead.athlete")}
                 </span>
                 {athleteActive ? (
-                  <ChevronDown className="h-3 w-3" />
+                  sort.dir === "asc" ? (
+                    <ChevronDown className="h-3 w-3" />
+                  ) : (
+                    <ChevronUp className="h-3 w-3" />
+                  )
                 ) : (
                   <span className="w-3" />
                 )}
               </button>
+
             </th>
             {columns.map((id) => {
               const m = METRICS[id];
@@ -581,23 +559,8 @@ function TableBody({
             })}
           </tr>
 
-          {items.map((it, idx) => {
-            if (it.kind === "header") {
-              return (
-                <tr
-                  key={`h-${it.pos}-${idx}`}
-                  style={{ backgroundColor: "var(--color-slate-50)" }}
-                >
-                  <td
-                    colSpan={totalCols}
-                    className="px-3 py-1.5 type-label"
-                    style={{ color: "var(--color-text-tertiary)" }}
-                  >
-                    {POSITION_LABEL[it.pos]}
-                  </td>
-                </tr>
-              );
-            }
+          {items.map((it) => {
+
             const a = it.a;
             const rowScaled =
               a.participation !== null &&
@@ -951,17 +914,15 @@ function ChartBody({
 
   type Entry = (typeof withData)[number];
 
-  // Absolute: grouped by position line with per-line rank numbers.
-  // Percent: flat single ladder ranked by delta vs own typical.
+  // Flat single ladder in both modes:
+  //  · Absolute → rank by value
+  //  · Percent  → rank by delta vs own typical (rows without a reference
+  //    have no delta and drop to the tray)
   const isPercent = display === "percent";
   const rankedForFlat = isPercent
     ? ranked.filter((e) => rankKey(e) != null)
     : ranked;
-  const groups: { pos: PositionCode; entries: Entry[] }[] = isPercent
-    ? []
-    : POSITION_ORDER
-        .map((pos) => ({ pos, entries: ranked.filter((e) => e.a.position === pos) }))
-        .filter((g) => g.entries.length > 0);
+
 
   // Non-participants + no-data pin to foot explicitly.
   // In % mode, also send entries that have no delta (no reference) to the tray.
@@ -982,7 +943,8 @@ function ChartBody({
 
   const captionKey = isPercent
     ? "chart.captionPercent"
-    : "chart.captionGroupedAbsolute";
+    : "chart.captionAbsolute";
+
 
   const renderRow = (r: Entry, rank: number) => (
     <ChartRow
@@ -1028,30 +990,10 @@ function ChartBody({
             : tmpl("chart.axisAbsoluteNote", { max: formatScale(metric, scaleMax) })}
         </span>
       </div>
-      {isPercent ? (
-        <ul>
-          {rankedForFlat.map((r, i) => renderRow(r, i + 1))}
-        </ul>
-      ) : (
-        <ul>
-          {groups.map((g) => (
-            <li key={g.pos}>
-              <div
-                className="px-4 py-1.5 type-label"
-                style={{
-                  color: "var(--color-text-tertiary)",
-                  backgroundColor: "var(--color-slate-50)",
-                }}
-              >
-                {POSITION_LABEL[g.pos]}
-              </div>
-              <ul>
-                {g.entries.map((r, i) => renderRow(r, i + 1))}
-              </ul>
-            </li>
-          ))}
-        </ul>
-      )}
+      <ul>
+        {rankedForFlat.map((r, i) => renderRow(r, i + 1))}
+      </ul>
+
 
 
       {tray.length > 0 && (
@@ -1479,5 +1421,5 @@ function formatScale(m: Metric, max: number): string {
   return `${max} ${m.unit}`;
 }
 
-export { POSITION_LABEL };
+
 

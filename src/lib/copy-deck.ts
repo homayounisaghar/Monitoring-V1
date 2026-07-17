@@ -54,7 +54,7 @@ export const COPY = {
   "flag.hover": "Flagged in Attention — view",
   "trust.hoverGeneric": "coverage under 80%",
   "columns.capReason": "At the 12-column cap — remove one to add another",
-  "chart.captionGroupedAbsolute": "By position · ranked by {metric} within each line",
+  "chart.captionAbsolute": "Ranked by {metric}",
   "chart.captionPercent": "Ranked by delta · {metric}",
 
   "chart.noData": "No data on this metric",
@@ -232,7 +232,7 @@ export const COPY = {
   "canonical.squad.toolbar.columns": "Columns",
   "canonical.squad.tableHead.athlete": "Athlete",
   "canonical.squad.sortByPrefix": "Sort by ",
-  "canonical.squad.sortByPosition": "Position",
+  
   "canonical.squad.picker.title": "Columns",
   "canonical.squad.picker.on": "on",
   "canonical.squad.picker.off": "off",
