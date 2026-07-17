@@ -342,6 +342,7 @@ export function SummaryCard() {
             />
           </div>
           <ZoneBar
+            typicalHiSharePct={zoneShares.typ}
             shares={[
               { id: "z1", pct: zoneShares.z1, ramp: 1 },
               { id: "z2", pct: zoneShares.z2, ramp: 2 },
