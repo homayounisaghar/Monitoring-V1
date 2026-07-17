@@ -330,7 +330,16 @@ export function SessionScopeProvider({ children }: { children: ReactNode }) {
 
   const benchmarkIsDefault = benchmark.kind === defaultBenchmark.kind;
 
+  const buildingIds = useMemo(
+    () => new Set(BUILDING_IDS_BY_SCENARIO[demo] ?? [BUILDING_ID]),
+    [demo],
+  );
+  const comparableCount =
+    effectiveParticipants.length -
+    effectiveParticipants.filter((a) => buildingIds.has(a.id)).length;
+
   const value: SessionScope = {
+
     reference,
     setReference,
     referenceOptions,
