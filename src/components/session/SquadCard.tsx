@@ -337,8 +337,6 @@ export function SquadCard() {
           display={display}
           sort={sort}
           onSort={(key) => {
-            // Same key toggles direction. New metric key starts descending;
-            // new name key starts ascending (A→Z).
             setSort((prev) =>
               prev.key === key
                 ? { key, dir: prev.dir === "desc" ? "asc" : "desc" }
@@ -355,6 +353,8 @@ export function SquadCard() {
             const el = document.getElementById("attention");
             el?.scrollIntoView({ behavior: "smooth", block: "start" });
           }}
+          filterIsDefault={filterIsDefault}
+          buildingIds={buildingIds}
         />
       ) : (
         <ChartBody
@@ -368,8 +368,11 @@ export function SquadCard() {
             const el = document.getElementById("attention");
             el?.scrollIntoView({ behavior: "smooth", block: "start" });
           }}
+          filterIsDefault={filterIsDefault}
+          buildingIds={buildingIds}
         />
       )}
+
 
 
       {pickerOpen && (
