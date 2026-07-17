@@ -1201,7 +1201,7 @@ function ChartRow({
             scaleMin={0}
             scaleMax={scaleMax}
             referenceBandPct={scaleMax * 0.05}
-            scaleLabel={`${copy("canonical.squad.chart.hisTypicalPrefix")}${formatValue(ref, m)}`}
+            scaleLabel={`${copy("canonical.squad.chart.typicalPrefix")}${formatValue(ref, m)}`}
             unit={m.unit === "%" ? "%" : m.unit}
             showValue={true}
             size="compact"
