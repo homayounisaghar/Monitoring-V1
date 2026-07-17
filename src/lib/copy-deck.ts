@@ -52,6 +52,7 @@ export const COPY = {
   "legend.dot": "dot — this session",
   "legend.trustDot": "trust dot — coverage under 80%",
   "legend.flagGlyph": "flag glyph — flagged in Attention",
+  "legend.gapPair": "pair — external + internal, gap in pts",
 
   // ---------- Register-class hovers / labels (v2 + v3) ----------
   "flag.hover": "Flagged in Attention — view",
