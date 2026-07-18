@@ -279,13 +279,7 @@ export function SquadCard() {
       </header>
 
       {/* Toolbar */}
-      <div
-        className="mb-3 flex items-center justify-between gap-3 rounded-t-lg border border-b-0 px-3 py-2"
-        style={{
-          borderColor: "var(--color-border)",
-          backgroundColor: "var(--color-surface-card)",
-        }}
-      >
+      <div className="surface-card mb-3 flex items-center justify-between gap-3 rounded-t-lg border-b-0 px-3 py-2">
         <SegmentedToggle
           value={view}
           onChange={(v) => setView(v)}
@@ -432,13 +426,7 @@ function TableBody({
 
   return (
 
-    <div
-      className="rounded-b-lg border"
-      style={{
-        borderColor: "var(--color-border)",
-        backgroundColor: "var(--color-surface-card)",
-      }}
-    >
+    <div className="surface-card rounded-b-lg">
       <table className="w-full min-w-[900px] border-collapse text-[13px]">
         <thead
           className="sticky z-10"
@@ -1028,13 +1016,7 @@ function ChartBody({
   );
 
   return (
-    <div
-      className="rounded-b-lg border"
-      style={{
-        borderColor: "var(--color-border)",
-        backgroundColor: "var(--color-surface-card)",
-      }}
-    >
+    <div className="surface-card rounded-b-lg">
       <div
         className="flex items-baseline justify-between border-b px-4 py-2"
         style={{ borderColor: "var(--color-border)" }}
