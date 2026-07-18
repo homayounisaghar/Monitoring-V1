@@ -260,13 +260,7 @@ export function PeriodsCard() {
         </div>
       </header>
 
-      <div
-        className="overflow-hidden rounded-lg border"
-        style={{
-          borderColor: "var(--color-border)",
-          backgroundColor: "var(--color-surface-card)",
-        }}
-      >
+      <div className="surface-card overflow-hidden rounded-lg">
         <div className="relative px-5 pt-5 pb-4">
           {/* Half-time rule — spans the full chart stack at the 45' grid line */}
           {halfBoundaryIdx !== null && (

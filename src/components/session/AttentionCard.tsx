@@ -83,13 +83,7 @@ export function AttentionCard() {
         <h2 className="type-section-h">{copy("canonical.section.attention")}</h2>
       </header>
 
-      <div
-        className="overflow-hidden rounded-lg border"
-        style={{
-          borderColor: "var(--color-border)",
-          backgroundColor: "var(--color-surface-card)",
-        }}
-      >
+      <div className="surface-card-attention overflow-hidden rounded-lg">
         {/* Headline slot */}
         <Headline
           state={headlineState}

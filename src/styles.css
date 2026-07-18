@@ -186,6 +186,38 @@
   --shadow-card: 0 1px 2px rgba(15, 23, 42, 0.06);
   --shadow-card-attention: 0 2px 6px rgba(15, 23, 42, 0.10);
 
+  /* Spacing & vertical rhythm — ratified 2026-07-18.
+     Governs padding, gap and margin BETWEEN elements.
+     Grouping rule: tight WITHIN a unit, open BETWEEN units — a value always
+     sits closer to its own caption than to any neighbour.
+     Mark geometry and stroke weights are separately governed and are NOT on
+     this scale (e.g. the 2.5px contact clearance in the Periods lanes).
+     From here on, the only Tailwind spacing classes permitted are those that
+     resolve to these values (0.5 1 1.5 2 3 4 6 8 10 18). Arbitrary-value
+     spacing — p-[14px], gap-[9px] and similar — is barred. */
+  --space-hairline: 2px;    /* badge y-pad, pip gaps, baseline nudges */
+  --space-glue: 4px;        /* inside a datum: control y-pad, value <-> unit */
+  --space-glue-plus: 6px;   /* icon <-> word, chevron <-> label, chip runs, value <-> its bar */
+  --space-tight: 8px;       /* datum <-> datum inside one unit; label <-> value; row y-pad */
+  --space-grouped: 12px;    /* items in a list row; section header <-> its card; well row y-pad */
+  --space-unit: 16px;       /* kicker <-> content; popover padding; card top pad */
+  --space-block: 24px;      /* card x-pad; sibling cards; metric rows within a panel */
+  --space-column: 32px;     /* metric column gutters inside a card */
+  --space-gutter: 40px;     /* page margins; first section below the anchor strip */
+  --space-section: 72px;    /* section <-> section down the scroll; nothing else uses it */
+
+  /* Fixed row heights — never padded ad hoc */
+  --row-control: 30px;
+  --row-list: 44px;
+  --row-banner: 52px;
+  --row-nav: 56px;
+  --row-flag: 64px;
+
+  /* Motion tokens */
+  --motion-quick: 150ms;    /* control state, popover open/close, chevron */
+  --motion-settle: 1500ms;  /* one-shot confirmation that a jump landed */
+  --motion-ease: ease-out;
+
   /* Primitive extensions */
   --green-50: #ECF5EF;
   --green-100: #D5E9DC;
@@ -195,6 +227,15 @@
   --amber-600: #C2620C;
   --red-200: #F5C2C2;
   --red-700: #B91C1C;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 
@@ -214,8 +255,8 @@
 }
 
 /* ============================================================
- * TYPE SCALE — five slots. These are the ratified hierarchy.
- * Legacy `type-section-*`, `type-label`, `type-data-label`,
+ * TYPE SCALE — seven slots. These are the ratified hierarchy.
+ * Legacy `type-section-*`, `type-label` (legacy sizing), `type-data-label`,
  * `type-col-head`, `type-micro` are kept below for back-compat while
  * sections are re-clothed one prompt at a time.
  * ============================================================ */
@@ -274,6 +315,28 @@
   color: var(--color-text-tertiary);
 }
 
+/* 6 — heading-17: card / section headings */
+@utility type-heading-17 {
+  font-size: 17px; line-height: 1.25; font-weight: 650;
+  letter-spacing: -0.005em; color: var(--color-text-primary);
+}
+
+/* 7 — heading-15: sub-headings within a card */
+@utility type-heading-15 {
+  font-size: 15px; line-height: 1.3; font-weight: 650;
+  letter-spacing: -0.005em; color: var(--color-text-primary);
+}
+
+/* data-small: MONO NUMERIC CONTENT ONLY — deltas, units, coverage marks,
+   meta, footnotes. Never without its parent value. Sans microcopy never goes
+   below the 12px label floor: do NOT use this for sentence-case text. */
+@utility type-data-small {
+  font-size: 12px; line-height: 1.35;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums; font-feature-settings: "tnum";
+  color: var(--color-text-tertiary);
+}
+
 /* Tone ladder — elevation utilities */
 @utility surface-card {
   background-color: var(--color-surface-card);
@@ -290,6 +353,7 @@
 }
 
 /* ---- Legacy type roles (compat; scheduled removal per section rewrites) ---- */
+/* retires into: type-heading-17 */
 @utility type-section-h {
   font-size: 17px;
   line-height: 1.25;
@@ -297,15 +361,20 @@
   color: var(--color-text-primary);
   letter-spacing: -0.005em;
 }
+/* retires into: type-label */
 @utility type-section-desc {
   font-size: 13px;
   line-height: 1.4;
   color: var(--color-text-secondary);
 }
+/* retires into: SPLITS BY USE —
+   type-label where it labels a metric,
+   type-data-small where it is a unit or delta attached to a numeral */
 @utility type-data-label {
   font-size: 11px;
   color: var(--color-text-secondary);
 }
+/* retires into: type-microcaps */
 @utility type-col-head {
   font-size: 11px;
   text-transform: uppercase;
@@ -313,6 +382,7 @@
   font-weight: 600;
   color: var(--color-text-secondary);
 }
+/* retires into: type-microcaps */
 @utility type-micro {
   font-size: 10.5px;
   text-transform: uppercase;

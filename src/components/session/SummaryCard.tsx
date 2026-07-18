@@ -181,13 +181,7 @@ export function SummaryCard() {
       </header>
 
       {/* ---- Squad-load card — two axes side by side (white, hairline) ---- */}
-      <div
-        className="overflow-hidden rounded-lg border"
-        style={{
-          borderColor: "var(--color-border)",
-          backgroundColor: "var(--color-surface-card)",
-        }}
-      >
+      <div className="surface-card overflow-hidden rounded-lg">
         {/* Shared header row */}
         <div
           className="grid grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] border-b"
@@ -766,13 +760,7 @@ function ParticipationCard({
   const [popover, setPopover] = useState<ParticipationTag | null>(null);
 
   return (
-    <div
-      className="rounded-lg border p-5"
-      style={{
-        borderColor: "var(--color-border)",
-        backgroundColor: "var(--color-surface-card)",
-      }}
-    >
+    <div className="surface-card rounded-lg p-5">
       <div className="mb-3 flex items-baseline justify-between">
         <div className="flex items-baseline gap-3">
           <h3 className="type-section-h">{copy("canonical.section.participation")}</h3>
