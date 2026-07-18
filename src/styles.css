@@ -255,8 +255,8 @@
 }
 
 /* ============================================================
- * TYPE SCALE — five slots. These are the ratified hierarchy.
- * Legacy `type-section-*`, `type-label`, `type-data-label`,
+ * TYPE SCALE — seven slots. These are the ratified hierarchy.
+ * Legacy `type-section-*`, `type-label` (legacy sizing), `type-data-label`,
  * `type-col-head`, `type-micro` are kept below for back-compat while
  * sections are re-clothed one prompt at a time.
  * ============================================================ */
@@ -315,6 +315,28 @@
   color: var(--color-text-tertiary);
 }
 
+/* 6 — heading-17: card / section headings */
+@utility type-heading-17 {
+  font-size: 17px; line-height: 1.25; font-weight: 650;
+  letter-spacing: -0.005em; color: var(--color-text-primary);
+}
+
+/* 7 — heading-15: sub-headings within a card */
+@utility type-heading-15 {
+  font-size: 15px; line-height: 1.3; font-weight: 650;
+  letter-spacing: -0.005em; color: var(--color-text-primary);
+}
+
+/* data-small: MONO NUMERIC CONTENT ONLY — deltas, units, coverage marks,
+   meta, footnotes. Never without its parent value. Sans microcopy never goes
+   below the 12px label floor: do NOT use this for sentence-case text. */
+@utility type-data-small {
+  font-size: 12px; line-height: 1.35;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums; font-feature-settings: "tnum";
+  color: var(--color-text-tertiary);
+}
+
 /* Tone ladder — elevation utilities */
 @utility surface-card {
   background-color: var(--color-surface-card);
@@ -331,6 +353,7 @@
 }
 
 /* ---- Legacy type roles (compat; scheduled removal per section rewrites) ---- */
+/* retires into: type-heading-17 */
 @utility type-section-h {
   font-size: 17px;
   line-height: 1.25;
@@ -338,15 +361,20 @@
   color: var(--color-text-primary);
   letter-spacing: -0.005em;
 }
+/* retires into: type-label */
 @utility type-section-desc {
   font-size: 13px;
   line-height: 1.4;
   color: var(--color-text-secondary);
 }
+/* retires into: SPLITS BY USE —
+   type-label where it labels a metric,
+   type-data-small where it is a unit or delta attached to a numeral */
 @utility type-data-label {
   font-size: 11px;
   color: var(--color-text-secondary);
 }
+/* retires into: type-microcaps */
 @utility type-col-head {
   font-size: 11px;
   text-transform: uppercase;
@@ -354,6 +382,7 @@
   font-weight: 600;
   color: var(--color-text-secondary);
 }
+/* retires into: type-microcaps */
 @utility type-micro {
   font-size: 10.5px;
   text-transform: uppercase;
