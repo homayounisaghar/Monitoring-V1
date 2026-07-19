@@ -148,12 +148,60 @@ export function runDemoLibraryChecks(): Check[] {
   const frei = recordsForAthlete("frei").filter((r) => r.srpeAU != null);
   push("Frei has zero sRPE records", frei.length === 0, `count=${frei.length}`);
 
-  const noCollectDays = ["2026-07-12", "2026-07-19"];
-  const noCollectOK = noCollectDays.every((d) => {
-    const s = demoSessions.find((x) => x.dateISO === d);
-    return s?.srpeCollected === false;
-  });
-  push("Two no-collection recovery days", noCollectOK, noCollectDays.join(","));
+  /* ─── §1 (prompt 1d) — participation contract invariant ─── */
+  const PINNED_SESSION_ID = "s-2026-07-04-dortmund";
+  type Violation = { athleteId: string; dateISO: string; tag: string; field: string; got: string };
+  const violations: Violation[] = [];
+  const exemptions: { athleteId: string; tag: string; minutes: number }[] = [];
+  for (const r of demoRecords) {
+    // Rest-day records are the one legitimate zero — outside the tag contract.
+    if (r.sessionId === null) continue;
+    const row = contractRowFor(r.participation);
+    const tag = r.participation ?? "unselected";
+    // Declared exception: pinned session may carry Injury with minutes>0.
+    if (r.sessionId === PINNED_SESSION_ID && r.participation === "Injury" && r.minutes > 0) {
+      exemptions.push({ athleteId: r.athleteId, tag, minutes: r.minutes });
+      continue;
+    }
+    const v = (field: string, got: unknown) =>
+      violations.push({ athleteId: r.athleteId, dateISO: r.dateISO, tag, field, got: String(got) });
+    if (row.hasMinutes) {
+      if (r.minutes <= 0) v("minutes", r.minutes);
+    } else {
+      if (r.minutes !== 0) v("minutes", r.minutes);
+    }
+    if (row.hasLoad) {
+      if (r.totalDistance <= 0) v("totalDistance", r.totalDistance);
+      if (r.cardioLoad === null && r.hrCoveragePct !== null) {
+        // cardioLoad may be null when coverage is absent even for hasLoad tags;
+        // but hasLoad tags must at least produce non-zero external load.
+      }
+    } else {
+      if (r.totalDistance !== 0) v("totalDistance", r.totalDistance);
+      if (r.hsr !== 0) v("hsr", r.hsr);
+      if (r.sprintDist !== 0) v("sprintDist", r.sprintDist);
+      if (r.accDec !== 0) v("accDec", r.accDec);
+      if (r.mMin !== 0) v("mMin", r.mMin);
+      if (r.topSpeedKmh !== 0) v("topSpeedKmh", r.topSpeedKmh);
+      if (r.cardioLoad !== null) v("cardioLoad", r.cardioLoad ?? "null");
+    }
+    if (row.hasCoverage) {
+      if (r.hrCoveragePct === null) v("hrCoveragePct", "null");
+    } else {
+      if (r.hrCoveragePct !== null) v("hrCoveragePct", r.hrCoveragePct);
+    }
+    if (!row.srpeEligible) {
+      if (r.srpeRating !== null) v("srpeRating", r.srpeRating);
+      if (r.srpeAU !== null) v("srpeAU", r.srpeAU);
+    }
+  }
+  const exemptDetail = exemptions
+    .map((e) => `${e.athleteId} ${e.tag}@${e.minutes}′`).join(", ") || "none";
+  push(
+    `Contract invariant holds for every record (exempt: ${exemptDetail})`,
+    violations.length === 0,
+    violations.slice(0, 12).map((x) => `${x.athleteId}/${x.dateISO}/${x.tag}: ${x.field}=${x.got}`).join(" | "),
+  );
 
   // §4 — match squad shape: exactly 11 rows with minutes ≥ 85; 3–5 Part rows.
   // Pinned Dortmund exempt.
