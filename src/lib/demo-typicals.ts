@@ -283,6 +283,12 @@ export function typicalFor(athleteId: string, bucketKey: BucketKey): AthleteBuck
     return t;
   }
   const nominalDurationMin = nominalDurationFor(bucketKey);
+  // §A1 — per-athlete typical duration for this bucket. Plain unweighted mean
+  // of minutes across sample records, rounded. This is the length HE typically
+  // gets in this bucket, not the bucket's nominal.
+  let minSum = 0;
+  for (const r of records) minSum += r.minutes;
+  const typicalDurationMin = Math.round(minSum / records.length);
   const metrics: Partial<Record<TypicalMetric, PerMetricTypical>> = {};
   for (const m of TYPICAL_METRICS) {
     const pm = computeMetric(records, m, nominalDurationMin);
@@ -292,7 +298,7 @@ export function typicalFor(athleteId: string, bucketKey: BucketKey): AthleteBuck
     state: "computed",
     athleteId, bucketKey, dayCode, sessionType,
     sessionCount, required: TYPICAL_MIN_SESSIONS,
-    nominalDurationMin, metrics,
+    nominalDurationMin, typicalDurationMin, metrics,
   };
   TYPICAL_CACHE.set(cacheKey, t);
   return t;
