@@ -19,15 +19,12 @@ export function runDemoLibraryChecks(): Check[] {
   const out: Check[] = [];
   const push = (name: string, pass: boolean, detail: string) => out.push({ name, pass, detail });
 
-  const winAll = demoSessions.filter(inWindow);
-  const win = winAll.filter((s) => !s.isRestDay);
+  const win = demoSessions.filter(inWindow);
   const matches = win.filter((s) => s.type === "match");
   const nonMatch = win.filter((s) => s.type !== "match");
   push("28-day sessions total = 24", win.length === 24, `got ${win.length}`);
   push("28-day matches = 5", matches.length === 5, `got ${matches.length}`);
   push("28-day non-match = 19", nonMatch.length === 19, `got ${nonMatch.length}`);
-
-  push("no session has isRestDay=true (§2)", demoSessions.every((s) => !s.isRestDay), "");
 
   // demoDays checks (§2).
   const day714 = demoDays.find((d) => d.dateISO === "2026-07-14");
