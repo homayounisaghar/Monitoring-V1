@@ -6,6 +6,7 @@ import {
   demoSessions, demoRecords, demoAthletes, demoDays,
   recordsForAthlete, recordsForSession, DEMO_TODAY,
   buildSessions, buildDays, buildRecords,
+  DAY_TD_DOMAIN_MAX,
   type DemoRecord,
 } from "./demo-library";
 
@@ -19,15 +20,12 @@ export function runDemoLibraryChecks(): Check[] {
   const out: Check[] = [];
   const push = (name: string, pass: boolean, detail: string) => out.push({ name, pass, detail });
 
-  const winAll = demoSessions.filter(inWindow);
-  const win = winAll.filter((s) => !s.isRestDay);
+  const win = demoSessions.filter(inWindow);
   const matches = win.filter((s) => s.type === "match");
   const nonMatch = win.filter((s) => s.type !== "match");
   push("28-day sessions total = 24", win.length === 24, `got ${win.length}`);
   push("28-day matches = 5", matches.length === 5, `got ${matches.length}`);
   push("28-day non-match = 19", nonMatch.length === 19, `got ${nonMatch.length}`);
-
-  push("no session has isRestDay=true (§2)", demoSessions.every((s) => !s.isRestDay), "");
 
   // demoDays checks (§2).
   const day714 = demoDays.find((d) => d.dateISO === "2026-07-14");
@@ -94,14 +92,27 @@ export function runDemoLibraryChecks(): Check[] {
   const unconfirmed = demoSessions.filter((s) => s.unconfirmed);
   push("Exactly one unconfirmed session", unconfirmed.length === 1 && unconfirmed[0].dateISO === "2026-07-19", unconfirmed.map((s) => s.dateISO).join(","));
 
-  const matchTd = matches.map((m) => ({
-    date: m.dateISO,
-    td: recordsForSession(m.id).reduce((s, r) => s + r.totalDistance, 0),
-  }));
-  const jul8 = matchTd.find((x) => x.date === "2026-07-08")!;
-  const others = matchTd.filter((x) => x.date !== "2026-07-08");
-  const highestOther = Math.max(...others.map((x) => x.td));
-  push("8 Jul TD ≥10 % over next match", jul8.td >= highestOther * 1.10, `jul8=${jul8.td} vs max other=${highestOther}`);
+  // Beyond-range: verified against a fixed drawn domain, not a %-vs-peer trick.
+  // (a) Exactly one calendar day in the full library exceeds DAY_TD_DOMAIN_MAX,
+  // and that day is 2026-07-08. (b) No athlete-session exceeds 15,000 m — the
+  // plausibility floor the retired multiplier was breaching.
+  const dayTotals = new Map<string, number>();
+  for (const r of demoRecords) {
+    dayTotals.set(r.dateISO, (dayTotals.get(r.dateISO) ?? 0) + r.totalDistance);
+  }
+  const overCap = [...dayTotals.entries()].filter(([, td]) => td > DAY_TD_DOMAIN_MAX);
+  push(
+    `Exactly one day exceeds DAY_TD_DOMAIN_MAX=${DAY_TD_DOMAIN_MAX} and it is 8 Jul`,
+    overCap.length === 1 && overCap[0][0] === "2026-07-08",
+    overCap.map(([d, td]) => `${d}=${td}`).join(", ") || "none",
+  );
+  const maxAthleteTd = demoRecords.reduce((m, r) => Math.max(m, r.totalDistance), 0);
+  const maxRec = demoRecords.find((r) => r.totalDistance === maxAthleteTd);
+  push(
+    "No athlete-session exceeds 15,000 m total distance",
+    maxAthleteTd <= 15000,
+    `max=${maxAthleteTd} m (${maxRec?.athleteId} on ${maxRec?.dateISO})`,
+  );
 
   const frei = recordsForAthlete("frei").filter((r) => r.srpeAU != null);
   push("Frei has zero sRPE records", frei.length === 0, `count=${frei.length}`);

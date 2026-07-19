@@ -58,3 +58,17 @@ Factual, short, and specific to this prompt.
 
 - `MATCH_PARTICIPATION` is precomputed at module init in match-date order, then a rotation-enforcement IIFE iteratively swaps monopolist starters into a Part slot while promoting a same-position sub. Arc-forced athletes (Lange, Voss) and never-participants (Sturm) are excluded from replacement selection so the post-pass cannot violate their storylines.
 - `DemoSession.isRestDay` remains on the type but is always `false`; retained only so any hypothetical consumer written against the earlier shape doesn't hit a missing property. Prefer `demoDays[i].kind === "rest"`.
+
+## Corrections applied in prompt 1c
+
+### Defects found (all fixed in this pass)
+
+- **The beyond-range multiplier reached 1.55 and produced implausible per-athlete distances.** `BEYOND_RANGE_TD_MULT` grew from 1.16 → 1.35 → 1.55 across prompts to clear the pinned 18 Jul squad-day total, which sits high because the pinned rows carry ~1,270 player-minutes vs ~1,050 for a real match. At 1.55 a midfielder was running ~16 km in a 94′ match. Retired. 8 Jul now has a real cause: an extra-time cup tie of 120′ (`durationMin: 120`, `note: "AET"`). Starters play 111–117′, subs are 4–5 in number at 20–45′. Session distance/HSR/sprint are dampened by 0.93 per minute relative to a straight extrapolation, reflecting that intensity sags in extra time. Maximum athlete-session TD is now 14,503 m (Albrecht, 8 Jul) — under the 15 km plausibility floor.
+- **The "beyond range" test had nothing fixed to be beyond.** The retired check compared 8 Jul against the highest other match in the window, which is a moving peer target that can be satisfied by inflation. Replaced with `DAY_TD_DOMAIN_MIN = 0` and `DAY_TD_DOMAIN_MAX = 143_000` exported as a fixed drawn domain the UI must not auto-fit, plus two new checks: exactly one day in the whole library exceeds the cap (8 Jul at 145,492 m), and no athlete-session exceeds 15,000 m.
+- **`DemoSession.isRestDay` was dead weight.** Field was always `false` since the day/session split, and no consumer read it. Field and all initializers removed; the check that asserted it was always false is gone too.
+- **Rotation-phase seed literal read as a version number.** `"rotphase-v12"` suggested twelve prior tuning passes; renamed to `"rotation-phase"`. Behaviour unchanged — the string only feeds `hashSeed`.
+
+### Defaults taken
+
+- **`DAY_TD_DOMAIN_MAX = 143_000` m.** Chosen to sit above the second-highest squad day (pinned 18 Jul Dortmund at 140,762 m) and below 8 Jul (145,492 m) so exactly one day in the eight-week library breaks the cap. Comment in source flags it as a demo-calibrated placeholder pending real per-day exports. Alterable, but must never auto-fit.
+- **8 Jul extra-time framing.** `MatchDef` now carries optional `note?: string` and `durationMin?: number`; 8 Jul is the only entry using them (`note: "AET"`, `durationMin: 120`). Full-tag minutes: `114 + jit(3)` clamped implicitly to 111–117. Part-tag minutes: `33 + jit(12)` clamped 20–45. Target Part count on 8 Jul is 4–5 (vs 3–5 elsewhere). Per-minute distance dampener: 0.93. Alterable within plausibility.

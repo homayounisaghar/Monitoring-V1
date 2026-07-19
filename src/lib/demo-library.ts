@@ -71,13 +71,13 @@ export type DemoSession = {
   type: SessionType;
   durationMin: number;
   dayCode: string;
-  /** Always false — rest days are days, not sessions (§2). Kept for back-compat. */
-  isRestDay: boolean;
   unconfirmed?: boolean;
   srpeCollected: boolean;
   opponent?: string;
   venue?: "home" | "away";
   result?: string;
+  /** Free-text session annotation (e.g. "AET" for extra time). */
+  note?: string;
 };
 
 export type DemoDay = {
@@ -146,7 +146,7 @@ const ATHLETE_BY_ID = new Map(demoAthletes.map((a) => [a.id, a]));
 
 /* ─────────────────────────── calendar ─────────────────────────── */
 
-type MatchDef = { date: string; opp: string; venue: "home" | "away"; result?: string };
+type MatchDef = { date: string; opp: string; venue: "home" | "away"; result?: string; note?: string; durationMin?: number };
 const MATCHES: MatchDef[] = [
   { date: "2026-05-31", opp: "Hertha BSC",         venue: "away", result: "1–1 D" },
   { date: "2026-06-03", opp: "Werder Bremen",      venue: "home", result: "2–0 W" },
@@ -158,7 +158,8 @@ const MATCHES: MatchDef[] = [
   { date: "2026-06-21", opp: "Bayer 04",           venue: "home", result: "3–2 W" },
   { date: "2026-06-28", opp: "FC Köln",            venue: "home", result: "1–1 D" },
   { date: "2026-07-04", opp: "VfL Wolfsburg",      venue: "away", result: "0–2 L" },
-  { date: "2026-07-08", opp: "Eintracht Frankfurt",venue: "home", result: "2–2 D" }, // beyond-range
+  // Cup tie taken to extra time — the reason 8 Jul sits above the domain cap.
+  { date: "2026-07-08", opp: "Eintracht Frankfurt",venue: "home", result: "2–2 D", note: "AET", durationMin: 120 },
   { date: "2026-07-11", opp: "TSG Hoffenheim",     venue: "away", result: "1–0 W" },
   { date: "2026-07-18", opp: "Borussia Dortmund",  venue: "away", result: "2–1 W" }, // pinned
 ];
@@ -251,13 +252,13 @@ export function buildSessions(): DemoSession[] {
         dateISO,
         name: `vs ${m.opp}`,
         type: "match",
-        durationMin: isDortmund ? 95 : 94,
+        durationMin: isDortmund ? 95 : (m.durationMin ?? 94),
         dayCode: "MD",
-        isRestDay: false,
         srpeCollected: true,
         opponent: m.opp,
         venue: m.venue,
         result: m.result,
+        note: m.note,
       });
       continue;
     }
@@ -268,12 +269,12 @@ export function buildSessions(): DemoSession[] {
       out.push({
         id: `s-${dateISO}-gym`,
         dateISO, name: "Gym · AM", type: "gym", durationMin: 45,
-        dayCode, isRestDay: false, srpeCollected: true,
+        dayCode, srpeCollected: true,
       });
       out.push({
         id: `s-${dateISO}-pitch`,
         dateISO, name: "Pitch · PM", type: "training", durationMin: 70,
-        dayCode, isRestDay: false, srpeCollected: true,
+        dayCode, srpeCollected: true,
       });
       continue;
     }
@@ -288,7 +289,6 @@ export function buildSessions(): DemoSession[] {
       type: spec.type,
       durationMin: spec.durationMin,
       dayCode,
-      isRestDay: false,
       srpeCollected,
       unconfirmed,
     });
@@ -395,7 +395,7 @@ function computeMatchParticipation(session: DemoSession): Map<string, Participat
     const sorted = [...pool].sort();
     // Position-specific phase offset breaks alignment between positions so
     // one athlete cannot be "always index 0" across the whole window.
-    const offset = hashSeed("rotphase-v12", posKey) % sorted.length;
+    const offset = hashSeed("rotation-phase", posKey) % sorted.length;
     const start = ((matchIdx * step + offset) % sorted.length + sorted.length) % sorted.length;
     const take = Math.min(n, sorted.length);
     const picks: string[] = [];
@@ -420,7 +420,10 @@ function computeMatchParticipation(session: DemoSession): Map<string, Participat
   const shortfallPool = rotate(eligible.filter((id) => !starters.has(id)), 11 - starters.size, 3, "FILL");
   for (const id of shortfallPool) { if (starters.size >= 11) break; starters.add(id); }
 
-  const targetPart = 3 + Math.floor(rand() * 3); // 3..5 total Part tags
+  // Extra-time cup tie: 4–5 subs instead of 3–5 (fresh legs after 90'+).
+  const targetPart = session.dateISO === "2026-07-08"
+    ? 4 + Math.floor(rand() * 2)
+    : 3 + Math.floor(rand() * 3);
   const subsNeeded = Math.max(0, targetPart - forcedPart.length);
   const subs = new Set(
     rotate(eligible.filter((id) => !starters.has(id)), subsNeeded, 2, "SUB"),
@@ -545,10 +548,15 @@ function resolveParticipation(athleteId: string, session: DemoSession): { partic
   // Minutes.
   let minutes: number;
   if (session.type === "match") {
+    const isExtraTime = session.dateISO === "2026-07-08";
     if (part === "Full") {
-      minutes = 90 + Math.round(jit(4, athleteId, session.id, "min")); // 86–94
+      minutes = isExtraTime
+        ? 114 + Math.round(jit(3, athleteId, session.id, "min")) // 111–117
+        : 90 + Math.round(jit(4, athleteId, session.id, "min"));  // 86–94
     } else if (part === "Part") {
-      minutes = Math.max(8, Math.min(35, Math.round(22 + jit(12, athleteId, session.id, "pmin"))));
+      minutes = isExtraTime
+        ? Math.max(20, Math.min(45, Math.round(33 + jit(12, athleteId, session.id, "pmin"))))
+        : Math.max(8, Math.min(35, Math.round(22 + jit(12, athleteId, session.id, "pmin"))));
     } else {
       minutes = 0; // Injury/Rehab never accumulate match minutes (§3).
     }
@@ -573,7 +581,17 @@ function resolveParticipation(athleteId: string, session: DemoSession): { partic
 
 /* ─────────────────────────── record generation ─────────────────────────── */
 
-const BEYOND_RANGE_TD_MULT = 1.55;
+/**
+ * Fixed drawn domain for the squad-day distance lane.
+ * The upper bound is a demo-calibrated placeholder pending real per-day
+ * exports and must never auto-fit to the current data — the whole point
+ * of "beyond range" is that the domain doesn't move when an outlier appears.
+ * Chosen to sit above every day in the eight-week history except one (8 Jul,
+ * the extra-time cup tie) so exactly one day breaks the cap.
+ */
+export const DAY_TD_DOMAIN_MIN = 0;
+export const DAY_TD_DOMAIN_MAX = 143_000;
+
 
 function generateRecord(a: DemoAthlete, s: DemoSession): DemoRecord {
   const base = { athleteId: a.id, sessionId: s.id, dateISO: s.dateISO } as const;
@@ -605,9 +623,13 @@ function generateRecord(a: DemoAthlete, s: DemoSession): DemoRecord {
   let cl: number | null = Math.round(POS_MATCH_CL[pos] * scale.cl * minFrac * j("cl"));
 
   if (s.dateISO === "2026-07-08") {
-    td  = Math.round(td  * BEYOND_RANGE_TD_MULT);
-    hsr = Math.round(hsr * BEYOND_RANGE_TD_MULT);
-    spr = Math.round(spr * BEYOND_RANGE_TD_MULT);
+    // Extra-time cup tie: intensity per minute sags slightly beyond 90'.
+    // The distance/HSR uplift comes from the 120' duration (minFrac ≈ 1.30),
+    // not from a multiplier — this dampener knocks the per-minute rate back.
+    const damp = 0.93;
+    td  = Math.round(td  * damp);
+    hsr = Math.round(hsr * damp);
+    spr = Math.round(spr * damp);
   }
 
   const mMin = resolved.minutes > 0 ? Math.round(td / resolved.minutes) : 0;
