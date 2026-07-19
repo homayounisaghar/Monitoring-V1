@@ -548,10 +548,15 @@ function resolveParticipation(athleteId: string, session: DemoSession): { partic
   // Minutes.
   let minutes: number;
   if (session.type === "match") {
+    const isExtraTime = session.dateISO === "2026-07-08";
     if (part === "Full") {
-      minutes = 90 + Math.round(jit(4, athleteId, session.id, "min")); // 86–94
+      minutes = isExtraTime
+        ? 114 + Math.round(jit(3, athleteId, session.id, "min")) // 111–117
+        : 90 + Math.round(jit(4, athleteId, session.id, "min"));  // 86–94
     } else if (part === "Part") {
-      minutes = Math.max(8, Math.min(35, Math.round(22 + jit(12, athleteId, session.id, "pmin"))));
+      minutes = isExtraTime
+        ? Math.max(20, Math.min(45, Math.round(33 + jit(12, athleteId, session.id, "pmin"))))
+        : Math.max(8, Math.min(35, Math.round(22 + jit(12, athleteId, session.id, "pmin"))));
     } else {
       minutes = 0; // Injury/Rehab never accumulate match minutes (§3).
     }
