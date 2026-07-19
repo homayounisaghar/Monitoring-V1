@@ -253,7 +253,6 @@ export function buildSessions(): DemoSession[] {
         type: "match",
         durationMin: isDortmund ? 95 : 94,
         dayCode: "MD",
-        isRestDay: false,
         srpeCollected: true,
         opponent: m.opp,
         venue: m.venue,
@@ -268,12 +267,10 @@ export function buildSessions(): DemoSession[] {
       out.push({
         id: `s-${dateISO}-gym`,
         dateISO, name: "Gym · AM", type: "gym", durationMin: 45,
-        dayCode, isRestDay: false, srpeCollected: true,
       });
       out.push({
         id: `s-${dateISO}-pitch`,
         dateISO, name: "Pitch · PM", type: "training", durationMin: 70,
-        dayCode, isRestDay: false, srpeCollected: true,
       });
       continue;
     }
@@ -288,7 +285,6 @@ export function buildSessions(): DemoSession[] {
       type: spec.type,
       durationMin: spec.durationMin,
       dayCode,
-      isRestDay: false,
       srpeCollected,
       unconfirmed,
     });
