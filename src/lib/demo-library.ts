@@ -594,37 +594,40 @@ function resolveParticipation(athleteId: string, session: DemoSession): { partic
     return { participation: null, minutes: 0, hrCoveragePct: null, srpeSubmitted: false };
   }
 
-  // Minutes.
+  // Minutes — driven by the contract (§1, prompt 1d). No-minutes rows never
+  // gain a minute here; only Full/Part/Modified accumulate.
+  const row = contractRowFor(part);
   let minutes: number;
-  if (session.type === "match") {
+  if (!row.hasMinutes) {
+    minutes = 0;
+  } else if (session.type === "match") {
     const isExtraTime = session.dateISO === "2026-07-08";
     if (part === "Full") {
       minutes = isExtraTime
         ? 114 + Math.round(jit(3, athleteId, session.id, "min")) // 111–117
         : 90 + Math.round(jit(4, athleteId, session.id, "min"));  // 86–94
-    } else if (part === "Part") {
+    } else { // Part (Modified never occurs on match sessions in this library)
       minutes = isExtraTime
         ? Math.max(20, Math.min(45, Math.round(33 + jit(12, athleteId, session.id, "pmin"))))
         : Math.max(8, Math.min(35, Math.round(22 + jit(12, athleteId, session.id, "pmin"))));
-    } else {
-      minutes = 0; // Injury/Rehab never accumulate match minutes (§3).
     }
   } else {
-    if (part === "Injury" || part === "Rehab") minutes = 0;
-    else if (part === "Other") minutes = 0; // individual off-team programme
-    else if (part === "Modified") minutes = Math.round(session.durationMin * 0.6);
+    if (part === "Modified")      minutes = Math.round(session.durationMin * 0.6);
     else if (part === "Part")     minutes = Math.round(session.durationMin * 0.5);
-    else minutes = session.durationMin; // Full
+    else                          minutes = session.durationMin; // Full
   }
 
-  let hr: number | null = minutes > 0 ? Math.round(90 + jit(8, athleteId, session.id, "hr")) : null;
-  if (session.dateISO === "2026-06-30" && (athleteId === "brandt" || athleteId === "kuhn")) {
+  // Coverage — present iff the contract says so. Low-coverage demo pair is
+  // pinned to Thu 2 Jul (MD-2 · Intensive), the heaviest training session
+  // in the window, where thin HR genuinely undermines the internal-load read.
+  let hr: number | null = row.hasCoverage ? Math.round(90 + jit(8, athleteId, session.id, "hr")) : null;
+  if (session.dateISO === "2026-07-02" && (athleteId === "brandt" || athleteId === "kuhn") && row.hasCoverage) {
     hr = Math.round(65 + jit(10, athleteId, "lowhr"));
   }
-  if (minutes > 0 && hashSeed(athleteId, session.id, "hrpick") % 40 === 0) {
+  if (row.hasCoverage && hashSeed(athleteId, session.id, "hrpick") % 40 === 0) {
     hr = Math.round(60 + jit(12, athleteId, session.id, "hrscat"));
   }
-  const srpeSubmitted = athleteId !== "frei" && minutes > 0;
+  const srpeSubmitted = row.srpeEligible && athleteId !== "frei" && minutes > 0;
   return { participation: part, minutes, hrCoveragePct: hr, srpeSubmitted };
 }
 
