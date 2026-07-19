@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Flag, HelpCircle } from "lucide-react";
 import { copy, type CopyKey } from "@/lib/copy-deck";
 import { useSessionScope } from "@/lib/session-scope";
