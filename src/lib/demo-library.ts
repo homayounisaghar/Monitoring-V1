@@ -495,7 +495,7 @@ for (const s of demoSessions) {
         for (const [otherId, tag] of p) {
           if (otherId === id) continue;
           if (ATHLETE_BY_ID.get(otherId)?.position !== pos) continue;
-          if (tag === null && otherId !== "sturm" && otherId !== "voss"
+          if (tag === null && otherId !== "sturm" && otherId !== "voss" && otherId !== "lange"
               && inSquadOn(otherId, demoSessions.find((s) => s.id === mid)!.dateISO)
               && (counts.get(otherId) ?? 0) < total - 1) {
             replacement = otherId; break;
