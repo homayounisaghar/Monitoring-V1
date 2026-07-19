@@ -263,13 +263,8 @@ export function runDemoLibraryChecks(): Check[] {
 
   /* ═════════════════ typicals layer (Workstream 01 · prompt 2/4) ═════════════════ */
 
-  const {
-    TYPICAL_METRICS,
-    typicalFor, comparableSessionCount,
-    bucketKeyFor, allBucketKeys,
-    expectedSumForSession,
-    _samplesFor,
-  } = tp;
+
+
 
 
   // (a) Every typical carries its bucket key; no code path returns a pooled mean.
