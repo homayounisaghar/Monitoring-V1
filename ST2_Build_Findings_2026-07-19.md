@@ -267,3 +267,62 @@ Zero-participation athletes (28-day):
   P. Sturm            reason=unselected
 ```
 
+## Workstream 04 · derived decisions (strategist, not in document 04)
+
+### Lane domains — supersede document 04 §6's placeholders
+
+Placeholders were set before the dataset existed and are wrong against it in both directions: distance would break on at least two days, Cardio Load on most heavy days, HSR would sit permanently in the bottom half of a track twice as tall as its data.
+
+Rule used: cap each lane so the 95th-percentile day sits at roughly 85% of the track, rounded to a readable number, then let the data decide what breaks. Never auto-fit.
+
+| lane | domain | 95th pct | highest | breaks |
+|---|---|---|---|---|
+| Total distance | 0–9,000 m | 7,993 | 9,682 (8 Jul) | 8 Jul only |
+| HSR | 0–700 m | 571 | 667 (8 Jul) | none |
+| Cardio Load | 0–220 AU | 186 | 231 (8 Jul) | 8 Jul only |
+| sRPE | 0–700 AU | 544 | 630 (8 Jul) | none |
+
+Sprint distance and Acc–Dec are not yet calibrated; the same rule applies when they are.
+
+### Participation palette — Ali's ruling, 2026-07-19, supersedes document 04 §3's defaults
+
+Two families by meaning, lightness step inside each. Full is neutral; hue appears only on departures.
+
+```
+Full          #64748B   neutral slate
+Part          #14B8A6   present but reduced, light
+Modified      #0F766E   present but reduced, dark
+Rehab         #B08968   unavailable, light
+Injury        #8A5A44   unavailable, dark
+Other         #6B7280   neutral residual
+not in squad  no fill, 1px #CBD5E1 outline — absence of ink, never a colour
+```
+
+Reserved and unavailable as fills: blue, purple, green, red, amber. Bar width scales to the sessions available to each athlete, so a mid-window joiner's bar is visibly shorter rather than his denominator hiding in the fraction. Expander label: `Session by session ⌄`.
+
+Binding gate: a greyscale screenshot must keep all five departure categories separable. If it fails, widen the lightness steps within each pair — never add hues. Measured lightness of the ruled values is Part 67, Rehab 60, Other 48, Modified 45, Injury 43, so the three dark categories sit within five points of each other and the gate is expected to depend on the shipped stripe textures being retained under the hue rather than replaced by it.
+
+This remains a time-boxed demo exception with an expiry at the post-meeting review, not a ratified palette.
+
+### Squad-load gauge construction
+
+Both gauges run on total distance and share one numerator: observed distance over every session-athlete pair where the athlete participated and had a computable typical for that session's bucket. Volume divides by the same pairs' expected distance at each athlete's own typical session length; Intensity divides by the same pairs' expected distance at the minutes he actually played. Both sides of both ratios cover an identical pair set.
+
+### Strings derived here, needed as deck keys
+
+- Gauge coverage basis line — `across {n} of {m} sessions` — renders only when contributing sessions are fewer than the window's sessions. Not in the copy-corrections file; derived from document 04 §2.
+- Athlete-list expander line — `{n} more athletes · {max} or fewer training sessions missed`, and where max is zero, `{n} more athletes · no training sessions missed`. Document 04 §3's example wording does not generalise.
+- Window-table foot row — `did not participate · not in squad`, not `· injury`. The data's only zero-participation athlete is P. Sturm, whose state is unselected; F. Voss carries twelve minutes on 18 July and is an ordinary row.
+
+### Character line
+
+Must be re-authored against the library, not transcribed. The copy file's example says Lange returned through rehab; the dataset reversed his arc, so he went out through rehab into injury. Köhler joining 7 July is correct.
+
+### Three findings
+
+1. **Lane ranges wrong against the data** — found and resolved; the resolution is the domain table above.
+2. **The match-dominant regime never fires anywhere in the library.** The densest fortnight is six matches against eight training sessions — dense, not a majority. The receded-gauge state shown in the exploration return cannot be demonstrated from this data. Build the rule as written and leave it dormant; do not bend the rule or the data to make it appear.
+3. **The gauges sit exactly on their own coverage floor.** Sixteen of twenty-four sessions have a computable baseline against a two-thirds threshold. They pass and print, with the coverage line beneath them. One session moving would tip the Summary's primary object into withholding entirely. Fragile, not wrong.
+
+Also recorded: availability is 278 of 352 at Full across nineteen training sessions and nineteen athletes. Nineteen times nineteen is 361, not 352 — the nine-session gap is Köhler's pre-join period, and the sub-line will not multiply out on screen. Ratified behaviour, flagged because a stakeholder may do the arithmetic aloud.
+
