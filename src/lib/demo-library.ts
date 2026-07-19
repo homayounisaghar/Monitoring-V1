@@ -498,6 +498,7 @@ for (const s of demoSessions) {
         }
       }
       if (replacement) {
+        console.error("DEBUG swap:", id, "->", replacement, "at", mid);
         p.set(id, "Part");
         p.set(replacement, "Full");
         counts.set(id, (counts.get(id) ?? 1) - 1);
