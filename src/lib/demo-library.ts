@@ -252,12 +252,13 @@ export function buildSessions(): DemoSession[] {
         dateISO,
         name: `vs ${m.opp}`,
         type: "match",
-        durationMin: isDortmund ? 95 : 94,
+        durationMin: isDortmund ? 95 : (m.durationMin ?? 94),
         dayCode: "MD",
         srpeCollected: true,
         opponent: m.opp,
         venue: m.venue,
         result: m.result,
+        note: m.note,
       });
       continue;
     }
