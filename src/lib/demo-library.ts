@@ -489,6 +489,7 @@ for (const s of demoSessions) {
       for (const [otherId, tag] of p) {
         if (otherId === id) continue;
         if (ATHLETE_BY_ID.get(otherId)?.position !== pos) continue;
+        if (otherId === "lange" || otherId === "voss" || otherId === "sturm") continue;
         if (tag === "Part" && (counts.get(otherId) ?? 0) < total - 1) { replacement = otherId; break; }
       }
       if (!replacement) {
