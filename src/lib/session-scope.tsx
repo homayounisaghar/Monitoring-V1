@@ -299,6 +299,7 @@ export function SessionScopeProvider({ children }: { children: ReactNode }) {
   const [demo, setDemo] = useState<DemoScenario>("default");
   const [highlightAthleteId, setHighlightAthleteId] = useState<string | null>(null);
   const [legendOpen, setLegendOpen] = useState(false);
+  const [legendSource, setLegendSource] = useState<"chrome" | "attention" | null>(null);
 
   const [squadView, setSquadView] = useState<SquadView>(
     initial.shared.squadView ?? initial.prefs.view ?? "table",
