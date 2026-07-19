@@ -7,8 +7,9 @@ import {
   recordsForAthlete, recordsForSession, DEMO_TODAY,
   buildSessions, buildDays, buildRecords,
   DAY_TD_DOMAIN_MAX, contractRowFor,
-  type DemoRecord,
+  type DemoRecord, type DemoSession,
 } from "./demo-library";
+
 
 type Check = { name: string; pass: boolean; detail: string };
 
