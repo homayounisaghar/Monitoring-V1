@@ -256,12 +256,13 @@ export function runDemoLibraryChecks(): Check[] {
   /* ═════════════════ typicals layer (Workstream 01 · prompt 2/4) ═════════════════ */
 
   const {
-    TYPICAL_MIN_SESSIONS, TYPICAL_METRICS,
+    TYPICAL_METRICS,
     typicalFor, comparableSessionCount,
     bucketKeyFor, allBucketKeys,
     expectedSumForSession,
     _samplesFor,
-  } = require("./demo-typicals") as typeof import("./demo-typicals");
+  } = tp;
+
 
   // (a) Every typical carries its bucket key; no code path returns a pooled mean.
   //     Enforced structurally: `typicalFor` requires a BucketKey and there is no
