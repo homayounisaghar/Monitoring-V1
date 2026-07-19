@@ -388,6 +388,68 @@ export function runDemoLibraryChecks(): Check[] {
   const esSame = esA === esB;
   push("Typicals layer deterministic (§6.h)", typDiffs === 0 && esSame, `typicalDiffs=${typDiffs} expectedSameSum=${esSame}`);
 
+  /* ═════════════════ prompt 1e — day-code census ═════════════════ */
+
+  // Census: prints every (dayCode, sessionType) bucket and its session count,
+  // sorted descending. Always passes; exists to report the number the
+  // Longitudinal build needs before designing around withheld baselines.
+  const censusCounts = new Map<string, number>();
+  for (const s of demoSessions) {
+    const key = `${s.dayCode}::${s.type}`;
+    censusCounts.set(key, (censusCounts.get(key) ?? 0) + 1);
+  }
+  const censusSorted = [...censusCounts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+  const censusDetail = censusSorted.map(([k, n]) => `${k}=${n}`).join(" ");
+  push("Day-code census (report-only, prompt 1e §4)", true, censusDetail);
+
+  // Assert MD-2, MD-3, MD-4 and MD-5 (all sessionType=training) each have ≥5
+  // sessions. If any is short, report the counts — do not adjust the assertion.
+  const targetCodes = ["MD-2", "MD-3", "MD-4", "MD-5"];
+  const shortCodes: string[] = [];
+  for (const dc of targetCodes) {
+    const n = censusCounts.get(`${dc}::training`) ?? 0;
+    if (n < 5) shortCodes.push(`${dc}=${n}`);
+  }
+  push(
+    "MD-2, MD-3, MD-4, MD-5 buckets each have ≥5 sessions (prompt 1e §4)",
+    shortCodes.length === 0,
+    shortCodes.length === 0
+      ? targetCodes.map((dc) => `${dc}=${censusCounts.get(`${dc}::training`) ?? 0}`).join(" ")
+      : `SHORT: ${shortCodes.join(" ")}`,
+  );
+
+  // Second-highest day total — reported so DAY_TD_DOMAIN_MAX can be re-examined
+  // as new matches enter the history. Only actionable if a day other than
+  // 2026-07-08 now exceeds the cap; §3 asserts that separately above.
+  const dayTotalsAll = new Map<string, number>();
+  for (const r of demoRecords) dayTotalsAll.set(r.dateISO, (dayTotalsAll.get(r.dateISO) ?? 0) + r.totalDistance);
+  const sortedDays = [...dayTotalsAll.entries()].sort((a, b) => b[1] - a[1]);
+  const secondHighest = sortedDays[1];
+  push(
+    "Second-highest day total sits below DAY_TD_DOMAIN_MAX (report)",
+    !!secondHighest && secondHighest[1] < DAY_TD_DOMAIN_MAX,
+    `top=${sortedDays[0]?.[0]}=${sortedDays[0]?.[1]}  second=${secondHighest?.[0]}=${secondHighest?.[1]}`,
+  );
+
+  // Extended-stretch rest rule (prompt 1e §2) — the Monday after each
+  // pre-31-May match is a rest day, and the four fixed rest dates inside the
+  // 28-day window are unchanged.
+  const fixedRest = new Set(["2026-06-22", "2026-06-29", "2026-07-05", "2026-07-06"]);
+  const fixedRestOk = [...fixedRest].every((d) => demoDays.find((x) => x.dateISO === d)?.kind === "rest");
+  const winRestCount = demoDays.filter((d) => d.kind === "rest" && d.dateISO >= "2026-06-22" && d.dateISO <= "2026-07-19").length;
+  push(
+    "28-day window still contains exactly four rest days on the original dates",
+    fixedRestOk && winRestCount === 4,
+    `fixed=${fixedRestOk} winRest=${winRestCount}`,
+  );
+  const expectedExtRest = ["2026-04-20", "2026-04-27", "2026-05-04", "2026-05-11", "2026-05-18", "2026-05-25"];
+  const extRestOk = expectedExtRest.every((d) => demoDays.find((x) => x.dateISO === d)?.kind === "rest");
+  push(
+    "Extended stretch: Monday-after-match is rest (six new dates)",
+    extRestOk,
+    expectedExtRest.map((d) => `${d}:${demoDays.find((x) => x.dateISO === d)?.kind ?? "-"}`).join(" "),
+  );
+
   return out;
 }
 
