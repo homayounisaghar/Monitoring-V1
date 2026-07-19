@@ -248,7 +248,7 @@ function dayCodeFor(dateISO: string): string {
 
 /* ─────────────────────────── session build ─────────────────────────── */
 
-const START_ISO = "2026-05-25";
+const START_ISO = SEASON_START_ISO;
 const END_ISO = "2026-07-19";
 
 /**
