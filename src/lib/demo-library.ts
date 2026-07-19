@@ -158,6 +158,15 @@ const ATHLETE_BY_ID = new Map(demoAthletes.map((a) => [a.id, a]));
 
 type MatchDef = { date: string; opp: string; venue: "home" | "away"; result?: string; note?: string; durationMin?: number };
 const MATCHES: MatchDef[] = [
+  // Extended stretch (§1, prompt 1e) — six weekly Saturday fixtures added so
+  // a full MD-6…MD-1 microcycle occurs and the day-type buckets can fill.
+  { date: "2026-04-18", opp: "Schalke 04",         venue: "home", result: "2–1 W" },
+  { date: "2026-04-25", opp: "VfL Bochum",         venue: "away", result: "0–0 D" },
+  { date: "2026-05-02", opp: "FC Heidenheim",      venue: "home", result: "3–0 W" },
+  { date: "2026-05-09", opp: "Darmstadt 98",       venue: "away", result: "1–2 L" },
+  { date: "2026-05-16", opp: "Holstein Kiel",      venue: "home", result: "2–0 W" },
+  { date: "2026-05-23", opp: "SV Elversberg",      venue: "away", result: "1–1 D" },
+  // Congested block — everything from 31 May onwards is unchanged.
   { date: "2026-05-31", opp: "Hertha BSC",         venue: "away", result: "1–1 D" },
   { date: "2026-06-03", opp: "Werder Bremen",      venue: "home", result: "2–0 W" },
   { date: "2026-06-06", opp: "VfB Stuttgart",      venue: "away", result: "0–1 L" },
@@ -178,7 +187,23 @@ const MATCH_DATES = new Set(MATCHES.map((m) => m.date));
 const MATCH_BY_DATE = new Map(MATCHES.map((m) => [m.date, m]));
 const MATCH_INDEX = new Map(MATCHES.map((m, i) => [m.date, i]));
 
-const REST_DAYS = new Set(["2026-06-22", "2026-06-29", "2026-07-05", "2026-07-06"]);
+// Rest days:
+//   - Four fixed dates inside the 28-day window (§2, prompt 1b) — untouched.
+//   - Extended stretch (§2, prompt 1e): the Monday after each match is a rest
+//     day, unless a match falls on it. Applied only for dates < 2026-05-31 so
+//     the congested block stays exactly as it was.
+const REST_DAYS_FIXED = ["2026-06-22", "2026-06-29", "2026-07-05", "2026-07-06"];
+const REST_DAYS_EXTENDED: string[] = (() => {
+  const out: string[] = [];
+  for (const m of MATCHES) {
+    if (m.date >= "2026-05-31") continue;
+    // All extended-stretch matches are Saturdays → +2 days = Monday.
+    const mon = fmtISO(parseISO(m.date) + 2 * 86_400_000);
+    if (!MATCH_DATES.has(mon)) out.push(mon);
+  }
+  return out;
+})();
+const REST_DAYS = new Set<string>([...REST_DAYS_FIXED, ...REST_DAYS_EXTENDED]);
 const MISSING_DAYS = new Set(["2026-07-14"]);
 const DOUBLE_DAYS = new Set(["2026-07-13"]);
 
