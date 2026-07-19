@@ -25,6 +25,7 @@ import {
 import {
   typicalFor, bucketKeyFor,
   expectedSumForSession, comparableSessionCount,
+  EXPECTED_MIN_COVERAGE,
   type ExpectedSumBasis,
 } from "./demo-typicals";
 import type { ParticipationTag } from "./session-data";
