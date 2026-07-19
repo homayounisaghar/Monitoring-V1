@@ -31,6 +31,16 @@ import { squad, POSITION_LABEL, type Athlete as SessionAthlete, type PositionCod
 
 export const DEMO_TODAY = "2026-07-19";
 export const DEMO_SEED = 0x51_2E_2E_07 >>> 0;
+/**
+ * Season start (§1, prompt 1e). Demo value pending Ali's ruling on when the
+ * season is declared to begin. The extended stretch (13 Apr → 30 May) is
+ * in-season by construction here; if the ruling makes it pre-season, this
+ * stretch is a different stimulus regime and would have to be excluded from
+ * baselines — which would undo the extension. Held for the register.
+ * Nothing may hardcode a season-start date; any season-to-date read derives
+ * from this constant.
+ */
+export const SEASON_START_ISO = "2026-04-13";
 
 /* ─────────────────────────── PRNG ─────────────────────────── */
 
