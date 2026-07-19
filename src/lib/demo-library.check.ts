@@ -367,7 +367,7 @@ export function runDemoLibraryChecks(): Check[] {
 
   // (g) Expected sum for pinned 18 July computes, states its coverage, and
   //     names any withheld participants.
-  const es = expectedSumForSession("s-2026-07-04-dortmund");
+  const es = expectedSumForSession("s-2026-07-04-dortmund", "actualMinutes");
   const esOk = es.state === "computed" && es.participatedCount > 0;
   const esDetail = es.state === "computed"
     ? `contributed=${es.contributedCount}/${es.participatedCount} coverage=${(es.coverage * 100).toFixed(0)}% withheld=[${es.withheldAthletes.join(",") || "none"}]`
@@ -383,8 +383,8 @@ export function runDemoLibraryChecks(): Check[] {
     const B = JSON.stringify(typicalFor(a.id, bk));
     if (A !== B) typDiffs++;
   }
-  const esA = JSON.stringify(expectedSumForSession("s-2026-07-04-dortmund"));
-  const esB = JSON.stringify(expectedSumForSession("s-2026-07-04-dortmund"));
+  const esA = JSON.stringify(expectedSumForSession("s-2026-07-04-dortmund", "actualMinutes"));
+  const esB = JSON.stringify(expectedSumForSession("s-2026-07-04-dortmund", "actualMinutes"));
   const esSame = esA === esB;
   push("Typicals layer deterministic (§6.h)", typDiffs === 0 && esSame, `typicalDiffs=${typDiffs} expectedSameSum=${esSame}`);
 

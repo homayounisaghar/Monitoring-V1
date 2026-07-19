@@ -103,6 +103,14 @@ export type AthleteBucketTypical =
       sessionCount: number;
       required: number;
       nominalDurationMin: number;
+      /**
+       * §A1 (Workstream 04 prompt 1) — this athlete's typical session length
+       * for this bucket: plain unweighted mean of `minutes` across his sample
+       * records, rounded. Per athlete, not per bucket — a rotation player who
+       * typically gets 60 minutes of an 82-minute session has typical duration
+       * 60, not 82. Used by the volume-basis expected sum (§A2).
+       */
+      typicalDurationMin: number;
       metrics: Partial<Record<TypicalMetric, PerMetricTypical>>;
     }
   | {
@@ -275,6 +283,12 @@ export function typicalFor(athleteId: string, bucketKey: BucketKey): AthleteBuck
     return t;
   }
   const nominalDurationMin = nominalDurationFor(bucketKey);
+  // §A1 — per-athlete typical duration for this bucket. Plain unweighted mean
+  // of minutes across sample records, rounded. This is the length HE typically
+  // gets in this bucket, not the bucket's nominal.
+  let minSum = 0;
+  for (const r of records) minSum += r.minutes;
+  const typicalDurationMin = Math.round(minSum / records.length);
   const metrics: Partial<Record<TypicalMetric, PerMetricTypical>> = {};
   for (const m of TYPICAL_METRICS) {
     const pm = computeMetric(records, m, nominalDurationMin);
@@ -284,7 +298,7 @@ export function typicalFor(athleteId: string, bucketKey: BucketKey): AthleteBuck
     state: "computed",
     athleteId, bucketKey, dayCode, sessionType,
     sessionCount, required: TYPICAL_MIN_SESSIONS,
-    nominalDurationMin, metrics,
+    nominalDurationMin, typicalDurationMin, metrics,
   };
   TYPICAL_CACHE.set(cacheKey, t);
   return t;
@@ -357,7 +371,22 @@ export function squadTypicalFor(bucketKey: BucketKey): SquadBucketTypical {
  *   - The returned object states its own coverage (contributed / participated).
  *   - If coverage is thinner than the floor, the sum withholds as a whole.
  */
-export function expectedSumForSession(sessionId: string): ExpectedSumForSession {
+/**
+ * §A2 (Workstream 04 prompt 1) — basis is required, not defaulted. Every call
+ * site must state which question it is asking:
+ *   - "actualMinutes"  — per-minute typical × minutes the athlete actually
+ *     played this session. Rate basis: "given how long he played, was this
+ *     dense?" Moves with the observed side, so a short session comes out
+ *     near 100 %.
+ *   - "typicalDuration" — per-minute typical × athlete's own typical duration
+ *     for this bucket. Volume basis: "vs the workload we would have expected
+ *     him to do on this kind of day." Independent of what he actually did,
+ *     so a short session comes out low and the "did we do enough work"
+ *     question can be asked.
+ */
+export type ExpectedSumBasis = "actualMinutes" | "typicalDuration";
+
+export function expectedSumForSession(sessionId: string, basis: ExpectedSumBasis): ExpectedSumForSession {
   const s = demoSessions.find((x) => x.id === sessionId);
   if (!s) {
     return { state: "withheld", sessionId, bucketKey: "", participatedCount: 0, contributedCount: 0, coverage: 0, reason: "insufficient_coverage" };
@@ -380,10 +409,11 @@ export function expectedSumForSession(sessionId: string): ExpectedSumForSession 
       continue;
     }
     contributed.push(r.athleteId);
+    const mult = basis === "actualMinutes" ? r.minutes : t.typicalDurationMin;
     for (const m of CUMULATIVE_METRICS) {
       const pm = t.metrics[m];
       if (!pm || pm.perMinute == null) continue;
-      metricAcc.set(m, (metricAcc.get(m) ?? 0) + pm.perMinute * r.minutes);
+      metricAcc.set(m, (metricAcc.get(m) ?? 0) + pm.perMinute * mult);
     }
   }
 
