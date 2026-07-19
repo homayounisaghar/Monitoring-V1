@@ -420,7 +420,10 @@ function computeMatchParticipation(session: DemoSession): Map<string, Participat
   const shortfallPool = rotate(eligible.filter((id) => !starters.has(id)), 11 - starters.size, 3, "FILL");
   for (const id of shortfallPool) { if (starters.size >= 11) break; starters.add(id); }
 
-  const targetPart = 3 + Math.floor(rand() * 3); // 3..5 total Part tags
+  // Extra-time cup tie: 4–5 subs instead of 3–5 (fresh legs after 90'+).
+  const targetPart = session.dateISO === "2026-07-08"
+    ? 4 + Math.floor(rand() * 2)
+    : 3 + Math.floor(rand() * 3);
   const subsNeeded = Math.max(0, targetPart - forcedPart.length);
   const subs = new Set(
     rotate(eligible.filter((id) => !starters.has(id)), subsNeeded, 2, "SUB"),
