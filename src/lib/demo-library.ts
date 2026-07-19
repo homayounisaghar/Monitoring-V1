@@ -71,13 +71,13 @@ export type DemoSession = {
   type: SessionType;
   durationMin: number;
   dayCode: string;
-  /** Always false — rest days are days, not sessions (§2). Kept for back-compat. */
-  isRestDay: boolean;
   unconfirmed?: boolean;
   srpeCollected: boolean;
   opponent?: string;
   venue?: "home" | "away";
   result?: string;
+  /** Free-text session annotation (e.g. "AET" for extra time). */
+  note?: string;
 };
 
 export type DemoDay = {
