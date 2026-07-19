@@ -145,8 +145,6 @@ push("A:C daysOfData matches real record dates (no synthetic zeros)", acSynthOk,
 const acWithheldCount = wt28.perAthlete.filter((at) => at.ac.state === "withheld").length;
 const acWithheldNames = wt28.perAthlete.filter((at) => at.ac.state === "withheld").map((at) => at.athlete.id).join(",");
 push("Exactly one athlete's A:C withholds (mid-window joiner)", acWithheldCount === 1 && acWithheldNames === "koehler", `${acWithheldCount}: ${acWithheldNames}`);
-{
-push("A:C daysOfData matches real record dates (no synthetic zeros)", acSynthOk, "");
 
 /* ───────── report (§C2) ───────── */
 
