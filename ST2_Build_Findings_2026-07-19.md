@@ -175,3 +175,52 @@ Full suite (library + typicals) after prompt 1e: **42 / 44 pass**. The two failu
 ### Defaults taken
 
 - **Session re-dated and sidebar re-pointed.** `currentSession.dateISO` moved from 2026-07-04 to 2026-07-18 (id, name, day code, halves, weather, result unchanged); `sessionLibrary` deleted from `session-data.ts` and derived inside `SourceSidebar.tsx` from `demoSessions` (last 30 days, most-recent-first, `match` stays `match` and `training`/`recovery`/`gym` collapse to `training`; halves for non-match rows are a two-way split of duration). Derivation lives in the sidebar rather than `session-data.ts` to avoid a module-init cycle with `demo-library.ts`, which reads `squad` at init.
+
+## Workstream 04 · prompt 1 (Longitudinal derivation layer)
+
+New module: `src/lib/longitudinal-data.ts` and its check `src/lib/longitudinal-data.check.ts`. Two additive changes in `src/lib/demo-typicals.ts` (§A1 typical-duration field, §A2 required basis argument on `expectedSumForSession`); one call-site update in `demo-library.check.ts` to pass `"actualMinutes"`. Nothing under `src/components/` or `src/routes/` touched.
+
+### Decisions consumed
+
+- **Windows are calendar-anchored.** A horizon of N days ends on `DEMO_TODAY` and covers the N calendar days ending that day inclusive; a day with no data still counts. Season-to-date runs `SEASON_START_ISO → DEMO_TODAY`. The 28-day window contains 28 days, 24 sessions, 5 matches, 19 non-match, 4 rest days and 1 no-record day — asserted by the check.
+- **Rest = real zero, missing = null.** Never interpolated. Enforced structurally in `daySeries` and asserted.
+- **Vs-typical uses the typicalDuration (volume) basis.** When any session on the day withholds its expected sum, the day's vs-typical withholds for every metric with its reason — never silently absolute.
+- **Availability is over training sessions only.** Selection ≠ availability. Numerator = Full training-sessions; denominator = per session, the number of athletes in the squad on that date. Athletes joining mid-window enter the denominator only from their join date.
+- **A:C is a bare ratio.** 7-day average / 28-day average per metric per athlete, no band, no verdict. Rest = zero enters averages; missing = absent (neither sum nor count).
+- **Composition-parity for gauges.** Both Volume % and Intensity % ratios cover exactly the same (session, athlete) pair set — the same `contributed` list from `expectedSumForSession`. A session that withholds drops out of the numerator too.
+
+### Defaults taken
+
+- **`LONGI_WINDOW_DEFAULT = 28`.** Alterable.
+- **`GAUGE_MIN_COVERAGE = 2/3`.** Below this share of the window's sessions contributing, the gauges withhold as a whole. Named constant, one-place change.
+- **`HR_COVERAGE_THRESHOLD = 80` (percent).** Matches the value already used in `demo-library.check.ts` (Brandt/Kuhn <80 % on 2 Jul). Records below the threshold stay in day totals and are counted separately in `hrBelowThresholdCount`; never dropped.
+- **Attention flag is a stand-in.** The per-athlete ranking's `attentionFlagged` currently derives from the presence of any `Injury`/`Rehab`/`Modified` record in-window. There is no Attention data source in the demo library; when the Attention section exposes its own signal, this helper should read from that instead. Documented so the substitution stays visible.
+- **`ExpectedSumBasis` type is required, not defaulted.** `"actualMinutes"` (rate basis) vs `"typicalDuration"` (volume basis). Every existing call site (`demo-library.check.ts`) passes `"actualMinutes"`, preserving prior behaviour.
+- **Per-athlete typical duration.** Plain unweighted mean of `minutes` across an athlete's sample records in a bucket, rounded. Added to the `"computed"` `AthleteBucketTypical`. Enables the volume basis without touching the existing weighted per-metric statistics.
+- **Zero-participation athletes are returned separately.** `windowTotals.zeroParticipation`. Reasoned from the tag(s) they carried across the window ("unselected" for Sturm on the 28-day window). Prevents a row of zeros passing itself off as data.
+- **`SessionCategory` filter surface** for §B8 = `["All", "Matches", "Training", ...dayCodesPresent]`.
+- **Vs-typical uses composition parity across observed and expected** — observed sum for each metric restricted to the same contributed set that the expected sum uses, so a metric-level cell cannot silently over- or under-count relative to its denominator.
+
+### Defects found
+
+- **A:C withholds for every athlete in the 28-day window.** The window contains one missing day (14 Jul), so every athlete's record set spans at most 27 dates — one short of the 28 the ratio requires. The check reports `computed=0 withheld=18 (insufficient_days:18)`. This is the spec's literal rule ("if he has fewer than 28 days of history … withhold and carry how many days") applied honestly to a window with a missing day, not a bug — but it is the reason no A:C reads on 19 Jul under this window. Two paths for the design pass: (a) accept it — A:C is unreadable in a window with any missing day, which is what "we don't have the data" should look like; (b) relax the denominator to "days with a record" rather than "calendar days", in which case 27 becomes the threshold and Köhler still withholds (12 of 28). Held for the display prompt.
+- **The 14-day probe at 2026-01-07 is unreachable.** Explicitly permitted by the spec ("otherwise for the most match-dense 14-day window in the library"). Used the most match-dense reachable window instead — 14 days ending 2026-06-16 with 6 matches. Named in the report.
+
+### New questions (held)
+
+- **Vs-typical percentage at day level vs at pair level.** The current day-level vs-typical is `sum(observed) / sum(expected)` — mathematically an athlete-weighted mean of per-pair ratios. An alternative is `mean over contributors of (observed_i / expected_i)`, which weights each contributor equally. The two differ when a high-minutes contributor sits far from typical. Both are defensible; the load-bearing rule is composition parity (same pair set on both sides), which either form satisfies. Held for the display pass to pick.
+- **Attention wiring.** Replace the Injury/Rehab/Modified stand-in with a real Attention signal when the Attention derivation lands.
+
+### Domain-calibration table (from the check, whole library, avg per athlete who trained)
+
+```
+metric             highest       2nd       p95date-of-max
+totalDistance         9682      8734      7993   2026-07-08
+hsr                    667       592       571   2026-07-08
+cardioLoad             231       192       186   2026-07-08
+srpeAU                 630       546       544   2026-07-08
+```
+
+### Check surface
+
+Longitudinal check: **15 / 15 assertions pass.** Demo-library + typicals check unchanged at **42 / 44** (the two prior structural findings — MD-4 / MD-5 shortfall and `sprintDist` zero-SD in `MD+1::recovery` for `keller`/`lange` — are still reported, still not silenced).
