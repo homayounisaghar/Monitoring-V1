@@ -241,11 +241,11 @@ function Headline({
 }
 
 function LegendToggleButton() {
-  const { legendOpen, setLegendOpen } = useSessionScope();
+  const toggle = useLegendToggle("attention");
   return (
     <button
       type="button"
-      onClick={() => setLegendOpen(!legendOpen)}
+      onClick={toggle}
       className="inline-flex h-5 w-5 items-center justify-center rounded-full transition-colors hover:bg-[color:var(--color-slate-100)]"
       style={{ color: "var(--color-text-tertiary)" }}
       aria-label={copy("control.legend")}
