@@ -119,6 +119,8 @@ export type SessionScope = {
   // renders the popover, but the Attention card's ⓘ opens the same one.
   legendOpen: boolean;
   setLegendOpen: (open: boolean) => void;
+  legendSource: "chrome" | "attention" | null;
+  setLegendSource: (s: "chrome" | "attention" | null) => void;
 
   // Squad presentation state — lifted here so a shared URL can hydrate it
   // and so back-navigation from /athlete restores it.
