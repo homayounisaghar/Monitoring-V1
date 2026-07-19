@@ -497,15 +497,12 @@ export function athleteAvailabilityRanking(w: LongiWindow): AthleteAvailEntry[] 
       if (tag === "Full") full++;
       if (tag) tagCounts[tag] = (tagCounts[tag] ?? 0) + 1;
     }
-    // Attention approximation: any Injury/Rehab/Modified record on any
-    // in-window session (training or match). See findings — this is a
-    // stand-in until the Attention section exposes its own signal.
-    const flagged = demoRecords.some(
-      (r) => r.athleteId === a.id
-        && r.dateISO >= w.startISO && r.dateISO <= w.endISO
-        && r.sessionId != null
-        && (r.participation === "Injury" || r.participation === "Rehab" || r.participation === "Modified"),
-    );
+    // Attention flag: sourced from `session-flags.ts` (Tier-1 rows for the
+    // pinned session). If the pinned session falls inside the window and the
+    // athlete's id is in the Tier-1 set, he is flagged. No participation-tag
+    // fallback — Modified is a participation fact, not an Attention signal.
+    const pinnedInWindow = PINNED_SESSION_DATE_ISO >= w.startISO && PINNED_SESSION_DATE_ISO <= w.endISO;
+    const flagged = pinnedInWindow && TIER1_FLAG_IDS.has(a.id);
     out.push({
       athlete: a, tagCounts, notInSquadCount: notInSquad,
       availableSessions: available,
