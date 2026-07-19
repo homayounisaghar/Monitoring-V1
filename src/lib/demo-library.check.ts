@@ -9,6 +9,14 @@ import {
   DAY_TD_DOMAIN_MAX, contractRowFor,
   type DemoRecord, type DemoSession,
 } from "./demo-library";
+import {
+  TYPICAL_METRICS,
+  typicalFor, comparableSessionCount,
+  bucketKeyFor, allBucketKeys,
+  expectedSumForSession,
+  _samplesFor,
+} from "./demo-typicals";
+
 
 
 type Check = { name: string; pass: boolean; detail: string };
