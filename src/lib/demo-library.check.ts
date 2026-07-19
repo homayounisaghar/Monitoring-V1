@@ -45,8 +45,8 @@ export function runDemoLibraryChecks(): Check[] {
   const koehlerDays = new Set(koehler.map((r) => r.dateISO));
   const koehlerFirst = [...koehlerDays].sort()[0];
   push("Köhler first record ≥ 2026-07-07", (koehlerFirst ?? "") >= "2026-07-07", `first=${koehlerFirst}`);
-  const koehlerWindow = [...koehlerDays].filter((d) => d >= "2026-06-22" && d <= "2026-07-19").length;
-  push("Köhler 13 of 28 days present", koehlerWindow === 13, `got ${koehlerWindow}`);
+  const koehlerWindow = koehler.filter((r) => r.dateISO >= "2026-06-22" && r.dateISO <= "2026-07-19").length;
+  push("Köhler 13 records in 28-day window", koehlerWindow === 13, `got ${koehlerWindow}`);
 
   const voss = recordsForAthlete("voss").filter((r) => inWindow(r) && r.participation !== null);
   const vossAlwaysInjury = voss.every((r) => r.participation === "Injury");
