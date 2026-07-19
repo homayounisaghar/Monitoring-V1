@@ -190,29 +190,37 @@ function LegendPanel({ align }: { align: "left" | "right" }) {
 
 /** Chrome trigger — icon + "Legend" label, used by ReadingLine. */
 export function HowToReadPopover() {
-  const { legendOpen, setLegendOpen } = useSessionScope();
+  const { legendOpen, setLegendOpen, legendSource, setLegendSource } = useSessionScope();
   const ref = useRef<HTMLDivElement>(null);
+  const isMine = legendOpen && legendSource === "chrome";
 
   useEffect(() => {
-    if (!legendOpen) return;
+    if (!isMine) return;
     const onDoc = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setLegendOpen(false);
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setLegendOpen(false);
+        setLegendSource(null);
+      }
     };
     document.addEventListener("mousedown", onDoc);
     return () => document.removeEventListener("mousedown", onDoc);
-  }, [legendOpen, setLegendOpen]);
+  }, [isMine, setLegendOpen, setLegendSource]);
 
   return (
     <span ref={ref} className="relative inline-flex">
       <button
-        onClick={() => setLegendOpen(!legendOpen)}
+        onClick={() => {
+          const next = !isMine;
+          setLegendOpen(next);
+          setLegendSource(next ? "chrome" : null);
+        }}
         className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[12px] transition-colors hover:bg-[color:var(--color-slate-100)]"
         style={{ color: "var(--color-text-tertiary)" }}
       >
         <HelpCircle className="h-3 w-3" />
         <span>{copy("control.legend")}</span>
       </button>
-      {legendOpen && <LegendPanel align="right" />}
+      {isMine && <LegendPanel align="right" />}
     </span>
   );
 }
@@ -223,22 +231,38 @@ export function HowToReadPopover() {
  * opens in place. Attention card controls open via useSessionScope().
  */
 export function LegendAnchor({ align = "right" }: { align?: "left" | "right" }) {
-  const { legendOpen, setLegendOpen } = useSessionScope();
+  const { legendOpen, setLegendOpen, legendSource, setLegendSource } = useSessionScope();
   const ref = useRef<HTMLSpanElement>(null);
+  const isMine = legendOpen && legendSource === "attention";
 
   useEffect(() => {
-    if (!legendOpen) return;
+    if (!isMine) return;
     const onDoc = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setLegendOpen(false);
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setLegendOpen(false);
+        setLegendSource(null);
+      }
     };
     document.addEventListener("mousedown", onDoc);
     return () => document.removeEventListener("mousedown", onDoc);
-  }, [legendOpen, setLegendOpen]);
+  }, [isMine, setLegendOpen, setLegendSource]);
 
-  if (!legendOpen) return null;
+  if (!isMine) return null;
   return (
     <span ref={ref} className="relative inline-flex">
       <LegendPanel align={align} />
     </span>
   );
 }
+
+// Also export a hook helper so AttentionCard's toggle sets the source.
+export function useLegendToggle(source: "chrome" | "attention") {
+  const { legendOpen, legendSource, setLegendOpen, setLegendSource } = useSessionScope();
+  const isMine = legendOpen && legendSource === source;
+  return () => {
+    const next = !isMine;
+    setLegendOpen(next);
+    setLegendSource(next ? source : null);
+  };
+}
+
