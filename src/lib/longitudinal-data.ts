@@ -25,6 +25,7 @@ import {
 import {
   typicalFor, bucketKeyFor,
   expectedSumForSession, comparableSessionCount,
+  EXPECTED_MIN_COVERAGE,
   type ExpectedSumBasis,
 } from "./demo-typicals";
 import type { ParticipationTag } from "./session-data";
@@ -41,9 +42,11 @@ export const LONGI_WINDOW_DEFAULT = 28;
 
 /**
  * Squad-load gauges withhold when contributing sessions are fewer than this
- * share of the window's sessions. Exported so it can be changed in one place.
+ * share of the window's sessions. Single source of truth lives in
+ * `demo-typicals.ts` as `EXPECTED_MIN_COVERAGE`; re-exported here under the
+ * gauge-facing name so the two modules never disagree.
  */
-export const GAUGE_MIN_COVERAGE = 2 / 3;
+export const GAUGE_MIN_COVERAGE = EXPECTED_MIN_COVERAGE;
 
 /**
  * HR coverage threshold — a record whose `hrCoveragePct` is at or above this
