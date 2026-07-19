@@ -572,7 +572,7 @@ function resolveParticipation(athleteId: string, session: DemoSession): { partic
 
 /* ─────────────────────────── record generation ─────────────────────────── */
 
-const BEYOND_RANGE_TD_MULT = 1.35;
+const BEYOND_RANGE_TD_MULT = 1.55;
 
 function generateRecord(a: DemoAthlete, s: DemoSession): DemoRecord {
   const base = { athleteId: a.id, sessionId: s.id, dateISO: s.dateISO } as const;
