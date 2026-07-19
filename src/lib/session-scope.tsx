@@ -464,6 +464,8 @@ export function SessionScopeProvider({ children }: { children: ReactNode }) {
     setHighlightAthleteId,
     legendOpen,
     setLegendOpen,
+    legendSource,
+    setLegendSource,
     squadView,
     setSquadView,
     squadDisplay,
