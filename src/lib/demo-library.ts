@@ -462,52 +462,58 @@ for (const s of demoSessions) {
   const windowMatchIds = demoSessions
     .filter((s) => s.type === "match" && s.id !== DORTMUND_SESSION_ID && s.dateISO >= "2026-06-22" && s.dateISO <= "2026-07-19")
     .map((s) => s.id);
-  const counts = new Map<string, number>();
-  for (const mid of windowMatchIds) {
-    for (const [id, tag] of MATCH_PARTICIPATION.get(mid)!) {
-      if (tag === "Full") counts.set(id, (counts.get(id) ?? 0) + 1);
-    }
-  }
   const total = windowMatchIds.length;
-  const monopolists = [...counts.entries()]
-    .filter(([id, c]) => id !== "keller" && c === total)
-    .map(([id]) => id);
-  console.error("DEBUG monopolists:", monopolists);
-  for (const id of monopolists) {
+  const counts = new Map<string, number>();
+  const recount = () => {
+    counts.clear();
+    for (const mid of windowMatchIds) {
+      for (const [id, tag] of MATCH_PARTICIPATION.get(mid)!) {
+        if (tag === "Full") counts.set(id, (counts.get(id) ?? 0) + 1);
+      }
+    }
+    return [...counts.entries()]
+      .filter(([id, c]) => id !== "keller" && c === total)
+      .map(([id]) => id);
+  };
+  let monopolists = recount();
+  let guard = 0;
+  while (monopolists.length > 0 && guard++ < 20) {
+    const id = monopolists[0];
     const pos = ATHLETE_BY_ID.get(id)!.position;
+    let swapped = false;
     for (const mid of windowMatchIds) {
       const p = MATCH_PARTICIPATION.get(mid)!;
       if (p.get(id) !== "Full") continue;
-      // Find a same-position sub (Part) to promote.
+      // Prefer a same-position Part sub whose promotion won't create a new monopolist.
       let replacement: string | null = null;
       for (const [otherId, tag] of p) {
         if (otherId === id) continue;
         if (ATHLETE_BY_ID.get(otherId)?.position !== pos) continue;
-        if (tag === "Part" && (counts.get(otherId) ?? 0) < total) { replacement = otherId; break; }
+        if (tag === "Part" && (counts.get(otherId) ?? 0) < total - 1) { replacement = otherId; break; }
       }
       if (!replacement) {
-        // No same-position sub: try a same-position non-selected eligible.
         for (const [otherId, tag] of p) {
           if (otherId === id) continue;
           if (ATHLETE_BY_ID.get(otherId)?.position !== pos) continue;
-          if (tag === null && inSquadOn(otherId, demoSessions.find((s) => s.id === mid)!.dateISO)
-              && otherId !== "sturm" && otherId !== "voss"
-              && (counts.get(otherId) ?? 0) < total) {
+          if (tag === null && otherId !== "sturm" && otherId !== "voss"
+              && inSquadOn(otherId, demoSessions.find((s) => s.id === mid)!.dateISO)
+              && (counts.get(otherId) ?? 0) < total - 1) {
             replacement = otherId; break;
           }
         }
       }
       if (replacement) {
-        console.error("DEBUG swap:", id, "->", replacement, "at", mid);
         p.set(id, "Part");
         p.set(replacement, "Full");
-        counts.set(id, (counts.get(id) ?? 1) - 1);
-        counts.set(replacement, (counts.get(replacement) ?? 0) + 1);
+        swapped = true;
         break;
       }
     }
+    if (!swapped) break;
+    monopolists = recount();
   }
 })();
+
 
 
 function resolveParticipation(athleteId: string, session: DemoSession): { participation: ParticipationTag | null; minutes: number; hrCoveragePct: number | null; srpeSubmitted: boolean } {
