@@ -590,7 +590,7 @@ function resolveParticipation(athleteId: string, session: DemoSession): { partic
  * the extra-time cup tie) so exactly one day breaks the cap.
  */
 export const DAY_TD_DOMAIN_MIN = 0;
-export const DAY_TD_DOMAIN_MAX = 140_000;
+export const DAY_TD_DOMAIN_MAX = 143_000;
 
 
 function generateRecord(a: DemoAthlete, s: DemoSession): DemoRecord {
