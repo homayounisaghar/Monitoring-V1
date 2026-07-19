@@ -395,7 +395,7 @@ function computeMatchParticipation(session: DemoSession): Map<string, Participat
     const sorted = [...pool].sort();
     // Position-specific phase offset breaks alignment between positions so
     // one athlete cannot be "always index 0" across the whole window.
-    const offset = hashSeed("rotphase-v12", posKey) % sorted.length;
+    const offset = hashSeed("rotation-phase", posKey) % sorted.length;
     const start = ((matchIdx * step + offset) % sorted.length + sorted.length) % sorted.length;
     const take = Math.min(n, sorted.length);
     const picks: string[] = [];
