@@ -94,17 +94,54 @@ export const participants: Athlete[] = squad.filter((a) => a.participation !== n
 // Invariant: participants.length === 18.
 
 /* ---------- Source sidebar sessions ---------- */
+/**
+ * Derived from the demo library so the sidebar shows the real calendar
+ * rather than a second, diverging one. Most-recent-first, last 30 days.
+ * The four library session types collapse to the sidebar's two:
+ *   match → match; training/recovery/gym → training.
+ */
+import { demoSessions, DEMO_TODAY } from "./demo-library";
 
-export const sessionLibrary: Array<Session & { selected?: boolean }> = [
-  { ...currentSession, selected: true },
-  { id: "s-2026-07-02", kind: "training", label: "MD-2 · Intensive", dayCode: "MD-2", dateISO: "2026-07-02", durationMin: 82, halves: [41, 41] },
-  { id: "s-2026-07-01", kind: "training", label: "MD-3 · Tactical",  dayCode: "MD-3", dateISO: "2026-07-01", durationMin: 68, halves: [34, 34] },
-  { id: "s-2026-06-28", kind: "match",    label: "vs FC Köln",       dayCode: "MD",   dateISO: "2026-06-28", durationMin: 94, halves: [46, 48], result: "1–1 D" },
-  { id: "s-2026-06-25", kind: "training", label: "MD+1 · Recovery",  dayCode: "MD+1", dateISO: "2026-06-25", durationMin: 45, halves: [45, 0] },
-  { id: "s-2026-06-24", kind: "training", label: "MD-1 · Activation",dayCode: "MD-1", dateISO: "2026-06-24", durationMin: 52, halves: [26, 26] },
-  { id: "s-2026-06-21", kind: "match",    label: "vs Bayer 04",      dayCode: "MD",   dateISO: "2026-06-21", durationMin: 96, halves: [47, 49], result: "3–2 W" },
+function daysBetween(aIso: string, bIso: string): number {
+  const a = new Date(aIso + "T00:00:00Z").getTime();
+  const b = new Date(bIso + "T00:00:00Z").getTime();
+  return Math.round((a - b) / 86_400_000);
+}
 
-];
+export const sessionLibrary: Array<Session & { selected?: boolean }> = demoSessions
+  .filter((s) => {
+    const age = daysBetween(DEMO_TODAY, s.dateISO);
+    return age >= 0 && age <= 30;
+  })
+  .slice()
+  .sort((a, b) =>
+    a.dateISO === b.dateISO ? b.id.localeCompare(a.id) : (a.dateISO < b.dateISO ? 1 : -1)
+  )
+  .map((s) => {
+    const kind: "match" | "training" = s.type === "match" ? "match" : "training";
+    // Halves: matches keep a realistic split; non-match sessions get a
+    // simple two-way split. Nothing on the page reads halves outside matches.
+    const halves: [number, number] =
+      s.type === "match"
+        ? (s.id === currentSession.id
+            ? currentSession.halves
+            : [Math.floor(s.durationMin / 2), s.durationMin - Math.floor(s.durationMin / 2)])
+        : [Math.floor(s.durationMin / 2), Math.ceil(s.durationMin / 2)];
+    const label =
+      s.type === "match" && s.opponent ? `vs ${s.opponent}` : s.name;
+    return {
+      id: s.id,
+      kind,
+      label,
+      dayCode: s.dayCode,
+      dateISO: s.dateISO,
+      durationMin: s.durationMin,
+      halves,
+      result: s.result,
+      selected: s.id === currentSession.id,
+    };
+  });
+
 
 
 /* ---------- Timeline helper — derived, never hardcoded (rule 9) ---------- */
