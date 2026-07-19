@@ -135,3 +135,31 @@ New module: `src/lib/demo-typicals.ts` (nothing imports it yet).
 ### Check surface
 
 Full suite (library + typicals) run at end of prompt 2: **38 / 39 pass**. The single failure is the zero-spread finding above, retained as evidence rather than silenced.
+
+## Corrections applied in prompt 1e (history extension)
+
+Fences: only `src/lib/demo-library.ts` and `src/lib/demo-library.check.ts`.
+
+### Decisions consumed
+
+- **History extended backwards to a weekly rhythm.** `START_ISO` moved from 2026-05-25 to **2026-04-13** (a Monday), and six weekly Saturday fixtures added before the congested block: Schalke 04 (18 Apr), VfL Bochum (25 Apr), FC Heidenheim (2 May), Darmstadt 98 (9 May), Holstein Kiel (16 May), SV Elversberg (23 May). Everything from 31 May onwards is unchanged: same matches, same rest days, same missing day, same double day, same extra-time tie, same pinned session. The 28-day window still contains 24 sessions / 5 matches / 19 non-match with the same four rest dates. The reason for the extension is not history length per se: the buckets are thin because match density is high, and the fix is a stretch of weekly rhythm where a full microcycle can occur.
+
+### Defaults taken
+
+- **`SEASON_START_ISO = "2026-04-13"`.** New exported constant; commented as demo-calibrated pending Ali's ruling on when the season is declared to begin. `START_ISO` now aliases it — nothing hardcodes a season-start date. Any season-to-date read derives from this constant.
+- **Six extended-stretch fixtures** listed above; all ordinary weekly matches, one home / one away alternating. Results are decoration and irrelevant to load.
+- **Monday-after-match rest rule** for dates < 2026-05-31 only. All six extended-stretch matches fall on Saturdays, so the rule adds six new rest days: 20 Apr, 27 Apr, 4 May, 11 May, 18 May, 25 May. The rule does not apply from 31 May onwards, so the four fixed rest dates inside the 28-day window are untouched.
+- **Extra-time dampener retightened from 0.93 → 0.91.** The new `matchIdx` values (existing matches shifted by +6) reshuffled starter rotation, and one athlete (Frei) ended up starting the 8 Jul AET tie for the first time; at 0.93 his total distance came in at 15,134 m, just over the 15,000 m plausibility floor. 0.91 brings the maximum to 14,808 m and leaves the 8 Jul day total at 145,237 m — still the only day above `DAY_TD_DOMAIN_MAX`. `DAY_TD_DOMAIN_MAX` unchanged: the second-highest day is still pinned 18 Jul at 140,762 m, well below the cap.
+
+### Defects found
+
+- **`dayCodeFor` tie rule cannot produce MD-4 or MD-5 from a weekly rhythm.** The rule ("upcoming wins ties" — closer match wins) resolves the six days between two weekly Saturday matches as `MD+1, MD+2 (rest), MD+3, MD-3, MD-2, MD-1`. There is no MD-4 or MD-5 in this pattern; the only MD-4/-5 sessions in the whole eight-week library are the two days at the very start of history (13 Apr = MD-5, 14 Apr = MD-4) before any prior match exists to pull those days into MD+ territory. Final census: `MD-1 · training = 19, MD::match = 19, MD+1 · recovery = 14, MD-2 · training = 11, MD-3 · training = 10, MD+3 · training = 7, MD+2 · recovery = 3, MD-4 · training = 2, MD-5 · training = 1, MD+2 · gym = 1, MD+2 · training = 1`. MD-2 and MD-3 are now well over the five-session floor; MD-4 and MD-5 are short and cannot be filled by adding more history under the current tie rule. Not resolved here per the prompt's explicit instruction ("report the counts and stop rather than adding more matches on your own initiative"). The check reports `SHORT: MD-4=2 MD-5=1`. Held for the next design pass: either change `dayCodeFor` to a count-backwards rule (each day is labelled by its distance to the *next* match, up to a cap; days beyond that cap fall back to MD+ from the last match), or accept that MD-4 and MD-5 are structurally rare in this fixture pattern and let the typicals layer withhold them.
+
+### New questions (held)
+
+- **When does the season start?** The extended stretch is in-season by construction. If Ali declares the season to begin after 13 April, this pre-season regime should not feed baselines — which would undo the extension. `SEASON_START_ISO` names the value and flags the ruling.
+- **`dayCodeFor` semantics.** "Nearest match" is the current rule; MD-4/MD-5 need a "count backwards from next match" rule to fill under any realistic in-season schedule. Not resolved here.
+
+### Check surface
+
+Full suite (library + typicals) after prompt 1e: **42 / 44 pass**. The two failures are the reportable outcomes above: (1) the MD-4/MD-5 shortfall (structural, per the tie rule — instructed to stop, not to compensate); (2) the pre-existing zero-SD finding in `MD+1::recovery::sprintDist` for `keller` and `lange`, which is fenced out of this prompt (a `demo-library.ts` generator issue held from prompt 2's findings). Every previously passing check still passes.
