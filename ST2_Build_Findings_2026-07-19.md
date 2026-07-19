@@ -163,3 +163,9 @@ Fences: only `src/lib/demo-library.ts` and `src/lib/demo-library.check.ts`.
 ### Check surface
 
 Full suite (library + typicals) after prompt 1e: **42 / 44 pass**. The two failures are the reportable outcomes above: (1) the MD-4/MD-5 shortfall (structural, per the tie rule — instructed to stop, not to compensate); (2) the pre-existing zero-SD finding in `MD+1::recovery::sprintDist` for `keller` and `lange`, which is fenced out of this prompt (a `demo-library.ts` generator issue held from prompt 2's findings). Every previously passing check still passes.
+
+## Corrections applied in prompt 3 (spatial layer)
+
+### Defaults taken
+
+- **Coordinate model, point-count rule, and missing-data athlete.** Normalised pitch 0–100 on both axes with attacking left→right; per-`posDetail` anchor + spread table drives 2–3 cluster centres per athlete-session, points count = clamp(round(minutes × 1.5), 12, 160) so subs read visibly sparser than starters; polyline is a 24-waypoint 3-tap moving average through the points in generation order; thirds are computed from the points (`x < 33.3` D, `< 66.6` M, else A) with rounding drift absorbed into the attacking share so D+M+A = 100; coverage is 84 ± 10 % clamped to 65–99. **M. Meier** carries the "no positional data" state across the whole window (Voss / Lange / Köhler / Sturm already carry other states); a small scatter (~3 %) of other athlete-sessions also drop to `null`. PRNG is `mulberry32` keyed off `DEMO_SEED` — no new PRNG.
