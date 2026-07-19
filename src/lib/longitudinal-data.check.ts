@@ -373,7 +373,7 @@ lines.push(`═══ Constants ═══  LONGI_WINDOW_DEFAULT=${LONGI_WINDOW_D
 
 // Focus helper sanity
 const dortmundIdx = sessionDayIndex("s-2026-07-04-dortmund", w28);
-lines.push(`  sessionDayIndex(dortmund, 28d) = ${dortmundIdx}   (expect 27)`);
+lines.push(`  sessionDayIndex(dortmund, 28d) = ${dortmundIdx}   (0-indexed; 18 Jul is day index 26 of the 28-day window)`);
 
 /* ───────── output ───────── */
 
