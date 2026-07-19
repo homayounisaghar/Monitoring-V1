@@ -6,6 +6,7 @@ import {
   demoSessions, demoRecords, demoAthletes, demoDays,
   recordsForAthlete, recordsForSession, DEMO_TODAY,
   buildSessions, buildDays, buildRecords,
+  DAY_TD_DOMAIN_MAX,
   type DemoRecord,
 } from "./demo-library";
 
