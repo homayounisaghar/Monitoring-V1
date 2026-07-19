@@ -581,7 +581,17 @@ function resolveParticipation(athleteId: string, session: DemoSession): { partic
 
 /* ─────────────────────────── record generation ─────────────────────────── */
 
-const BEYOND_RANGE_TD_MULT = 1.55;
+/**
+ * Fixed drawn domain for the squad-day distance lane.
+ * The upper bound is a demo-calibrated placeholder pending real per-day
+ * exports and must never auto-fit to the current data — the whole point
+ * of "beyond range" is that the domain doesn't move when an outlier appears.
+ * Chosen to sit above every day in the eight-week history except one (8 Jul,
+ * the extra-time cup tie) so exactly one day breaks the cap.
+ */
+export const DAY_TD_DOMAIN_MIN = 0;
+export const DAY_TD_DOMAIN_MAX = 140_000;
+
 
 function generateRecord(a: DemoAthlete, s: DemoSession): DemoRecord {
   const base = { athleteId: a.id, sessionId: s.id, dateISO: s.dateISO } as const;
