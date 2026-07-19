@@ -72,3 +72,32 @@ Factual, short, and specific to this prompt.
 
 - **`DAY_TD_DOMAIN_MAX = 143_000` m.** Chosen to sit above the second-highest squad day (pinned 18 Jul Dortmund at 140,762 m) and below 8 Jul (145,492 m) so exactly one day in the eight-week library breaks the cap. Comment in source flags it as a demo-calibrated placeholder pending real per-day exports. Alterable, but must never auto-fit.
 - **8 Jul extra-time framing.** `MatchDef` now carries optional `note?: string` and `durationMin?: number`; 8 Jul is the only entry using them (`note: "AET"`, `durationMin: 120`). Full-tag minutes: `114 + jit(3)` clamped implicitly to 111–117. Part-tag minutes: `33 + jit(12)` clamped 20–45. Target Part count on 8 Jul is 4–5 (vs 3–5 elsewhere). Per-minute distance dampener: 0.93. Alterable within plausibility.
+
+## Corrections applied in prompt 1d
+
+### Decisions consumed
+
+- **Participation contract (§1).** Minutes, load, coverage and sRPE eligibility per participation tag are now decided in one place — the `CONTRACT` table near the top of the participation section — and consulted by both `resolveParticipation` and `generateRecord`. No branch decides these facts independently. `demo-library.check.ts` walks every record and asserts it against `contractRowFor(tag)`; violations report athlete, date, tag and the field that disagreed. Contract table (verbatim from source):
+
+  | tag        | minutes  | external+internal load | HR coverage | sRPE
+  |------------|----------|------------------------|-------------|------
+  | unselected | 0        | none                   | none        | none
+  | Injury     | 0        | none                   | none        | none
+  | Rehab      | 0        | none (not in session)  | none        | none
+  | Other      | 0        | none (off-team prog.)  | none        | none
+  | Modified   | reduced  | reduced                | present     | if collected+submits
+  | Part       | reduced  | reduced                | present     | if collected+submits
+  | Full       | normal   | normal                 | present     | if collected+submits
+
+  "None" means `null` where the type allows and `0` otherwise; a zero never stands in for "no such record". The one legitimate zero is a rest-day record.
+
+- **Declared exception.** The pinned 18 Jul session may carry `Injury` with minutes > 0 — the coherent reading is that the injury happened during that session. The invariant permits this only on `s-2026-07-04-dortmund` and the check prints the exempted rows by name (currently: `voss Injury@12′`, `lange Injury@29′`) so the exception stays visible.
+
+### Defaults taken
+
+- **`Other` shape.** Ali's rule named Injury, Rehab, Modified, Part, Full and not-in-squad — `Other` was not enumerated. Mapped `Other` to the same shape as `Rehab` (minutes 0, no load, no coverage, no sRPE) on the reading that "Other" means an individual off-team programme, not a reduced team session. Alterable — flag for the post-meeting register.
+- **Low-coverage pair moved.** Brandt and Kuhn are now below the HR-coverage threshold on **Thu 2 Jul (MD-2 · Intensive, 82′)** instead of Tue 30 Jun (MD+2 · Regen). 30 Jun is a 50′ recovery session where thin coverage withholds almost nothing; 2 Jul is the heaviest training session in the window and is where the internal-load read is actually undermined. Same band (55–75 %).
+
+### New questions (held)
+
+- **`Injury` carries two facts.** In the generated history it means "unavailable for this session" (minutes = 0); on the pinned session it means "injured during this session" (minutes > 0). The two are distinguished only by whether minutes are non-zero, which is a modelling smell. Held for the post-meeting register — do not resolve here.

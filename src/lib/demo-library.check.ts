@@ -6,7 +6,7 @@ import {
   demoSessions, demoRecords, demoAthletes, demoDays,
   recordsForAthlete, recordsForSession, DEMO_TODAY,
   buildSessions, buildDays, buildRecords,
-  DAY_TD_DOMAIN_MAX,
+  DAY_TD_DOMAIN_MAX, contractRowFor,
   type DemoRecord,
 } from "./demo-library";
 
@@ -82,12 +82,43 @@ export function runDemoLibraryChecks(): Check[] {
   }
   push("Lange arc Full→Part→Rehab→Injury", seen.join(">") === "Full>Part>Rehab>Injury", seen.join(">"));
 
-  const jun30Session = demoSessions.find((s) => s.dateISO === "2026-06-30");
-  const jun30 = jun30Session ? recordsForSession(jun30Session.id) : [];
-  const brandt = jun30.find((r) => r.athleteId === "brandt");
-  const kuhn = jun30.find((r) => r.athleteId === "kuhn");
-  push("Brandt <80 % HR on 30 Jun", !!brandt && (brandt.hrCoveragePct ?? 100) < 80, `hr=${brandt?.hrCoveragePct}`);
-  push("Kuhn <80 % HR on 30 Jun", !!kuhn && (kuhn.hrCoveragePct ?? 100) < 80, `hr=${kuhn?.hrCoveragePct}`);
+  const jul02Session = demoSessions.find((s) => s.dateISO === "2026-07-02");
+  const jul02 = jul02Session ? recordsForSession(jul02Session.id) : [];
+  const brandt = jul02.find((r) => r.athleteId === "brandt");
+  const kuhn = jul02.find((r) => r.athleteId === "kuhn");
+  push(
+    "2 Jul session is MD-2 · Intensive (training)",
+    !!jul02Session && jul02Session.type === "training" && jul02Session.name.startsWith("MD-2"),
+    `type=${jul02Session?.type} name=${jul02Session?.name}`,
+  );
+  push("Brandt <80 % HR on 2 Jul (MD-2)", !!brandt && (brandt.hrCoveragePct ?? 100) < 80, `hr=${brandt?.hrCoveragePct}`);
+  push("Kuhn <80 % HR on 2 Jul (MD-2)", !!kuhn && (kuhn.hrCoveragePct ?? 100) < 80, `hr=${kuhn?.hrCoveragePct}`);
+
+  // Missing day (§3, prompt 1d) — a gap must be between things, not the edge.
+  const jul14Session = demoSessions.find((s) => s.dateISO === "2026-07-14");
+  const jul14Day = demoDays.find((d) => d.dateISO === "2026-07-14");
+  const jul13Day = demoDays.find((d) => d.dateISO === "2026-07-13");
+  const jul15Day = demoDays.find((d) => d.dateISO === "2026-07-15");
+  push(
+    "14 Jul missing (no session, no demoDays entry) and 13/15 Jul present",
+    !jul14Session && !jul14Day && !!jul13Day && !!jul15Day,
+    `session=${!!jul14Session} day=${!!jul14Day} 13=${!!jul13Day} 15=${!!jul15Day}`,
+  );
+
+  // Beyond-range day — cause travels with effect.
+  const jul08Session = demoSessions.find((s) => s.dateISO === "2026-07-08");
+  push(
+    "8 Jul session is a match with note='AET'",
+    !!jul08Session && jul08Session.type === "match" && jul08Session.note === "AET",
+    `type=${jul08Session?.type} note=${jul08Session?.note}`,
+  );
+
+  // sRPE-not-collected days must resolve to real recovery sessions.
+  const noCollectRecovery = ["2026-07-12", "2026-07-19"].every((d) => {
+    const s = demoSessions.find((x) => x.dateISO === d);
+    return s?.type === "recovery" && s?.srpeCollected === false;
+  });
+  push("12/19 Jul are recovery sessions with srpeCollected=false", noCollectRecovery, "");
 
   const unconfirmed = demoSessions.filter((s) => s.unconfirmed);
   push("Exactly one unconfirmed session", unconfirmed.length === 1 && unconfirmed[0].dateISO === "2026-07-19", unconfirmed.map((s) => s.dateISO).join(","));
@@ -117,12 +148,60 @@ export function runDemoLibraryChecks(): Check[] {
   const frei = recordsForAthlete("frei").filter((r) => r.srpeAU != null);
   push("Frei has zero sRPE records", frei.length === 0, `count=${frei.length}`);
 
-  const noCollectDays = ["2026-07-12", "2026-07-19"];
-  const noCollectOK = noCollectDays.every((d) => {
-    const s = demoSessions.find((x) => x.dateISO === d);
-    return s?.srpeCollected === false;
-  });
-  push("Two no-collection recovery days", noCollectOK, noCollectDays.join(","));
+  /* ─── §1 (prompt 1d) — participation contract invariant ─── */
+  const PINNED_SESSION_ID = "s-2026-07-04-dortmund";
+  type Violation = { athleteId: string; dateISO: string; tag: string; field: string; got: string };
+  const violations: Violation[] = [];
+  const exemptions: { athleteId: string; tag: string; minutes: number }[] = [];
+  for (const r of demoRecords) {
+    // Rest-day records are the one legitimate zero — outside the tag contract.
+    if (r.sessionId === null) continue;
+    const row = contractRowFor(r.participation);
+    const tag = r.participation ?? "unselected";
+    // Declared exception: pinned session may carry Injury with minutes>0.
+    if (r.sessionId === PINNED_SESSION_ID && r.participation === "Injury" && r.minutes > 0) {
+      exemptions.push({ athleteId: r.athleteId, tag, minutes: r.minutes });
+      continue;
+    }
+    const v = (field: string, got: unknown) =>
+      violations.push({ athleteId: r.athleteId, dateISO: r.dateISO, tag, field, got: String(got) });
+    if (row.hasMinutes) {
+      if (r.minutes <= 0) v("minutes", r.minutes);
+    } else {
+      if (r.minutes !== 0) v("minutes", r.minutes);
+    }
+    if (row.hasLoad) {
+      if (r.totalDistance <= 0) v("totalDistance", r.totalDistance);
+      if (r.cardioLoad === null && r.hrCoveragePct !== null) {
+        // cardioLoad may be null when coverage is absent even for hasLoad tags;
+        // but hasLoad tags must at least produce non-zero external load.
+      }
+    } else {
+      if (r.totalDistance !== 0) v("totalDistance", r.totalDistance);
+      if (r.hsr !== 0) v("hsr", r.hsr);
+      if (r.sprintDist !== 0) v("sprintDist", r.sprintDist);
+      if (r.accDec !== 0) v("accDec", r.accDec);
+      if (r.mMin !== 0) v("mMin", r.mMin);
+      if (r.topSpeedKmh !== 0) v("topSpeedKmh", r.topSpeedKmh);
+      if (r.cardioLoad !== null) v("cardioLoad", r.cardioLoad ?? "null");
+    }
+    if (row.hasCoverage) {
+      if (r.hrCoveragePct === null) v("hrCoveragePct", "null");
+    } else {
+      if (r.hrCoveragePct !== null) v("hrCoveragePct", r.hrCoveragePct);
+    }
+    if (!row.srpeEligible) {
+      if (r.srpeRating !== null) v("srpeRating", r.srpeRating);
+      if (r.srpeAU !== null) v("srpeAU", r.srpeAU);
+    }
+  }
+  const exemptDetail = exemptions
+    .map((e) => `${e.athleteId} ${e.tag}@${e.minutes}′`).join(", ") || "none";
+  push(
+    `Contract invariant holds for every record (exempt: ${exemptDetail})`,
+    violations.length === 0,
+    violations.slice(0, 12).map((x) => `${x.athleteId}/${x.dateISO}/${x.tag}: ${x.field}=${x.got}`).join(" | "),
+  );
 
   // §4 — match squad shape: exactly 11 rows with minutes ≥ 85; 3–5 Part rows.
   // Pinned Dortmund exempt.

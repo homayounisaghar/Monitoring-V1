@@ -347,6 +347,55 @@ function typeScale(type: SessionType, name: string): { td: number; hsr: number; 
 
 /* ─────────────────────────── participation ─────────────────────────── */
 
+/**
+ * Participation contract (§1, prompt 1d) — the single source of truth.
+ *
+ * Consulted by both minutes assignment (below) and record generation
+ * (`generateRecord`). No branch anywhere in this module may decide these
+ * facts independently; `demo-library.check.ts` walks every record and
+ * asserts it satisfies its own tag's row.
+ *
+ * "None" = the field is `null` where the type allows null, `0` where it does
+ * not. A zero must never stand in for "no such record"; the only legitimate
+ * zero is a rest-day record (a real observation of zero accumulation).
+ *
+ * | tag        | minutes  | external+internal load | HR coverage | sRPE
+ * |------------|----------|------------------------|-------------|------
+ * | unselected | 0        | none                   | none        | none
+ * | Injury     | 0        | none                   | none        | none
+ * | Rehab      | 0        | none (not in session)  | none        | none
+ * | Other      | 0        | none (off-team prog.)  | none        | none
+ * | Modified   | reduced  | reduced                | present     | if collected+submits
+ * | Part       | reduced  | reduced                | present     | if collected+submits
+ * | Full       | normal   | normal                 | present     | if collected+submits
+ *
+ * Two-meanings note: `Injury` currently carries two facts —
+ * "unavailable for this session" (history, always minutes=0) and
+ * "injured during this session" (pinned 18 Jul Voss/Lange, minutes>0).
+ * The pinned session is a declared exception; the invariant permits
+ * `Injury` with minutes>0 only there, and the check names the exempted
+ * rows. Held for the post-meeting register — see findings.
+ */
+type ContractRow = {
+  hasMinutes: boolean;   // minutes > 0
+  hasLoad: boolean;      // td/hsr/spr/ad/mMin/topSpeed non-zero, cardioLoad non-null
+  hasCoverage: boolean;  // hrCoveragePct non-null
+  srpeEligible: boolean; // may carry srpeRating/srpeAU if session collected + athlete submits
+};
+const CONTRACT: Record<"unselected" | ParticipationTag, ContractRow> = {
+  unselected: { hasMinutes: false, hasLoad: false, hasCoverage: false, srpeEligible: false },
+  Injury:     { hasMinutes: false, hasLoad: false, hasCoverage: false, srpeEligible: false },
+  Rehab:      { hasMinutes: false, hasLoad: false, hasCoverage: false, srpeEligible: false },
+  Other:      { hasMinutes: false, hasLoad: false, hasCoverage: false, srpeEligible: false },
+  Modified:   { hasMinutes: true,  hasLoad: true,  hasCoverage: true,  srpeEligible: true  },
+  Part:       { hasMinutes: true,  hasLoad: true,  hasCoverage: true,  srpeEligible: true  },
+  Full:       { hasMinutes: true,  hasLoad: true,  hasCoverage: true,  srpeEligible: true  },
+};
+
+export function contractRowFor(tag: ParticipationTag | null): ContractRow {
+  return tag === null ? CONTRACT.unselected : CONTRACT[tag];
+}
+
 const PINNED_DORTMUND: Record<string, { participation: ParticipationTag | null; minutes: number; hrCoveragePct: number | null; srpeSubmitted: boolean }> =
   Object.fromEntries(squad.map((a) => [a.id, {
     participation: a.participation,
@@ -545,37 +594,40 @@ function resolveParticipation(athleteId: string, session: DemoSession): { partic
     return { participation: null, minutes: 0, hrCoveragePct: null, srpeSubmitted: false };
   }
 
-  // Minutes.
+  // Minutes — driven by the contract (§1, prompt 1d). No-minutes rows never
+  // gain a minute here; only Full/Part/Modified accumulate.
+  const row = contractRowFor(part);
   let minutes: number;
-  if (session.type === "match") {
+  if (!row.hasMinutes) {
+    minutes = 0;
+  } else if (session.type === "match") {
     const isExtraTime = session.dateISO === "2026-07-08";
     if (part === "Full") {
       minutes = isExtraTime
         ? 114 + Math.round(jit(3, athleteId, session.id, "min")) // 111–117
         : 90 + Math.round(jit(4, athleteId, session.id, "min"));  // 86–94
-    } else if (part === "Part") {
+    } else { // Part (Modified never occurs on match sessions in this library)
       minutes = isExtraTime
         ? Math.max(20, Math.min(45, Math.round(33 + jit(12, athleteId, session.id, "pmin"))))
         : Math.max(8, Math.min(35, Math.round(22 + jit(12, athleteId, session.id, "pmin"))));
-    } else {
-      minutes = 0; // Injury/Rehab never accumulate match minutes (§3).
     }
   } else {
-    if (part === "Injury" || part === "Rehab") minutes = 0;
-    else if (part === "Other") minutes = 0; // individual off-team programme
-    else if (part === "Modified") minutes = Math.round(session.durationMin * 0.6);
+    if (part === "Modified")      minutes = Math.round(session.durationMin * 0.6);
     else if (part === "Part")     minutes = Math.round(session.durationMin * 0.5);
-    else minutes = session.durationMin; // Full
+    else                          minutes = session.durationMin; // Full
   }
 
-  let hr: number | null = minutes > 0 ? Math.round(90 + jit(8, athleteId, session.id, "hr")) : null;
-  if (session.dateISO === "2026-06-30" && (athleteId === "brandt" || athleteId === "kuhn")) {
+  // Coverage — present iff the contract says so. Low-coverage demo pair is
+  // pinned to Thu 2 Jul (MD-2 · Intensive), the heaviest training session
+  // in the window, where thin HR genuinely undermines the internal-load read.
+  let hr: number | null = row.hasCoverage ? Math.round(90 + jit(8, athleteId, session.id, "hr")) : null;
+  if (session.dateISO === "2026-07-02" && (athleteId === "brandt" || athleteId === "kuhn") && row.hasCoverage) {
     hr = Math.round(65 + jit(10, athleteId, "lowhr"));
   }
-  if (minutes > 0 && hashSeed(athleteId, session.id, "hrpick") % 40 === 0) {
+  if (row.hasCoverage && hashSeed(athleteId, session.id, "hrpick") % 40 === 0) {
     hr = Math.round(60 + jit(12, athleteId, session.id, "hrscat"));
   }
-  const srpeSubmitted = athleteId !== "frei" && minutes > 0;
+  const srpeSubmitted = row.srpeEligible && athleteId !== "frei" && minutes > 0;
   return { participation: part, minutes, hrCoveragePct: hr, srpeSubmitted };
 }
 
