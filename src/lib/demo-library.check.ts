@@ -252,8 +252,140 @@ export function runDemoLibraryChecks(): Check[] {
   push("DEMO_TODAY = 2026-07-19", DEMO_TODAY === "2026-07-19", DEMO_TODAY);
   push("Roster size = 19", demoAthletes.length === 19, `n=${demoAthletes.length}`);
 
+  /* ═════════════════ typicals layer (Workstream 01 · prompt 2/4) ═════════════════ */
+
+  const {
+    TYPICAL_MIN_SESSIONS, TYPICAL_METRICS,
+    typicalFor, comparableSessionCount,
+    bucketKeyFor, allBucketKeys,
+    expectedSumForSession,
+    _samplesFor,
+  } = require("./demo-typicals") as typeof import("./demo-typicals");
+
+  // (a) Every typical carries its bucket key; no code path returns a pooled mean.
+  //     Enforced structurally: `typicalFor` requires a BucketKey and there is no
+  //     pooled/positional builder to call. Assert here by inspecting every
+  //     reachable typical result and confirming its bucketKey matches the input.
+  const bkAll = allBucketKeys();
+  let bkMismatch = 0;
+  for (const a of demoAthletes) for (const bk of bkAll) {
+    const t = typicalFor(a.id, bk);
+    if (t.bucketKey !== bk) bkMismatch++;
+  }
+  push("Every typical carries its bucket key (§6.a)", bkMismatch === 0, `mismatched=${bkMismatch}`);
+
+  // (b) Sample count per (athlete, bucket) = count of that athlete's
+  //     minutes-bearing records in that bucket. Proves Injury/Rehab/Other/
+  //     unselected contribute nothing.
+  const sessionById = new Map(demoSessions.map((s) => [s.id, s]));
+  let sampleMismatch = 0;
+  const MINB = new Set(["Full", "Part", "Modified"]);
+  for (const a of demoAthletes) {
+    // Group this athlete's minutes-bearing, non-unconfirmed, non-rest records by bucket.
+    const expectedByBucket = new Map<string, number>();
+    for (const r of demoRecords) {
+      if (r.athleteId !== a.id) continue;
+      if (r.sessionId == null) continue;
+      const s = sessionById.get(r.sessionId)!;
+      if (s.unconfirmed) continue;
+      if (r.participation == null || !MINB.has(r.participation)) continue;
+      if (r.minutes <= 0) continue;
+      const bk = bucketKeyFor(s);
+      expectedByBucket.set(bk, (expectedByBucket.get(bk) ?? 0) + 1);
+    }
+    for (const bk of bkAll) {
+      const expected = expectedByBucket.get(bk) ?? 0;
+      const got = comparableSessionCount(a.id, bk);
+      if (got !== expected) sampleMismatch++;
+    }
+  }
+  push("Sample count = minutes-bearing records per bucket (§6.b)", sampleMismatch === 0, `mismatched=${sampleMismatch}`);
+
+  // (c) Neither the 19 Jul unconfirmed session nor any rest day appears in any
+  //     sample set.
+  const restDatesSet = new Set(["2026-06-22", "2026-06-29", "2026-07-05", "2026-07-06"]);
+  let banned = 0;
+  const bannedDetails: string[] = [];
+  for (const a of demoAthletes) for (const bk of bkAll) {
+    for (const r of _samplesFor(a.id, bk)) {
+      if (r.dateISO === "2026-07-19") { banned++; bannedDetails.push(`unconf ${a.id}`); }
+      if (restDatesSet.has(r.dateISO)) { banned++; bannedDetails.push(`rest ${a.id}/${r.dateISO}`); }
+    }
+  }
+  push("No unconfirmed / rest-day rows enter samples (§6.c)", banned === 0, bannedDetails.slice(0, 6).join(" | "));
+
+  // (d) Every typical at or above the minimum has non-zero SD on every metric.
+  //     Report the smallest SD found and which metric+bucket it came from.
+  let smallest: { athleteId: string; bucketKey: string; metric: string; sd: number; fs: number } | null = null;
+  let zeroSd = 0;
+  const zeroDetails: string[] = [];
+  for (const a of demoAthletes) for (const bk of bkAll) {
+    const t = typicalFor(a.id, bk);
+    if (t.state !== "computed") continue;
+    for (const m of TYPICAL_METRICS) {
+      const pm = t.metrics[m];
+      if (!pm) continue;
+      if (pm.sd === 0) { zeroSd++; if (zeroDetails.length < 4) zeroDetails.push(`${a.id}/${bk}/${m}`); }
+      const rel = pm.fullSession !== 0 ? pm.sd / Math.abs(pm.fullSession) : pm.sd;
+      if (!smallest || rel < (smallest.fs !== 0 ? smallest.sd / Math.abs(smallest.fs) : smallest.sd)) {
+        smallest = { athleteId: a.id, bucketKey: bk, metric: m, sd: pm.sd, fs: pm.fullSession };
+      }
+    }
+  }
+  const smallestDetail = smallest
+    ? `smallest sd/|mean|=${(smallest.fs !== 0 ? smallest.sd / Math.abs(smallest.fs) : smallest.sd).toFixed(4)} @ ${smallest.athleteId}/${smallest.bucketKey}/${smallest.metric} (sd=${smallest.sd.toFixed(2)}, mean=${smallest.fs.toFixed(2)})`
+    : "no samples";
+  push("Every computed typical has non-zero SD on every metric (§6.d)",
+    zeroSd === 0,
+    zeroSd === 0 ? smallestDetail : `zeroSd=${zeroSd} [${zeroDetails.join(", ")}] | ${smallestDetail}`);
+
+  // (e) Köhler withholds in every bucket, and print his per-bucket count.
+  const koehlerCounts = bkAll.map((bk) => `${bk}:${comparableSessionCount("koehler", bk)}`);
+  const koehlerAllWithheld = bkAll.every((bk) => typicalFor("koehler", bk).state === "withheld");
+  push("Köhler withholds in every bucket (§6.e)", koehlerAllWithheld, koehlerCounts.join(" "));
+
+  // (f) At least one athlete has a computable typical in each of the four
+  //     load-bearing buckets.
+  const needed: Array<[string, DemoSession["type"]]> = [
+    ["MD", "match"],
+    ["MD-1", "training"],
+    ["MD-2", "training"],
+    ["MD+1", "recovery"],
+  ];
+  const bucketMisses: string[] = [];
+  for (const [dc, st] of needed) {
+    const bk = `${dc}::${st}`;
+    const anyone = demoAthletes.some((a) => typicalFor(a.id, bk).state === "computed");
+    if (!anyone) bucketMisses.push(bk);
+  }
+  push("Load-bearing buckets each have ≥1 computable typical (§6.f)", bucketMisses.length === 0, bucketMisses.join(","));
+
+  // (g) Expected sum for pinned 18 July computes, states its coverage, and
+  //     names any withheld participants.
+  const es = expectedSumForSession("s-2026-07-04-dortmund");
+  const esOk = es.state === "computed" && es.participatedCount > 0;
+  const esDetail = es.state === "computed"
+    ? `contributed=${es.contributedCount}/${es.participatedCount} coverage=${(es.coverage * 100).toFixed(0)}% withheld=[${es.withheldAthletes.join(",") || "none"}]`
+    : `withheld reason=${es.reason} contrib=${es.contributedCount}/${es.participatedCount}`;
+  push("Expected sum for pinned 18 Jul computes with coverage stated (§6.g)", esOk, esDetail);
+
+  // (h) Determinism: read every typical twice, deep-compare. Because
+  //     `typicalFor` is a pure function of frozen module state and cached, a
+  //     second call must return identical serialised output for every key.
+  let typDiffs = 0;
+  for (const a of demoAthletes) for (const bk of bkAll) {
+    const A = JSON.stringify(typicalFor(a.id, bk));
+    const B = JSON.stringify(typicalFor(a.id, bk));
+    if (A !== B) typDiffs++;
+  }
+  const esA = JSON.stringify(expectedSumForSession("s-2026-07-04-dortmund"));
+  const esB = JSON.stringify(expectedSumForSession("s-2026-07-04-dortmund"));
+  const esSame = esA === esB;
+  push("Typicals layer deterministic (§6.h)", typDiffs === 0 && esSame, `typicalDiffs=${typDiffs} expectedSameSum=${esSame}`);
+
   return out;
 }
+
 
 declare const process: { argv: string[]; exit(n: number): never } | undefined;
 if (typeof process !== "undefined" && process.argv[1] && process.argv[1].endsWith("demo-library.check.ts")) {
