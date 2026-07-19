@@ -56,7 +56,7 @@ export const currentSession: Session = {
   kind: "match",
   label: "vs Borussia Dortmund",
   dayCode: "MD",
-  dateISO: "2026-07-04",
+  dateISO: "2026-07-18",
   durationMin: 95,
   halves: [47, 48],
   venue: "Signal Iduna Park",
