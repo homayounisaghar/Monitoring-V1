@@ -103,6 +103,14 @@ export type AthleteBucketTypical =
       sessionCount: number;
       required: number;
       nominalDurationMin: number;
+      /**
+       * §A1 (Workstream 04 prompt 1) — this athlete's typical session length
+       * for this bucket: plain unweighted mean of `minutes` across his sample
+       * records, rounded. Per athlete, not per bucket — a rotation player who
+       * typically gets 60 minutes of an 82-minute session has typical duration
+       * 60, not 82. Used by the volume-basis expected sum (§A2).
+       */
+      typicalDurationMin: number;
       metrics: Partial<Record<TypicalMetric, PerMetricTypical>>;
     }
   | {
