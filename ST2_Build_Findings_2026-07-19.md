@@ -224,3 +224,46 @@ srpeAU                 630       546       544   2026-07-08
 ### Check surface
 
 Longitudinal check: **15 / 15 assertions pass.** Demo-library + typicals check unchanged at **42 / 44** (the two prior structural findings — MD-4 / MD-5 shortfall and `sprintDist` zero-SD in `MD+1::recovery` for `keller`/`lange` — are still reported, still not silenced).
+
+## Workstream 04 · prompt 1 — corrections
+
+### Defects found (mine)
+
+- **A:C withheld for every athlete.** `acForAthlete` decided "fewer than 28 days of history" by counting the athlete's record dates inside the window. The 14 Jul day is unrecorded for everyone, so every athlete came out at 27/28 and the whole A:C column withheld. The rule is history, not record count: an athlete has the full history when his `joinedISO` falls on or before the window's first day. `daysOfData` still carries his real record count (so a mid-window joiner reads as 12/28, not 13/28). After the fix exactly one athlete withholds — B. Köhler (joined 2026-07-07, after the window's start 2026-06-22). Asserted in the check.
+- **`attentionFlagged` derived from participation tags.** It returned true for any Injury/Rehab/Modified in-window record, which put a flag on most of the squad and rendered the page as an alarm. Fixed to source the signal from `src/lib/session-flags.ts` (Tier-1 rows for the pinned session). If the pinned session (2026-07-18) falls in the window and the athlete's id is in `TIER1_ROWS_DEFAULT`, he is flagged; otherwise not. No participation-tag fallback.
+
+### Flag source
+
+`session-flags.ts` → `TIER1_ROWS_DEFAULT` (the pinned session's day-of-match Tier-1 set: `fischer`, `werner`, `schaefer`, `hofmann`). Scoped to windows that include 2026-07-18; false everywhere else. Attention wiring for non-pinned sessions is still held for the Attention section itself.
+
+### A:C rule as implemented
+
+Withhold when `athlete.joinedISO > window.startISO`. Otherwise compute `avg(7d) / avg(28d)` per metric, with rest days entering as real zeros and missing days absent from both numerator and denominator. `daysOfData` on the withheld state reports the athlete's real in-window record count.
+
+### Re-printed numbers (verbatim from the check)
+
+Domain calibration (whole library, avg per athlete who trained):
+```
+metric             highest       2nd       p95date-of-max   
+totalDistance         9682      8734      79932026-07-08    
+hsr                    667       592       5712026-07-08    
+cardioLoad             231       192       1862026-07-08    
+srpeAU                 630       546       5442026-07-08    
+```
+
+Gauges:
+```
+28-day: Volume 103.0%  Intensity 99.6%  (16 of 24 sessions; match-dominant=false)
+  target 2026-01-07 unreachable; used most match-dense 14-day window ending 2026-06-16 (6 matches): Vol 98.0% Int 100.4% (14/14, match-dominant=false)
+```
+
+Availability (28-day):
+```
+28        278/352          79.0      19   19 Full=278 Part=15 Injury=25 Modified=6 Other=5 Rehab=4 notInSquad=9
+```
+
+Zero-participation athletes (28-day):
+```
+  P. Sturm            reason=unselected
+```
+

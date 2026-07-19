@@ -28,6 +28,11 @@ import {
   type ExpectedSumBasis,
 } from "./demo-typicals";
 import type { ParticipationTag } from "./session-data";
+import { TIER1_ROWS_DEFAULT } from "./session-flags";
+
+/** Pinned session identity — the flag source below is scoped to this date. */
+const PINNED_SESSION_DATE_ISO = "2026-07-18";
+const TIER1_FLAG_IDS: ReadonlySet<string> = new Set(TIER1_ROWS_DEFAULT.map((r) => r.id));
 
 /* ─────────────────────────── constants ─────────────────────────── */
 
@@ -492,15 +497,12 @@ export function athleteAvailabilityRanking(w: LongiWindow): AthleteAvailEntry[] 
       if (tag === "Full") full++;
       if (tag) tagCounts[tag] = (tagCounts[tag] ?? 0) + 1;
     }
-    // Attention approximation: any Injury/Rehab/Modified record on any
-    // in-window session (training or match). See findings — this is a
-    // stand-in until the Attention section exposes its own signal.
-    const flagged = demoRecords.some(
-      (r) => r.athleteId === a.id
-        && r.dateISO >= w.startISO && r.dateISO <= w.endISO
-        && r.sessionId != null
-        && (r.participation === "Injury" || r.participation === "Rehab" || r.participation === "Modified"),
-    );
+    // Attention flag: sourced from `session-flags.ts` (Tier-1 rows for the
+    // pinned session). If the pinned session falls inside the window and the
+    // athlete's id is in the Tier-1 set, he is flagged. No participation-tag
+    // fallback — Modified is a participation fact, not an Attention signal.
+    const pinnedInWindow = PINNED_SESSION_DATE_ISO >= w.startISO && PINNED_SESSION_DATE_ISO <= w.endISO;
+    const flagged = pinnedInWindow && TIER1_FLAG_IDS.has(a.id);
     out.push({
       athlete: a, tagCounts, notInSquadCount: notInSquad,
       availableSessions: available,
@@ -572,9 +574,14 @@ function acForAthlete(athleteId: string, endISO: string): AcRatio {
   for (const r of recordsForAthlete(athleteId)) {
     if (r.dateISO >= win28.startISO && r.dateISO <= win28.endISO) recsByDate.set(r.dateISO, r);
   }
-  // Days of data across 28-day window: count of dates with a record.
+  // Days he actually has data for (rest = real zero, missing = absent).
   const daysOfData28 = recsByDate.size;
-  if (daysOfData28 < 28) {
+  // Withhold on history, not record count: he must have been in the squad
+  // on every day of the window. The unrecorded 14 Jul day is absent for
+  // everyone and does not count against anyone.
+  const athlete = demoAthletes.find((x) => x.id === athleteId);
+  const hasFullHistory = athlete != null && athlete.joinedISO <= win28.startISO;
+  if (!hasFullHistory) {
     return { state: "withheld", reason: "insufficient_days", daysOfData: daysOfData28, required: 28 };
   }
   const perMetric: Partial<Record<LongiMetric, number | null>> = {};

@@ -140,6 +140,12 @@ for (const at of wt28.perAthlete) {
 }
 push("A:C daysOfData matches real record dates (no synthetic zeros)", acSynthOk, "");
 
+// Exactly one athlete's A:C withholds — Köhler (joined 2026-07-07, after the
+// 28-day window's first day 2026-06-22). Everyone else has full history.
+const acWithheldCount = wt28.perAthlete.filter((at) => at.ac.state === "withheld").length;
+const acWithheldNames = wt28.perAthlete.filter((at) => at.ac.state === "withheld").map((at) => at.athlete.id).join(",");
+push("Exactly one athlete's A:C withholds (mid-window joiner)", acWithheldCount === 1 && acWithheldNames === "koehler", `${acWithheldCount}: ${acWithheldNames}`);
+
 /* ───────── report (§C2) ───────── */
 
 const lines: string[] = [];
