@@ -28,6 +28,8 @@ import {
   type ExpectedSumBasis,
 } from "./demo-typicals";
 import type { ParticipationTag } from "./session-data";
+import { TIER1_ROWS_DEFAULT } from "./session-flags";
+import { currentSession } from "./session-data";
 
 /* ─────────────────────────── constants ─────────────────────────── */
 
