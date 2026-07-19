@@ -347,6 +347,55 @@ function typeScale(type: SessionType, name: string): { td: number; hsr: number; 
 
 /* ─────────────────────────── participation ─────────────────────────── */
 
+/**
+ * Participation contract (§1, prompt 1d) — the single source of truth.
+ *
+ * Consulted by both minutes assignment (below) and record generation
+ * (`generateRecord`). No branch anywhere in this module may decide these
+ * facts independently; `demo-library.check.ts` walks every record and
+ * asserts it satisfies its own tag's row.
+ *
+ * "None" = the field is `null` where the type allows null, `0` where it does
+ * not. A zero must never stand in for "no such record"; the only legitimate
+ * zero is a rest-day record (a real observation of zero accumulation).
+ *
+ * | tag        | minutes  | external+internal load | HR coverage | sRPE
+ * |------------|----------|------------------------|-------------|------
+ * | unselected | 0        | none                   | none        | none
+ * | Injury     | 0        | none                   | none        | none
+ * | Rehab      | 0        | none (not in session)  | none        | none
+ * | Other      | 0        | none (off-team prog.)  | none        | none
+ * | Modified   | reduced  | reduced                | present     | if collected+submits
+ * | Part       | reduced  | reduced                | present     | if collected+submits
+ * | Full       | normal   | normal                 | present     | if collected+submits
+ *
+ * Two-meanings note: `Injury` currently carries two facts —
+ * "unavailable for this session" (history, always minutes=0) and
+ * "injured during this session" (pinned 18 Jul Voss/Lange, minutes>0).
+ * The pinned session is a declared exception; the invariant permits
+ * `Injury` with minutes>0 only there, and the check names the exempted
+ * rows. Held for the post-meeting register — see findings.
+ */
+type ContractRow = {
+  hasMinutes: boolean;   // minutes > 0
+  hasLoad: boolean;      // td/hsr/spr/ad/mMin/topSpeed non-zero, cardioLoad non-null
+  hasCoverage: boolean;  // hrCoveragePct non-null
+  srpeEligible: boolean; // may carry srpeRating/srpeAU if session collected + athlete submits
+};
+const CONTRACT: Record<"unselected" | ParticipationTag, ContractRow> = {
+  unselected: { hasMinutes: false, hasLoad: false, hasCoverage: false, srpeEligible: false },
+  Injury:     { hasMinutes: false, hasLoad: false, hasCoverage: false, srpeEligible: false },
+  Rehab:      { hasMinutes: false, hasLoad: false, hasCoverage: false, srpeEligible: false },
+  Other:      { hasMinutes: false, hasLoad: false, hasCoverage: false, srpeEligible: false },
+  Modified:   { hasMinutes: true,  hasLoad: true,  hasCoverage: true,  srpeEligible: true  },
+  Part:       { hasMinutes: true,  hasLoad: true,  hasCoverage: true,  srpeEligible: true  },
+  Full:       { hasMinutes: true,  hasLoad: true,  hasCoverage: true,  srpeEligible: true  },
+};
+
+export function contractRowFor(tag: ParticipationTag | null): ContractRow {
+  return tag === null ? CONTRACT.unselected : CONTRACT[tag];
+}
+
 const PINNED_DORTMUND: Record<string, { participation: ParticipationTag | null; minutes: number; hrCoveragePct: number | null; srpeSubmitted: boolean }> =
   Object.fromEntries(squad.map((a) => [a.id, {
     participation: a.participation,
