@@ -82,12 +82,43 @@ export function runDemoLibraryChecks(): Check[] {
   }
   push("Lange arc Full→Part→Rehab→Injury", seen.join(">") === "Full>Part>Rehab>Injury", seen.join(">"));
 
-  const jun30Session = demoSessions.find((s) => s.dateISO === "2026-06-30");
-  const jun30 = jun30Session ? recordsForSession(jun30Session.id) : [];
-  const brandt = jun30.find((r) => r.athleteId === "brandt");
-  const kuhn = jun30.find((r) => r.athleteId === "kuhn");
-  push("Brandt <80 % HR on 30 Jun", !!brandt && (brandt.hrCoveragePct ?? 100) < 80, `hr=${brandt?.hrCoveragePct}`);
-  push("Kuhn <80 % HR on 30 Jun", !!kuhn && (kuhn.hrCoveragePct ?? 100) < 80, `hr=${kuhn?.hrCoveragePct}`);
+  const jul02Session = demoSessions.find((s) => s.dateISO === "2026-07-02");
+  const jul02 = jul02Session ? recordsForSession(jul02Session.id) : [];
+  const brandt = jul02.find((r) => r.athleteId === "brandt");
+  const kuhn = jul02.find((r) => r.athleteId === "kuhn");
+  push(
+    "2 Jul session is MD-2 · Intensive (training)",
+    !!jul02Session && jul02Session.type === "training" && jul02Session.name.startsWith("MD-2"),
+    `type=${jul02Session?.type} name=${jul02Session?.name}`,
+  );
+  push("Brandt <80 % HR on 2 Jul (MD-2)", !!brandt && (brandt.hrCoveragePct ?? 100) < 80, `hr=${brandt?.hrCoveragePct}`);
+  push("Kuhn <80 % HR on 2 Jul (MD-2)", !!kuhn && (kuhn.hrCoveragePct ?? 100) < 80, `hr=${kuhn?.hrCoveragePct}`);
+
+  // Missing day (§3, prompt 1d) — a gap must be between things, not the edge.
+  const jul14Session = demoSessions.find((s) => s.dateISO === "2026-07-14");
+  const jul14Day = demoDays.find((d) => d.dateISO === "2026-07-14");
+  const jul13Day = demoDays.find((d) => d.dateISO === "2026-07-13");
+  const jul15Day = demoDays.find((d) => d.dateISO === "2026-07-15");
+  push(
+    "14 Jul missing (no session, no demoDays entry) and 13/15 Jul present",
+    !jul14Session && !jul14Day && !!jul13Day && !!jul15Day,
+    `session=${!!jul14Session} day=${!!jul14Day} 13=${!!jul13Day} 15=${!!jul15Day}`,
+  );
+
+  // Beyond-range day — cause travels with effect.
+  const jul08Session = demoSessions.find((s) => s.dateISO === "2026-07-08");
+  push(
+    "8 Jul session is a match with note='AET'",
+    !!jul08Session && jul08Session.type === "match" && jul08Session.note === "AET",
+    `type=${jul08Session?.type} note=${jul08Session?.note}`,
+  );
+
+  // sRPE-not-collected days must resolve to real recovery sessions.
+  const noCollectRecovery = ["2026-07-12", "2026-07-19"].every((d) => {
+    const s = demoSessions.find((x) => x.dateISO === d);
+    return s?.type === "recovery" && s?.srpeCollected === false;
+  });
+  push("12/19 Jul are recovery sessions with srpeCollected=false", noCollectRecovery, "");
 
   const unconfirmed = demoSessions.filter((s) => s.unconfirmed);
   push("Exactly one unconfirmed session", unconfirmed.length === 1 && unconfirmed[0].dateISO === "2026-07-19", unconfirmed.map((s) => s.dateISO).join(","));
