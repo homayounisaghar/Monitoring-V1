@@ -16,6 +16,7 @@ import {
   LONGI_METRICS,
   type Horizon, type LongiMetric,
 } from "./longitudinal-data";
+import { EXPECTED_MIN_COVERAGE } from "./demo-typicals";
 
 type Check = { name: string; pass: boolean; detail: string };
 const checks: Check[] = [];
