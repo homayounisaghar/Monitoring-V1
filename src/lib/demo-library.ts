@@ -146,7 +146,7 @@ const ATHLETE_BY_ID = new Map(demoAthletes.map((a) => [a.id, a]));
 
 /* ─────────────────────────── calendar ─────────────────────────── */
 
-type MatchDef = { date: string; opp: string; venue: "home" | "away"; result?: string };
+type MatchDef = { date: string; opp: string; venue: "home" | "away"; result?: string; note?: string; durationMin?: number };
 const MATCHES: MatchDef[] = [
   { date: "2026-05-31", opp: "Hertha BSC",         venue: "away", result: "1–1 D" },
   { date: "2026-06-03", opp: "Werder Bremen",      venue: "home", result: "2–0 W" },
@@ -158,7 +158,8 @@ const MATCHES: MatchDef[] = [
   { date: "2026-06-21", opp: "Bayer 04",           venue: "home", result: "3–2 W" },
   { date: "2026-06-28", opp: "FC Köln",            venue: "home", result: "1–1 D" },
   { date: "2026-07-04", opp: "VfL Wolfsburg",      venue: "away", result: "0–2 L" },
-  { date: "2026-07-08", opp: "Eintracht Frankfurt",venue: "home", result: "2–2 D" }, // beyond-range
+  // Cup tie taken to extra time — the reason 8 Jul sits above the domain cap.
+  { date: "2026-07-08", opp: "Eintracht Frankfurt",venue: "home", result: "2–2 D", note: "AET", durationMin: 120 },
   { date: "2026-07-11", opp: "TSG Hoffenheim",     venue: "away", result: "1–0 W" },
   { date: "2026-07-18", opp: "Borussia Dortmund",  venue: "away", result: "2–1 W" }, // pinned
 ];
