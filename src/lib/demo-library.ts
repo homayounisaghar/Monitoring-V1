@@ -623,9 +623,13 @@ function generateRecord(a: DemoAthlete, s: DemoSession): DemoRecord {
   let cl: number | null = Math.round(POS_MATCH_CL[pos] * scale.cl * minFrac * j("cl"));
 
   if (s.dateISO === "2026-07-08") {
-    td  = Math.round(td  * BEYOND_RANGE_TD_MULT);
-    hsr = Math.round(hsr * BEYOND_RANGE_TD_MULT);
-    spr = Math.round(spr * BEYOND_RANGE_TD_MULT);
+    // Extra-time cup tie: intensity per minute sags slightly beyond 90'.
+    // The distance/HSR uplift comes from the 120' duration (minFrac ≈ 1.30),
+    // not from a multiplier — this dampener knocks the per-minute rate back.
+    const damp = 0.93;
+    td  = Math.round(td  * damp);
+    hsr = Math.round(hsr * damp);
+    spr = Math.round(spr * damp);
   }
 
   const mMin = resolved.minutes > 0 ? Math.round(td / resolved.minutes) : 0;
