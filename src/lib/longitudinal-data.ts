@@ -29,7 +29,10 @@ import {
 } from "./demo-typicals";
 import type { ParticipationTag } from "./session-data";
 import { TIER1_ROWS_DEFAULT } from "./session-flags";
-import { currentSession } from "./session-data";
+
+/** Pinned session identity — the flag source below is scoped to this date. */
+const PINNED_SESSION_DATE_ISO = "2026-07-18";
+const TIER1_FLAG_IDS: ReadonlySet<string> = new Set(TIER1_ROWS_DEFAULT.map((r) => r.id));
 
 /* ─────────────────────────── constants ─────────────────────────── */
 
