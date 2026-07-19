@@ -268,10 +268,12 @@ export function buildSessions(): DemoSession[] {
       out.push({
         id: `s-${dateISO}-gym`,
         dateISO, name: "Gym · AM", type: "gym", durationMin: 45,
+        dayCode, srpeCollected: true,
       });
       out.push({
         id: `s-${dateISO}-pitch`,
         dateISO, name: "Pitch · PM", type: "training", durationMin: 70,
+        dayCode, srpeCollected: true,
       });
       continue;
     }
