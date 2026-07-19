@@ -37,3 +37,24 @@ Factual, short, and specific to this prompt.
 
 - The Session page's `currentSession.dateISO` in `session-data.ts` is still `"2026-07-04"`. A later prompt in this workstream re-dates it to `2026-07-18` to match the demo library — deliberately deferred, not a defect.
 - The dataset brief calls the sidebar's rows "Day 7"-indexed; they are not — `SourceSidebar.tsx` already renders real dates and day-code badges. Requirement already satisfied; no action.
+
+## Corrections applied in prompt 1b
+
+### Defects found (all fixed in this pass)
+
+- **Two session names contradicted their own day codes.** Wed 24 Jun rendered as "MD-1 · Activation" while `dayCodeFor` returns MD+3; Thu 25 Jun rendered as "MD+1 · Recovery" while the code returns MD-3. The `PRESERVED` table has been deleted; every non-match session now derives its name, type and duration purely from the computed day code via `nonMatchName`. Fixed.
+- **Rest days were modelled as sessions.** A rest day used to appear in `demoSessions` as a `type: "recovery"` entry named "Rest day", conflating rest with an actual recovery session and putting rest days into `sessionsInRange`. Split into two series over one truth: `demoSessions` contains only real sessions (24 in the 28-day window), and a new `demoDays` list carries one entry per calendar date except the missing day, with `kind: "session" | "rest"` and a `sessionIds: string[]`. Rest-day records now have `sessionId: null` and `DemoRecord.sessionId` is widened to `string | null`. Fixed.
+- **Injury and Rehab athletes accumulated match minutes.** `resolveParticipation` only zeroed minutes on non-match sessions, so F. Voss played about 12 minutes in every match. Injury and Rehab are now zero minutes on every session type; only the pinned 18 Jul rows survive as an override. Fixed.
+- **Every athlete was "Full" on every session.** `participationFor` returned "Full" for everyone except Sturm/Voss/Lange, so matches ran with 18 outfielders at 90′ each and the participation categories never occurred. Match sessions now build a real squad shape (11 starters at 86–94′, 3–5 Part subs, remainder not in that match squad); training/gym sessions apply a deterministic scatter (≈ 10 % Modified/Part/Other). All six tags occur in the 28-day window; a rotation-enforcement post-pass guarantees no outfield athlete starts every non-pinned in-window match (Keller exempt as sole GK). Fixed.
+- **The determinism check was self-certifying.** It hashed the same frozen array twice, which is guaranteed identical regardless of whether generation is deterministic. `buildSessions`, `buildDays` and `buildRecords` are now exported and the check calls them a second time, deep-comparing JSON-stringified output element-by-element and reporting the first divergent field. Fixed.
+
+### Defaults taken
+
+- **Match-squad shape.** 11 starters (Full, 86–94′), 3–5 substitutes (Part, 8–35′), remainder in-squad but `participation: null, minutes: 0`. Formation varies across matches ([4,4,2], [3,5,2], [4,3,3], [3,4,3]) so 4-of-4 tight defenders don't force the same 4 to start every week. Rotation is deterministic (matchIdx-driven, per-position hash phase), plus a post-pass swap that guarantees no outfield athlete starts every non-pinned in-window match. Alterable.
+- **Non-match participation scatter.** Roughly 10 % of eligible athlete-sessions carry a non-Full tag on training/gym days (~4 % Modified, ~4 % Part, ~2 % Other). Alterable.
+- **Beyond-range boost.** The 8 Jul match now multiplies squad TD/HSR/sprint by 1.55 (was 1.16). The higher factor is required because realistic squad selection introduces per-match variance of its own (~10 %), which was masking a 16 % boost. Team TD on 8 Jul now sits ~29 % above the next-highest match. Alterable.
+
+### Notes
+
+- `MATCH_PARTICIPATION` is precomputed at module init in match-date order, then a rotation-enforcement IIFE iteratively swaps monopolist starters into a Part slot while promoting a same-position sub. Arc-forced athletes (Lange, Voss) and never-participants (Sturm) are excluded from replacement selection so the post-pass cannot violate their storylines.
+- `DemoSession.isRestDay` remains on the type but is always `false`; retained only so any hypothetical consumer written against the earlier shape doesn't hit a missing property. Prefer `demoDays[i].kind === "rest"`.

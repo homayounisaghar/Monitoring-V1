@@ -1,5 +1,5 @@
 /**
- * ST2 — Demo library (Workstream 01 · prompt 1/4).
+ * ST2 — Demo library (Workstream 01 · prompt 1/4, corrections 1b).
  *
  * Deterministic 8-week squad history for the Athlete and Longitudinal pages.
  * "Crude but structurally truthful": no physiology, but every honest-display
@@ -14,8 +14,15 @@
  *     per-athlete participation/minutes/hrCoveragePct/srpeSubmitted verbatim
  *     from `squad` in session-data.ts. Session and Athlete pages must never
  *     disagree about who played and for how long.
- *   - Nothing in this module is imported yet. Three later prompts extend it
- *     (per-day-type typicals; positional coordinates) — leave seams.
+ *   - Nothing in this module is imported yet.
+ *
+ * Two time series over one truth (prompt 1b · §2):
+ *   - `demoSessions` — real sessions only, no rest entries.
+ *   - `demoDays`     — one entry per calendar date except the missing day
+ *                      (kind: "session" | "rest"). The day-arranged reads
+ *                      (rolling averages, chronic window) consume this;
+ *                      session-arranged reads consume `demoSessions`.
+ *   - Rest-day records keep `sessionId: null`.
  */
 
 import { squad, POSITION_LABEL, type Athlete as SessionAthlete, type PositionCode, type ParticipationTag } from "./session-data";
@@ -64,12 +71,20 @@ export type DemoSession = {
   type: SessionType;
   durationMin: number;
   dayCode: string;
+  /** Always false — rest days are days, not sessions (§2). Kept for back-compat. */
   isRestDay: boolean;
   unconfirmed?: boolean;
   srpeCollected: boolean;
   opponent?: string;
   venue?: "home" | "away";
   result?: string;
+};
+
+export type DemoDay = {
+  dateISO: string;
+  dayCode: string;
+  kind: "session" | "rest";
+  sessionIds: string[];
 };
 
 export type DemoAthlete = {
@@ -84,7 +99,8 @@ export type DemoAthlete = {
 
 export type DemoRecord = {
   athleteId: string;
-  sessionId: string;
+  /** null on rest days (§2 · records are keyed to the date, not a session). */
+  sessionId: string | null;
   dateISO: string;
   inSquad: boolean;
   participation: ParticipationTag | null;
@@ -111,7 +127,7 @@ const MAX_VEL_BY_ID: Record<string, number> = {
   kuhn: 32.8, voss: 33.5, lange: 31.2, sturm: 31.5,
 };
 
-// B. Köhler is the building-baseline signing (see §4.2).
+// B. Köhler is the building-baseline signing.
 const JOINED_OVERRIDES: Record<string, string> = { koehler: "2026-07-07" };
 
 export const demoAthletes: readonly DemoAthlete[] = Object.freeze(
@@ -126,13 +142,13 @@ export const demoAthletes: readonly DemoAthlete[] = Object.freeze(
   })),
 );
 
+const ATHLETE_BY_ID = new Map(demoAthletes.map((a) => [a.id, a]));
+
 /* ─────────────────────────── calendar ─────────────────────────── */
 
-// Matches: dateISO, opponent, home/away, result (undefined for pre-21 Jun demo fills).
 type MatchDef = { date: string; opp: string; venue: "home" | "away"; result?: string };
 const MATCHES: MatchDef[] = [
   { date: "2026-05-31", opp: "Hertha BSC",         venue: "away", result: "1–1 D" },
-  // Congested block, six in fourteen days:
   { date: "2026-06-03", opp: "Werder Bremen",      venue: "home", result: "2–0 W" },
   { date: "2026-06-06", opp: "VfB Stuttgart",      venue: "away", result: "0–1 L" },
   { date: "2026-06-09", opp: "Mainz 05",           venue: "home", result: "1–1 D" },
@@ -142,30 +158,20 @@ const MATCHES: MatchDef[] = [
   { date: "2026-06-21", opp: "Bayer 04",           venue: "home", result: "3–2 W" },
   { date: "2026-06-28", opp: "FC Köln",            venue: "home", result: "1–1 D" },
   { date: "2026-07-04", opp: "VfL Wolfsburg",      venue: "away", result: "0–2 L" },
-  { date: "2026-07-08", opp: "Eintracht Frankfurt",venue: "home", result: "2–2 D" }, // beyond-range day
+  { date: "2026-07-08", opp: "Eintracht Frankfurt",venue: "home", result: "2–2 D" }, // beyond-range
   { date: "2026-07-11", opp: "TSG Hoffenheim",     venue: "away", result: "1–0 W" },
   { date: "2026-07-18", opp: "Borussia Dortmund",  venue: "away", result: "2–1 W" }, // pinned
 ];
 
 const MATCH_DATES = new Set(MATCHES.map((m) => m.date));
 const MATCH_BY_DATE = new Map(MATCHES.map((m) => [m.date, m]));
+const MATCH_INDEX = new Map(MATCHES.map((m, i) => [m.date, i]));
 
-// 28-day window rest days and the missing day (see §2, §4.9).
 const REST_DAYS = new Set(["2026-06-22", "2026-06-29", "2026-07-05", "2026-07-06"]);
 const MISSING_DAYS = new Set(["2026-07-14"]);
 const DOUBLE_DAYS = new Set(["2026-07-13"]);
 
-// Preserved existing identities (see §2).
-type Preserved = { name: string; type: SessionType; durationMin: number };
-const PRESERVED: Record<string, Preserved> = {
-  "2026-06-25": { name: "MD+1 · Recovery",   type: "recovery", durationMin: 45 },
-  "2026-06-24": { name: "MD-1 · Activation", type: "training", durationMin: 52 },
-  "2026-07-01": { name: "MD-3 · Tactical",   type: "training", durationMin: 68 },
-  "2026-07-02": { name: "MD-2 · Intensive",  type: "training", durationMin: 82 },
-};
-
-// The pinned Dortmund session — id preserved as opaque key even though the
-// date changed from 2026-07-04 to 2026-07-18 (see §4.1 and the findings file).
+// The pinned Dortmund session — id preserved as opaque key.
 const DORTMUND_SESSION_ID = "s-2026-07-04-dortmund";
 
 /* ── date helpers (UTC-anchored so no host TZ leaks into determinism) ── */
@@ -191,16 +197,15 @@ function diffDays(a: string, b: string): number {
   return Math.round((parseISO(a) - parseISO(b)) / 86_400_000);
 }
 
-/** dayCode: distance to nearest match; upcoming wins ties (see §2). */
+/** dayCode: distance to nearest match; upcoming wins ties. */
 function dayCodeFor(dateISO: string): string {
   if (MATCH_DATES.has(dateISO)) return "MD";
   let bestNext = Infinity, bestPrev = Infinity;
   for (const m of MATCHES) {
-    const d = diffDays(m.date, dateISO); // +ve → match is upcoming
+    const d = diffDays(m.date, dateISO);
     if (d > 0 && d < bestNext) bestNext = d;
     if (d < 0 && -d < bestPrev) bestPrev = -d;
   }
-  // Upcoming wins ties (rule §2).
   if (bestNext <= bestPrev) return `MD-${Math.min(bestNext, 9)}`;
   return `MD+${Math.min(bestPrev, 9)}`;
 }
@@ -210,8 +215,11 @@ function dayCodeFor(dateISO: string): string {
 const START_ISO = "2026-05-25";
 const END_ISO = "2026-07-19";
 
-function nonMatchName(dateISO: string, dayCode: string): { name: string; type: SessionType; durationMin: number } {
-  if (PRESERVED[dateISO]) return PRESERVED[dateISO];
+/**
+ * Non-match session identity derived purely from computed day code
+ * (§1 · PRESERVED table deleted — names never contradict badges).
+ */
+function nonMatchName(dayCode: string): { name: string; type: SessionType; durationMin: number } {
   if (dayCode.startsWith("MD+")) {
     const n = parseInt(dayCode.slice(3), 10);
     if (n === 1) return { name: "MD+1 · Recovery", type: "recovery", durationMin: 45 };
@@ -227,26 +235,13 @@ function nonMatchName(dateISO: string, dayCode: string): { name: string; type: S
   return { name: `${dayCode} · Base`,               type: "training", durationMin: 65 };
 }
 
-function buildSessions(): DemoSession[] {
+export function buildSessions(): DemoSession[] {
   const out: DemoSession[] = [];
   const days = diffDays(END_ISO, START_ISO) + 1;
   for (let i = 0; i < days; i++) {
     const dateISO = addDays(START_ISO, i);
-    if (MISSING_DAYS.has(dateISO)) continue; // no record at all — load-bearing
-
-    if (REST_DAYS.has(dateISO)) {
-      out.push({
-        id: `s-${dateISO}-rest`,
-        dateISO,
-        name: "Rest day",
-        type: "recovery",
-        durationMin: 0,
-        dayCode: dayCodeFor(dateISO),
-        isRestDay: true,
-        srpeCollected: false,
-      });
-      continue;
-    }
+    if (MISSING_DAYS.has(dateISO)) continue;
+    if (REST_DAYS.has(dateISO)) continue; // §2 — rest days are days, not sessions
 
     if (MATCH_DATES.has(dateISO)) {
       const m = MATCH_BY_DATE.get(dateISO)!;
@@ -270,32 +265,20 @@ function buildSessions(): DemoSession[] {
     const dayCode = dayCodeFor(dateISO);
 
     if (DOUBLE_DAYS.has(dateISO)) {
-      // Double-session day (§2): gym AM + pitch PM.
       out.push({
         id: `s-${dateISO}-gym`,
-        dateISO,
-        name: "Gym · AM",
-        type: "gym",
-        durationMin: 45,
-        dayCode,
-        isRestDay: false,
-        srpeCollected: true,
+        dateISO, name: "Gym · AM", type: "gym", durationMin: 45,
+        dayCode, isRestDay: false, srpeCollected: true,
       });
       out.push({
         id: `s-${dateISO}-pitch`,
-        dateISO,
-        name: "Pitch · PM",
-        type: "training",
-        durationMin: 70,
-        dayCode,
-        isRestDay: false,
-        srpeCollected: true,
+        dateISO, name: "Pitch · PM", type: "training", durationMin: 70,
+        dayCode, isRestDay: false, srpeCollected: true,
       });
       continue;
     }
 
-    const spec = nonMatchName(dateISO, dayCode);
-    // Day-level "sRPE not collected" for two recovery days (§4.8).
+    const spec = nonMatchName(dayCode);
     const srpeCollected = !(dateISO === "2026-07-12" || dateISO === "2026-07-19");
     const unconfirmed = dateISO === "2026-07-19" ? true : undefined;
     out.push({
@@ -310,31 +293,50 @@ function buildSessions(): DemoSession[] {
       unconfirmed,
     });
   }
+  return out.sort((a, b) => (a.dateISO < b.dateISO ? -1 : a.dateISO > b.dateISO ? 1 : a.id.localeCompare(b.id)));
+}
+
+export const demoSessions: readonly DemoSession[] = Object.freeze(buildSessions());
+
+/* ─────────────────────────── day build ─────────────────────────── */
+
+export function buildDays(): DemoDay[] {
+  const sessionsByDate = new Map<string, string[]>();
+  for (const s of demoSessions) {
+    const arr = sessionsByDate.get(s.dateISO) ?? [];
+    arr.push(s.id);
+    sessionsByDate.set(s.dateISO, arr);
+  }
+  const out: DemoDay[] = [];
+  const days = diffDays(END_ISO, START_ISO) + 1;
+  for (let i = 0; i < days; i++) {
+    const dateISO = addDays(START_ISO, i);
+    if (MISSING_DAYS.has(dateISO)) continue;
+    const isRest = REST_DAYS.has(dateISO);
+    out.push({
+      dateISO,
+      dayCode: dayCodeFor(dateISO),
+      kind: isRest ? "rest" : "session",
+      sessionIds: sessionsByDate.get(dateISO) ?? [],
+    });
+  }
   return out;
 }
 
-export const demoSessions: readonly DemoSession[] = Object.freeze(
-  buildSessions().sort((a, b) => (a.dateISO < b.dateISO ? -1 : a.dateISO > b.dateISO ? 1 : a.id.localeCompare(b.id))),
-);
+export const demoDays: readonly DemoDay[] = Object.freeze(buildDays());
 
 /* ─────────────────────────── position typicals ─────────────────────────── */
 
-// Anchored to posTypical in squad-metrics.ts (full-match), scaled by day-type.
-// A later prompt lifts these into a per-day-type table — do not fold them in
-// there yet.
 const POS_MATCH_TD:  Record<PositionCode, number> = { GK: 4900, DEF: 9800, MID: 11200, ATT: 10400 };
 const POS_MATCH_HSR: Record<PositionCode, number> = { GK:  120, DEF:  620, MID:   780, ATT:   900 };
 const POS_MATCH_SPR: Record<PositionCode, number> = { GK:   30, DEF:  180, MID:   220, ATT:   340 };
 const POS_MATCH_AD:  Record<PositionCode, number> = { GK:   45, DEF:  115, MID:   130, ATT:   125 };
 const POS_MATCH_CL:  Record<PositionCode, number> = { GK:  130, DEF:  220, MID:   250, ATT:   235 };
-const POS_MATCH_MMIN:Record<PositionCode, number> = { GK:   55, DEF:  105, MID:   118, ATT:   110 };
 
-/** Session-type × (roughly) fraction-of-a-full-match load. */
 function typeScale(type: SessionType, name: string): { td: number; hsr: number; spr: number; ad: number; cl: number } {
   if (type === "match")    return { td: 1.00, hsr: 1.00, spr: 1.00, ad: 1.00, cl: 1.00 };
   if (type === "recovery") return { td: 0.28, hsr: 0.05, spr: 0.02, ad: 0.20, cl: 0.30 };
   if (type === "gym")      return { td: 0.05, hsr: 0.00, spr: 0.00, ad: 0.05, cl: 0.55 };
-  // training — heavier for MD-2 Intensive, lighter for MD-4/-5 base days.
   if (name.startsWith("MD-2")) return { td: 0.85, hsr: 0.75, spr: 0.60, ad: 0.85, cl: 0.90 };
   if (name.startsWith("MD-1")) return { td: 0.55, hsr: 0.35, spr: 0.20, ad: 0.55, cl: 0.55 };
   if (name.startsWith("MD-3")) return { td: 0.70, hsr: 0.50, spr: 0.35, ad: 0.70, cl: 0.75 };
@@ -343,10 +345,8 @@ function typeScale(type: SessionType, name: string): { td: number; hsr: number; 
   return { td: 0.60, hsr: 0.40, spr: 0.30, ad: 0.60, cl: 0.65 };
 }
 
-/* ─────────────────────────── participation logic ─────────────────────────── */
+/* ─────────────────────────── participation ─────────────────────────── */
 
-// Pinned per-athlete rows for the Dortmund session (copied verbatim from
-// `squad` in session-data.ts). Session and Athlete pages must not disagree.
 const PINNED_DORTMUND: Record<string, { participation: ParticipationTag | null; minutes: number; hrCoveragePct: number | null; srpeSubmitted: boolean }> =
   Object.fromEntries(squad.map((a) => [a.id, {
     participation: a.participation,
@@ -355,7 +355,6 @@ const PINNED_DORTMUND: Record<string, { participation: ParticipationTag | null; 
     srpeSubmitted: a.srpeSubmitted,
   }]));
 
-/** Lange's arc across the 28-day window (§4.4, reversed from brief to land on the pinned Injury row). */
 function langeParticipationOn(dateISO: string): ParticipationTag {
   if (dateISO <= "2026-06-28") return "Full";
   if (dateISO <= "2026-07-05") return "Part";
@@ -363,74 +362,221 @@ function langeParticipationOn(dateISO: string): ParticipationTag {
   return "Injury";
 }
 
-/** Full-window Injury for F. Voss (§4.3). */
-function voss(): ParticipationTag { return "Injury"; }
-
 function inSquadOn(athleteId: string, dateISO: string): boolean {
-  const a = demoAthletes.find((x) => x.id === athleteId)!;
+  const a = ATHLETE_BY_ID.get(athleteId)!;
   return dateISO >= a.joinedISO;
 }
 
-/** Base participation before pinning overrides. */
-function participationFor(athleteId: string, session: DemoSession): ParticipationTag | null {
-  if (!inSquadOn(athleteId, session.dateISO)) return null;
-  if (session.isRestDay) return null; // rest days: record is a zero, no tag
-  if (athleteId === "sturm") return null; // in squad, never plays
-  if (athleteId === "voss") return voss();
-  if (athleteId === "lange") return langeParticipationOn(session.dateISO);
+/** Compute the participation map for a match session (§4). */
+function computeMatchParticipation(session: DemoSession): Map<string, ParticipationTag | null> {
+  const result = new Map<string, ParticipationTag | null>();
+  const eligible: string[] = [];
+  const forcedPart: string[] = [];
+  for (const a of demoAthletes) {
+    if (!inSquadOn(a.id, session.dateISO)) { result.set(a.id, null); continue; }
+    if (a.id === "sturm") { result.set(a.id, null); continue; }
+    if (a.id === "voss")  { result.set(a.id, "Injury"); continue; }
+    if (a.id === "lange") {
+      const p = langeParticipationOn(session.dateISO);
+      if (p === "Full") eligible.push(a.id);
+      else if (p === "Part") forcedPart.push(a.id);
+      else result.set(a.id, p);
+      continue;
+    }
+    eligible.push(a.id);
+  }
+  const rand = mulberry32(hashSeed(session.id, "squad"));
+  const matchIdx = MATCH_INDEX.get(session.dateISO) ?? 0;
+  // Rotation-based pick: sort pool stably, then choose a contiguous slice
+  // starting at (matchIdx * step) % poolSize. This guarantees rotation across
+  // matches while remaining deterministic (§4 — no athlete starts every match).
+  const rotate = (pool: string[], n: number, step: number, posKey: string): string[] => {
+    if (pool.length === 0 || n <= 0) return [];
+    const sorted = [...pool].sort();
+    // Position-specific phase offset breaks alignment between positions so
+    // one athlete cannot be "always index 0" across the whole window.
+    const offset = hashSeed("rotphase-v12", posKey) % sorted.length;
+    const start = ((matchIdx * step + offset) % sorted.length + sorted.length) % sorted.length;
+    const take = Math.min(n, sorted.length);
+    const picks: string[] = [];
+    for (let i = 0; i < take; i++) picks.push(sorted[(start + i) % sorted.length]);
+    return picks;
+  };
+  const byPos: Record<PositionCode, string[]> = { GK: [], DEF: [], MID: [], ATT: [] };
+  for (const id of eligible) byPos[ATHLETE_BY_ID.get(id)!.position].push(id);
+
+  // Formation variation breaks the starter-lock that pure 4-4-2 would produce
+  // given a tight roster (only ~5 defenders means all 4 always start).
+  const formations: Array<[number, number, number]> = [
+    [4, 4, 2], [3, 5, 2], [4, 3, 3], [3, 4, 3],
+  ];
+  const [nDef, nMid, nAtt] = formations[matchIdx % formations.length];
+  const starters = new Set<string>();
+  for (const id of rotate(byPos.GK,  1,    1, "GK"))  starters.add(id);
+  for (const id of rotate(byPos.DEF, nDef, 1, "DEF")) starters.add(id);
+  for (const id of rotate(byPos.MID, nMid, 1, "MID")) starters.add(id);
+  for (const id of rotate(byPos.ATT, nAtt, 1, "ATT")) starters.add(id);
+  // Fill any shortfall from remaining eligibles.
+  const shortfallPool = rotate(eligible.filter((id) => !starters.has(id)), 11 - starters.size, 3, "FILL");
+  for (const id of shortfallPool) { if (starters.size >= 11) break; starters.add(id); }
+
+  const targetPart = 3 + Math.floor(rand() * 3); // 3..5 total Part tags
+  const subsNeeded = Math.max(0, targetPart - forcedPart.length);
+  const subs = new Set(
+    rotate(eligible.filter((id) => !starters.has(id)), subsNeeded, 2, "SUB"),
+  );
+
+  for (const id of forcedPart) result.set(id, "Part");
+  for (const id of eligible) {
+    if (starters.has(id)) result.set(id, "Full");
+    else if (subs.has(id)) result.set(id, "Part");
+    else result.set(id, null);
+  }
+  return result;
+}
+
+/** Non-match scatter: aim for 8–12 % non-Full among eligible athletes. */
+function trainingScatterTag(athleteId: string, session: DemoSession): ParticipationTag {
+  const roll = hashSeed(session.id, athleteId, "nonfull") % 100;
+  if (roll < 4) return "Modified"; // 4 %
+  if (roll < 8) return "Part";     // 4 %
+  if (roll < 10) return "Other";   // 2 %
   return "Full";
 }
 
-/** Pinned session overrides everything else for the 19 rows on 18 Jul. */
+const MATCH_PARTICIPATION = new Map<string, Map<string, ParticipationTag | null>>();
+for (const s of demoSessions) {
+  if (s.type === "match" && s.id !== DORTMUND_SESSION_ID) {
+    MATCH_PARTICIPATION.set(s.id, computeMatchParticipation(s));
+  }
+}
+
+/**
+ * Rotation-enforcement pass (§4). Given the tight roster and small number of
+ * in-window matches, pure rotation cannot guarantee that every outfielder sits
+ * out at least once. This pass detects any outfield athlete who would start
+ * every match and swaps them into a Part slot in one match, promoting a
+ * same-position sub to Full in their place.
+ */
+(function enforceStarterRotation() {
+  const windowMatchIds = demoSessions
+    .filter((s) => s.type === "match" && s.id !== DORTMUND_SESSION_ID && s.dateISO >= "2026-06-22" && s.dateISO <= "2026-07-19")
+    .map((s) => s.id);
+  const total = windowMatchIds.length;
+  const counts = new Map<string, number>();
+  const recount = () => {
+    counts.clear();
+    for (const mid of windowMatchIds) {
+      for (const [id, tag] of MATCH_PARTICIPATION.get(mid)!) {
+        if (tag === "Full") counts.set(id, (counts.get(id) ?? 0) + 1);
+      }
+    }
+    return [...counts.entries()]
+      .filter(([id, c]) => id !== "keller" && c === total)
+      .map(([id]) => id);
+  };
+  let monopolists = recount();
+  let guard = 0;
+  while (monopolists.length > 0 && guard++ < 20) {
+    const id = monopolists[0];
+    const pos = ATHLETE_BY_ID.get(id)!.position;
+    let swapped = false;
+    for (const mid of windowMatchIds) {
+      const p = MATCH_PARTICIPATION.get(mid)!;
+      if (p.get(id) !== "Full") continue;
+      // Prefer a same-position Part sub whose promotion won't create a new monopolist.
+      let replacement: string | null = null;
+      for (const [otherId, tag] of p) {
+        if (otherId === id) continue;
+        if (ATHLETE_BY_ID.get(otherId)?.position !== pos) continue;
+        if (otherId === "lange" || otherId === "voss" || otherId === "sturm") continue;
+        if (tag === "Part" && (counts.get(otherId) ?? 0) < total - 1) { replacement = otherId; break; }
+      }
+      if (!replacement) {
+        for (const [otherId, tag] of p) {
+          if (otherId === id) continue;
+          if (ATHLETE_BY_ID.get(otherId)?.position !== pos) continue;
+          if (tag === null && otherId !== "sturm" && otherId !== "voss" && otherId !== "lange"
+              && inSquadOn(otherId, demoSessions.find((s) => s.id === mid)!.dateISO)
+              && (counts.get(otherId) ?? 0) < total - 1) {
+            replacement = otherId; break;
+          }
+        }
+      }
+      if (replacement) {
+        p.set(id, "Part");
+        p.set(replacement, "Full");
+        swapped = true;
+        break;
+      }
+    }
+    if (!swapped) break;
+    monopolists = recount();
+  }
+})();
+
+
+
 function resolveParticipation(athleteId: string, session: DemoSession): { participation: ParticipationTag | null; minutes: number; hrCoveragePct: number | null; srpeSubmitted: boolean } {
+  // Pinned session overrides everything.
   if (session.id === DORTMUND_SESSION_ID) {
     const p = PINNED_DORTMUND[athleteId];
     if (p) return p;
   }
-  const part = participationFor(athleteId, session);
+  if (!inSquadOn(athleteId, session.dateISO)) {
+    return { participation: null, minutes: 0, hrCoveragePct: null, srpeSubmitted: false };
+  }
+
+  let part: ParticipationTag | null;
+  if (session.type === "match") {
+    part = MATCH_PARTICIPATION.get(session.id)?.get(athleteId) ?? null;
+  } else {
+    // Non-match: forced overrides first, then scatter.
+    if (athleteId === "sturm") part = null;
+    else if (athleteId === "voss") part = "Injury";
+    else if (athleteId === "lange") part = langeParticipationOn(session.dateISO);
+    else part = trainingScatterTag(athleteId, session);
+  }
+
   if (part === null) {
     return { participation: null, minutes: 0, hrCoveragePct: null, srpeSubmitted: false };
   }
-  // Minutes: matches ≈ full; partials/injury are short; training uses duration.
-  let minutes = session.durationMin;
+
+  // Minutes.
+  let minutes: number;
   if (session.type === "match") {
-    minutes = part === "Full" ? 90 + Math.round(jit(3, athleteId, session.id, "min")) : Math.max(8, Math.round(20 + jit(10, athleteId, session.id, "pmin")));
-    if (part === "Injury") minutes = Math.max(6, Math.round(12 + jit(4, athleteId, session.id, "imin")));
-    if (part === "Rehab") minutes = 0;
-  } else if (part === "Rehab" || part === "Injury") {
-    minutes = 0;
+    if (part === "Full") {
+      minutes = 90 + Math.round(jit(4, athleteId, session.id, "min")); // 86–94
+    } else if (part === "Part") {
+      minutes = Math.max(8, Math.min(35, Math.round(22 + jit(12, athleteId, session.id, "pmin"))));
+    } else {
+      minutes = 0; // Injury/Rehab never accumulate match minutes (§3).
+    }
+  } else {
+    if (part === "Injury" || part === "Rehab") minutes = 0;
+    else if (part === "Other") minutes = 0; // individual off-team programme
+    else if (part === "Modified") minutes = Math.round(session.durationMin * 0.6);
+    else if (part === "Part")     minutes = Math.round(session.durationMin * 0.5);
+    else minutes = session.durationMin; // Full
   }
-  // HR coverage — normally 82–98 %; drop specific athletes on 30 Jun (§4.5).
-  let hr: number | null = Math.round(90 + jit(8, athleteId, session.id, "hr"));
+
+  let hr: number | null = minutes > 0 ? Math.round(90 + jit(8, athleteId, session.id, "hr")) : null;
   if (session.dateISO === "2026-06-30" && (athleteId === "brandt" || athleteId === "kuhn")) {
-    hr = Math.round(65 + jit(10, athleteId, "lowhr")); // 55–75 % band
+    hr = Math.round(65 + jit(10, athleteId, "lowhr"));
   }
-  // Scatter a few other low-coverage athlete-sessions.
-  if (hashSeed(athleteId, session.id, "hrpick") % 40 === 0) hr = Math.round(60 + jit(12, athleteId, session.id, "hrscat"));
-  if (minutes === 0) hr = null;
-  const srpeSubmitted = athleteId !== "frei"; // Frei never submits (§4.8)
+  if (minutes > 0 && hashSeed(athleteId, session.id, "hrpick") % 40 === 0) {
+    hr = Math.round(60 + jit(12, athleteId, session.id, "hrscat"));
+  }
+  const srpeSubmitted = athleteId !== "frei" && minutes > 0;
   return { participation: part, minutes, hrCoveragePct: hr, srpeSubmitted };
 }
 
 /* ─────────────────────────── record generation ─────────────────────────── */
 
-// The beyond-range day (§4.7): boost squad TD ~15 % above the highest other match.
-const BEYOND_RANGE_TD_MULT = 1.16;
+const BEYOND_RANGE_TD_MULT = 1.55;
 
 function generateRecord(a: DemoAthlete, s: DemoSession): DemoRecord {
   const base = { athleteId: a.id, sessionId: s.id, dateISO: s.dateISO } as const;
-
-  if (s.isRestDay) {
-    // Rest days: true zero record (§4.9). Only in-squad athletes get one.
-    if (!inSquadOn(a.id, s.dateISO)) {
-      return { ...base, inSquad: false, participation: null, minutes: 0,
-        totalDistance: 0, hsr: 0, sprintDist: 0, topSpeedKmh: 0, mMin: 0, accDec: 0,
-        cardioLoad: null, hrCoveragePct: null, srpeRating: null, srpeAU: null };
-    }
-    return { ...base, inSquad: true, participation: null, minutes: 0,
-      totalDistance: 0, hsr: 0, sprintDist: 0, topSpeedKmh: 0, mMin: 0, accDec: 0,
-      cardioLoad: 0, hrCoveragePct: null, srpeRating: null, srpeAU: null };
-  }
 
   const resolved = resolveParticipation(a.id, s);
   const inSquad = inSquadOn(a.id, s.dateISO);
@@ -458,43 +604,35 @@ function generateRecord(a: DemoAthlete, s: DemoSession): DemoRecord {
   const ad = Math.round(POS_MATCH_AD[pos]  * scale.ad  * minFrac * j("ad"));
   let cl: number | null = Math.round(POS_MATCH_CL[pos] * scale.cl * minFrac * j("cl"));
 
-  // Beyond-range boost on 8 Jul (§4.7).
   if (s.dateISO === "2026-07-08") {
-    td = Math.round(td * BEYOND_RANGE_TD_MULT);
+    td  = Math.round(td  * BEYOND_RANGE_TD_MULT);
     hsr = Math.round(hsr * BEYOND_RANGE_TD_MULT);
     spr = Math.round(spr * BEYOND_RANGE_TD_MULT);
   }
 
   const mMin = resolved.minutes > 0 ? Math.round(td / resolved.minutes) : 0;
 
-  // Top speed: near per-athlete max on matches with sprint work; lower elsewhere.
   const speedCap = a.maxVelKmh;
   let topSpeed = speedCap - Math.abs(jit(2.5, a.id, s.id, "tsp"));
   if (s.type !== "match") topSpeed = speedCap - 2.5 - Math.abs(jit(3.5, a.id, s.id, "tsp2"));
   if (s.type === "gym" || s.type === "recovery") topSpeed = 12 + Math.abs(jit(4, a.id, s.id, "tsp3"));
   topSpeed = Math.max(6, Math.min(speedCap, Number(topSpeed.toFixed(1))));
 
-  // HR coverage: null → cardioLoad null (honest absence).
   if (resolved.hrCoveragePct == null) cl = null;
 
-  // sRPE: rating × minutes (AU). Day-level not-collected → all null.
   let srpeRating: number | null = null;
   let srpeAU: number | null = null;
   if (s.srpeCollected && resolved.srpeSubmitted && resolved.minutes > 0) {
-    // Rating anchored on session load (matches ~7.5, MD-2 ~7, recovery ~3, gym ~5).
-    const base = s.type === "match" ? 7.4
+    const anchor = s.type === "match" ? 7.4
       : s.type === "recovery" ? 3.0
       : s.type === "gym"      ? 5.0
       : s.name.startsWith("MD-2") ? 7.0
       : s.name.startsWith("MD-1") ? 4.5
       : 5.5;
-    srpeRating = Math.max(1, Math.min(10, Number((base + jit(0.9, a.id, s.id, "srpe")).toFixed(1))));
+    srpeRating = Math.max(1, Math.min(10, Number((anchor + jit(0.9, a.id, s.id, "srpe")).toFixed(1))));
     srpeAU = Math.round(srpeRating * resolved.minutes);
   }
 
-  // Partial-submission on some days (§4.8) — drop ~40 % of athletes on a couple
-  // of dates so the "n of m" print exercises. Frei is always null; this just
-  // adds honest additional partial-collection days.
   if ((s.dateISO === "2026-07-09" || s.dateISO === "2026-07-15") && hashSeed(a.id, "psub") % 5 < 2) {
     srpeRating = null;
     srpeAU = null;
@@ -518,11 +656,29 @@ function generateRecord(a: DemoAthlete, s: DemoSession): DemoRecord {
   };
 }
 
-function buildRecords(): DemoRecord[] {
+export function buildRecords(): DemoRecord[] {
   const out: DemoRecord[] = [];
   for (const s of demoSessions) {
+    for (const a of demoAthletes) out.push(generateRecord(a, s));
+  }
+  // Rest-day records — one zero-accumulation row per in-squad athlete per rest date (§2).
+  const restDates = Array.from(REST_DAYS).sort();
+  for (const dateISO of restDates) {
     for (const a of demoAthletes) {
-      out.push(generateRecord(a, s));
+      const inS = inSquadOn(a.id, dateISO);
+      out.push({
+        athleteId: a.id,
+        sessionId: null,
+        dateISO,
+        inSquad: inS,
+        participation: null,
+        minutes: 0,
+        totalDistance: 0, hsr: 0, sprintDist: 0, topSpeedKmh: 0, mMin: 0, accDec: 0,
+        cardioLoad: inS ? 0 : null,
+        hrCoveragePct: null,
+        srpeRating: null,
+        srpeAU: null,
+      });
     }
   }
   return out;
@@ -535,8 +691,12 @@ export const demoRecords: readonly DemoRecord[] = Object.freeze(buildRecords());
 const RECORDS_BY_SESSION = new Map<string, DemoRecord[]>();
 const RECORDS_BY_ATHLETE = new Map<string, DemoRecord[]>();
 for (const r of demoRecords) {
-  (RECORDS_BY_SESSION.get(r.sessionId) ?? RECORDS_BY_SESSION.set(r.sessionId, []).get(r.sessionId)!).push(r);
-  (RECORDS_BY_ATHLETE.get(r.athleteId) ?? RECORDS_BY_ATHLETE.set(r.athleteId, []).get(r.athleteId)!).push(r);
+  if (r.sessionId != null) {
+    const arr = RECORDS_BY_SESSION.get(r.sessionId) ?? [];
+    arr.push(r); RECORDS_BY_SESSION.set(r.sessionId, arr);
+  }
+  const arr = RECORDS_BY_ATHLETE.get(r.athleteId) ?? [];
+  arr.push(r); RECORDS_BY_ATHLETE.set(r.athleteId, arr);
 }
 for (const [k, v] of RECORDS_BY_SESSION) RECORDS_BY_SESSION.set(k, Object.freeze(v) as DemoRecord[]);
 for (const [k, v] of RECORDS_BY_ATHLETE) RECORDS_BY_ATHLETE.set(k, Object.freeze(v) as DemoRecord[]);
@@ -549,4 +709,7 @@ export function recordsForAthlete(athleteId: string): readonly DemoRecord[] {
 }
 export function sessionsInRange(fromISO: string, toISO: string): readonly DemoSession[] {
   return demoSessions.filter((s) => s.dateISO >= fromISO && s.dateISO <= toISO);
+}
+export function daysInRange(fromISO: string, toISO: string): readonly DemoDay[] {
+  return demoDays.filter((d) => d.dateISO >= fromISO && d.dateISO <= toISO);
 }
