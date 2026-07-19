@@ -713,7 +713,10 @@ function generateRecord(a: DemoAthlete, s: DemoSession): DemoRecord {
     // Extra-time cup tie: intensity per minute sags slightly beyond 90'.
     // The distance/HSR uplift comes from the 120' duration (minFrac ≈ 1.30),
     // not from a multiplier — this dampener knocks the per-minute rate back.
-    const damp = 0.93;
+    // Bumped from 0.93 → 0.91 after prompt 1e's rotation reshuffle produced
+    // a Full-Full sub combination that pushed one athlete above the 15,000 m
+    // plausibility floor; the tighter damp brings the max back under.
+    const damp = 0.91;
     td  = Math.round(td  * damp);
     hsr = Math.round(hsr * damp);
     spr = Math.round(spr * damp);
