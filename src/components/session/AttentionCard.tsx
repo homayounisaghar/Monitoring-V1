@@ -18,7 +18,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { Info, ChevronDown } from "lucide-react";
 import { useSessionScope, COVERAGE_MIN, CLOSER_KEY_BY_SCENARIO, currentSession } from "@/lib/session-scope";
-import { LegendAnchor } from "./LegendPopover";
+import { LegendAnchor, useLegendToggle } from "./LegendPopover";
 import {
   BASELINE_COMPARABLE_MIN,
   type Tier1Row,
@@ -241,11 +241,11 @@ function Headline({
 }
 
 function LegendToggleButton() {
-  const { legendOpen, setLegendOpen } = useSessionScope();
+  const toggle = useLegendToggle("attention");
   return (
     <button
       type="button"
-      onClick={() => setLegendOpen(!legendOpen)}
+      onClick={toggle}
       className="inline-flex h-5 w-5 items-center justify-center rounded-full transition-colors hover:bg-[color:var(--color-slate-100)]"
       style={{ color: "var(--color-text-tertiary)" }}
       aria-label={copy("control.legend")}

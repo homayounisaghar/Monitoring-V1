@@ -119,6 +119,8 @@ export type SessionScope = {
   // renders the popover, but the Attention card's ⓘ opens the same one.
   legendOpen: boolean;
   setLegendOpen: (open: boolean) => void;
+  legendSource: "chrome" | "attention" | null;
+  setLegendSource: (s: "chrome" | "attention" | null) => void;
 
   // Squad presentation state — lifted here so a shared URL can hydrate it
   // and so back-navigation from /athlete restores it.
@@ -297,6 +299,7 @@ export function SessionScopeProvider({ children }: { children: ReactNode }) {
   const [demo, setDemo] = useState<DemoScenario>("default");
   const [highlightAthleteId, setHighlightAthleteId] = useState<string | null>(null);
   const [legendOpen, setLegendOpen] = useState(false);
+  const [legendSource, setLegendSource] = useState<"chrome" | "attention" | null>(null);
 
   const [squadView, setSquadView] = useState<SquadView>(
     initial.shared.squadView ?? initial.prefs.view ?? "table",
@@ -461,6 +464,8 @@ export function SessionScopeProvider({ children }: { children: ReactNode }) {
     setHighlightAthleteId,
     legendOpen,
     setLegendOpen,
+    legendSource,
+    setLegendSource,
     squadView,
     setSquadView,
     squadDisplay,
