@@ -101,3 +101,37 @@ Factual, short, and specific to this prompt.
 ### New questions (held)
 
 - **`Injury` carries two facts.** In the generated history it means "unavailable for this session" (minutes = 0); on the pinned session it means "injured during this session" (minutes > 0). The two are distinguished only by whether minutes are non-zero, which is a modelling smell. Held for the post-meeting register — do not resolve here.
+
+## Corrections applied in prompt 2 (typicals layer)
+
+New module: `src/lib/demo-typicals.ts` (nothing imports it yet).
+
+### Decisions consumed
+
+- **Day-type conditioning.** A typical is conditioned on day type. Bucket key is **(dayCode, sessionType)** — the double day carries gym and pitch under the same MD code and they are not commensurable, so keying on dayCode alone would produce a like-for-not-quite-like baseline. Matches key as (`MD`, `match`).
+- **No pooled/positional fallback.** There is no code path anywhere in the module that returns a squad or positional mean when a bucket is thin or empty. A missing baseline is withheld with its reason; the returned object carries `sessionCount` and `required` so a consumer can print "3 of 5 sessions" without recomputing.
+- **Participation-only samples.** A session contributes a sample for an athlete only if that athlete actually participated — contract-minutes-bearing tags (`Full`, `Part`, `Modified`) with minutes > 0. `Injury`, `Rehab`, `Other`, unselected and not-in-squad contribute nothing. An injured athlete's zero is not a low sample, it is not a sample.
+- **Two exclusions.** Rest days contribute nothing (a rest day is a real zero for accumulation but is not an instance of a day type). The 19 Jul unconfirmed session contributes nothing (provisional data must not enter a baseline). Both filtered at sample construction.
+- **`TYPICAL_MIN_SESSIONS = 5`.** Below five comparable sessions in a bucket, the typical is withheld. Naming collision with `session-flags.ts`'s `BUILDING_SESSIONS_TO_MIN = 3` (a different quantity — how many Köhler currently has) is flagged and deliberately not aliased.
+- **Composition-matched expected sum.** For each session, sum over the athletes who actually participated of (that athlete's own per-minute typical for this bucket × minutes played in this session). Withholding athletes are **excluded** from the sum and reported by name — never substituted with a squad or positional mean. The sum states its own coverage (contributed / participated). If coverage is thinner than the floor, the sum withholds as a whole rather than returning a misleading number.
+
+### Defaults taken
+
+- **Bucket key format.** `${dayCode}::${sessionType}` — literal join, not a struct. Alterable but the whole module funnels through `bucketKeyFor` / `parseBucketKey` so a format change is one call site.
+- **Minutes-weighted mean and biased SD.** Weight = minutes. Biased SD (population form) rather than sample-corrected — the samples in a bucket ARE the population of comparable observations for this athlete-bucket, not a random draw from a larger one.
+- **Nominal duration per bucket.** Mean of `session.durationMin` across contributing sessions in the bucket, rounded. Used to convert the per-minute rate into a full-session value. For match buckets this pulls in the 120′ AET tie, nudging the nominal above 90′ — realistic given the mix, and alterable if we later want a strict 90′ reference.
+- **Squad-level aggregation weight = 1 per athlete.** In `squadTypicalFor`, each contributing athlete's per-bucket typical is weighted equally rather than by his sample count. Using n as weight would let a high-frequency athlete dominate a squad typical that is meant to be per-athlete, not per-appearance. Alterable.
+- **Expected sum whole-of-sum floor.** `EXPECTED_MIN_COVERAGE = 0.5` and `EXPECTED_MIN_CONTRIBUTORS = 3`. Below either the sum withholds as a whole.
+- **Rate metrics excluded from expected sum.** A sum of a rate is not a meaningful figure — only cumulative metrics (`totalDistance`, `hsr`, `sprintDist`, `accDec`, `cardioLoad`, `srpeAU`) enter the sum. Rate metrics (`mMin`, `topSpeedKmh`) are still exposed per-athlete-bucket for the drill.
+
+### Defects found
+
+- **Zero-spread sprint distance in `MD+1::recovery` for two athletes.** The check surfaces two typicals with `sd = 0` on `sprintDist`: `keller` and `lange` in the `MD+1 · Recovery` bucket. Cause is in the generator, not the typicals layer: recovery-session scaling multiplies position sprint by 0.02, and for GK (sprint typical 30) and lower-typical outfielders the per-minute value rounds to 0 across every sample, producing an identical zero across all five recovery appearances. This is exactly the "zero spread is a lie about certainty" case the check exists to surface; it is fenced out of this prompt (no `demo-library.ts` edits) and held for the next demo-library correction pass. Two options for that fix, neither taken here: raise the sprint recovery multiplier just enough that GK/DEF-lite still round to a non-zero value with the usual jitter, or model sprint as a Bernoulli-per-appearance rather than a scale-of-typical, since real recovery sessions contain no sprints at all and the honest read for those buckets may be "no sprint distance for this day type, withheld" rather than "typical sprint = 0".
+
+### New questions (held)
+
+- Should `sprintDist` and other metrics with a near-zero typical for a day type be **withheld per-metric** rather than reported as a zero-plus-zero-SD figure? A "0 ± 0" band is technically what the samples say, and it is also useless. Held for the post-meeting register.
+
+### Check surface
+
+Full suite (library + typicals) run at end of prompt 2: **38 / 39 pass**. The single failure is the zero-spread finding above, retained as evidence rather than silenced.
