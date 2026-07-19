@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight, Calendar, Tag, Search, X } from "lucide-react";
 import { copy } from "@/lib/copy-deck";
-import { sessionLibrary, currentSession } from "@/lib/session-data";
+import { currentSession } from "@/lib/session-data";
+import { demoSessions, DEMO_TODAY, type DemoSession } from "@/lib/demo-library";
 import {
   SIDEBAR_COLLAPSED,
   SIDEBAR_EXPANDED,
@@ -9,10 +10,54 @@ import {
   useSidebarCollapsed,
 } from "@/lib/sidebar-store";
 
+type SidebarRow = {
+  id: string;
+  kind: "match" | "training";
+  label: string;
+  dayCode: string;
+  dateISO: string;
+  durationMin: number;
+};
+
+function daysBetween(aIso: string, bIso: string): number {
+  const a = new Date(aIso + "T00:00:00Z").getTime();
+  const b = new Date(bIso + "T00:00:00Z").getTime();
+  return Math.round((a - b) / 86_400_000);
+}
+
+function toRow(s: DemoSession): SidebarRow {
+  const kind: "match" | "training" = s.type === "match" ? "match" : "training";
+  const label = s.type === "match" && s.opponent ? `vs ${s.opponent}` : s.name;
+  return {
+    id: s.id,
+    kind,
+    label,
+    dayCode: s.dayCode,
+    dateISO: s.dateISO,
+    durationMin: s.durationMin,
+  };
+}
+
 export function SourceSidebar() {
   const collapsed = useSidebarCollapsed();
   const [split, setSplit] = useState<"all" | "match" | "training">("all");
   const [query, setQuery] = useState("");
+
+  // Last 30 days, most-recent-first (double-days broken by id for stability).
+  const sessionLibrary = useMemo<SidebarRow[]>(() => {
+    return demoSessions
+      .filter((s) => {
+        const age = daysBetween(DEMO_TODAY, s.dateISO);
+        return age >= 0 && age <= 30;
+      })
+      .slice()
+      .sort((a, b) =>
+        a.dateISO === b.dateISO
+          ? b.id.localeCompare(a.id)
+          : a.dateISO < b.dateISO ? 1 : -1
+      )
+      .map(toRow);
+  }, []);
 
   const q = query.trim().toLowerCase();
   const filtered = sessionLibrary.filter((s) => {
@@ -23,6 +68,7 @@ export function SourceSidebar() {
     }
     return true;
   });
+
 
   return (
     <aside

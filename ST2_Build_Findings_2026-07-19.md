@@ -169,3 +169,9 @@ Full suite (library + typicals) after prompt 1e: **42 / 44 pass**. The two failu
 ### Defaults taken
 
 - **Coordinate model, point-count rule, and missing-data athlete.** Normalised pitch 0–100 on both axes with attacking left→right; per-`posDetail` anchor + spread table drives 2–3 cluster centres per athlete-session, points count = clamp(round(minutes × 1.5), 12, 160) so subs read visibly sparser than starters; polyline is a 24-waypoint 3-tap moving average through the points in generation order; thirds are computed from the points (`x < 33.3` D, `< 66.6` M, else A) with rounding drift absorbed into the attacking share so D+M+A = 100; coverage is 84 ± 10 % clamped to 65–99. **M. Meier** carries the "no positional data" state across the whole window (Voss / Lange / Köhler / Sturm already carry other states); a small scatter (~3 %) of other athlete-sessions also drop to `null`. PRNG is `mulberry32` keyed off `DEMO_SEED` — no new PRNG.
+
+## Corrections applied in prompt 4 (session wiring)
+
+### Defaults taken
+
+- **Session re-dated and sidebar re-pointed.** `currentSession.dateISO` moved from 2026-07-04 to 2026-07-18 (id, name, day code, halves, weather, result unchanged); `sessionLibrary` deleted from `session-data.ts` and derived inside `SourceSidebar.tsx` from `demoSessions` (last 30 days, most-recent-first, `match` stays `match` and `training`/`recovery`/`gym` collapse to `training`; halves for non-match rows are a two-way split of duration). Derivation lives in the sidebar rather than `session-data.ts` to avoid a module-init cycle with `demo-library.ts`, which reads `squad` at init.
