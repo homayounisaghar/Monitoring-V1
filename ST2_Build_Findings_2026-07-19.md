@@ -952,6 +952,7 @@ Written under prompt 8 §1. Prior pass (prompt 7 §6) did not produce this secti
 - Peer identity block above the group blocks currently prints a small slate dot next to the peer's name; is that dot expected to also follow the axis-hue rule, or is it correctly neutral because it does not sit on any single axis's track? This pass reads it as neutral by design; open for veto.
 - Same-opponent reference values on Session — all six numbers were authored, not just sRPE. Held pending a real reverse-fixture in the library. See §4.
 - Fifth periods costume (part-participation blocks) — costume brief exists in the design backlog but is not written into the deck. Held.
+- Shell hydration — `SourceSidebar` search input `caret-color` differs SSR vs client; cosmetic in effect, but the second shell hydration mismatch of the session (the first was the banner date) and therefore a class worth a deliberate pass rather than case-by-case fixes.
 
 ### 1.7 Charter gap — verbatim
 
