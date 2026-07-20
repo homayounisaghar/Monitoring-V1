@@ -168,7 +168,6 @@ function SectionAnchor({ id, label }: { id: string; label: string }) {
 
 const ANCHORS = [
   { id: "summary", key: "athlete.anchor.summary" as const },
-  { id: "periods", key: "athlete.anchor.periods" as const },
   { id: "spatial", key: "athlete.anchor.spatial" as const },
   { id: "detail",  key: "athlete.anchor.detail"  as const },
 ];
