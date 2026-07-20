@@ -486,15 +486,15 @@ export const COPY = {
   "athlete.summary.character.anon": "This athlete",
   "athlete.summary.character.fallback": "Nothing on the spine is comparable — no baseline is drawn.",
   "athlete.summary.character.tailTemplate": "; {metric} carried the read",
-  "athlete.summary.character.shape.upUp":       "worked hard and it cost him",
-  "athlete.summary.character.shape.upFlat":     "did more work at his usual cost",
+  "athlete.summary.character.shape.upUp":       "worked hard and it cost them",
+  "athlete.summary.character.shape.upFlat":     "did more work at their usual cost",
   "athlete.summary.character.shape.upDown":     "did more work for less cost",
-  "athlete.summary.character.shape.flatUp":     "held his volume but paid a higher cost",
+  "athlete.summary.character.shape.flatUp":     "held their volume but paid a higher cost",
   "athlete.summary.character.shape.downUp":     "did less work at a higher cost",
   "athlete.summary.character.shape.downFlat":   "did less work, cost unchanged",
   "athlete.summary.character.shape.downDown":   "did less across the board",
-  "athlete.summary.character.shape.flatDown":   "held his volume at a lower cost",
-  "athlete.summary.character.shape.flatFlat":   "sat close to his own typical",
+  "athlete.summary.character.shape.flatDown":   "held their volume at a lower cost",
+  "athlete.summary.character.shape.flatFlat":   "sat close to their own typical",
 
   // Athlete · periods slot — still consumed by the scope-line period
   // chip even though the Periods section is deferred (demo-data gap;
@@ -515,9 +515,25 @@ export const COPY = {
   "athlete.spatial.trace.kickoff": "kick-off",
   "athlete.spatial.trace.finalWhistle": "final whistle",
   "athlete.spatial.footer.sampledTemplate": "Sampled {minutes}′ · {cov}% coverage",
-  "athlete.spatial.footer.scale": "Density scales to his own peak this session — never a shared scale.",
+  "athlete.spatial.footer.scale": "Density scales to their own peak this session — never a shared scale.",
   "athlete.spatial.unavailable.reason": "No positional data was recorded for this session.",
-  "athlete.spatial.unavailable.fixTemplate": "Check the tracker mounting for {name} before the next session.",
+  // `athlete.spatial.unavailable.fixTemplate` was withdrawn 2026-07-20 —
+  // the system does not know the cause of missing positional data, and a
+  // card whose job is to state absence honestly must not be the one place
+  // that guesses. The card states the absence and stops.
+
+  // Athlete · Detail section
+  "athlete.detail.title": "Detail",
+  "athlete.detail.colMetric": "Metric",
+  "athlete.detail.colThisSession": "This session",
+  "athlete.detail.colVsTypical": "Vs their typical",
+  "athlete.detail.notSubmitted": "not submitted",
+  "athlete.detail.building": "baseline building",
+  "athlete.detail.dnp": "did not participate",
+  "athlete.detail.covSuffixTemplate": "· {n}% cov",
+  "athlete.detail.columnsButton": "Columns",
+  "athlete.detail.columnsHint": "Curated set · up to 12 columns",
+  "athlete.detail.footnote": "Vs their typical reads against their own record for this day type. Wellness and zone distribution are optional reads and not present in this build.",
 } as const satisfies Record<string, string>;
 
 

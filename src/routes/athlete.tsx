@@ -9,6 +9,7 @@ import { AthleteBanner } from "@/components/athlete/AthleteBanner";
 import { AthleteScopeLine } from "@/components/athlete/AthleteScopeLine";
 import { AthleteSummarySpine } from "@/components/athlete/AthleteSummarySpine";
 import { AthleteSpatial } from "@/components/athlete/AthleteSpatial";
+import { AthleteDetail } from "@/components/athlete/AthleteDetail";
 import { AthleteLegend } from "@/components/athlete/AthleteLegend";
 import { spineForAthleteSession, flaggedMetricFor } from "@/lib/athlete-data";
 import { TIER1_ROWS_DEFAULT } from "@/lib/session-flags";
@@ -129,7 +130,13 @@ function AthleteRoute() {
                 <section id="spatial" className="scroll-mt-28 pb-10">
                   <AthleteSpatial athleteId={athleteId} sessionId={sessionId} />
                 </section>
-                <SectionAnchor id="detail" label={copy("athlete.anchor.detail")} />
+                <section id="detail" className="scroll-mt-28 pb-10">
+                  <AthleteDetail
+                    athleteId={athleteId}
+                    sessionId={sessionId}
+                    flaggedMetric={flaggedMetric}
+                  />
+                </section>
               </main>
             </>
           ) : (
@@ -149,20 +156,6 @@ function AthleteRoute() {
   );
 }
 
-/* ─────────────────── section anchor placeholder ─────────────────── */
-
-function SectionAnchor({ id, label }: { id: string; label: string }) {
-  return (
-    <section id={id} className="scroll-mt-28 py-10">
-      <h2
-        className="type-section-h"
-        style={{ color: "var(--color-text-primary)" }}
-      >
-        {label}
-      </h2>
-    </section>
-  );
-}
 
 /* ─────────────────── local anchor strip (slate underline) ─────────────────── */
 

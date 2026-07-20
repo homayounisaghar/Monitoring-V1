@@ -1,7 +1,7 @@
 /**
  * ST2 — Athlete page · Spatial section (Workstream 02 · prompt 4).
  *
- * Where he worked, this session. One pitch, his own density, from
+ * Where they worked, this session. One pitch, their own density, from
  * `demo-spatial.ts`.
  *
  * Structure: an outer section (title + Heat/Trace toggle) wrapping ONE
@@ -15,16 +15,19 @@
  *   - Density ramp is a single blue: `--color-axis-work`, light to deep.
  *     No RAG. Density is magnitude; magnitude is never severity.
  *   - Field scales to THIS athlete's peak this session. Footer says so
- *     explicitly — the ramp's deep end is his maximum, never a shared
+ *     explicitly — the ramp's deep end is their maximum, never a shared
  *     scale. This wording is inherited by Workstream 03's pair build.
  *   - Thirds print as three labelled percentages, numbers only. NO
  *     bars — the numeric anchor is ratified; unratified bars in the
  *     source render drew each value at ~2× its true share against an
  *     unlabelled rail and contradicted the number printed next to it.
- *   - Unavailable state is designed at full size — faint pitch outline,
- *     one reason, one fix. Never blank, never collapsed, never a fake
- *     field. M. Meier is the whole-window instance.
+ *   - Unavailable state is designed at full size — faint pitch outline
+ *     and one honest reason. No fabricated remedy: the system does not
+ *     know the cause of missing positional data. The card states the
+ *     absence and stops (2026-07-20 correction; the fix template that
+ *     invented a mounting diagnosis is withdrawn).
  */
+
 
 import { useState, type ReactElement } from "react";
 import { copy, tmpl } from "@/lib/copy-deck";
@@ -162,8 +165,8 @@ export function PitchField({
 const VB_W = 100;
 const VB_H = 65;
 
-// Attacking direction = +x. Anchors in demo-spatial place x=0 at his
-// team's goal, x=100 at the attacking goal.
+// Attacking direction = +x. Anchors in demo-spatial place x=0 at the
+// team's own goal, x=100 at the attacking goal.
 
 // Heat grid — 20 columns × 13 rows over the pitch. Points come in as
 // x:0..100, y:0..100; we scale y into VB_H when drawing but bin on the
@@ -244,7 +247,7 @@ function HeatLayer({ field }: { field: SpatialField }) {
       const v = bins[r][c];
       if (v === 0) continue;
       // Non-linear ramp: sqrt spreads the lower tail so a lobe reads,
-      // but the deep end is still reserved for his true peak.
+      // but the deep end is still reserved for the athlete's true peak.
       const t = Math.sqrt(v / peak);
       const opacity = 0.12 + t * 0.78; // 0.12 → 0.9
       rects.push(
@@ -398,7 +401,7 @@ function UnavailablePitch({ athleteName }: { athleteName: string }) {
           viewBox={`0 0 ${VB_W} ${VB_H}`}
           className="block w-full"
           style={{ maxHeight: 380 }}
-          aria-label="no positional data recorded"
+          aria-label={`no positional data recorded${athleteName ? ` for ${athleteName}` : ""}`}
         >
           <PitchOutline faint />
         </svg>
@@ -407,9 +410,9 @@ function UnavailablePitch({ athleteName }: { athleteName: string }) {
           style={{ borderColor: "var(--color-border)", color: "var(--color-text-secondary)" }}
         >
           <div>{copy("athlete.spatial.unavailable.reason")}</div>
-          <div className="mt-0.5" style={{ color: "var(--color-text-tertiary)" }}>
-            {tmpl("athlete.spatial.unavailable.fixTemplate", { name: athleteName })}
-          </div>
+          {/* No remedial sentence: the system does not know the cause, and
+              this card must not be the one place in the product that guesses.
+              Withdrawal recorded in findings 2026-07-20. */}
         </div>
       </div>
       <div
