@@ -1171,8 +1171,9 @@ function cellStyle(s: MatrixCellState): React.CSSProperties {
         border: "1px solid var(--color-border)",
       };
     case "outside":
-      // Absence of our claim — same treatment as not-in-squad remainder.
-      return NOT_IN_SQUAD_STYLE;
+      // Our absence of a claim — faint neutral wash, no border.
+      // Visibly distinct from unselected (hairline box) and rest (blank).
+      return { backgroundColor: "var(--color-slate-100)" };
     case "rest":
       // Real zero — empty ground across the row.
       return { backgroundColor: "transparent" };
