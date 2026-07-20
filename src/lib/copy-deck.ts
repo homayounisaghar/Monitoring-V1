@@ -544,6 +544,52 @@ export const COPY = {
   "athlete.peer.peerHeadTemplate": "{name} · peer",
   "athlete.spatial.peer.unavailable": "No positional data was recorded for this peer.",
   "legend.peer": "muted dot — peer, same axis",
+
+  // ---------- Recovery (HRV) — third read, slate, per-athlete first ----------
+  "metric.hrv.label": "HRV",
+  "recovery.groupLabel": "Recovery",
+  "recovery.basisLine": "% of own 7-day baseline",
+  "recovery.withheld.notYet": "morning-after reading not yet taken",
+  "recovery.withheld.noReading": "no reading recorded",
+  "recovery.withheld.buildingTemplate": "{n} of {min} readings",
+  "recovery.rawMsTemplate": "{ms} ms",
+
+  // Athlete · Summary · Recovery row
+  "athlete.summary.groupRecovery": "Recovery",
+  "athlete.summary.recovery.basisLine": "% of own 7-day baseline · morning after",
+  "athlete.summary.recovery.rawHoverTemplate": "raw HRV: {ms} ms (baseline {b} ms)",
+
+  // Athlete · Summary · Balance block
+  "athlete.balance.title": "Balance",
+  "athlete.balance.splitTemplate": "L {l} · R {r}",
+  "athlete.balance.deltaTemplate": "{sign}{d} pt vs their typical",
+  "athlete.balance.deltaZero": "on their typical split",
+  "athlete.balance.tickHover": "their typical split",
+  "athlete.balance.unavailable": "no balance recorded this session",
+
+  // Session · Summary · Recovery read
+  "summary.recovery.head": "Recovery",
+  "summary.recovery.label": "HRV · squad median",
+  "summary.recovery.readCountTemplate": "{n} of {m} read",
+  "summary.recovery.notYet": "morning-after reading not yet taken",
+  "summary.recovery.none": "no readings recorded",
+
+  // Longitudinal · Days · Recovery lane
+  "longi.days.recoveryHead": "RECOVERY",
+  "longi.days.recoveryLane": "HRV · squad median",
+  "longi.days.recoveryUnit": "% of own baseline",
+  "longi.days.recoveryEmpty": "readings thin",
+
+  // Longitudinal · Athletes window table · fixed columns
+  "longi.wt.head.hrv":     "HRV",
+  "longi.wt.head.balance": "BALANCE",
+  "longi.wt.hrv.suffix":   "% of own baseline",
+  "longi.wt.balance.template": "L {l} · R {r}",
+
+  // Legend additions — slate is the recovery/derived ink; Balance carries
+  // its own line stating it is not used for flags.
+  "legend.recovery": "slate — recovery, not on either axis",
+  "legend.balance": "Balance — left/right share of load; not used for flags",
 } as const satisfies Record<string, string>;
 
 
