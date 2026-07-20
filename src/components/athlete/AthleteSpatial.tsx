@@ -39,15 +39,23 @@ type Mode = "heat" | "trace";
 type Props = {
   athleteId: string;
   sessionId: string;
+  peerAthleteId?: string | null;
 };
 
-export function AthleteSpatial({ athleteId, sessionId }: Props) {
+export function AthleteSpatial({ athleteId, sessionId, peerAthleteId = null }: Props) {
   const [mode, setMode] = useState<Mode>("heat");
   const field = spatialFor(athleteId, sessionId);
   const athlete = demoAthletes.find((a) => a.id === athleteId);
   const rec = recordsForSession(sessionId).find((r) => r.athleteId === athleteId);
   const minutes = rec?.minutes ?? 0;
   const athleteName = athlete?.name ?? "";
+
+  const peerField = peerAthleteId ? spatialFor(peerAthleteId, sessionId) : null;
+  const peer = peerAthleteId ? demoAthletes.find((a) => a.id === peerAthleteId) ?? null : null;
+  const peerRec = peerAthleteId ? recordsForSession(sessionId).find((r) => r.athleteId === peerAthleteId) : null;
+  const peerMinutes = peerRec?.minutes ?? 0;
+  const peerName = peer?.name ?? "";
+  const paired = Boolean(peerAthleteId);
 
   return (
     <section
@@ -65,18 +73,87 @@ export function AthleteSpatial({ athleteId, sessionId }: Props) {
         <h3 className="type-section-h" style={{ color: "var(--color-text-primary)" }}>
           {copy("athlete.spatial.title")}
         </h3>
-        <ModeToggle value={mode} onChange={setMode} disabled={!field} />
+        <ModeToggle value={mode} onChange={setMode} disabled={!field && !peerField} />
       </div>
 
       <div className="p-5">
-        <PitchField
-          field={field}
-          mode={mode}
-          minutes={minutes}
-          athleteName={athleteName}
-        />
+        {paired ? (
+          <div className="grid grid-cols-2 gap-5">
+            <div>
+              <div
+                className="type-microcaps mb-2 text-[10.5px]"
+                style={{ color: "var(--color-text-tertiary)" }}
+              >
+                {tmpl("athlete.peer.subjectHeadTemplate", { name: athleteName })}
+              </div>
+              <PitchField
+                field={field}
+                mode={mode}
+                minutes={minutes}
+                athleteName={athleteName}
+              />
+            </div>
+            <div>
+              <div
+                className="type-microcaps mb-2 text-[10.5px]"
+                style={{ color: "var(--color-text-tertiary)" }}
+              >
+                {tmpl("athlete.peer.peerHeadTemplate", { name: peerName })}
+              </div>
+              {peerField ? (
+                <PitchField
+                  field={peerField}
+                  mode={mode}
+                  minutes={peerMinutes}
+                  athleteName={peerName}
+                />
+              ) : (
+                <PeerUnavailable athleteName={peerName} />
+              )}
+            </div>
+          </div>
+        ) : (
+          <PitchField
+            field={field}
+            mode={mode}
+            minutes={minutes}
+            athleteName={athleteName}
+          />
+        )}
       </div>
     </section>
+  );
+}
+
+function PeerUnavailable({ athleteName }: { athleteName: string }) {
+  return (
+    <div className="grid grid-cols-[1fr_180px] gap-6">
+      <div>
+        <svg
+          viewBox={`0 0 ${VB_W} ${VB_H}`}
+          className="block w-full"
+          style={{ maxHeight: 380 }}
+          aria-label={`no positional data recorded${athleteName ? ` for ${athleteName}` : ""}`}
+        >
+          <PitchOutline faint />
+        </svg>
+        <div
+          className="mt-3 border-t pt-2 text-[12px]"
+          style={{ borderColor: "var(--color-border)", color: "var(--color-text-secondary)" }}
+        >
+          <div>{copy("athlete.spatial.peer.unavailable")}</div>
+        </div>
+      </div>
+      <div
+        className="type-microcaps text-[10.5px]"
+        style={{ color: "var(--color-text-tertiary)" }}
+      >
+        {copy("athlete.spatial.thirds.head")}
+        <div className="mt-2 text-[12.5px]" style={{ color: "var(--color-text-tertiary)" }}>
+          —
+        </div>
+      </div>
+    </div>
   );
 }
 

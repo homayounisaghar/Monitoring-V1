@@ -34,35 +34,44 @@ type BenchRefs = {
   z4z5TypicalDuration: number;
 };
 
+// sRPE values below are read from demo-library and hardcoded here per the
+// fence in Workstream 02 · prompt 7 §2.3 — Session is not migrated onto the
+// library in this pass. Derivation (scripts/derive_srpe.ts):
+//   • Dortmund 18 Jul, avg AU over 12 submitters .............. 570.8 → 571
+//   • Typical match day-type (mean of 11 other match avgs) .... 525.6 → 526
+//   • Last match (11 Jul) ...................................... 515.8 → 516
+//   • Last 5 matches ........................................... 554.4 → 554
+//   • Same opponent (no library key) .......................... 526 × 0.985 ≈ 518
+//   • Typical daytype = match day-type here .................... 526
 const SQUAD_REF: Record<BenchKey, BenchRefs> = {
   typical_daytype: {
     refTotalDistanceM: 6800, refRelDistanceMpm: 95,
     refHsrM: 380, refAccDec: 88,
-    refCardioLoadCL: 150, refSrpeMean: 380,
+    refCardioLoadCL: 150, refSrpeMean: 526,
     z4z5TypicalDistance: 14, z4z5TypicalDuration: 9,
   },
   typical_match: {
     refTotalDistanceM: 9010, refRelDistanceMpm: 102,
     refHsrM: 665, refAccDec: 108,
-    refCardioLoadCL: 205, refSrpeMean: 585,
+    refCardioLoadCL: 205, refSrpeMean: 526,
     z4z5TypicalDistance: 26, z4z5TypicalDuration: 16,
   },
   last_match: {
     refTotalDistanceM: 9640, refRelDistanceMpm: 104,
     refHsrM: 720, refAccDec: 111,
-    refCardioLoadCL: 210, refSrpeMean: 605,
+    refCardioLoadCL: 210, refSrpeMean: 516,
     z4z5TypicalDistance: 28, z4z5TypicalDuration: 17,
   },
   last_5: {
     refTotalDistanceM: 9350, refRelDistanceMpm: 103,
     refHsrM: 690, refAccDec: 109,
-    refCardioLoadCL: 207, refSrpeMean: 595,
+    refCardioLoadCL: 207, refSrpeMean: 554,
     z4z5TypicalDistance: 27, z4z5TypicalDuration: 16,
   },
   same_opponent: {
     refTotalDistanceM: 9200, refRelDistanceMpm: 103,
     refHsrM: 640, refAccDec: 106,
-    refCardioLoadCL: 202, refSrpeMean: 580,
+    refCardioLoadCL: 202, refSrpeMean: 518,
     z4z5TypicalDistance: 25, z4z5TypicalDuration: 15,
   },
 };
@@ -73,7 +82,8 @@ const SESSION_MARKS = {
   hsrM: 812,
   accDec: 118,
   cardioLoadCL: 218,
-  srpeMean: 630,
+  // Avg AU over the 12 submitters on the pinned 18 Jul Dortmund session.
+  srpeMean: 571,
 } as const;
 
 const SESSION_ZONES = {

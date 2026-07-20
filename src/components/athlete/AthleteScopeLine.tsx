@@ -16,7 +16,7 @@ import { ChevronDown, Check, Flag, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { copy, tmpl } from "@/lib/copy-deck";
 import { currentSession, timeline } from "@/lib/session-data";
-import { demoSessions, DEMO_TODAY } from "@/lib/demo-library";
+import { demoSessions, demoAthletes, DEMO_TODAY } from "@/lib/demo-library";
 import { TIER1_ROWS_DEFAULT } from "@/lib/session-flags";
 import { dayMonth2 } from "@/lib/format-date";
 import { periodOptionsFor, type PeriodOption } from "@/lib/athlete-data";
@@ -43,9 +43,11 @@ type Props = {
   athleteId: string;
   sessionId: string;
   onSessionChange: (id: string) => void;
+  peerId?: string | null;
+  onPeerChange?: (id: string | null) => void;
 };
 
-export function AthleteScopeLine({ athleteId, sessionId, onSessionChange }: Props) {
+export function AthleteScopeLine({ athleteId, sessionId, onSessionChange, peerId, onPeerChange }: Props) {
   const [refKind, setRefKind] = useState<RefKind>(DEFAULT_REF);
   const [flagDismissed, setFlagDismissed] = useState(false);
 
@@ -55,8 +57,6 @@ export function AthleteScopeLine({ athleteId, sessionId, onSessionChange }: Prop
   const isMatch = activeSession?.type === "match";
   const isPinned = activeSession?.id === PINNED_SESSION_ID;
 
-  // Fix 7.1 — periods == 15-minute block set (blocks 1–6 + added time) for
-  // the pinned match; single period elsewhere.
   const periodOpts = useMemo(
     () => (activeSession ? periodOptionsFor(activeSession.id) : []),
     [activeSession],
@@ -91,6 +91,19 @@ export function AthleteScopeLine({ athleteId, sessionId, onSessionChange }: Prop
         onChange={setPeriodSel}
         options={periodOpts}
       />
+      {onPeerChange && (
+        <>
+          <Sep />
+          <span style={{ color: "var(--color-text-tertiary)" }}>
+            {copy("athlete.scope.peerLabel")}
+          </span>
+          <PeerChip
+            subjectId={athleteId}
+            value={peerId ?? null}
+            onChange={onPeerChange}
+          />
+        </>
+      )}
 
       {showFlag && tier1Row && (
         <>
@@ -102,6 +115,94 @@ export function AthleteScopeLine({ athleteId, sessionId, onSessionChange }: Prop
             onDismiss={() => setFlagDismissed(true)}
           />
         </>
+      )}
+    </div>
+  );
+}
+
+/* ─────────────────── peer chip ─────────────────── */
+
+function PeerChip({
+  subjectId,
+  value,
+  onChange,
+}: {
+  subjectId: string;
+  value: string | null;
+  onChange: (id: string | null) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useDocClick(ref, open, () => setOpen(false));
+  const roster = demoAthletes as unknown as ReadonlyArray<{ id: string; name: string; posDetail?: string }>;
+  const eligible = roster.filter((a) => a.id !== subjectId);
+  const active = value ? roster.find((a) => a.id === value) : null;
+  const label = active ? active.name : copy("athlete.scope.peerNone");
+  const changed = value != null;
+
+  return (
+    <div className="relative" ref={ref}>
+      <ChipButton onClick={() => setOpen((o) => !o)} changed={changed}>
+        <span className="truncate max-w-[160px]">{label}</span>
+        <ChevronDown className="ml-1 h-3.5 w-3.5 opacity-70" aria-hidden />
+      </ChipButton>
+      {open && (
+        <PopoverShell>
+          <div
+            className="border-b px-3 py-2 text-[11.5px]"
+            style={{
+              borderColor: "var(--color-border)",
+              color: "var(--color-text-tertiary)",
+            }}
+          >
+            {copy("athlete.scope.peerHead")}
+          </div>
+          <button
+            onClick={() => {
+              onChange(null);
+              setOpen(false);
+            }}
+            className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-[12.5px] transition-colors hover:bg-[color:var(--color-slate-100)]"
+          >
+            {value == null ? (
+              <Check className="h-3.5 w-3.5" aria-hidden />
+            ) : (
+              <span className="inline-block h-3.5 w-3.5" aria-hidden />
+            )}
+            <span>{copy("athlete.scope.peerNone")}</span>
+          </button>
+          <div aria-hidden className="h-px" style={{ backgroundColor: "var(--color-border)" }} />
+          {eligible.map((a) => {
+            const isActive = a.id === value;
+            return (
+              <button
+                key={a.id}
+                onClick={() => {
+                  onChange(a.id);
+                  setOpen(false);
+                }}
+                className="flex w-full items-center justify-between gap-3 px-3 py-1.5 text-left text-[12.5px] transition-colors hover:bg-[color:var(--color-slate-100)]"
+              >
+                <span className="flex items-center gap-2">
+                  {isActive ? (
+                    <Check className="h-3.5 w-3.5" aria-hidden />
+                  ) : (
+                    <span className="inline-block h-3.5 w-3.5" aria-hidden />
+                  )}
+                  <span>{a.name}</span>
+                </span>
+                {a.posDetail && (
+                  <span
+                    className="type-microcaps"
+                    style={{ color: "var(--color-text-tertiary)" }}
+                  >
+                    {a.posDetail}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </PopoverShell>
       )}
     </div>
   );

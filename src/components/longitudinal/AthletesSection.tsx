@@ -19,6 +19,7 @@
  */
 import { useMemo, useState } from "react";
 import { Flag, ChevronUp, ChevronDown } from "lucide-react";
+import { useNavigate } from "@tanstack/react-router";
 
 import { copy, tmpl } from "@/lib/copy-deck";
 import { SegmentedToggle } from "@/components/data/SegmentedToggle";
@@ -187,6 +188,7 @@ function AvailabilityRow({
   row: AthleteAvailEntry;
   maxAvailable: number;
 }) {
+  const navigate = useNavigate();
   const { athlete, tagCounts, availableSessions, fullFraction, attentionFlagged } = row;
   const fullCount = Math.round(fullFraction * availableSessions);
   const barWidth = maxAvailable > 0 ? (availableSessions / maxAvailable) * 100 : 0;
@@ -202,8 +204,28 @@ function AvailabilityRow({
   }
   const leftover = Math.max(0, availableSessions - tagged);
 
+  const openAthlete = () =>
+    navigate({
+      to: "/athlete",
+      search: { athleteId: athlete.id, sessionId: "", timeframe: "window" },
+    });
+
   return (
-    <div className="group grid grid-cols-[220px_1fr_88px_88px] items-center gap-4 px-4 py-3">
+    <div
+      role="link"
+      tabIndex={0}
+      onClick={openAthlete}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          openAthlete();
+        }
+      }}
+      className="group grid cursor-pointer grid-cols-[220px_1fr_88px_88px] items-center gap-4 px-4 py-3 focus-visible:outline-none"
+      style={{ transition: "background-color 120ms" }}
+      onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "var(--color-slate-50)")}
+      onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
+    >
       {/* Name + position + optional neutral flag glyph. */}
       <div className="flex items-center gap-2 min-w-0">
         {attentionFlagged && (
@@ -272,9 +294,7 @@ function AvailabilityRow({
         {tmpl("longi.athletes.fraction", { n: fullCount, m: availableSessions })}
       </div>
 
-      {/* Drill affordance — hover-only. Click intentionally unwired: the
-          destination athlete page is not built, and cross-page navigation
-          into an unbuilt page is worse than none. */}
+      {/* Drill affordance — hover-only text; the whole row is the click target. */}
       <DrillAffordance />
     </div>
   );
@@ -282,15 +302,13 @@ function AvailabilityRow({
 
 function DrillAffordance() {
   return (
-    <button
-      type="button"
-      tabIndex={-1}
+    <span
       aria-hidden
       className="text-right text-[11.5px] opacity-0 transition-opacity group-hover:opacity-100"
       style={{ color: "var(--color-text-tertiary)" }}
     >
       {copy("longi.athletes.drill")}
-    </button>
+    </span>
   );
 }
 
@@ -533,8 +551,20 @@ function PositionGroup({
 }
 
 function TotalsRow({ row, view }: { row: AthleteTotals; view: View }) {
+  const navigate = useNavigate();
+  const openAthlete = () =>
+    navigate({
+      to: "/athlete",
+      search: { athleteId: row.athlete.id, sessionId: "", timeframe: "window" },
+    });
   return (
-    <tr className="group" style={{ borderTop: "1px solid var(--color-border)" }}>
+    <tr
+      className="group cursor-pointer"
+      style={{ borderTop: "1px solid var(--color-border)" }}
+      onClick={openAthlete}
+      onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "var(--color-slate-50)")}
+      onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
+    >
       <td className="px-3 py-2 whitespace-nowrap">
         <div className="flex items-center justify-between gap-3">
           <span>

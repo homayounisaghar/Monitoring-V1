@@ -45,7 +45,7 @@ function computePresence(spine: AthleteSpine): Presence {
 const EXT_BLUE = "#3B82F6";
 const INT_PURPLE = "#8B5CF6";
 
-export function AthleteLegend({ spine }: { spine: AthleteSpine }) {
+export function AthleteLegend({ spine, peerActive = false }: { spine: AthleteSpine; peerActive?: boolean }) {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
 
@@ -101,6 +101,7 @@ export function AthleteLegend({ spine }: { spine: AthleteSpine }) {
             {p.brk && <LegendRow swatch={<SwBreak />} text={copy("legend.break")} />}
             {p.gap && <LegendRow swatch={<SwGap />} text={copy("legend.gap")} />}
             {p.flag && <LegendRow swatch={<SwFlag />} text={copy("legend.flag")} />}
+            {peerActive && <LegendRow swatch={<SwPeer />} text={copy("legend.peer")} />}
           </ul>
         </div>
       )}
@@ -176,5 +177,13 @@ function SwFlag() {
     <svg viewBox="0 0 12 12" className="h-3 w-3" aria-hidden>
       <path d="M3 1v10M3 2h6l-1.5 2L9 6H3" fill="currentColor" stroke="currentColor" strokeWidth="1" />
     </svg>
+  );
+}
+function SwPeer() {
+  return (
+    <span
+      className="inline-block h-3 w-3 rounded-full"
+      style={{ backgroundColor: "var(--color-text-tertiary)", opacity: 0.55 }}
+    />
   );
 }

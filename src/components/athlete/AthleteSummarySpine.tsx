@@ -29,7 +29,9 @@ import {
   SPINE_METRICS,
   type SpineRow,
   type SpineMetricId,
+  type AthleteSpine,
 } from "@/lib/athlete-data";
+import { demoAthletes } from "@/lib/demo-library";
 import { TIER1_ROWS_DEFAULT } from "@/lib/session-flags";
 import { Flag } from "lucide-react";
 
@@ -39,6 +41,7 @@ type Props = {
   athleteId: string;
   sessionId: string;
   flagActive: boolean;
+  peerSpine?: AthleteSpine | null;
 };
 
 /** The one place the spine is ordered for render. External group first;
@@ -64,12 +67,11 @@ function orderRowsForRender(rows: SpineRow[]): SpineRow[] {
   return out;
 }
 
-export function AthleteSummarySpine({ athleteId, sessionId, flagActive }: Props) {
+export function AthleteSummarySpine({ athleteId, sessionId, flagActive, peerSpine = null }: Props) {
   const activeSession =
     demoSessions.find((s) => s.id === sessionId) ??
     demoSessions.find((s) => s.id === PINNED_SESSION_ID);
 
-  // Flag entry: pass the resolved metric id in only when the chip is live.
   const tier1 = TIER1_ROWS_DEFAULT.find((r) => r.id === athleteId);
   const flaggedMetric = flagActive && tier1 ? flaggedMetricFor(tier1.reason) : null;
 
@@ -77,6 +79,17 @@ export function AthleteSummarySpine({ athleteId, sessionId, flagActive }: Props)
     () => spineForAthleteSession(athleteId, sessionId, { flaggedMetric }),
     [athleteId, sessionId, flaggedMetric],
   );
+
+  // Peer row lookup — passed to each SpineRowView so the muted dot lands
+  // on the same track as the subject's dot (same axis basis: peer's own
+  // valuePct against their own typical for this day type).
+  const peerByMetric = useMemo(() => {
+    const m = new Map<SpineMetricId, SpineRow>();
+    if (peerSpine) for (const r of peerSpine.rows) m.set(r.metricId, r);
+    return m;
+  }, [peerSpine]);
+  const peer = peerSpine ? demoAthletes.find((a) => a.id === peerSpine.athleteId) ?? null : null;
+  const subject = demoAthletes.find((a) => a.id === athleteId) ?? null;
 
   const rows = orderRowsForRender(spine.rows);
   const external = rows.filter((r) => r.group === "external");
@@ -128,11 +141,40 @@ export function AthleteSummarySpine({ athleteId, sessionId, flagActive }: Props)
         </span>
       </div>
 
+      {/* Peer identity block — session-scope compare. Prints once, above
+          the groups, when a peer is selected. */}
+      {peer && subject && (
+        <div
+          className="flex items-center gap-4 border-b px-5 py-2 text-[11.5px]"
+          style={{
+            borderColor: "var(--color-border)",
+            backgroundColor: "var(--color-slate-50)",
+          }}
+        >
+          <span className="flex items-center gap-1.5">
+            <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ backgroundColor: "var(--color-text-primary)" }} aria-hidden />
+            <span style={{ color: "var(--color-text-primary)" }}>
+              {tmpl("athlete.peer.subjectHeadTemplate", { name: subject.name })}
+            </span>
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span
+              className="inline-block h-2.5 w-2.5 rounded-full"
+              style={{ backgroundColor: "var(--color-text-tertiary)", opacity: 0.55 }}
+              aria-hidden
+            />
+            <span style={{ color: "var(--color-text-secondary)" }}>
+              {tmpl("athlete.peer.peerHeadTemplate", { name: peer.name })}
+            </span>
+          </span>
+        </div>
+      )}
+
       {/* Groups */}
       <div className="px-5 py-4">
-        <GroupBlock label={copy("athlete.summary.groupExternal")} rows={external} firstRowShowsAxis />
+        <GroupBlock label={copy("athlete.summary.groupExternal")} rows={external} firstRowShowsAxis peerByMetric={peerByMetric} />
         <div className="my-3 h-px" style={{ backgroundColor: "var(--color-border)" }} aria-hidden />
-        <GroupBlock label={copy("athlete.summary.groupInternal")} rows={internal} />
+        <GroupBlock label={copy("athlete.summary.groupInternal")} rows={internal} peerByMetric={peerByMetric} />
       </div>
 
       {/* Character line — the only sentence on this page. */}
@@ -155,10 +197,12 @@ function GroupBlock({
   label,
   rows,
   firstRowShowsAxis = false,
+  peerByMetric,
 }: {
   label: string;
   rows: SpineRow[];
   firstRowShowsAxis?: boolean;
+  peerByMetric?: Map<SpineMetricId, SpineRow>;
 }) {
   return (
     <div>
@@ -174,6 +218,7 @@ function GroupBlock({
             key={r.metricId}
             row={r}
             showAxisLabels={firstRowShowsAxis && idx === 0}
+            peerRow={peerByMetric?.get(r.metricId) ?? null}
           />
         ))}
       </div>
@@ -206,9 +251,11 @@ function formatValue(v: number, unit: string) {
 function SpineRowView({
   row,
   showAxisLabels = false,
+  peerRow = null,
 }: {
   row: SpineRow;
   showAxisLabels?: boolean;
+  peerRow?: SpineRow | null;
 }) {
   const color = axisColor(row.axis);
 
@@ -404,6 +451,25 @@ function SpineRowView({
           }}
           aria-label="typical"
         />
+        {/* Peer dot — muted, on the same track, drawn beneath the
+            subject's mark so the subject stays legible on overlap.
+            Same axis basis: peer's own valuePct against their own
+            typical for this day type. Withheld/building states skip. */}
+        {peerRow && (peerRow.state.kind === "ok" || peerRow.state.kind === "hollow" || peerRow.state.kind === "beyondRange") && (
+          <div
+            className="absolute top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full"
+            style={{
+              left: `${
+                peerRow.state.kind === "beyondRange"
+                  ? peerRow.state.side === "high" ? 100 : 0
+                  : peerRow.valuePct != null ? pctToLeft(peerRow.valuePct) : 0
+              }%`,
+              backgroundColor: "var(--color-text-tertiary)",
+              opacity: 0.55,
+            }}
+            aria-label="peer, same axis"
+          />
+        )}
         {/* dot — no halo. The white ring is the two-mark pair's internal
             marker in the product grammar; this page has no such pair. */}
         {dotVisible && (
