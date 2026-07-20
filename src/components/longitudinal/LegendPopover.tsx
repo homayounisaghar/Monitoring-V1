@@ -127,7 +127,10 @@ export function LegendPopover({ window: w }: { window: LongiWindow }) {
           </div>
 
           <ul className="flex flex-col gap-1.5 px-3 py-2.5 text-[12px]">
-            <LegendRow swatch={<SwBasis />} text={copy("legend.basis")} />
+            {/* legend.basis retired here — with the Benchmark chip's menu
+                restored, its foot gloss is the single definition home for
+                the "typical, like-for-like" basis. The key is kept in the
+                deck, unused, in case that menu is ever removed again. */}
             <LegendRow swatch={<SwHue kind="ext" />} text={copy("legend.ext")} />
             <LegendRow swatch={<SwHue kind="int" />} text={copy("legend.int")} />
             {presence.hollow && (
