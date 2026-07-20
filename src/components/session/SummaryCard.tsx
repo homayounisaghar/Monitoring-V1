@@ -13,6 +13,7 @@ import { METRICS as METRIC_LIB } from "@/lib/squad-metrics";
 import { ScopeTag } from "@/components/session/ScopeTag";
 import { SegmentedToggle } from "@/components/data/SegmentedToggle";
 import { PARTICIPATION_TAGS, TAG_STYLE } from "@/lib/participation-style";
+import { hrvSquadResponseForSession, RECOVERY_INK_VAR } from "@/lib/recovery-data";
 
 /* ---------- Static (curated) squad averages, keyed to Benchmark ---------- */
 
