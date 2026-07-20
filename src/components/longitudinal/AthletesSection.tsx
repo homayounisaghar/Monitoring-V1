@@ -30,15 +30,18 @@ import {
 import {
   athleteAvailabilityRanking,
   windowTotals,
+  athleteDayMatrix,
   type LongiWindow,
   type LongiMetric,
   type AthleteAvailEntry,
   type AthleteTotals,
+  type MatrixCellState,
+  type MatrixColumn,
 } from "@/lib/longitudinal-data";
 import type { ParticipationTag, PositionCode } from "@/lib/session-data";
 import { POSITION_LABEL } from "@/lib/session-data";
 import { MAX_COLUMNS } from "@/lib/squad-metrics";
-import { dayMonthLong } from "@/lib/format-date";
+import { dayMonth, dayMonthLong } from "@/lib/format-date";
 import { refLabel, DEFAULT_REF, type RefKind } from "./ScopeLine";
 
 /* ─────────────────────────── shared bits ─────────────────────────── */
@@ -109,6 +112,7 @@ export function AthletesSection({
           referenceLabel={referenceLabel}
           referenceIsDefault={referenceIsDefault}
         />
+        <SessionByMatrix window={w} />
       </div>
     </section>
   );
