@@ -821,3 +821,57 @@ Anchor strip and page reduced to **Summary · Spatial · Detail**. Route no long
 ### Carried §6 — `athlete.summary.withheld.spread` resolved by removal
 
 Verified the branch never fires on shipped spine metrics. The only recorded zero-spread case is `sprintDist` in `MD+1::recovery`, and `sprintDist` is not a spine metric (spine carries totalDistance, mMin, hsr, accDec, cardioLoad, srpeAU). The key was dormant. Removed rather than wired to dead UI — an unused key in a governed deck is its own small defect. The band-suppression branch in `athlete-data.ts` stays as a guard against future data.
+
+## 2026-07-20 — Athlete Detail section · prompt 5 · plus corrections
+
+### Spatial unavailable card — invented remedy withdrawn
+
+`athlete.spatial.unavailable.fixTemplate` (`"Check the tracker mounting for {name} before the next session."`) is **deleted**, not reworded. The system does not know the cause of missing positional data — an unconfigured pitch, a GPS dropout, and no pod worn all look identical from the record. Naming the mounting asserted a diagnosis nothing supported.
+
+The card now states the absence and stops. A card whose entire purpose is to be honest about what is missing must not be the one place in the product that guesses. The correction is **none at all**, not a more careful theory.
+
+### Deck governance — the pronoun harmonisation stands (Ali, 2026-07-20)
+
+The `⟨his⟩` pronoun slot named in the Athlete build document is **withdrawn** — that line was an error in the document, and it is what licensed these strings. The module reads "their" throughout and continues to.
+
+The deciding reason is not consistency, it is the product edge: **the harmonisation exists precisely so the module does not assume a male squad.** A male demo squad is not a reason to unwind it — the demo is the one place where the assumption looks harmless and is therefore easiest to bake in. Any surface tempted to re-litigate this should read this note first.
+
+Reverted ten strings and three prose comments this pass:
+- `athlete.spatial.footer.scale` — "*Density scales to their own peak this session…*"
+- `athlete.summary.character.shape.upUp` — "*worked hard and it cost them*"
+- `athlete.summary.character.shape.upFlat` — "*did more work at their usual cost*"
+- `athlete.summary.character.shape.flatUp` — "*held their volume but paid a higher cost*"
+- `athlete.summary.character.shape.flatDown` — "*held their volume at a lower cost*"
+- `athlete.summary.character.shape.flatFlat` — "*sat close to their own typical*"
+- (upDown, downUp, downFlat, downDown had no pronoun; unchanged.)
+- Comment block in `AthleteSpatial.tsx` header and two inline comments.
+
+Grepped `src/lib/copy-deck.ts` and every file under `src/components/athlete/` plus `src/lib/athlete-data.ts` and `src/routes/athlete.tsx` for `\bhis\b`, `\bhim\b`, `\bHe \b` — clean.
+
+### `DEFAULT_SESSION` — stale slug, not a broken id
+
+`DEFAULT_SESSION = "s-2026-07-04-dortmund"` in `src/routes/athlete.tsx` resolves. The dataset workstream re-dated the Dortmund match to 18 July but preserved the id as an opaque key (`DORTMUND_SESSION_ID` in `demo-library.ts`, referenced from generators and both check files). The id is not being re-keyed to reflect the date. It is a stale-looking slug and harmless. Left as-is.
+
+### Detail section — data gate, element by element
+
+Each item's disposition, stated individually per the closed list:
+
+1. **Curated metric table (rows × THIS SESSION × VS THEIR TYPICAL)** — **built.** Six rows: Total distance, m/min, HSR, Acc–Dec, Cardio Load, sRPE. Absolute in the metric's own unit; vs-typical column prints a signed percentage delta. Cap of 12 is not approached; the six governed spine metrics are the curated set for this build. The derivation is `spineForAthleteSession` — the same object the marks above are drawn from, so the table cannot drift from the spine.
+
+2. **`not submitted` in words wherever sRPE is absent** — **built.** No dashes and no zeros on unsubmitted sRPE.
+
+3. **Coverage on internal rows (`· NN% cov`)** — **built beside the value.** No ring glyph. The ring costume is reserved for the Spatial trace's final whistle; this was the third place on this page where it could have collided with the spine's hollow-coverage costume, and the ban is now recorded in three places.
+
+4. **Vs a typical full match (Volume / Intensity %)** — **omitted.** SUM-5's render condition — promoted on training sessions, collapsed on matches — is a **second form**, not a conditional. The demo default is a match, so on this pinned session it collapses; there is nothing to render here and the alternate form is logged for the training-day demo, not built now.
+
+5. **Z1–Z5 zone distribution individualised to own max velocity** — **omitted.** `DemoRecord` carries `topSpeedKmh` and `sprintDist` but no per-athlete zone shares (Z1 Z2 Z3 Z4 Z5). Deriving a distribution from a session total would fabricate exactly the individualisation the row promises to have.
+
+6. **Wellness (sleep / soreness / mood)** — **omitted.** Not present in `DemoRecord`. It is an optional read by decision, so its absence is honest. Building a wellness row against fabricated numbers would be worse than not building it.
+
+7. **Columns picker** — **built, inert.** A small `Columns ⌄` control on the section header opens a note stating the curated set is up to 12 columns. It reads without transacting, which is what the shell demonstrates and stops before the datum.
+
+Anchor strip is **Summary · Spatial · Detail**. Every anchor now points at real content; no anchor points at a heading with nothing under it.
+
+### Ruling: sRPE unit in the Detail table
+
+Same as the spine — printed as **AU**, not `/10`. The `/10` unit on `METRICS.srpe` is the Squad rating column and does not travel to this page. The unit override lives in `SPINE_METRIC_META.srpeAU` (already ratified in prompt 2c).
