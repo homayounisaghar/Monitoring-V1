@@ -431,10 +431,18 @@ function spanLabel(w: LongiWindow, horizon: Horizon): string {
 
 export function characterLine(w: LongiWindow, horizon: Horizon): string {
   const comp = windowComposition(w);
-  const composition = tmpl("longi.character.compositionTemplate", {
-    n: cap(nWord(comp.matchSessions)),
-    span: spanLabel(w, horizon),
-  });
+  const span = spanLabel(w, horizon);
+  let composition: string;
+  if (comp.matchSessions === 0) {
+    composition = tmpl("longi.character.compositionNone", { span });
+  } else if (comp.matchSessions === 1) {
+    composition = tmpl("longi.character.compositionOne", { span });
+  } else {
+    composition = tmpl("longi.character.compositionTemplate", {
+      n: cap(nWord(comp.matchSessions)),
+      span,
+    });
+  }
   const facts = computeFacts(w);
   if (facts.length === 0) return `${composition}.`;
   return `${composition}; ${facts.join(", ")}.`;
