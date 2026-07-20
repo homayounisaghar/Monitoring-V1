@@ -106,7 +106,9 @@ export function AthleteSpatial({ athleteId, sessionId, peerAthleteId = null }: P
                   mode={mode}
                   minutes={peerMinutes}
                   athleteName={peerName}
+                  showAttacking={false}
                 />
+
               ) : (
                 <PeerUnavailable athleteName={peerName} />
               )}
