@@ -204,8 +204,10 @@ function LegendRow({ swatch, text }: { swatch: React.ReactNode; text: string }) 
 const EXT_BLUE = "#3B82F6";
 const INT_PURPLE = "#8B5CF6";
 
+// SwBasis — retired swatch for the retired legend.basis row. Retained
+// (unexported, referenced by a void statement below) so the swatch stays
+// available if the legend line ever comes back.
 function SwBasis() {
-  // A short horizontal reference line — the 100 tick.
   return (
     <span
       className="inline-block h-[1.5px] w-5"
@@ -213,6 +215,7 @@ function SwBasis() {
     />
   );
 }
+void SwBasis;
 function SwHue({ kind }: { kind: "ext" | "int" }) {
   return (
     <span
