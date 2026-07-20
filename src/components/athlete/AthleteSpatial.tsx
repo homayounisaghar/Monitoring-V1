@@ -247,7 +247,7 @@ function HeatLayer({ field }: { field: SpatialField }) {
       const v = bins[r][c];
       if (v === 0) continue;
       // Non-linear ramp: sqrt spreads the lower tail so a lobe reads,
-      // but the deep end is still reserved for his true peak.
+      // but the deep end is still reserved for the athlete's true peak.
       const t = Math.sqrt(v / peak);
       const opacity = 0.12 + t * 0.78; // 0.12 → 0.9
       rects.push(
