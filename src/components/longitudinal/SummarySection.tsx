@@ -13,7 +13,7 @@ import { copy, tmpl } from "@/lib/copy-deck";
 import { ValueOnTrack } from "@/components/data/ValueOnTrack";
 import {
   PARTICIPATION_TAGS,
-  TAG_TEXTURE,
+  TAG_STYLE,
   NOT_IN_SQUAD_CLASS,
   NOT_IN_SQUAD_STYLE,
 } from "@/lib/participation-style";
@@ -261,8 +261,9 @@ function AvailabilityPane({ window: w }: { window: LongiWindow }) {
           return (
             <div
               key={seg.key}
-              className={`relative ${TAG_TEXTURE[seg.key]}`}
+              className="relative"
               style={{
+                ...TAG_STYLE[seg.key],
                 width: `${width}%`,
                 borderRight: isLast ? undefined : "1px solid var(--color-border)",
               }}
@@ -305,7 +306,8 @@ function AvailabilityPane({ window: w }: { window: LongiWindow }) {
               style={{ color: "var(--color-text-secondary)" }}
             >
               <span
-                className={`h-2.5 w-2.5 rounded-sm ${TAG_TEXTURE[seg.key]}`}
+                className="h-2.5 w-2.5 rounded-sm"
+                style={TAG_STYLE[seg.key]}
                 aria-hidden
               />
               <span>{seg.key}</span>

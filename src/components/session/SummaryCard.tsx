@@ -12,7 +12,7 @@ import { copy, tmpl } from "@/lib/copy-deck";
 import { METRICS as METRIC_LIB } from "@/lib/squad-metrics";
 import { ScopeTag } from "@/components/session/ScopeTag";
 import { SegmentedToggle } from "@/components/data/SegmentedToggle";
-import { PARTICIPATION_TAGS, TAG_TEXTURE } from "@/lib/participation-style";
+import { PARTICIPATION_TAGS, TAG_STYLE } from "@/lib/participation-style";
 
 /* ---------- Static (curated) squad averages, keyed to Benchmark ---------- */
 
@@ -786,8 +786,9 @@ function ParticipationCard({
             <button
               key={seg.tag}
               onClick={() => setPopover((p) => (p === seg.tag ? null : seg.tag))}
-              className={`relative transition-opacity hover:opacity-90 ${TAG_TEXTURE[seg.tag]}`}
+              className="relative transition-opacity hover:opacity-90"
               style={{
+                ...TAG_STYLE[seg.tag],
                 width: `${pct}%`,
                 borderRight: isLast
                   ? undefined
@@ -821,7 +822,8 @@ function ParticipationCard({
                   style={{ color: "var(--color-text-secondary)" }}
                 >
                   <span
-                    className={`h-2.5 w-2.5 rounded-sm ${TAG_TEXTURE[seg.tag]}`}
+                    className="h-2.5 w-2.5 rounded-sm"
+                    style={TAG_STYLE[seg.tag]}
                     aria-hidden
                   />
                   <span>{seg.tag}</span>
@@ -842,7 +844,8 @@ function ParticipationCard({
                   style={{ color: "var(--color-text-secondary)" }}
                 >
                   <span
-                    className={`h-2.5 w-2.5 rounded-sm ${TAG_TEXTURE[seg.tag]}`}
+                    className="h-2.5 w-2.5 rounded-sm"
+                    style={TAG_STYLE[seg.tag]}
                     aria-hidden
                   />
                   <span>{seg.tag}</span>
