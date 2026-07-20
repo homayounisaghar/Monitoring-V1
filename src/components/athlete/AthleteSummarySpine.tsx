@@ -464,8 +464,8 @@ function SpineRowView({
                   ? peerRow.state.side === "high" ? 100 : 0
                   : peerRow.valuePct != null ? pctToLeft(peerRow.valuePct) : 0
               }%`,
-              backgroundColor: "var(--color-text-tertiary)",
-              opacity: 0.55,
+              backgroundColor: color,
+              opacity: 0.42,
             }}
             aria-label="peer, same axis"
           />
