@@ -250,10 +250,14 @@ export function spineForAthleteSession(
     const reference = pm ? referenceFor(pm) : null;
     const sd = pm ? pm.sd : null;
 
-    const bandLoPct = reference != null && sd != null && reference > 0
+    // Band withholds when the spread withholds — per metric. sd = 0 is
+    // not a narrow spread, it is an absent one; drawing a zero-width
+    // hairline would assert perfect certainty (the "sprintDist" defect
+    // logged in the findings file). Dot and value are unaffected.
+    const bandLoPct = reference != null && sd != null && sd > 0 && reference > 0
       ? ((reference - sd) / reference) * 100
       : null;
-    const bandHiPct = reference != null && sd != null && reference > 0
+    const bandHiPct = reference != null && sd != null && sd > 0 && reference > 0
       ? ((reference + sd) / reference) * 100
       : null;
 
