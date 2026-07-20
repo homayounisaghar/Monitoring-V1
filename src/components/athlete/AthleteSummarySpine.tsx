@@ -151,7 +151,15 @@ export function AthleteSummarySpine({ athleteId, sessionId, flagActive }: Props)
 
 /* ─────────────────── group ─────────────────── */
 
-function GroupBlock({ label, rows }: { label: string; rows: SpineRow[] }) {
+function GroupBlock({
+  label,
+  rows,
+  firstRowShowsAxis = false,
+}: {
+  label: string;
+  rows: SpineRow[];
+  firstRowShowsAxis?: boolean;
+}) {
   return (
     <div>
       <div
@@ -161,8 +169,12 @@ function GroupBlock({ label, rows }: { label: string; rows: SpineRow[] }) {
         {label}
       </div>
       <div className="flex flex-col">
-        {rows.map((r) => (
-          <SpineRowView key={r.metricId} row={r} />
+        {rows.map((r, idx) => (
+          <SpineRowView
+            key={r.metricId}
+            row={r}
+            showAxisLabels={firstRowShowsAxis && idx === 0}
+          />
         ))}
       </div>
     </div>
