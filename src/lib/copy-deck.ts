@@ -56,6 +56,20 @@ export const COPY = {
   "legend.flagGlyph": "flag glyph — flagged in Attention",
   "legend.gapPair": "pair — external + internal, gap in pts",
 
+  // ---------- Legend — Longitudinal (product-wide corrected wording;
+  // still needs propagating back to Session's legend at a later pass). ----------
+  "legend.basis": "typical, like-for-like — each day vs its own typical",
+  "legend.ext": "blue — external · work",
+  "legend.int": "purple — internal · cost",
+  "legend.hollow": "hollow — coverage below 80%",
+  "legend.cov": "· NN% cov — coverage, beside the value",
+  "legend.hatch": "hatch — unconfirmed",
+  "legend.break": "break — beyond chart range, value printed",
+  "legend.gap": "dash — no data recorded",
+  "legend.rest": "dot on the baseline — rest day",
+  "legend.matchMark": "MD — match day",
+  "legend.flag": "flag — flagged in the session's Attention",
+
   // ---------- Register-class hovers / labels (v2 + v3) ----------
   "flag.hover": "Flagged in Attention — view",
   "trust.hoverGeneric": "coverage under 80%",
