@@ -446,3 +446,50 @@ Zero counts never print (none occurred in 28d; in 7d, `Rehab 0` was correctly ab
 **Console clean on both routes.** No hydration warning, no error overlay.
 
 **Nothing else flagged.**
+
+## Workstream 05 · Participation renders in colour (time-boxed demo exception)
+
+**Palette as landed** — hex lives only in `src/lib/participation-style.ts`:
+
+| Tag          | Fill    | Family                          |
+|--------------|---------|---------------------------------|
+| Full         | #64748B | neutral slate                   |
+| Part         | #14B8A6 | present-but-reduced, light (teal) |
+| Modified     | #0F766E | present-but-reduced, dark  (teal) |
+| Rehab        | #B08968 | unavailable, light          (brown) |
+| Injury       | #8A5A44 | unavailable, dark           (brown) |
+| Other        | #6B7280 | neutral residual                |
+| not-in-squad | none    | 1px #CBD5E1 outline (Longi only) |
+
+**Overlay opacity** — settled at `rgba(255,255,255,0.14)` for all four striped
+tags (Part 45°/5px, Modified −45°/4px, Rehab 90°/5px, Injury 0°/3px on 7px
+pitch). No per-tag opacity variance was needed: at 0.14 the stripes read as a
+faint tooth on each fill without dragging the surface back toward the old
+texture-first look. Full and Other stay flat by rule.
+
+**Full/Other observation** — on the Longitudinal availability bar the two
+neutrals sit adjacent as narrow segments (278 vs 5). At demo distance they
+read as one continuous slate band split only by the 1px segment border; the
+hue difference is present but sub-threshold. Not fixed — the ruling is that
+Other stays flat and neither hue shifts. Left as an open question for the
+post-meeting review.
+
+**Data-hue collision check** — teals (#14B8A6 / #0F766E) sit well clear of
+`--color-axis-work` (work blue), `--color-axis-cost` (cost purple), and the
+brand green. Confirmed on the Session Summary page where the participation
+bar sits below the Z1–Z5 blue ramp: teal reads distinctly against the blues.
+No collision.
+
+**Greyscale result** — bar screenshot in grayscale attached. Of the five
+departure categories, Modified and Injury (the dark siblings) stay clearly
+separable; Part and Rehab collapse toward the same mid-tone and rely on
+stripe angle alone (45° vs 90°) to separate — legible up close, ambiguous at
+arm's length; Other, which is untextured, becomes indistinguishable from
+Full. **The greyscale gate fails as recorded**, per the ruling that hue
+carries and neither textures nor lightness-only steps come back to rescue
+it.
+
+**Status** — this is a **time-boxed demo exception**, expiring at the
+post-meeting review. It stands in for the open question of *six unordered
+categories at roughly 10px without hue*, which the greyscale run confirms is
+still unsolved. Not a ratified palette; do not extend, defend, or reuse.
