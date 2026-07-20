@@ -294,9 +294,7 @@ function AvailabilityRow({
         {tmpl("longi.athletes.fraction", { n: fullCount, m: availableSessions })}
       </div>
 
-      {/* Drill affordance — hover-only. Click intentionally unwired: the
-          destination athlete page is not built, and cross-page navigation
-          into an unbuilt page is worse than none. */}
+      {/* Drill affordance — hover-only text; the whole row is the click target. */}
       <DrillAffordance />
     </div>
   );
@@ -304,15 +302,13 @@ function AvailabilityRow({
 
 function DrillAffordance() {
   return (
-    <button
-      type="button"
-      tabIndex={-1}
+    <span
       aria-hidden
       className="text-right text-[11.5px] opacity-0 transition-opacity group-hover:opacity-100"
       style={{ color: "var(--color-text-tertiary)" }}
     >
       {copy("longi.athletes.drill")}
-    </button>
+    </span>
   );
 }
 
