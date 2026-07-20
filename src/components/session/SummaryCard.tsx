@@ -41,7 +41,10 @@ type BenchRefs = {
 //   • Typical match day-type (mean of 11 other match avgs) .... 525.6 → 526
 //   • Last match (11 Jul) ...................................... 515.8 → 516
 //   • Last 5 matches ........................................... 554.4 → 554
-//   • Same opponent (no library key) .......................... 526 × 0.985 ≈ 518
+//   • Same opponent — UNBACKED DEMO PLACEHOLDER: no library basis; the
+//     library holds no same-opponent key and the window contains no reverse
+//     fixture against this opponent. The whole `same_opponent` row is a
+//     hand-authored costume for the menu; do not treat as derived.
 //   • Typical daytype = match day-type here .................... 526
 const SQUAD_REF: Record<BenchKey, BenchRefs> = {
   typical_daytype: {
