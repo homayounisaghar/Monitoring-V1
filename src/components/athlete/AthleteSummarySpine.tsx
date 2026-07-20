@@ -30,6 +30,7 @@ import {
   type SpineRow,
   type SpineMetricId,
 } from "@/lib/athlete-data";
+import { demoAthletes } from "@/lib/demo-library";
 import { TIER1_ROWS_DEFAULT } from "@/lib/session-flags";
 import { Flag } from "lucide-react";
 
