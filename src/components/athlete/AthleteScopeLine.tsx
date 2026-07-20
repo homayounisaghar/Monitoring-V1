@@ -56,12 +56,11 @@ function refLabelFor(
 type Props = {
   athleteId: string;
   sessionId: string;
-  onSessionChange: (id: string) => void;
   peerId?: string | null;
   onPeerChange?: (id: string | null) => void;
 };
 
-export function AthleteScopeLine({ athleteId, sessionId, onSessionChange, peerId, onPeerChange }: Props) {
+export function AthleteScopeLine({ athleteId, sessionId, peerId, onPeerChange }: Props) {
   const [refKind, setRefKind] = useState<RefKind>(DEFAULT_REF);
   const [flagDismissed, setFlagDismissed] = useState(false);
 
