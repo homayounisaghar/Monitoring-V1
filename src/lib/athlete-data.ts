@@ -162,11 +162,17 @@ export const SPINE_METRIC_META: Record<SpineMetricId, SpineMetricMeta> = {
     unit: METRICS.cardioLoad.unit,
   },
   // sRPE prints as a LOAD in AU here, not a rating out of ten.
-  // The `/10` unit on METRICS.srpe belongs to Squad's rating column
-  // and does not travel to this page.
+  // The `/10` unit on METRICS.srpe belongs to Squad's rating column and
+  // does not travel to this page. We read the display *label* from the
+  // library (governed record) and override only the unit at this call site.
+  //
+  // Governance gap logged in ST2_Build_Findings: the metric library
+  // needs a first-class `srpeAU` entry with unit `AU`. Adding one is a
+  // Decision-Set-governed change, not a build call — hence the local
+  // override here.
   srpeAU: {
-    label: "sRPE load",
-    short: "sRPE",
+    label: METRICS.srpe.label,
+    short: METRICS.srpe.short,
     axis: "cost", group: "internal",
     unit: "AU",
   },
@@ -244,10 +250,14 @@ export function spineForAthleteSession(
     const reference = pm ? referenceFor(pm) : null;
     const sd = pm ? pm.sd : null;
 
-    const bandLoPct = reference != null && sd != null && reference > 0
+    // Band withholds when the spread withholds — per metric. sd = 0 is
+    // not a narrow spread, it is an absent one; drawing a zero-width
+    // hairline would assert perfect certainty (the "sprintDist" defect
+    // logged in the findings file). Dot and value are unaffected.
+    const bandLoPct = reference != null && sd != null && sd > 0 && reference > 0
       ? ((reference - sd) / reference) * 100
       : null;
-    const bandHiPct = reference != null && sd != null && reference > 0
+    const bandHiPct = reference != null && sd != null && sd > 0 && reference > 0
       ? ((reference + sd) / reference) * 100
       : null;
 
@@ -320,8 +330,11 @@ export function spineForAthleteSession(
     buildingBaseline,
     comparableCount,
     basisPhrase: t
-      ? `MD (${t.sessionType})`
-      : "this day type",
+      ? tmpl("athlete.summary.basisPhraseTemplate", {
+          dayCode: t.dayCode,
+          sessionType: t.sessionType,
+        })
+      : copy("athlete.summary.basisFallback"),
   };
 
   return { athleteId, sessionId, rows, header };
@@ -383,7 +396,7 @@ export function characterLineFor(spine: AthleteSpine): string {
   const a = demoAthletes.find((x) => x.id === spine.athleteId);
   const rows = spine.rows.filter((r) => r.deltaPct != null);
   if (rows.length === 0) {
-    return "Nothing on the spine is comparable — no baseline is drawn.";
+    return copy("athlete.summary.character.fallback");
   }
 
   // Aggregate external/internal shape.
@@ -399,26 +412,27 @@ export function characterLineFor(spine: AthleteSpine): string {
   const dir = (d: number): "up" | "down" | "flat" =>
     d > 6 ? "up" : d < -6 ? "down" : "flat";
 
-  const first = a ? `${a.name.split(" ").pop()}` : "This athlete";
+  const first = a ? `${a.name.split(" ").pop()}` : copy("athlete.summary.character.anon");
 
-  const shapePhrase = (() => {
+  const shapeKey = ((): string => {
     const e = dir(extMean), i = dir(intMean);
-    if (e === "up" && i === "up") return "worked hard and it cost him";
-    if (e === "up" && i === "flat") return "did more work at his usual cost";
-    if (e === "up" && i === "down") return "did more work for less cost";
-    if (e === "flat" && i === "up") return "held his volume but paid a higher cost";
-    if (e === "down" && i === "up") return "did less work at a higher cost";
-    if (e === "down" && i === "flat") return "did less work, cost unchanged";
-    if (e === "down" && i === "down") return "did less across the board";
-    if (e === "flat" && i === "down") return "held his volume at a lower cost";
-    return "sat close to his own typical";
+    if (e === "up"   && i === "up")   return "athlete.summary.character.shape.upUp";
+    if (e === "up"   && i === "flat") return "athlete.summary.character.shape.upFlat";
+    if (e === "up"   && i === "down") return "athlete.summary.character.shape.upDown";
+    if (e === "flat" && i === "up")   return "athlete.summary.character.shape.flatUp";
+    if (e === "down" && i === "up")   return "athlete.summary.character.shape.downUp";
+    if (e === "down" && i === "flat") return "athlete.summary.character.shape.downFlat";
+    if (e === "down" && i === "down") return "athlete.summary.character.shape.downDown";
+    if (e === "flat" && i === "down") return "athlete.summary.character.shape.flatDown";
+    return "athlete.summary.character.shape.flatFlat";
   })();
 
-  const tailPhrase = salient
-    ? `; ${salient.label.toLowerCase()} carried the read`
+  const shape = copy(shapeKey);
+  const tail = salient
+    ? tmpl("athlete.summary.character.tailTemplate", { metric: salient.label.toLowerCase() })
     : "";
 
-  return `${first} ${shapePhrase}${tailPhrase}.`;
+  return tmpl("athlete.summary.character.template", { first, shape, tail });
 }
 
 /* ─────────────────── periods derivation (fix 7.1) ─────────────────── */

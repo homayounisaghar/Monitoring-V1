@@ -12,17 +12,16 @@
 import { ChevronDown } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { AthleteAvatar } from "@/components/data/AthleteAvatar";
-import { demoAthletes } from "@/lib/demo-library";
-import { squad, currentSession } from "@/lib/session-data";
+import { demoAthletes, recordsForSession } from "@/lib/demo-library";
 import { copy, tmpl } from "@/lib/copy-deck";
-import { weekdayDayMonthYear } from "@/lib/format-date";
 
 type Props = {
   athleteId: string;
+  sessionId: string;
   onAthleteChange: (id: string) => void;
 };
 
-export function AthleteBanner({ athleteId, onAthleteChange }: Props) {
+export function AthleteBanner({ athleteId, sessionId, onAthleteChange }: Props) {
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -36,9 +35,11 @@ export function AthleteBanner({ athleteId, onAthleteChange }: Props) {
   }, [open]);
 
   const athlete = demoAthletes.find((a) => a.id === athleteId) ?? demoAthletes[0];
-  const s = currentSession;
-  const sessionRow = squad.find((a) => a.id === athlete.id);
-  const participation = sessionRow?.participation;
+  // Session record — read from the demo library for the *selected*
+  // session (per activity chip), not from the pinned Session-page row.
+  // The banner's participation and minutes must agree with the chip.
+  const sessionRow = recordsForSession(sessionId).find((r) => r.athleteId === athlete.id);
+  const participation = sessionRow?.participation ?? null;
   const minutes = sessionRow?.minutes ?? 0;
 
   return (
@@ -156,8 +157,6 @@ export function AthleteBanner({ athleteId, onAthleteChange }: Props) {
             <span className="type-num">
               {tmpl("athlete.banner.maxVelTemplate", { v: athlete.maxVelKmh.toFixed(1) })}
             </span>
-            <Sep />
-            <span>{weekdayDayMonthYear(s.dateISO)}</span>
           </span>
         </div>
       </div>

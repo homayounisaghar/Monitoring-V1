@@ -83,7 +83,7 @@ export function AthleteSummarySpine({ athleteId, sessionId, flagActive }: Props)
   const internal = rows.filter((r) => r.group === "internal");
 
   const basisRef = activeSession
-    ? `own typical for ${activeSession.dayCode}`
+    ? tmpl("athlete.summary.basisRefTemplate", { dayCode: activeSession.dayCode })
     : copy("athlete.summary.basisFallback");
   const basisLine = tmpl("athlete.summary.basisTemplate", { ref: basisRef });
 
@@ -130,7 +130,7 @@ export function AthleteSummarySpine({ athleteId, sessionId, flagActive }: Props)
 
       {/* Groups */}
       <div className="px-5 py-4">
-        <GroupBlock label={copy("athlete.summary.groupExternal")} rows={external} />
+        <GroupBlock label={copy("athlete.summary.groupExternal")} rows={external} firstRowShowsAxis />
         <div className="my-3 h-px" style={{ backgroundColor: "var(--color-border)" }} aria-hidden />
         <GroupBlock label={copy("athlete.summary.groupInternal")} rows={internal} />
       </div>
@@ -151,7 +151,15 @@ export function AthleteSummarySpine({ athleteId, sessionId, flagActive }: Props)
 
 /* ─────────────────── group ─────────────────── */
 
-function GroupBlock({ label, rows }: { label: string; rows: SpineRow[] }) {
+function GroupBlock({
+  label,
+  rows,
+  firstRowShowsAxis = false,
+}: {
+  label: string;
+  rows: SpineRow[];
+  firstRowShowsAxis?: boolean;
+}) {
   return (
     <div>
       <div
@@ -161,8 +169,12 @@ function GroupBlock({ label, rows }: { label: string; rows: SpineRow[] }) {
         {label}
       </div>
       <div className="flex flex-col">
-        {rows.map((r) => (
-          <SpineRowView key={r.metricId} row={r} />
+        {rows.map((r, idx) => (
+          <SpineRowView
+            key={r.metricId}
+            row={r}
+            showAxisLabels={firstRowShowsAxis && idx === 0}
+          />
         ))}
       </div>
     </div>
@@ -191,9 +203,14 @@ function formatValue(v: number, unit: string) {
   return v.toLocaleString();
 }
 
-function SpineRowView({ row }: { row: SpineRow }) {
+function SpineRowView({
+  row,
+  showAxisLabels = false,
+}: {
+  row: SpineRow;
+  showAxisLabels?: boolean;
+}) {
   const color = axisColor(row.axis);
-  const isInternal = row.group === "internal";
 
   // Track pieces
   const bandVisible =
@@ -260,12 +277,15 @@ function SpineRowView({ row }: { row: SpineRow }) {
             </span>
           )}
           {row.state.kind === "beyondRange" && (
+            /* Beyond-range prints the TRUE percent alongside the absolute,
+               in the same primary ink and weight as an ordinary value —
+               a mark at 161 % of typical reads `161%`, not `+61%`. */
             <span
-              className="type-num ml-1.5 text-[11.5px]"
-              style={{ color: "var(--color-text-secondary)" }}
+              className="type-num ml-1.5 text-[13px] font-semibold"
+              style={{ color: "var(--color-text-primary)" }}
               title="beyond drawn range"
             >
-              {`${row.state.truePct >= 0 ? "+" : ""}${Math.round(row.state.truePct - 100)}%`}
+              {`${Math.round(row.state.truePct)}%`}
             </span>
           )}
         </span>
@@ -274,7 +294,7 @@ function SpineRowView({ row }: { row: SpineRow }) {
             className="type-data-label italic text-[11px]"
             style={{ color: "var(--color-text-tertiary)" }}
           >
-            baseline building
+            {copy("athlete.summary.baselineBuilding")}
           </span>
         ) : row.deltaPct != null && row.state.kind !== "beyondRange" ? (
           <span
@@ -324,28 +344,45 @@ function SpineRowView({ row }: { row: SpineRow }) {
       </div>
 
       {/* The track */}
-      <div className="relative h-6">
+      <div className={showAxisLabels ? "relative h-9 pt-3" : "relative h-6"}>
         {/* base rail */}
         <div
           className="absolute left-0 right-0 top-1/2 h-[6px] -translate-y-1/2 rounded-full"
           style={{ backgroundColor: "var(--color-data-band)" }}
         />
-        {/* 40 / 160 tick labels — printed at track ends, both rows so the
-            gate reads on canvas alone.  */}
-        <span
-          className="type-num absolute -left-0.5 -top-1 text-[9.5px]"
-          style={{ color: "var(--color-text-tertiary)" }}
-          aria-hidden
-        >
-          {DOMAIN_LO}
-        </span>
-        <span
-          className="type-num absolute -right-0.5 -top-1 text-[9.5px]"
-          style={{ color: "var(--color-text-tertiary)" }}
-          aria-hidden
-        >
-          {DOMAIN_HI}
-        </span>
+        {/* 40 / 160 tick labels — printed ONCE per section, on the first row. */}
+        {showAxisLabels && (
+          <>
+            <span
+              className="type-num absolute -left-0.5 top-0 text-[9.5px]"
+              style={{ color: "var(--color-text-tertiary)" }}
+              aria-hidden
+            >
+              {DOMAIN_LO}
+            </span>
+            <span
+              className="type-num absolute -right-0.5 top-0 text-[9.5px]"
+              style={{ color: "var(--color-text-tertiary)" }}
+              aria-hidden
+            >
+              {DOMAIN_HI}
+            </span>
+            {/* `100 — typical` label — printed once for the section, on
+                the first row's track. Required by the scale cold-read
+                gate: a screen-reader aria-label is not a mark on the
+                canvas. */}
+            <span
+              className="type-num absolute top-0 -translate-x-1/2 whitespace-nowrap text-[9.5px]"
+              style={{
+                left: `${pctToLeft(100)}%`,
+                color: "var(--color-text-tertiary)",
+              }}
+              aria-hidden
+            >
+              {copy("athlete.summary.hundred")}
+            </span>
+          </>
+        )}
         {/* band ±1 SD */}
         {bandVisible && (
           <div
@@ -367,10 +404,11 @@ function SpineRowView({ row }: { row: SpineRow }) {
           }}
           aria-label="typical"
         />
-        {/* dot */}
+        {/* dot — no halo. The white ring is the two-mark pair's internal
+            marker in the product grammar; this page has no such pair. */}
         {dotVisible && (
           <div
-            className="absolute top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full ring-2 ring-white"
+            className="absolute top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full"
             style={{
               left: `${clampedLeft}%`,
               backgroundColor: hollow ? "transparent" : color,
@@ -393,8 +431,6 @@ function SpineRowView({ row }: { row: SpineRow }) {
             {row.state.side === "high" ? "▸" : "◂"}
           </span>
         )}
-        {/* internal is drawn same size, same track — nothing extra */}
-        {isInternal ? null : null}
       </div>
 
       {/* Value edge */}
@@ -402,14 +438,3 @@ function SpineRowView({ row }: { row: SpineRow }) {
     </div>
   );
 }
-
-/* ─────────────────── 100-line legend footer under the last group ───────────────────
-   The `100 — typical` label is required by the cold-read gate. Rather
-   than stamp it on every row (visual noise), print it once at the foot
-   of the section, aligned to the track's 100 position via the same grid.
-*/
-
-// Exposed as a companion for the routes to render below the section if
-// desired, but the label is already available in the basis line above.
-// Keep the block minimal — the basis line + `100` visible on the track
-// hits the three-point gate.
