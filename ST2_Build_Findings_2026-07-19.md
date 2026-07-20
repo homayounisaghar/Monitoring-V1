@@ -707,3 +707,18 @@ both passes and is not yet updated — noted for a later pass.
 - sRPE hue: new `--axis-cost-light` token (`#B486E4`) added beside `--axis-cost`. sRPE bars and lane dot render in the lighter sibling; Cardio Load unchanged. `legend.srpeLight` renders always after `legend.int`.
 - Reference band on Summary gauges moved 6 → 5, matching Session. **Open question for record-close: whether the ±5% band was ever derived on either page.** It asserts a normal range and the legend calls a band "their normal range" — provenance unknown. Also still open: Session's own legend carrying the older wording.
 - Verified via Playwright (`America/Los_Angeles`, 28-day default): both chip menus show correct options and ticks, non-default Benchmark (`last match`) propagates to Summary tick and Days 100-line in slate tint, non-default Reference (`season average`) propagates to window table basis, Filter shows all four categories, Days chart shows sRPE visibly lighter than Cardio Load, legend carries the new line, and the gauges still read 103 / 100. Console clean.
+
+## 2026-07-20 — Step 5c · session-by-session matrix
+
+- New pure read `athleteDayMatrix(w)` in `longitudinal-data.ts`. Returns one column per calendar day in the window plus per-athlete cells with slot-level state (`outside` · `rest` · `missing` · `unselected` · `tag`). Existing derivations untouched.
+- Component `SessionByMatrix` under the window totals, collapsed by default. Rows position-grouped with the same muted subheaders the totals table uses (GK / DEFENDERS / MIDFIELDERS / ATTACKERS).
+- Column axis: Monday date labels above the grid (`22 Jun · 29 Jun · 6 Jul · 13 Jul`), match-day `MD` in the row below, everything else neutral. No label per column, no legend of the matrix's own.
+- Cell states — the honesty pass:
+  - `outside` (before joinedISO) renders as a faint slate-100 wash, no border. Distinct from `unselected`, which is a hairline outlined box. The prior draft used `NOT_IN_SQUAD_STYLE` for both and they read identically — corrected.
+  - `rest` renders as truly empty ground (real zero).
+  - `missing` (14 Jul) renders as a dashed diagonal hatch across the whole column, visibly a void — never mistakable for rest.
+  - `tag` renders from `TAG_STYLE`, the shared palette; a double-session day carries two stacked half-height slots inside one column.
+- Reading grammar consumes the Days chart's readout-rail idea: hover paints a faint highlight across the cell's row and column, and the identity prints once in a reserved header slot as `{athlete} · {date} · {state}`. No tooltip, no popover, nothing occludes the grid. Reserved slot stays present when idle so the grid does not shift on first hover.
+- Copy additions kept to what the header needs: `longi.matrix.identityTemplate`, `longi.matrix.state.{rest,missing,outside,unselected}`. Tag names come from the participation vocabulary itself; no sentences in the object.
+- Verified end-to-end at 28-day default in `America/Los_Angeles`: collapsed, opened, hovered — screenshots captured. Constants unchanged: `79%`, `278 of 352 · 19 training sessions`, gauges `103` and `100`, `across 16 of 24 sessions`, the 8 July break at `9682`, and the character line. `/session` route unchanged. Console clean on both.
+- Left open still: the ±5% reference band's provenance on either page, and Session's own legend copy.
