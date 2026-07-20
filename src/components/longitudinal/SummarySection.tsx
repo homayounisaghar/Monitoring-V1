@@ -261,8 +261,9 @@ function AvailabilityPane({ window: w }: { window: LongiWindow }) {
           return (
             <div
               key={seg.key}
-              className={`relative ${TAG_TEXTURE[seg.key]}`}
+              className="relative"
               style={{
+                ...TAG_STYLE[seg.key],
                 width: `${width}%`,
                 borderRight: isLast ? undefined : "1px solid var(--color-border)",
               }}
