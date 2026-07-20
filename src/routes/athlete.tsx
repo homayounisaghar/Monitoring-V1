@@ -9,6 +9,7 @@ import { AthleteBanner } from "@/components/athlete/AthleteBanner";
 import { AthleteScopeLine } from "@/components/athlete/AthleteScopeLine";
 import { AthleteSummarySpine } from "@/components/athlete/AthleteSummarySpine";
 import { AthleteSpatial } from "@/components/athlete/AthleteSpatial";
+import { AthleteDetail } from "@/components/athlete/AthleteDetail";
 import { AthleteLegend } from "@/components/athlete/AthleteLegend";
 import { spineForAthleteSession, flaggedMetricFor } from "@/lib/athlete-data";
 import { TIER1_ROWS_DEFAULT } from "@/lib/session-flags";
