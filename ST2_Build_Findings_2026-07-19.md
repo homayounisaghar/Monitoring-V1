@@ -952,6 +952,7 @@ Written under prompt 8 §1. Prior pass (prompt 7 §6) did not produce this secti
 - Peer identity block above the group blocks currently prints a small slate dot next to the peer's name; is that dot expected to also follow the axis-hue rule, or is it correctly neutral because it does not sit on any single axis's track? This pass reads it as neutral by design; open for veto.
 - Same-opponent reference values on Session — all six numbers were authored, not just sRPE. Held pending a real reverse-fixture in the library. See §4.
 - Fifth periods costume (part-participation blocks) — costume brief exists in the design backlog but is not written into the deck. Held.
+- Shell hydration — `SourceSidebar` search input `caret-color` differs SSR vs client; cosmetic in effect, but the second shell hydration mismatch of the session (the first was the banner date) and therefore a class worth a deliberate pass rather than case-by-case fixes.
 
 ### 1.7 Charter gap — verbatim
 
@@ -988,6 +989,9 @@ Ran headless Chromium (viewport 1280×1800) against `http://localhost:8080` and 
 
 No `error`, no `warning`, no `pageerror`, no hydration-mismatch message on any of the three routes.
 
+**Correction (prompt 10 §2).** The clean result above is a **load-time** check only. A subsequent interaction flow on `/athlete` (opening the peer chip, picking a peer, toggling Heat/Trace, clearing) surfaced a hydration mismatch on `SourceSidebar`'s search input — `caret-color` differs between SSR and client. `SourceSidebar` is shell, so the warning is present on `/session` and `/longitudinal` as well, not just `/athlete`. Cosmetic in effect; not fixed in this pass. Logged as an open item in §1.6.
+
+
 ## Prompt 8 · §3 peer dot — axis-hued, muted
 
 `AthleteSummarySpine.tsx` peer-dot fill changed from `var(--color-text-tertiary)` at opacity 0.55 to the row's own axis `color` at opacity 0.42. External rows (Total distance, m/min, HSR, Acc-Dec) now draw the peer in muted external blue; internal rows (Cardio Load, sRPE) in muted cost purple. Subject and peer are distinguishable by ink weight, not by hue meaning.
@@ -1001,3 +1005,9 @@ The library carries no same-opponent key and the window contains no reverse fixt
 > `Same opponent — UNBACKED DEMO PLACEHOLDER: no library basis; the library holds no same-opponent key and the window contains no reverse fixture against this opponent. The whole same_opponent row is a hand-authored costume for the menu; do not treat as derived.`
 
 A stated placeholder is honest; an unstated fudge is the failure this whole pass was about. When a real reverse-fixture exists in the library, this row should be re-derived from it and this note deleted.
+
+## Prompt 10 · verification results and attacking-label fix
+
+- **Peer spine verified by render.** Axis-hued muted peer at 0.42 opacity — external blue on Total distance / m/min / HSR / Acc-Dec, cost purple on Cardio Load / sRPE. State-aware `legend.peer` appears only while a peer is selected. Peer clears on session change, athlete change, `timeframe=window`, and explicit `none`. Judgement recorded: separable on every row; subtle on rows where subject and peer converge near 100 %, never reading as a different metric family.
+- **Paired spatial verified by render.** Two fields, subject first, identical costume — same ramp, same opacity range, same pitch outline weight. One shared Heat/Trace toggle governs both. Per-field basis line ("Density scales to their own peak this session — never a shared scale.") and per-field thirds table. Geometry holds when the peer has no positional data (M. Meier): peer slot renders the unavailable card at full size and the section does not collapse.
+- **Defect found and fixed — `ATTACKING →` was labelled twice** in paired mode. `PitchSvg` now takes a `showAttacking` prop (default `true`); `PitchField` forwards it. In paired mode, only the subject field renders the label; the peer field suppresses it. Single-field state is unchanged — the label still renders there, where it is the only statement of orientation.
