@@ -312,6 +312,13 @@ export function SummaryCard() {
           </div>
         </div>
 
+        {/* Recovery — the third read, slate, alongside external work and
+            internal cost. HRV squad median as % of own baseline, the
+            morning after this session. Withheld with reason when that
+            morning has not yet happened. */}
+        <SessionRecoveryBand sessionId="s-2026-07-04-dortmund" />
+
+
         {/* Zones */}
         <div
           className="border-t p-5"
