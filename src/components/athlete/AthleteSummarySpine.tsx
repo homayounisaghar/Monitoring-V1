@@ -83,7 +83,7 @@ export function AthleteSummarySpine({ athleteId, sessionId, flagActive }: Props)
   const internal = rows.filter((r) => r.group === "internal");
 
   const basisRef = activeSession
-    ? `own typical for ${activeSession.dayCode}`
+    ? tmpl("athlete.summary.basisRefTemplate", { dayCode: activeSession.dayCode })
     : copy("athlete.summary.basisFallback");
   const basisLine = tmpl("athlete.summary.basisTemplate", { ref: basisRef });
 
