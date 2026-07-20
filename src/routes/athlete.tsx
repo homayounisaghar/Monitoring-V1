@@ -126,8 +126,9 @@ function AthleteRoute() {
                     flagActive={flagActive}
                   />
                 </section>
-                <SectionAnchor id="periods" label={copy("athlete.anchor.periods")} />
-                <SectionAnchor id="spatial" label={copy("athlete.anchor.spatial")} />
+                <section id="spatial" className="scroll-mt-28 pb-10">
+                  <AthleteSpatial athleteId={athleteId} sessionId={sessionId} />
+                </section>
                 <SectionAnchor id="detail" label={copy("athlete.anchor.detail")} />
               </main>
             </>
