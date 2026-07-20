@@ -74,6 +74,7 @@ function AthleteRoute() {
           <div className="mx-auto max-w-[1320px] px-6 pt-4">
             <AthleteBanner
               athleteId={athleteId}
+              sessionId={sessionId}
               onAthleteChange={(id) => setSearch({ athleteId: id })}
             />
           </div>
