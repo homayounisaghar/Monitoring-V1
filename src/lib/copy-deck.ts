@@ -474,7 +474,12 @@ export const COPY = {
   "athlete.summary.withheld.coverage": "coverage below floor",
   "athlete.summary.withheld.notSubmitted": "sRPE not submitted",
   "athlete.summary.withheld.notParticipating": "did not participate",
-  "athlete.summary.withheld.spread": "spread unavailable",
+  // `athlete.summary.withheld.spread` was added in 2c for the sd-zero
+  // band-suppression branch. On the shipped spine metrics that branch
+  // never fires (the only recorded zero-spread case is `sprintDist` in
+  // `MD+1::recovery`, and `sprintDist` is not on the spine). Removing
+  // the key rather than wiring dead UI — an unused key in a governed
+  // deck is its own small defect (findings 2026-07-20).
 
   // Athlete · Summary character line — assembled from fragments (per deck rule).
   "athlete.summary.character.template": "{first} {shape}{tail}.",
@@ -491,10 +496,21 @@ export const COPY = {
   "athlete.summary.character.shape.flatDown":   "held his volume at a lower cost",
   "athlete.summary.character.shape.flatFlat":   "sat close to his own typical",
 
-  // Athlete · periods slot (carried fix 7.1)
-  "athlete.periods.allTemplate": "all {n}",
-  "athlete.periods.blockTemplate": "block {n}",
-  "athlete.periods.addedTime": "added time",
+  // Athlete · Spatial section
+  "athlete.spatial.title": "Spatial",
+  "athlete.spatial.mode.heat": "Heat",
+  "athlete.spatial.mode.trace": "Trace",
+  "athlete.spatial.attacking": "attacking →",
+  "athlete.spatial.thirds.head": "Share by third",
+  "athlete.spatial.thirds.attacking": "Attacking",
+  "athlete.spatial.thirds.middle": "Middle",
+  "athlete.spatial.thirds.defensive": "Defensive",
+  "athlete.spatial.trace.kickoff": "kick-off",
+  "athlete.spatial.trace.finalWhistle": "final whistle",
+  "athlete.spatial.footer.sampledTemplate": "Sampled {minutes}′ · {cov}% coverage",
+  "athlete.spatial.footer.scale": "Density scales to his own peak this session — never a shared scale.",
+  "athlete.spatial.unavailable.reason": "No positional data was recorded for this session.",
+  "athlete.spatial.unavailable.fixTemplate": "Check the tracker mounting for {name} before the next session.",
 } as const satisfies Record<string, string>;
 
 
