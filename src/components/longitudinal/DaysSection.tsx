@@ -657,6 +657,21 @@ function DayBar({
   }
 
   // vs typical
+  // Guard: an absent numerator is not a zero. sRPE without collection has no
+  // ratio to draw — render withheld, matching other withheld days.
+  if (metric === "srpeAU" && !day.srpeCollected) {
+    return (
+      <div
+        className="relative h-full"
+        style={{ borderRight: "1px solid var(--color-slate-100)" }}
+      >
+        <div
+          className="absolute left-1/2 top-1/2 h-px w-2 -translate-x-1/2 -translate-y-1/2"
+          style={{ backgroundColor: "var(--color-text-tertiary)" }}
+        />
+      </div>
+    );
+  }
   const c = day.vsTypical[metric];
   if (!c) return <div className="h-full" />;
   if (c.state === "withheld") {
