@@ -53,16 +53,15 @@ export function AthleteDetail({ athleteId, sessionId, flaggedMetric = null }: Pr
       data-section="athlete-detail"
     >
       <div
-        className="flex items-center justify-between border-b px-5 py-2.5"
+        className="border-b px-5 py-2.5"
         style={{ borderColor: "var(--color-border)" }}
       >
-        <h2
+        <h3
           className="type-section-h"
           style={{ color: "var(--color-text-primary)" }}
         >
           {copy("athlete.detail.title")}
-        </h2>
-        <ColumnsButton />
+        </h3>
       </div>
 
       <div className="px-5 pb-4 pt-3">
