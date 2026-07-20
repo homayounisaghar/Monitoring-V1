@@ -509,21 +509,34 @@ function PositionGroup({
 
 function TotalsRow({ row, view }: { row: AthleteTotals; view: View }) {
   return (
-    <tr style={{ borderTop: "1px solid var(--color-border)" }}>
+    <tr className="group" style={{ borderTop: "1px solid var(--color-border)" }}>
       <td className="px-3 py-2 whitespace-nowrap">
-        <span
-          className="text-[13px]"
-          style={{ color: "var(--color-text-primary)" }}
-        >
-          {row.athlete.name}
-        </span>{" "}
-        <span
-          className="type-microcaps"
-          style={{ color: "var(--color-text-tertiary)" }}
-        >
-          {row.athlete.posDetail}
-        </span>
+        <div className="flex items-center justify-between gap-3">
+          <span>
+            <span
+              className="text-[13px]"
+              style={{ color: "var(--color-text-primary)" }}
+            >
+              {row.athlete.name}
+            </span>{" "}
+            <span
+              className="type-microcaps"
+              style={{ color: "var(--color-text-tertiary)" }}
+            >
+              {row.athlete.posDetail}
+            </span>
+          </span>
+          {/* Drill affordance — hover-only, click intentionally unwired. */}
+          <span
+            aria-hidden
+            className="text-[11.5px] opacity-0 transition-opacity group-hover:opacity-100"
+            style={{ color: "var(--color-text-tertiary)" }}
+          >
+            {copy("longi.athletes.drill")}
+          </span>
+        </div>
       </td>
+
 
       {view === "absolute" && (
         <>
