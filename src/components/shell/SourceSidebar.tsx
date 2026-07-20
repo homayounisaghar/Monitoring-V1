@@ -280,7 +280,7 @@ export function SourceSidebar(props: SourceSidebarProps = {}) {
                         className="type-num text-[10.5px]"
                         style={{ color: "var(--color-text-tertiary)" }}
                       >
-                        {formatShort(s.dateISO)} · {s.durationMin}'
+                        {dayMonth2(s.dateISO)} · {s.durationMin}'
                         {s.unconfirmed && (
                           <span className="ml-1">{copy("sidebar.rowUnconfirmedSuffix")}</span>
                         )}
