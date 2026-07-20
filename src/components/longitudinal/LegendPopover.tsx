@@ -4,12 +4,8 @@
  * Light interactive popover (dark is reserved for transient data tooltips).
  * Term + gloss, six words or fewer per line; no sentences. State-aware:
  * a mark's line renders only when that mark is on screen in the current
- * window. The two hue lines and the participation key always render;
- * legend.basis defines the VS TYPICAL basis and always renders.
+ * window. The two hue lines and the participation key always render.
  *
- * Note (authorship): legend.basis is authored here because §2 removes the
- * benchmark menu that formerly defined it, and without it the page would
- * echo "100 — typical, like-for-like" in three places and define it in none.
  * Note (omission): no "light purple — sRPE, where collected" line — both
  * internal lanes render in the same cost purple, so the line would describe
  * a distinction the chart doesn't draw.
@@ -127,10 +123,8 @@ export function LegendPopover({ window: w }: { window: LongiWindow }) {
           </div>
 
           <ul className="flex flex-col gap-1.5 px-3 py-2.5 text-[12px]">
-            {/* legend.basis retired here — with the Benchmark chip's menu
-                restored, its foot gloss is the single definition home for
-                the "typical, like-for-like" basis. The key is kept in the
-                deck, unused, in case that menu is ever removed again. */}
+            {/* The Benchmark chip's foot gloss is the single home for the
+                basis definition. */}
             <LegendRow swatch={<SwHue kind="ext" />} text={copy("legend.ext")} />
             <LegendRow swatch={<SwHue kind="int" />} text={copy("legend.int")} />
             <LegendRow swatch={<SwSrpeLight />} text={copy("legend.srpeLight")} />
