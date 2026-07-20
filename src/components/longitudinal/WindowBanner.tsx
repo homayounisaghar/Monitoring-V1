@@ -207,23 +207,6 @@ function IconBtn({
   );
 }
 
-function formatRange(startISO: string, endISO: string) {
-  const s = new Date(startISO + "T00:00:00Z");
-  const e = new Date(endISO + "T00:00:00Z");
-  const sameYear = s.getUTCFullYear() === e.getUTCFullYear();
-  const opts: Intl.DateTimeFormatOptions = {
-    weekday: "short",
-    day: "numeric",
-    month: "short",
-    timeZone: "UTC",
-  };
-  const startStr = s.toLocaleDateString("en-GB", opts);
-  const endStr = e.toLocaleDateString("en-GB", {
-    ...opts,
-    year: "numeric",
-  });
-  return sameYear ? `${startStr} – ${endStr}` : `${startStr} – ${endStr}`;
-}
 
 export { HORIZONS, DEFAULT_HORIZON };
 export function defaultWindow(): LongiWindow {
