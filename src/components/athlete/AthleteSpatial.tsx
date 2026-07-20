@@ -1,7 +1,7 @@
 /**
  * ST2 — Athlete page · Spatial section (Workstream 02 · prompt 4).
  *
- * Where he worked, this session. One pitch, his own density, from
+ * Where they worked, this session. One pitch, their own density, from
  * `demo-spatial.ts`.
  *
  * Structure: an outer section (title + Heat/Trace toggle) wrapping ONE
@@ -15,16 +15,19 @@
  *   - Density ramp is a single blue: `--color-axis-work`, light to deep.
  *     No RAG. Density is magnitude; magnitude is never severity.
  *   - Field scales to THIS athlete's peak this session. Footer says so
- *     explicitly — the ramp's deep end is his maximum, never a shared
+ *     explicitly — the ramp's deep end is their maximum, never a shared
  *     scale. This wording is inherited by Workstream 03's pair build.
  *   - Thirds print as three labelled percentages, numbers only. NO
  *     bars — the numeric anchor is ratified; unratified bars in the
  *     source render drew each value at ~2× its true share against an
  *     unlabelled rail and contradicted the number printed next to it.
- *   - Unavailable state is designed at full size — faint pitch outline,
- *     one reason, one fix. Never blank, never collapsed, never a fake
- *     field. M. Meier is the whole-window instance.
+ *   - Unavailable state is designed at full size — faint pitch outline
+ *     and one honest reason. No fabricated remedy: the system does not
+ *     know the cause of missing positional data. The card states the
+ *     absence and stops (2026-07-20 correction; the fix template that
+ *     invented a mounting diagnosis is withdrawn).
  */
+
 
 import { useState, type ReactElement } from "react";
 import { copy, tmpl } from "@/lib/copy-deck";
