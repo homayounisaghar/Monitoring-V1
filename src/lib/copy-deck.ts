@@ -533,7 +533,7 @@ export const COPY = {
   "athlete.detail.covSuffixTemplate": "· {n}% cov",
   "athlete.detail.columnsButton": "Columns",
   "athlete.detail.columnsHint": "Curated set · up to 12 columns",
-  "athlete.detail.footnote": "Vs their typical reads against their own record for this day type. Wellness and zone distribution are optional reads and not present in this build.",
+  "athlete.detail.footnote": "Vs typical · their own record for this day type",
 } as const satisfies Record<string, string>;
 
 

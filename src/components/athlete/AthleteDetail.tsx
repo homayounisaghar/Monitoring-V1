@@ -30,7 +30,6 @@
  * anchor strip is trimmed if it does not (see `athlete.tsx`).
  */
 
-import { useState } from "react";
 import { copy, tmpl } from "@/lib/copy-deck";
 import { spineForAthleteSession, type SpineRow } from "@/lib/athlete-data";
 
@@ -54,16 +53,15 @@ export function AthleteDetail({ athleteId, sessionId, flaggedMetric = null }: Pr
       data-section="athlete-detail"
     >
       <div
-        className="flex items-center justify-between border-b px-5 py-2.5"
+        className="border-b px-5 py-2.5"
         style={{ borderColor: "var(--color-border)" }}
       >
-        <h2
+        <h3
           className="type-section-h"
           style={{ color: "var(--color-text-primary)" }}
         >
           {copy("athlete.detail.title")}
-        </h2>
-        <ColumnsButton />
+        </h3>
       </div>
 
       <div className="px-5 pb-4 pt-3">
@@ -212,40 +210,6 @@ function Dash() {
   );
 }
 
-/* ─────────────────── columns picker (inert) ─────────────────── */
-
-function ColumnsButton() {
-  const [open, setOpen] = useState(false);
-  return (
-    <div className="relative">
-      <button
-        onClick={() => setOpen((v) => !v)}
-        className="type-microcaps rounded border px-2 py-1 text-[10.5px] transition-colors"
-        style={{
-          borderColor: "var(--color-border)",
-          color: "var(--color-text-secondary)",
-          backgroundColor: open ? "var(--color-slate-100)" : "transparent",
-        }}
-        aria-expanded={open}
-      >
-        {copy("athlete.detail.columnsButton")} ⌄
-      </button>
-      {open && (
-        <div
-          className="absolute right-0 top-full z-20 mt-1 w-[220px] rounded-md border p-2 text-[12px] shadow-sm"
-          style={{
-            borderColor: "var(--color-border)",
-            backgroundColor: "var(--color-surface-card)",
-            color: "var(--color-text-secondary)",
-          }}
-          onMouseLeave={() => setOpen(false)}
-        >
-          {copy("athlete.detail.columnsHint")}
-        </div>
-      )}
-    </div>
-  );
-}
 
 /* ─────────────────── value formatting ─────────────────── */
 

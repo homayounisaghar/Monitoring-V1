@@ -38,31 +38,31 @@ const SQUAD_REF: Record<BenchKey, BenchRefs> = {
   typical_daytype: {
     refTotalDistanceM: 6800, refRelDistanceMpm: 95,
     refHsrM: 380, refAccDec: 88,
-    refCardioLoadCL: 150, refSrpeMean: 5.4,
+    refCardioLoadCL: 150, refSrpeMean: 380,
     z4z5TypicalDistance: 14, z4z5TypicalDuration: 9,
   },
   typical_match: {
     refTotalDistanceM: 9010, refRelDistanceMpm: 102,
     refHsrM: 665, refAccDec: 108,
-    refCardioLoadCL: 205, refSrpeMean: 6.9,
+    refCardioLoadCL: 205, refSrpeMean: 585,
     z4z5TypicalDistance: 26, z4z5TypicalDuration: 16,
   },
   last_match: {
     refTotalDistanceM: 9640, refRelDistanceMpm: 104,
     refHsrM: 720, refAccDec: 111,
-    refCardioLoadCL: 210, refSrpeMean: 7.1,
+    refCardioLoadCL: 210, refSrpeMean: 605,
     z4z5TypicalDistance: 28, z4z5TypicalDuration: 17,
   },
   last_5: {
     refTotalDistanceM: 9350, refRelDistanceMpm: 103,
     refHsrM: 690, refAccDec: 109,
-    refCardioLoadCL: 207, refSrpeMean: 7.0,
+    refCardioLoadCL: 207, refSrpeMean: 595,
     z4z5TypicalDistance: 27, z4z5TypicalDuration: 16,
   },
   same_opponent: {
     refTotalDistanceM: 9200, refRelDistanceMpm: 103,
     refHsrM: 640, refAccDec: 106,
-    refCardioLoadCL: 202, refSrpeMean: 6.8,
+    refCardioLoadCL: 202, refSrpeMean: 580,
     z4z5TypicalDistance: 25, z4z5TypicalDuration: 15,
   },
 };
@@ -73,7 +73,7 @@ const SESSION_MARKS = {
   hsrM: 812,
   accDec: 118,
   cardioLoadCL: 218,
-  srpeMean: 7.4,
+  srpeMean: 630,
 } as const;
 
 const SESSION_ZONES = {
@@ -279,10 +279,10 @@ export function SummaryCard() {
                   value={
                     srpeState === "filled"
                       ? marks.srpeMean
-                      : Number((marks.srpeMean * 0.97).toFixed(1))
+                      : Math.round(marks.srpeMean * 0.97)
                   }
                   reference={refs.refSrpeMean}
-                  unit="/10"
+                  unit="AU"
                   badge={
                     srpeState === "partial" ? (
                       <SrpeBadge
