@@ -54,10 +54,22 @@ function AthleteRoute() {
     Boolean(tier1) && sessionId === DEFAULT_SESSION && !flagDismissed;
   const flaggedMetric = flagActive && tier1 ? flaggedMetricFor(tier1.reason) : null;
 
+  // Peer compare — session-scope only. Cleared on session change and on
+  // any move away from the session timeframe.
+  const [peerId, setPeerId] = useState<string | null>(null);
+  useEffect(() => {
+    setPeerId(null);
+  }, [sessionId, athleteId, timeframe]);
+  const effectivePeer = timeframe === "session" ? peerId : null;
+
   // Spine is derived once for both the legend (state-aware) and the section.
   const spine = useMemo(
     () => spineForAthleteSession(athleteId, sessionId, { flaggedMetric }),
     [athleteId, sessionId, flaggedMetric],
+  );
+  const peerSpine = useMemo(
+    () => (effectivePeer ? spineForAthleteSession(effectivePeer, sessionId, { flaggedMetric: null }) : null),
+    [effectivePeer, sessionId],
   );
 
   const setSearch = (patch: Partial<{ athleteId: string; sessionId: string; timeframe: string }>) => {
@@ -104,10 +116,12 @@ function AthleteRoute() {
                     athleteId={athleteId}
                     sessionId={sessionId}
                     onSessionChange={(id) => setSearch({ sessionId: id })}
+                    peerId={effectivePeer}
+                    onPeerChange={setPeerId}
                   />
                   {/* Fix 7.2 — `How to read this` sits at the right of the scope line. */}
                   <div className="ml-auto shrink-0">
-                    <AthleteLegend spine={spine} />
+                    <AthleteLegend spine={spine} peerActive={Boolean(effectivePeer)} />
                   </div>
                 </>
               )}
@@ -125,10 +139,15 @@ function AthleteRoute() {
                     athleteId={athleteId}
                     sessionId={sessionId}
                     flagActive={flagActive}
+                    peerSpine={peerSpine}
                   />
                 </section>
                 <section id="spatial" className="scroll-mt-28 pb-10">
-                  <AthleteSpatial athleteId={athleteId} sessionId={sessionId} />
+                  <AthleteSpatial
+                    athleteId={athleteId}
+                    sessionId={sessionId}
+                    peerAthleteId={effectivePeer}
+                  />
                 </section>
                 <section id="detail" className="scroll-mt-28 pb-10">
                   <AthleteDetail
