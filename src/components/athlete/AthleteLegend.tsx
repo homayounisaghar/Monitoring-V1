@@ -101,6 +101,7 @@ export function AthleteLegend({ spine, peerActive = false }: { spine: AthleteSpi
             {p.brk && <LegendRow swatch={<SwBreak />} text={copy("legend.break")} />}
             {p.gap && <LegendRow swatch={<SwGap />} text={copy("legend.gap")} />}
             {p.flag && <LegendRow swatch={<SwFlag />} text={copy("legend.flag")} />}
+            {peerActive && <LegendRow swatch={<SwPeer />} text={copy("legend.peer")} />}
           </ul>
         </div>
       )}
