@@ -3,6 +3,7 @@ import { ChevronLeft, ChevronRight, Calendar, Tag, Search, X } from "lucide-reac
 import { copy, tmpl } from "@/lib/copy-deck";
 import { currentSession } from "@/lib/session-data";
 import { demoSessions, DEMO_TODAY, type DemoSession } from "@/lib/demo-library";
+import { dayMonth2 } from "@/lib/format-date";
 import {
   SIDEBAR_COLLAPSED,
   SIDEBAR_EXPANDED,
@@ -279,7 +280,7 @@ export function SourceSidebar(props: SourceSidebarProps = {}) {
                         className="type-num text-[10.5px]"
                         style={{ color: "var(--color-text-tertiary)" }}
                       >
-                        {formatShort(s.dateISO)} · {s.durationMin}'
+                        {dayMonth2(s.dateISO)} · {s.durationMin}'
                         {s.unconfirmed && (
                           <span className="ml-1">{copy("sidebar.rowUnconfirmedSuffix")}</span>
                         )}
@@ -346,10 +347,6 @@ function CollapsedRail() {
   );
 }
 
-function formatShort(iso: string) {
-  const d = new Date(iso);
-  return d.toLocaleDateString("en-GB", { day: "2-digit", month: "short" });
-}
 
 function stripDayCodePrefix(label: string, dayCode: string) {
   // Escape regex specials in the day code (e.g. "MD+1", "MD-2").

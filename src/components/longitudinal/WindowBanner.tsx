@@ -11,6 +11,7 @@ import {
   type Horizon,
   type LongiWindow,
 } from "@/lib/longitudinal-data";
+import { dayMonth, rangeLabel } from "@/lib/format-date";
 
 const HORIZONS: Horizon[] = [7, 14, 28, "season"];
 const DEFAULT_HORIZON: Horizon = 28;
@@ -45,7 +46,7 @@ export function WindowBanner({
     matches: comp.matchSessions,
   });
 
-  const rangeLabel = formatRange(w.startISO, w.endISO);
+  const range = rangeLabel(w.startISO, w.endISO);
   const buttonLabel =
     horizon === "season"
       ? copy("longi.window.seasonButton")
@@ -104,7 +105,7 @@ export function WindowBanner({
             style={{ color: "var(--color-slate-300)" }}
           >
             <Sep />
-            {rangeLabel}
+            {range}
             <Sep />
             <span className="type-num">{composition}</span>
           </span>
@@ -152,7 +153,7 @@ function WindowMenuItem({
       1,
       Math.round((today.getTime() - start.getTime()) / (7 * 86_400_000)),
     );
-    const dateStr = start.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+    const dateStr = dayMonth(SEASON_START_ISO);
     gloss = tmpl("longi.window.seasonGlossTemplate", { date: dateStr, n: wk });
   }
 
@@ -206,23 +207,6 @@ function IconBtn({
   );
 }
 
-function formatRange(startISO: string, endISO: string) {
-  const s = new Date(startISO + "T00:00:00Z");
-  const e = new Date(endISO + "T00:00:00Z");
-  const sameYear = s.getUTCFullYear() === e.getUTCFullYear();
-  const opts: Intl.DateTimeFormatOptions = {
-    weekday: "short",
-    day: "numeric",
-    month: "short",
-    timeZone: "UTC",
-  };
-  const startStr = s.toLocaleDateString("en-GB", opts);
-  const endStr = e.toLocaleDateString("en-GB", {
-    ...opts,
-    year: "numeric",
-  });
-  return sameYear ? `${startStr} – ${endStr}` : `${startStr} – ${endStr}`;
-}
 
 export { HORIZONS, DEFAULT_HORIZON };
 export function defaultWindow(): LongiWindow {
