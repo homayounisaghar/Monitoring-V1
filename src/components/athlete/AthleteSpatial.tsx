@@ -216,11 +216,13 @@ export function PitchField({
   mode,
   minutes,
   athleteName,
+  showAttacking = true,
 }: {
   field: SpatialField | null;
   mode: Mode;
   minutes: number;
   athleteName: string;
+  showAttacking?: boolean;
 }) {
   if (!field) {
     return <UnavailablePitch athleteName={athleteName} />;
@@ -228,7 +230,8 @@ export function PitchField({
   return (
     <div className="grid grid-cols-[1fr_180px] gap-6">
       <div>
-        <PitchSvg field={field} mode={mode} />
+        <PitchSvg field={field} mode={mode} showAttacking={showAttacking} />
+
         <PitchFooter minutes={minutes} coveragePct={field.coveragePct} />
       </div>
       <ThirdsColumn thirds={field.thirds} />
