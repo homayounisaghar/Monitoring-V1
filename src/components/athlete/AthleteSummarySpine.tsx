@@ -451,6 +451,25 @@ function SpineRowView({
           }}
           aria-label="typical"
         />
+        {/* Peer dot — muted, on the same track, drawn beneath the
+            subject's mark so the subject stays legible on overlap.
+            Same axis basis: peer's own valuePct against their own
+            typical for this day type. Withheld/building states skip. */}
+        {peerRow && (peerRow.state.kind === "ok" || peerRow.state.kind === "hollow" || peerRow.state.kind === "beyondRange") && (
+          <div
+            className="absolute top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full"
+            style={{
+              left: `${
+                peerRow.state.kind === "beyondRange"
+                  ? peerRow.state.side === "high" ? 100 : 0
+                  : peerRow.valuePct != null ? pctToLeft(peerRow.valuePct) : 0
+              }%`,
+              backgroundColor: "var(--color-text-tertiary)",
+              opacity: 0.55,
+            }}
+            aria-label="peer, same axis"
+          />
+        )}
         {/* dot — no halo. The white ring is the two-mark pair's internal
             marker in the product grammar; this page has no such pair. */}
         {dotVisible && (
