@@ -157,8 +157,6 @@ export function AthleteBanner({ athleteId, sessionId, onAthleteChange }: Props) 
             <span className="type-num">
               {tmpl("athlete.banner.maxVelTemplate", { v: athlete.maxVelKmh.toFixed(1) })}
             </span>
-            <Sep />
-            <span>{weekdayDayMonthYear(s.dateISO)}</span>
           </span>
         </div>
       </div>
