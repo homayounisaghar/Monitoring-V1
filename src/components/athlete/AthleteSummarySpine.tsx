@@ -141,11 +141,40 @@ export function AthleteSummarySpine({ athleteId, sessionId, flagActive, peerSpin
         </span>
       </div>
 
+      {/* Peer identity block — session-scope compare. Prints once, above
+          the groups, when a peer is selected. */}
+      {peer && subject && (
+        <div
+          className="flex items-center gap-4 border-b px-5 py-2 text-[11.5px]"
+          style={{
+            borderColor: "var(--color-border)",
+            backgroundColor: "var(--color-slate-50)",
+          }}
+        >
+          <span className="flex items-center gap-1.5">
+            <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ backgroundColor: "var(--color-text-primary)" }} aria-hidden />
+            <span style={{ color: "var(--color-text-primary)" }}>
+              {tmpl("athlete.peer.subjectHeadTemplate", { name: subject.name })}
+            </span>
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span
+              className="inline-block h-2.5 w-2.5 rounded-full"
+              style={{ backgroundColor: "var(--color-text-tertiary)", opacity: 0.55 }}
+              aria-hidden
+            />
+            <span style={{ color: "var(--color-text-secondary)" }}>
+              {tmpl("athlete.peer.peerHeadTemplate", { name: peer.name })}
+            </span>
+          </span>
+        </div>
+      )}
+
       {/* Groups */}
       <div className="px-5 py-4">
-        <GroupBlock label={copy("athlete.summary.groupExternal")} rows={external} firstRowShowsAxis />
+        <GroupBlock label={copy("athlete.summary.groupExternal")} rows={external} firstRowShowsAxis peerByMetric={peerByMetric} />
         <div className="my-3 h-px" style={{ backgroundColor: "var(--color-border)" }} aria-hidden />
-        <GroupBlock label={copy("athlete.summary.groupInternal")} rows={internal} />
+        <GroupBlock label={copy("athlete.summary.groupInternal")} rows={internal} peerByMetric={peerByMetric} />
       </div>
 
       {/* Character line — the only sentence on this page. */}
@@ -168,10 +197,12 @@ function GroupBlock({
   label,
   rows,
   firstRowShowsAxis = false,
+  peerByMetric,
 }: {
   label: string;
   rows: SpineRow[];
   firstRowShowsAxis?: boolean;
+  peerByMetric?: Map<SpineMetricId, SpineRow>;
 }) {
   return (
     <div>
@@ -187,6 +218,7 @@ function GroupBlock({
             key={r.metricId}
             row={r}
             showAxisLabels={firstRowShowsAxis && idx === 0}
+            peerRow={peerByMetric?.get(r.metricId) ?? null}
           />
         ))}
       </div>
