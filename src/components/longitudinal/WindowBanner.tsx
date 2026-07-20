@@ -61,7 +61,7 @@ export function WindowBanner({
       }}
     >
       <div className="flex h-[52px] items-center justify-between gap-6 px-5">
-        <div className="flex min-w-0 items-baseline gap-x-2.5 truncate">
+        <div className="flex min-w-0 items-baseline gap-x-2.5">
           {/* Range button — the click target that opens the window menu */}
           <div className="relative" ref={menuRef}>
             <button

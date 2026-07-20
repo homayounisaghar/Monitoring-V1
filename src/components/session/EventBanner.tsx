@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from "react";
 import { currentSession } from "@/lib/session-data";
 import { useSessionScope } from "@/lib/session-scope";
 import { copy } from "@/lib/copy-deck";
+import { weekdayDayMonthYear } from "@/lib/format-date";
 import { buildShareUrl, isShareStateDefault, type ShareDefaults } from "@/lib/share-state";
 
 const STATIC_DEFAULTS = {
@@ -111,7 +112,7 @@ export function EventBanner() {
             className="whitespace-nowrap text-[12.5px]"
             style={{ color: "var(--color-slate-300)" }}
           >
-            {formatDate(s.dateISO)}
+            {weekdayDayMonthYear(s.dateISO)}
             <Sep />
             <span className="type-num">{s.durationMin}{copy("canonical.eventBanner.totalSuffix")}</span>
             {s.venue && (
@@ -235,12 +236,3 @@ function IconBtn({
   );
 }
 
-function formatDate(iso: string) {
-  const d = new Date(iso);
-  return d.toLocaleDateString("en-GB", {
-    weekday: "short",
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
-}
