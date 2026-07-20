@@ -251,9 +251,11 @@ function formatValue(v: number, unit: string) {
 function SpineRowView({
   row,
   showAxisLabels = false,
+  peerRow = null,
 }: {
   row: SpineRow;
   showAxisLabels?: boolean;
+  peerRow?: SpineRow | null;
 }) {
   const color = axisColor(row.axis);
 
