@@ -153,7 +153,7 @@ function WindowMenuItem({
       1,
       Math.round((today.getTime() - start.getTime()) / (7 * 86_400_000)),
     );
-    const dateStr = start.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+    const dateStr = dayMonth(SEASON_START_ISO);
     gloss = tmpl("longi.window.seasonGlossTemplate", { date: dateStr, n: wk });
   }
 
