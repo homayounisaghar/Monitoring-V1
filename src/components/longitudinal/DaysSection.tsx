@@ -954,3 +954,98 @@ function DaysTable({
     </div>
   );
 }
+
+/* ─────────────────── recovery lane (HRV, slate) ─────────────────── */
+
+function RecoveryLaneLabel({
+  activeDay,
+  heightPx,
+}: {
+  activeDay: DayEntry | null;
+  heightPx: number;
+}) {
+  // Value slot: the day's HRV squad median % when hovered; window mean
+  // otherwise. Read only for the active day's date — the lane is
+  // date-driven, so we don't need a session to draw.
+  const dateISO = activeDay?.dateISO;
+  const read = dateISO ? hrvSquadOnDay(dateISO) : null;
+  const slotText = (() => {
+    if (!read) return "";
+    if (read.state === "withheld") return "—";
+    return `${Math.round(read.medianPct)}%`;
+  })();
+
+  return (
+    <div
+      className="flex items-center justify-between pr-3"
+      style={{ height: heightPx }}
+    >
+      <div className="flex items-center gap-2 min-w-0">
+        <span
+          className="h-2 w-2 rounded-full shrink-0"
+          style={{ backgroundColor: RECOVERY_INK_VAR }}
+          aria-hidden
+        />
+        <div className="min-w-0">
+          <div
+            className="type-data-label truncate"
+            style={{ color: "var(--color-text-primary)" }}
+          >
+            {copy("longi.days.recoveryLane")}
+          </div>
+          <div
+            className="type-num text-[10px]"
+            style={{ color: "var(--color-text-tertiary)" }}
+          >
+            {copy("longi.days.recoveryUnit")}
+          </div>
+        </div>
+      </div>
+      <div
+        className="type-num tabular-nums text-[12px] text-right"
+        style={{ color: "var(--color-text-primary)", minWidth: 60 }}
+      >
+        {slotText || <span style={{ color: "var(--color-text-tertiary)" }}>—</span>}
+      </div>
+    </div>
+  );
+}
+
+function RecoveryDot({ dateISO }: { dateISO: string }) {
+  const read = hrvSquadOnDay(dateISO);
+  const LO = HRV_LANE_DOMAIN[0];
+  const HI = HRV_LANE_DOMAIN[1];
+  if (read.state === "withheld") {
+    // Thin-reading day — honest empty slot, never a zero.
+    return (
+      <div
+        className="relative h-full"
+        style={{ borderRight: "1px solid var(--color-slate-100)" }}
+        title={copy("longi.days.recoveryEmpty")}
+      >
+        <div
+          className="absolute left-1/2 top-1/2 h-px w-2 -translate-x-1/2 -translate-y-1/2"
+          style={{ backgroundColor: "var(--color-text-tertiary)" }}
+        />
+      </div>
+    );
+  }
+  const clamped = Math.max(LO, Math.min(HI, read.medianPct));
+  const topPct = ((HI - clamped) / (HI - LO)) * 100;
+  return (
+    <div
+      className="relative h-full"
+      style={{ borderRight: "1px solid var(--color-slate-100)" }}
+      title={`${Math.round(read.medianPct)}% · ${read.read} of ${read.eligible}`}
+    >
+      <div
+        className="absolute left-1/2 h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full"
+        style={{
+          top: `${topPct}%`,
+          backgroundColor: RECOVERY_INK_VAR,
+          opacity: 0.85,
+        }}
+      />
+    </div>
+  );
+}
