@@ -46,7 +46,7 @@ export function WindowBanner({
     matches: comp.matchSessions,
   });
 
-  const rangeLabel = formatRange(w.startISO, w.endISO);
+  const range = rangeLabel(w.startISO, w.endISO);
   const buttonLabel =
     horizon === "season"
       ? copy("longi.window.seasonButton")
