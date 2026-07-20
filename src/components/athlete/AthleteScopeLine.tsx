@@ -134,13 +134,7 @@ function PeerChip({
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   useDocClick(ref, open, () => setOpen(false));
-  // Lazy import — same source as banner roster.
-  const roster = useMemo(
-    () =>
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      require("@/lib/demo-library").demoAthletes as Array<{ id: string; name: string; posDetail?: string }>,
-    [],
-  );
+  const roster = demoAthletes as unknown as ReadonlyArray<{ id: string; name: string; posDetail?: string }>;
   const eligible = roster.filter((a) => a.id !== subjectId);
   const active = value ? roster.find((a) => a.id === value) : null;
   const label = active ? active.name : copy("athlete.scope.peerNone");
