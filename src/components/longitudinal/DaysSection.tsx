@@ -118,7 +118,13 @@ export function DaysSection({
       </div>
 
       {view === "chart" ? (
-        <DaysChart series={series} laneMetrics={laneMetrics} mode={mode} />
+        <DaysChart
+          series={series}
+          laneMetrics={laneMetrics}
+          mode={mode}
+          tickText={tickText}
+          benchmarkIsDefault={benchmarkIsDefault}
+        />
       ) : (
         <DaysTable series={series} laneMetrics={laneMetrics} />
       )}
@@ -251,10 +257,14 @@ function DaysChart({
   series,
   laneMetrics,
   mode,
+  tickText,
+  benchmarkIsDefault,
 }: {
   series: DayEntry[];
   laneMetrics: LongiMetric[];
   mode: Mode;
+  tickText: string;
+  benchmarkIsDefault: boolean;
 }) {
   const [hover, setHover] = useState<number | null>(null);
   const nDays = series.length;
@@ -379,14 +389,19 @@ function DaysChart({
               </div>
               {mode === "typical" && li === 0 && (
                 <div
-                  className="pointer-events-none absolute right-0.5 type-num text-[9.5px] whitespace-nowrap"
+                  className={
+                    "pointer-events-none absolute right-0.5 type-num text-[9.5px] whitespace-nowrap " +
+                    (benchmarkIsDefault ? "" : "chip-changed")
+                  }
                   style={{
                     top: "50%",
                     transform: "translateY(-110%)",
-                    color: "var(--color-text-tertiary)",
+                    ...(benchmarkIsDefault
+                      ? { color: "var(--color-text-tertiary)" }
+                      : {}),
                   }}
                 >
-                  {copy("longi.basis.tick")}
+                  {tickText}
                 </div>
               )}
 
