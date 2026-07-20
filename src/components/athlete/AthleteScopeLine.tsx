@@ -2,7 +2,7 @@
  * Athlete page scope line.
  *
  * One sentence, fixed order:
- *   [activity chip] · read vs [Reference chip] · periods [all N]  … [flag chip?]
+ *   [Reference chip] · periods [all N]  … [flag chip?] · [peer chip?]
  *
  * The Reference menu reuses `longi.ref.*` keys (shared object — namespace
  * rename deferred to record-close, not a duplication to fix now).
@@ -15,10 +15,8 @@
 import { ChevronDown, Check, Flag, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { copy, tmpl } from "@/lib/copy-deck";
-import { currentSession, timeline } from "@/lib/session-data";
-import { demoSessions, demoAthletes, DEMO_TODAY } from "@/lib/demo-library";
+import { demoSessions, demoAthletes } from "@/lib/demo-library";
 import { TIER1_ROWS_DEFAULT } from "@/lib/session-flags";
-import { dayMonth2 } from "@/lib/format-date";
 import { periodOptionsFor, type PeriodOption } from "@/lib/athlete-data";
 import { REFERENCE_OPTIONS, type ReferenceKind } from "@/lib/session-scope";
 
@@ -58,12 +56,11 @@ function refLabelFor(
 type Props = {
   athleteId: string;
   sessionId: string;
-  onSessionChange: (id: string) => void;
   peerId?: string | null;
   onPeerChange?: (id: string | null) => void;
 };
 
-export function AthleteScopeLine({ athleteId, sessionId, onSessionChange, peerId, onPeerChange }: Props) {
+export function AthleteScopeLine({ athleteId, sessionId, peerId, onPeerChange }: Props) {
   const [refKind, setRefKind] = useState<RefKind>(DEFAULT_REF);
   const [flagDismissed, setFlagDismissed] = useState(false);
 
@@ -85,14 +82,6 @@ export function AthleteScopeLine({ athleteId, sessionId, onSessionChange, peerId
 
   return (
     <div className="flex min-w-0 flex-1 items-center gap-2 text-[12.5px]">
-      <ActivityChip
-        session={activeSession}
-        onSelect={(id) => onSessionChange(id)}
-      />
-      <Sep />
-      <span style={{ color: "var(--color-text-tertiary)" }}>
-        {copy("athlete.scope.readVs")}
-      </span>
       <ReferenceChip
         value={refKind}
         onChange={setRefKind}
@@ -216,101 +205,6 @@ function PeerChip({
                     {a.posDetail}
                   </span>
                 )}
-              </button>
-            );
-          })}
-        </PopoverShell>
-      )}
-    </div>
-  );
-}
-
-/* ─────────────────── activity chip ─────────────────── */
-
-function ActivityChip({
-  session,
-  onSelect,
-}: {
-  session: (typeof demoSessions)[number] | undefined;
-  onSelect: (id: string) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-  useDocClick(ref, open, () => setOpen(false));
-
-  if (!session) return null;
-
-  const isPinned = session.id === PINNED_SESSION_ID;
-  const headParts: string[] = [];
-  if (isPinned && currentSession.venue) headParts.push(currentSession.venue);
-  else if (session.venue) headParts.push(session.venue);
-  if (isPinned && currentSession.weather) {
-    headParts.push(`${currentSession.weather.tempC}°C`);
-    headParts.push(`${currentSession.weather.humidityPct}% RH`);
-  }
-
-  // Header — build only from what exists.
-  const headText =
-    "Activity" + (headParts.length ? " · " + headParts.join(" · ") : "");
-
-  const recent = useMemo(() => {
-    const today = new Date(DEMO_TODAY + "T00:00:00Z").getTime();
-    return [...demoSessions]
-      .filter((s) => {
-        const t = new Date(s.dateISO + "T00:00:00Z").getTime();
-        return t <= today;
-      })
-      .sort((a, b) => b.dateISO.localeCompare(a.dateISO))
-      .slice(0, 14);
-  }, []);
-
-  const chipLabel = session.type === "match" && session.opponent
-    ? `vs ${session.opponent}`
-    : session.name;
-
-  return (
-    <div className="relative" ref={ref}>
-      <ChipButton onClick={() => setOpen((o) => !o)} changed={false}>
-        <span className="truncate max-w-[220px]">{chipLabel}</span>
-        <ChevronDown className="ml-1 h-3.5 w-3.5 opacity-70" aria-hidden />
-      </ChipButton>
-      {open && (
-        <PopoverShell>
-          <div
-            className="border-b px-3 py-2 text-[11.5px]"
-            style={{
-              borderColor: "var(--color-border)",
-              color: "var(--color-text-tertiary)",
-            }}
-          >
-            {headText}
-          </div>
-          {recent.map((s) => {
-            const active = s.id === session.id;
-            const label = s.type === "match" && s.opponent ? `vs ${s.opponent}` : s.name;
-            return (
-              <button
-                key={s.id}
-                onClick={() => {
-                  onSelect(s.id);
-                  setOpen(false);
-                }}
-                className="flex w-full items-center justify-between gap-3 px-3 py-1.5 text-left text-[12.5px] transition-colors hover:bg-[color:var(--color-slate-100)]"
-              >
-                <span className="flex items-center gap-2">
-                  {active ? (
-                    <Check className="h-3.5 w-3.5" aria-hidden />
-                  ) : (
-                    <span className="inline-block h-3.5 w-3.5" aria-hidden />
-                  )}
-                  <span>{label}</span>
-                </span>
-                <span
-                  className="type-num"
-                  style={{ color: "var(--color-text-tertiary)" }}
-                >
-                  {dayMonth2(s.dateISO)} · {s.dayCode}
-                </span>
               </button>
             );
           })}
