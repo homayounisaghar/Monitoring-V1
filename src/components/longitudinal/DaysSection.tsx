@@ -20,6 +20,7 @@ import {
 } from "@/lib/longitudinal-data";
 import { dayMonth2, weekdayDayMonth } from "@/lib/format-date";
 import { benchLabel, DEFAULT_BENCH, type BenchKind } from "./ScopeLine";
+import { hrvSquadOnDay, HRV_LANE_DOMAIN, RECOVERY_INK_VAR } from "@/lib/recovery-data";
 
 /* ─────────────────── fixed drawn domains (§2) ─────────────────── */
 /*
