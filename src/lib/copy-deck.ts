@@ -455,6 +455,27 @@ export const COPY = {
   "athlete.banner.bio": "bio",
   "athlete.banner.rosterHead": "Athlete",
   "athlete.overtime.empty": "Over-time view is being completed — arriving after this review cycle.",
+
+  // Athlete · Summary spine
+  "athlete.summary.title": "Summary",
+  "athlete.summary.groupExternal": "External — work",
+  "athlete.summary.groupInternal": "Internal — cost",
+  "athlete.summary.scaleLow": "40",
+  "athlete.summary.scaleHigh": "160",
+  "athlete.summary.hundred": "100 — typical",
+  "athlete.summary.basisTemplate": "% of {ref} · fixed range 40–160",
+  "athlete.summary.basisFallback": "own typical for this day type",
+  "athlete.summary.salience": "furthest from typical",
+  "athlete.summary.buildingStrip": "Baseline building — comparisons suppress; absolutes stay.",
+  "athlete.summary.covSuffixTemplate": "· {n}% cov",
+  "athlete.summary.withheld.coverage": "coverage below floor",
+  "athlete.summary.withheld.notSubmitted": "sRPE not submitted",
+  "athlete.summary.withheld.notParticipating": "did not participate",
+
+  // Athlete · periods slot (carried fix 7.1)
+  "athlete.periods.allTemplate": "all {n}",
+  "athlete.periods.blockTemplate": "block {n}",
+  "athlete.periods.addedTime": "added time",
 } as const satisfies Record<string, string>;
 
 
