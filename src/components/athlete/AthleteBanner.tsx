@@ -12,13 +12,12 @@
 import { ChevronDown } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { AthleteAvatar } from "@/components/data/AthleteAvatar";
-import { demoAthletes } from "@/lib/demo-library";
-import { squad, currentSession } from "@/lib/session-data";
+import { demoAthletes, recordsForSession } from "@/lib/demo-library";
 import { copy, tmpl } from "@/lib/copy-deck";
-import { weekdayDayMonthYear } from "@/lib/format-date";
 
 type Props = {
   athleteId: string;
+  sessionId: string;
   onAthleteChange: (id: string) => void;
 };
 
