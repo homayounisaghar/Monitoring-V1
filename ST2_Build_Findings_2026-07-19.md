@@ -374,3 +374,53 @@ Unqualified `new Date(...)` — all safe:
 - `src/lib/demo-library.ts:223`, `src/lib/longitudinal-data.ts:76`, `src/lib/longitudinal-data.check.ts:40`, `src/lib/format-date.ts:26` — `new Date(ms)` where `ms` comes from `Date.UTC(...)` arithmetic; only `getUTC*` accessors are called on the result. Zone-independent.
 - `src/components/shell/SourceSidebar.tsx:120` — `new Date(ms).toISOString().slice(0, 10)` with `ms` from `Date.UTC` arithmetic. Zone-independent.
 
+
+---
+
+## Workstream 04 · Step 3 — Summary section (Ali, 2026-07-20)
+
+**Built.** One card, two panes (SQUAD LOAD left, AVAILABILITY right), and a character-line foot. No Days/Athletes content — those stay as anchor placeholders.
+
+**Participation-style lift.** Created `src/lib/participation-style.ts` with `PARTICIPATION_TAGS` (fixed order) and `TAG_TEXTURE` — byte-identical values lifted out of `SummaryCard.tsx`, plus `NOT_IN_SQUAD_CLASS` / `NOT_IN_SQUAD_STYLE` for the no-fill hairline costume. `SummaryCard.tsx` imports both and drops its local copies. **Fence exception:** `SummaryCard.tsx` edited under the Session fence — one import swap only, no visual change; Session's Participation card renders pixel-identically.
+
+**Squad load pane — as rendered (28d, default).** Volume `103`, Intensity `100`, both as integers. Shared 40–160 track, tick label `100 — typical, like-for-like`, end labels `40` and `160`. Coverage line `across 16 of 24 sessions`. No trust mark, no HR mark, no delta suffix, no derivation clause — struck as directed. Blue axis dot before `SQUAD LOAD` is the only hue on the pane.
+
+**Squad load pane — 7d re-timed.** Volume `103`, Intensity `101`. Coverage `across 4 of 7 sessions`.
+
+**Withheld branch.** Cannot fire in this library (coverage 16/24 against a floor of one half). Implemented as a null-safety branch — em-dash in place of the value, band-only track, coverage line prints regardless. Never called in verification.
+
+**Match-dominant regime.** Not built. Provably unreachable in this library.
+
+**Availability pane — as rendered (28d).** `79%` at 52px + `at Full` at label size. Sub-line `278 of 352 · 19 training sessions` — the corrected wording (supersedes the copy-corrections file's `{trainings} trainings × {athletes} athletes` gloss, which would multiply to 361 against a true possible of 352).
+
+**Tag counts and the invariant.** `Full 278 · Part 15 · Modified 6 · Rehab 4 · Injury 25 · Other 5 · not in squad 19`. Sum: 278+15+6+4+25+5 = 333; remainder 352−333 = **19**; 333+19 = **352 = possibleTrainingSessions**. ✓
+Zero counts never print (none occurred in 28d; in 7d, `Rehab 0` was correctly absent).
+
+**Availability pane — 7d re-timed.** `75%`, `86 of 114 · 6 training sessions`. Segments: `Full 86 · Part 5 · Modified 4 · Injury 12 · Other 1 · not in squad 6`. Sum: 86+5+4+12+1 = 108; remainder 114−108 = 6; 108+6 = 114. ✓
+
+**Character line — as rendered.**
+- 28d: `Five matches in four weeks; Lange went out through rehab, Köhler joined 7 July.` — matches the expected string byte-for-byte.
+- 7d:  `One matches in one week; Tuesday is unrecorded, Sunday's session is not confirmed.`
+
+**Grammar defect flagged, not silently fixed.** The 7d line reads `One matches in one week`. The composition template `{n} matches in {span}` is fixed, and the number-word substitution is prescribed — the rule produces that string. It is grammatically wrong ("One match", not "One matches"). I did not adjust the template or the rule; flagging for a follow-up prompt to decide whether the template branches on singular or the substitution flips.
+
+**Defaults taken.**
+- Foot strip: `border-t` on `--color-slate-50`, `text-[13px]`, primary text colour. One sentence, no adjectives, no day-indices — dates only.
+- Not-in-squad segment/swatch: `bg-transparent` + inline `border: 1px solid var(--color-border)`, hairline outline, no fill. Lives in `participation-style.ts` as `NOT_IN_SQUAD_CLASS` + `NOT_IN_SQUAD_STYLE`.
+- Deterministic date helpers (`dayMonthLong`, `weekdayLong`) inlined in `SummarySection.tsx` — parsed from ISO parts, `getUTCDay()` only, no `Intl`/`toLocale*`, no `new Date(iso)` without `Z`. `format-date.ts` not editable in this step's fence; kept the helpers scoped to the section.
+- Number-word list `zero..twelve`; capitalized at sentence start. Numerals above twelve.
+- Season span `{n} weeks` computed as `Math.round(w.days / 7)`.
+- Gauge and availability values print via `String(Math.round(n))` — no `toLocaleString()` added; the seven pre-existing sites remain, logged in the previous sweep.
+- Segment/swatch order fixed: `PARTICIPATION_TAGS` then not-in-squad remainder. Zero counts absent.
+
+**Copy keys added.** Exactly the 17 keys listed in §6 of the prompt, verbatim strings. No hardcoded strings in the component.
+
+**Gates.**
+- Squint: the 52px `79%` is the loudest object; gauges sit well below it.
+- Cold-read: end labels `40`/`160` and tick label `100 — typical, like-for-like` all print on the canvas.
+- Words: one sentence on the page, and it is the character line.
+- Colour: blue on squad-load, neutral slate everywhere else. No severity hue, no green.
+
+**Anything else that looked wrong.**
+- The 7d grammar quirk noted above.
+- Nothing else — console clean, no hydration warning, no error overlay on either window.

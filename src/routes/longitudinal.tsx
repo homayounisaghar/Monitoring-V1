@@ -11,6 +11,7 @@ import {
 import { WindowBanner, DEFAULT_HORIZON } from "@/components/longitudinal/WindowBanner";
 import { AnchorStrip } from "@/components/longitudinal/AnchorStrip";
 import { ScopeLine } from "@/components/longitudinal/ScopeLine";
+import { SummarySection } from "@/components/longitudinal/SummarySection";
 
 export const Route = createFileRoute("/longitudinal")({
   head: () => ({
@@ -76,7 +77,7 @@ function LongitudinalRoute() {
           </div>
 
           <main className="mx-auto max-w-[1320px] space-y-16 px-6 pt-10 pb-24">
-            <SectionHeading id="summary" label={copy("longi.anchor.summary")} />
+            <SummarySection window={w} horizon={horizon} />
             <SectionHeading id="days" label={copy("longi.anchor.days")} />
             <SectionHeading id="athletes" label={copy("longi.anchor.athletes")} />
           </main>
