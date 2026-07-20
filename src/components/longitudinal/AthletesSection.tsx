@@ -19,6 +19,7 @@
  */
 import { useMemo, useState } from "react";
 import { Flag, ChevronUp, ChevronDown } from "lucide-react";
+import { useNavigate } from "@tanstack/react-router";
 
 import { copy, tmpl } from "@/lib/copy-deck";
 import { SegmentedToggle } from "@/components/data/SegmentedToggle";
