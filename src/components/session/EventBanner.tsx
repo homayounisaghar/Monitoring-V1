@@ -235,12 +235,3 @@ function IconBtn({
   );
 }
 
-function formatDate(iso: string) {
-  const d = new Date(iso);
-  return d.toLocaleDateString("en-GB", {
-    weekday: "short",
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
-}
