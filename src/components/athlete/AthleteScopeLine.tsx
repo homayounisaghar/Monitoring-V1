@@ -1,0 +1,459 @@
+/**
+ * Athlete page scope line.
+ *
+ * One sentence, fixed order:
+ *   [activity chip] · read vs [Reference chip] · periods [all N]  … [flag chip?]
+ *
+ * The Reference menu reuses `longi.ref.*` keys (shared object — namespace
+ * rename deferred to record-close, not a duplication to fix now).
+ * A non-default Reference selection tints the chip slate.
+ *
+ * `same_opponent` hides on training sessions.
+ * Flag chip renders only when this athlete is in TIER1_ROWS_DEFAULT and
+ * the pinned session is current.
+ */
+import { ChevronDown, Check, Flag, X } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { copy, tmpl } from "@/lib/copy-deck";
+import { currentSession, timeline } from "@/lib/session-data";
+import { demoSessions, DEMO_TODAY } from "@/lib/demo-library";
+import { TIER1_ROWS_DEFAULT } from "@/lib/session-flags";
+import { dayMonth2 } from "@/lib/format-date";
+
+const PINNED_SESSION_ID = "s-2026-07-04-dortmund";
+
+export type RefKind =
+  | "own_typical"
+  | "last_5"
+  | "season"
+  | "positional"
+  | "cohort"
+  | "same_opponent";
+
+const REF_GROUPS: Array<{ kind: RefKind }[]> = [
+  [{ kind: "own_typical" }, { kind: "last_5" }, { kind: "season" }],
+  [{ kind: "positional" }, { kind: "cohort" }],
+  [{ kind: "same_opponent" }],
+];
+
+const DEFAULT_REF: RefKind = "own_typical";
+
+type Props = {
+  athleteId: string;
+  sessionId: string;
+  onSessionChange: (id: string) => void;
+};
+
+export function AthleteScopeLine({ athleteId, sessionId, onSessionChange }: Props) {
+  const [refKind, setRefKind] = useState<RefKind>(DEFAULT_REF);
+  const [flagDismissed, setFlagDismissed] = useState(false);
+
+  const activeSession =
+    demoSessions.find((s) => s.id === sessionId) ?? demoSessions.find((s) => s.id === PINNED_SESSION_ID);
+
+  const isMatch = activeSession?.type === "match";
+  const isPinned = activeSession?.id === PINNED_SESSION_ID;
+
+  const periodCount = useMemo(() => {
+    if (isPinned) return timeline(currentSession, "halves").length;
+    return activeSession?.type === "match" ? 2 : 1;
+  }, [isPinned, activeSession]);
+
+  const [periodSel, setPeriodSel] = useState<string>("all");
+
+  const tier1Row = TIER1_ROWS_DEFAULT.find((r) => r.id === athleteId);
+  const showFlag = Boolean(tier1Row) && isPinned && !flagDismissed;
+
+  return (
+    <div className="flex min-w-0 flex-1 items-center gap-2 text-[12.5px]">
+      <ActivityChip
+        session={activeSession}
+        onSelect={(id) => onSessionChange(id)}
+      />
+      <Sep />
+      <span style={{ color: "var(--color-text-tertiary)" }}>
+        {copy("athlete.scope.readVs")}
+      </span>
+      <ReferenceChip
+        value={refKind}
+        onChange={setRefKind}
+        showSameOpponent={isMatch}
+      />
+      <Sep />
+      <span style={{ color: "var(--color-text-tertiary)" }}>
+        {copy("athlete.scope.periodsLabel")}
+      </span>
+      <PeriodsChip
+        value={periodSel}
+        onChange={setPeriodSel}
+        n={periodCount}
+      />
+
+      {showFlag && tier1Row && (
+        <>
+          <span className="mx-1" style={{ color: "var(--color-text-tertiary)" }}>
+            {" "}
+          </span>
+          <FlagChip
+            metric={tier1Row.reason}
+            onDismiss={() => setFlagDismissed(true)}
+          />
+        </>
+      )}
+    </div>
+  );
+}
+
+/* ─────────────────── activity chip ─────────────────── */
+
+function ActivityChip({
+  session,
+  onSelect,
+}: {
+  session: (typeof demoSessions)[number] | undefined;
+  onSelect: (id: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useDocClick(ref, open, () => setOpen(false));
+
+  if (!session) return null;
+
+  const isPinned = session.id === PINNED_SESSION_ID;
+  const headParts: string[] = [];
+  if (isPinned && currentSession.venue) headParts.push(currentSession.venue);
+  else if (session.venue) headParts.push(session.venue);
+  if (isPinned && currentSession.weather) {
+    headParts.push(`${currentSession.weather.tempC}°C`);
+    headParts.push(`${currentSession.weather.humidityPct}% RH`);
+  }
+
+  // Header — build only from what exists.
+  const headText =
+    "Activity" + (headParts.length ? " · " + headParts.join(" · ") : "");
+
+  const recent = useMemo(() => {
+    const today = new Date(DEMO_TODAY + "T00:00:00Z").getTime();
+    return [...demoSessions]
+      .filter((s) => {
+        const t = new Date(s.dateISO + "T00:00:00Z").getTime();
+        return t <= today;
+      })
+      .sort((a, b) => b.dateISO.localeCompare(a.dateISO))
+      .slice(0, 14);
+  }, []);
+
+  const chipLabel = session.type === "match" && session.opponent
+    ? `vs ${session.opponent}`
+    : session.name;
+
+  return (
+    <div className="relative" ref={ref}>
+      <ChipButton onClick={() => setOpen((o) => !o)} changed={false}>
+        <span className="truncate max-w-[220px]">{chipLabel}</span>
+        <span
+          className="type-microcaps ml-1.5 rounded px-1 py-0.5"
+          style={{
+            backgroundColor: "var(--color-slate-100)",
+            color: "var(--color-text-secondary)",
+          }}
+        >
+          {session.dayCode}
+        </span>
+        <ChevronDown className="ml-1 h-3.5 w-3.5 opacity-70" aria-hidden />
+      </ChipButton>
+      {open && (
+        <PopoverShell>
+          <div
+            className="border-b px-3 py-2 text-[11.5px]"
+            style={{
+              borderColor: "var(--color-border)",
+              color: "var(--color-text-tertiary)",
+            }}
+          >
+            {headText}
+          </div>
+          {recent.map((s) => {
+            const active = s.id === session.id;
+            const label = s.type === "match" && s.opponent ? `vs ${s.opponent}` : s.name;
+            return (
+              <button
+                key={s.id}
+                onClick={() => {
+                  onSelect(s.id);
+                  setOpen(false);
+                }}
+                className="flex w-full items-center justify-between gap-3 px-3 py-1.5 text-left text-[12.5px] transition-colors hover:bg-[color:var(--color-slate-100)]"
+              >
+                <span className="flex items-center gap-2">
+                  {active ? (
+                    <Check className="h-3.5 w-3.5" aria-hidden />
+                  ) : (
+                    <span className="inline-block h-3.5 w-3.5" aria-hidden />
+                  )}
+                  <span>{label}</span>
+                </span>
+                <span
+                  className="type-num"
+                  style={{ color: "var(--color-text-tertiary)" }}
+                >
+                  {dayMonth2(s.dateISO)} · {s.dayCode}
+                </span>
+              </button>
+            );
+          })}
+        </PopoverShell>
+      )}
+    </div>
+  );
+}
+
+/* ─────────────────── reference chip ─────────────────── */
+
+function ReferenceChip({
+  value,
+  onChange,
+  showSameOpponent,
+}: {
+  value: RefKind;
+  onChange: (k: RefKind) => void;
+  showSameOpponent: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useDocClick(ref, open, () => setOpen(false));
+
+  const changed = value !== DEFAULT_REF;
+  const label = copy(`longi.ref.opt.${value}`);
+
+  return (
+    <div className="relative" ref={ref}>
+      <ChipButton onClick={() => setOpen((o) => !o)} changed={changed}>
+        <span className="truncate max-w-[180px]">{label}</span>
+        <ChevronDown className="ml-1 h-3.5 w-3.5 opacity-70" aria-hidden />
+      </ChipButton>
+      {open && (
+        <PopoverShell>
+          <div
+            className="border-b px-3 py-2 text-[11.5px]"
+            style={{
+              borderColor: "var(--color-border)",
+              color: "var(--color-text-tertiary)",
+            }}
+          >
+            {copy("menu.titleReference")}
+          </div>
+          {REF_GROUPS.map((group, gi) => {
+            const items = group.filter(
+              (o) => showSameOpponent || o.kind !== "same_opponent",
+            );
+            if (items.length === 0) return null;
+            return (
+              <div key={gi}>
+                {gi > 0 && (
+                  <div
+                    aria-hidden
+                    className="h-px"
+                    style={{ backgroundColor: "var(--color-border)" }}
+                  />
+                )}
+                {items.map((o) => {
+                  const active = o.kind === value;
+                  const isDefault = o.kind === DEFAULT_REF;
+                  return (
+                    <button
+                      key={o.kind}
+                      onClick={() => {
+                        onChange(o.kind);
+                        setOpen(false);
+                      }}
+                      className="flex w-full items-start justify-between gap-3 px-3 py-1.5 text-left text-[12.5px] transition-colors hover:bg-[color:var(--color-slate-100)]"
+                    >
+                      <span className="flex items-start gap-2">
+                        {active ? (
+                          <Check className="mt-0.5 h-3.5 w-3.5" aria-hidden />
+                        ) : (
+                          <span className="mt-0.5 inline-block h-3.5 w-3.5" aria-hidden />
+                        )}
+                        <span>
+                          <span className="block">{copy(`longi.ref.opt.${o.kind}`)}</span>
+                          <span
+                            className="block text-[11.5px]"
+                            style={{ color: "var(--color-text-tertiary)" }}
+                          >
+                            {copy(`longi.ref.gloss.${o.kind}`)}
+                          </span>
+                        </span>
+                      </span>
+                      {isDefault && (
+                        <span
+                          className="type-microcaps whitespace-nowrap"
+                          style={{ color: "var(--color-text-tertiary)" }}
+                        >
+                          default
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            );
+          })}
+        </PopoverShell>
+      )}
+    </div>
+  );
+}
+
+/* ─────────────────── periods chip ─────────────────── */
+
+function PeriodsChip({
+  value,
+  onChange,
+  n,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  n: number;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useDocClick(ref, open, () => setOpen(false));
+
+  const options: Array<{ id: string; label: string }> = [
+    { id: "all", label: tmpl("athlete.scope.periodsAllTemplate", { n }) },
+    ...Array.from({ length: n }, (_, i) => ({
+      id: `p${i + 1}`,
+      label: `period ${i + 1}`,
+    })),
+  ];
+  const active = options.find((o) => o.id === value) ?? options[0];
+  const changed = value !== "all";
+
+  return (
+    <div className="relative" ref={ref}>
+      <ChipButton onClick={() => setOpen((o) => !o)} changed={changed}>
+        <span>{active.label}</span>
+        <ChevronDown className="ml-1 h-3.5 w-3.5 opacity-70" aria-hidden />
+      </ChipButton>
+      {open && (
+        <PopoverShell>
+          {options.map((o) => {
+            const isActive = o.id === value;
+            return (
+              <button
+                key={o.id}
+                onClick={() => {
+                  onChange(o.id);
+                  setOpen(false);
+                }}
+                className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-[12.5px] transition-colors hover:bg-[color:var(--color-slate-100)]"
+              >
+                {isActive ? (
+                  <Check className="h-3.5 w-3.5" aria-hidden />
+                ) : (
+                  <span className="inline-block h-3.5 w-3.5" aria-hidden />
+                )}
+                <span>{o.label}</span>
+              </button>
+            );
+          })}
+        </PopoverShell>
+      )}
+    </div>
+  );
+}
+
+/* ─────────────────── flag chip ─────────────────── */
+
+function FlagChip({
+  metric,
+  onDismiss,
+}: {
+  metric: string;
+  onDismiss: () => void;
+}) {
+  return (
+    <span
+      className="inline-flex items-center gap-1.5 rounded-md border px-2 py-0.5 text-[12px]"
+      style={{
+        borderColor: "var(--color-border)",
+        backgroundColor: "var(--color-slate-100)",
+        color: "var(--color-text-secondary)",
+      }}
+    >
+      <Flag className="h-3 w-3" aria-hidden />
+      <span>{tmpl("athlete.scope.flagTemplate", { metric })}</span>
+      <button
+        onClick={onDismiss}
+        aria-label={copy("athlete.scope.flagDismissAria")}
+        className="grid h-4 w-4 place-items-center rounded transition-colors hover:bg-[color:var(--color-border)]"
+      >
+        <X className="h-3 w-3" aria-hidden />
+      </button>
+    </span>
+  );
+}
+
+/* ─────────────────── shared bits ─────────────────── */
+
+function ChipButton({
+  children,
+  onClick,
+  changed,
+}: {
+  children: React.ReactNode;
+  onClick: () => void;
+  changed: boolean;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`inline-flex items-center rounded-md border px-2 py-0.5 text-[12.5px] transition-colors hover:bg-[color:var(--color-slate-100)] ${changed ? "chip-changed" : ""}`}
+      style={{
+        borderColor: "var(--color-border)",
+        color: "var(--color-text-primary)",
+        backgroundColor: "var(--color-surface-card)",
+      }}
+    >
+      {children}
+    </button>
+  );
+}
+
+function PopoverShell({ children }: { children: React.ReactNode }) {
+  return (
+    <div
+      className="absolute left-0 top-8 z-40 max-h-[420px] w-72 overflow-auto rounded-md border shadow-lg"
+      style={{
+        backgroundColor: "var(--color-surface-card)",
+        borderColor: "var(--color-border)",
+        color: "var(--color-text-primary)",
+      }}
+      role="menu"
+    >
+      {children}
+    </div>
+  );
+}
+
+function Sep() {
+  return (
+    <span style={{ color: "var(--color-text-tertiary)" }}>·</span>
+  );
+}
+
+function useDocClick(
+  ref: React.RefObject<HTMLDivElement | null>,
+  open: boolean,
+  close: () => void,
+) {
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) close();
+    };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, [open, close, ref]);
+}
