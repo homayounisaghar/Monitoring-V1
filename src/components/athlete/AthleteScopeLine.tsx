@@ -334,10 +334,12 @@ function ActivityChip({
 function ReferenceChip({
   value,
   onChange,
+  session,
   showSameOpponent,
 }: {
   value: RefKind;
   onChange: (k: RefKind) => void;
+  session: { type: string; dayCode: string } | undefined | null;
   showSameOpponent: boolean;
 }) {
   const [open, setOpen] = useState(false);
@@ -345,7 +347,7 @@ function ReferenceChip({
   useDocClick(ref, open, () => setOpen(false));
 
   const changed = value !== DEFAULT_REF;
-  const label = copy(`longi.ref.opt.${value}`);
+  const label = refLabelFor(value, session);
 
   return (
     <div className="relative" ref={ref}>
@@ -397,12 +399,12 @@ function ReferenceChip({
                           <span className="mt-0.5 inline-block h-3.5 w-3.5" aria-hidden />
                         )}
                         <span>
-                          <span className="block">{copy(`longi.ref.opt.${o.kind}`)}</span>
+                          <span className="block">{refLabelFor(o.kind, session)}</span>
                           <span
                             className="block text-[11.5px]"
                             style={{ color: "var(--color-text-tertiary)" }}
                           >
-                            {copy(`longi.ref.gloss.${o.kind}`)}
+                            {copy(`readingLine.gloss.${o.kind}`)}
                           </span>
                         </span>
                       </span>
