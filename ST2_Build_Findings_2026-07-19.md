@@ -568,3 +568,32 @@ Grayscale screenshot inspected. Reduced-participation tags (Part / Modified) col
 - Foot row: `P. Sturm CB did not participate · not in squad`.
 
 Console clean. Typecheck clean. Matrix intentionally omitted.
+
+## 2026-07-20 · Correctness pass — A:C day count, VS TYPICAL scale honesty
+
+Bundled a data-layer fix (§1) with two render fixes (§2) in a single prompt under time pressure. Recorded so the record isn't silent: failure of any one is still attributable — different file, different acceptance value.
+
+### §1 · A:C `daysOfData` now respects `joinedISO`
+`acForAthlete` in `longitudinal-data.ts` filtered records inside the 28-day window but not by the athlete's own history. The demo layer seeds records for every athlete on every day, so B. Köhler (joined 7 Jul) was reading `— · 27 of 28 days`. That number made a truthful withholding look like a broken cell.
+
+Fix: skip records whose `dateISO < joinedISO` before populating `recsByDate`. Withholding condition unchanged. Rendered now: **B. Köhler, `— · 12 of 28 days`**. Still the only athlete withholding.
+
+`vsTypical`'s withheld count on the same row reads **`— · 3 of 5 sessions`** — three post-join matches (8, 11, 18 Jul) in his biggest bucket. Not pre-join contamination; `comparableSessionCount` is returning post-join reality. No change required.
+
+### §2a · Lane-end labels track the mode
+`ABS_CAP[m]` and `0` printed at both ends in both modes. In VS TYPICAL the bars were drawn on a 40–160 domain while the labels shouted 0 / 9,000. Now: `0 / ABS_CAP[m]` in ABSOLUTE, `40 / 160` in VS TYPICAL.
+
+### §2b · `100 — typical, like-for-like` from `longi.basis.tick`
+Rendered once, on the topmost lane only, at the midline right edge. The other two lanes draw the 100 baseline unlabelled. One fact, one home.
+
+### §2c · sRPE respects `srpeCollected` in VS TYPICAL
+Guard added in the render layer of `DayBar` and `valueSlotText` — when `!day.srpeCollected` the sRPE lane draws the withheld hairline mark instead of a `(0/expected)%` bar. 12 Jul and 19 Jul now show hairlines on the sRPE lane in VS TYPICAL; no `0%` on either day; the collection fact wins. The derivation is untouched.
+
+### §2d · `{n} of {m}` suppression
+Both call sites (`valueSlotText` line 530, `DayBar` line 647) already guard with `srpeSubmitted < srpeEligible` — strict less-than, so `16 of 16` cannot print. Confirmed suppressed. No change.
+
+### Verified from the render (28-day, ending 19 Jul, LA tz)
+- Athletes, A:C, Köhler row: **`B. Köhler CB — · 12 of 28 days`**. Only withholder.
+- Days, VS TYPICAL: lane ends read **`160`** (top) and **`40`** (bottom) on all three lanes. Top lane carries **`100 — typical, like-for-like`** at the midline. sRPE lane on 12 Jul and 19 Jul renders the withheld hairline; no `0%` anywhere.
+- Days, ABSOLUTE: unchanged. Ends read `0 / 9000`. `9682` and `231` print at cap-break on 8 Jul. `not collected` prints on 12 and 19 Jul.
+- Console clean; typecheck clean.

@@ -360,14 +360,26 @@ function DaysChart({
                 className="pointer-events-none absolute -left-0.5 -top-0.5 type-num text-[9.5px]"
                 style={{ color: "var(--color-text-tertiary)" }}
               >
-                {ABS_CAP[m]}
+                {mode === "typical" ? 160 : ABS_CAP[m]}
               </div>
               <div
                 className="pointer-events-none absolute -left-0.5 -bottom-0.5 type-num text-[9.5px]"
                 style={{ color: "var(--color-text-tertiary)" }}
               >
-                0
+                {mode === "typical" ? 40 : 0}
               </div>
+              {mode === "typical" && li === 0 && (
+                <div
+                  className="pointer-events-none absolute right-0.5 type-num text-[9.5px] whitespace-nowrap"
+                  style={{
+                    top: "50%",
+                    transform: "translateY(-110%)",
+                    color: "var(--color-text-tertiary)",
+                  }}
+                >
+                  {copy("longi.basis.tick")}
+                </div>
+              )}
 
               {series.map((d, i) => (
                 <DayBar
@@ -521,6 +533,7 @@ function valueSlotText(
     }
     return base;
   }
+  if (metric === "srpeAU" && !activeDay.srpeCollected) return "—";
   const c = activeDay.vsTypical[metric];
   if (!c || c.state !== "computed") return "—";
   return `${Math.round(c.pct)}%`;
@@ -645,6 +658,21 @@ function DayBar({
   }
 
   // vs typical
+  // Guard: an absent numerator is not a zero. sRPE without collection has no
+  // ratio to draw — render withheld, matching other withheld days.
+  if (metric === "srpeAU" && !day.srpeCollected) {
+    return (
+      <div
+        className="relative h-full"
+        style={{ borderRight: "1px solid var(--color-slate-100)" }}
+      >
+        <div
+          className="absolute left-1/2 top-1/2 h-px w-2 -translate-x-1/2 -translate-y-1/2"
+          style={{ backgroundColor: "var(--color-text-tertiary)" }}
+        />
+      </div>
+    );
+  }
   const c = day.vsTypical[metric];
   if (!c) return <div className="h-full" />;
   if (c.state === "withheld") {
