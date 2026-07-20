@@ -315,8 +315,9 @@ export function SummaryCard() {
         {/* Recovery — the third read, slate, alongside external work and
             internal cost. HRV squad median as % of own baseline, the
             morning after this session. Withheld with reason when that
-            morning has not yet happened. */}
-        <SessionRecoveryBand sessionId="s-2026-07-04-dortmund" />
+            morning has not yet happened. Session id read from the same
+            source the rest of SummaryCard uses. */}
+        <SessionRecoveryBand sessionId={currentSession.id} />
 
 
         {/* Zones */}
@@ -949,7 +950,7 @@ function SessionRecoveryBand({ sessionId }: { sessionId: string }) {
       return (
         <div className="flex items-baseline gap-3">
           <span
-            className="type-num text-[25px] font-semibold leading-none"
+            className="type-num text-[18px] font-semibold leading-none"
             style={{ color: "var(--color-text-primary)" }}
           >
             {`${Math.round(read.medianPct)}%`}

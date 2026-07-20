@@ -20,6 +20,7 @@ import {
 } from "@/lib/longitudinal-data";
 import { dayMonth2, weekdayDayMonth } from "@/lib/format-date";
 import { benchLabel, DEFAULT_BENCH, type BenchKind } from "./ScopeLine";
+import { hrvSquadOnDay, HRV_LANE_DOMAIN, RECOVERY_INK_VAR } from "@/lib/recovery-data";
 
 /* ─────────────────── fixed drawn domains (§2) ─────────────────── */
 /*
@@ -338,7 +339,20 @@ function DaysChart({
               marginBottom={i < laneMetrics.length - 1 ? LANE_GAP : 0}
             />
           ))}
+          {/* Recovery group label — sits above the recovery lane label,
+              aligned with the recovery lane in the track column. */}
+          <div
+            className="type-microcaps text-[9.5px] pt-4 pb-1"
+            style={{ color: "var(--color-text-tertiary)" }}
+          >
+            {copy("longi.days.recoveryHead")}
+          </div>
+          <RecoveryLaneLabel
+            activeDay={activeDay}
+            heightPx={LANE_H}
+          />
         </div>
+
 
         {/* Track — three lanes + axis rows */}
         <div
@@ -419,6 +433,58 @@ function DaysChart({
               ))}
             </div>
           ))}
+
+          {/* RECOVERY group — separated by a larger gap; HRV squad median
+              as % of own baseline, fixed 80–120, slate. Continues across
+              rest days and days with no session — the whole point of the
+              lane. Thin-reading days render the honest empty slot. */}
+          <div style={{ height: 16 }} aria-hidden />
+          <div
+            className="type-microcaps text-[9.5px] absolute"
+            style={{ color: "var(--color-text-tertiary)", left: 0, transform: "translateX(-100%)" }}
+            aria-hidden
+          />
+          <div
+            className="relative grid"
+            style={{
+              gridTemplateColumns: `repeat(${nDays},1fr)`,
+              height: LANE_H,
+              borderBottom: "1px solid var(--color-slate-100)",
+            }}
+            onMouseMove={(e) => {
+              const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+              const x = e.clientX - rect.left;
+              const idx = Math.max(0, Math.min(nDays - 1, Math.floor((x / rect.width) * nDays)));
+              setHover(idx);
+            }}
+          >
+            <div
+              className="pointer-events-none absolute -left-0.5 -top-0.5 type-num text-[9.5px]"
+              style={{ color: "var(--color-text-tertiary)" }}
+            >
+              {HRV_LANE_DOMAIN[1]}
+            </div>
+            <div
+              className="pointer-events-none absolute -left-0.5 -bottom-0.5 type-num text-[9.5px]"
+              style={{ color: "var(--color-text-tertiary)" }}
+            >
+              {HRV_LANE_DOMAIN[0]}
+            </div>
+            {/* 100 baseline */}
+            <div
+              className="pointer-events-none absolute left-0 right-0"
+              style={{
+                top: `${((HRV_LANE_DOMAIN[1] - 100) / (HRV_LANE_DOMAIN[1] - HRV_LANE_DOMAIN[0])) * 100}%`,
+                height: 1,
+                backgroundColor: "var(--color-slate-200)",
+              }}
+              aria-hidden
+            />
+            {series.map((d) => (
+              <RecoveryDot key={d.dateISO} dateISO={d.dateISO} />
+            ))}
+          </div>
+
 
           {/* Day-code axis */}
           <div
@@ -885,6 +951,101 @@ function DaysTable({
       >
         {copy("longi.days.table.footnote")}
       </div>
+    </div>
+  );
+}
+
+/* ─────────────────── recovery lane (HRV, slate) ─────────────────── */
+
+function RecoveryLaneLabel({
+  activeDay,
+  heightPx,
+}: {
+  activeDay: DayEntry | null;
+  heightPx: number;
+}) {
+  // Value slot: the day's HRV squad median % when hovered; window mean
+  // otherwise. Read only for the active day's date — the lane is
+  // date-driven, so we don't need a session to draw.
+  const dateISO = activeDay?.dateISO;
+  const read = dateISO ? hrvSquadOnDay(dateISO) : null;
+  const slotText = (() => {
+    if (!read) return "";
+    if (read.state === "withheld") return "—";
+    return `${Math.round(read.medianPct)}%`;
+  })();
+
+  return (
+    <div
+      className="flex items-center justify-between pr-3"
+      style={{ height: heightPx }}
+    >
+      <div className="flex items-center gap-2 min-w-0">
+        <span
+          className="h-2 w-2 rounded-full shrink-0"
+          style={{ backgroundColor: RECOVERY_INK_VAR }}
+          aria-hidden
+        />
+        <div className="min-w-0">
+          <div
+            className="type-data-label truncate"
+            style={{ color: "var(--color-text-primary)" }}
+          >
+            {copy("longi.days.recoveryLane")}
+          </div>
+          <div
+            className="type-num text-[10px]"
+            style={{ color: "var(--color-text-tertiary)" }}
+          >
+            {copy("longi.days.recoveryUnit")}
+          </div>
+        </div>
+      </div>
+      <div
+        className="type-num tabular-nums text-[12px] text-right"
+        style={{ color: "var(--color-text-primary)", minWidth: 60 }}
+      >
+        {slotText || <span style={{ color: "var(--color-text-tertiary)" }}>—</span>}
+      </div>
+    </div>
+  );
+}
+
+function RecoveryDot({ dateISO }: { dateISO: string }) {
+  const read = hrvSquadOnDay(dateISO);
+  const LO = HRV_LANE_DOMAIN[0];
+  const HI = HRV_LANE_DOMAIN[1];
+  if (read.state === "withheld") {
+    // Thin-reading day — honest empty slot, never a zero.
+    return (
+      <div
+        className="relative h-full"
+        style={{ borderRight: "1px solid var(--color-slate-100)" }}
+        title={copy("longi.days.recoveryEmpty")}
+      >
+        <div
+          className="absolute left-1/2 top-1/2 h-px w-2 -translate-x-1/2 -translate-y-1/2"
+          style={{ backgroundColor: "var(--color-text-tertiary)" }}
+        />
+      </div>
+    );
+  }
+  const clamped = Math.max(LO, Math.min(HI, read.medianPct));
+  const topPct = ((HI - clamped) / (HI - LO)) * 100;
+  return (
+    <div
+      className="relative h-full"
+      style={{ borderRight: "1px solid var(--color-slate-100)" }}
+      title={`${Math.round(read.medianPct)}% · ${read.read} of ${read.eligible}`}
+    >
+      <div
+        className="absolute left-1/2 h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full"
+        style={{
+          top: `${topPct}%`,
+          backgroundColor: RECOVERY_INK_VAR,
+          opacity: 0.85,
+        }}
+      />
     </div>
   );
 }

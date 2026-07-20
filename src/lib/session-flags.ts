@@ -62,6 +62,16 @@ export const TIER1_ROWS_DEFAULT: Tier1Row[] = [
     reason: "Total distance",
     read: { kind: "vot", axis: "work", deltaFrac: 0.14, bandFrac: 0.14 },
   },
+  {
+    // Chronic HRV suppression through his injury stretch (recovery-data.ts).
+    // Slate axis — HRV belongs to neither work nor cost. Same row anatomy,
+    // same severity language; the deviation is stated against his own
+    // 7-day baseline.
+    id: "lange",
+    tier: "notice",
+    reason: "HRV · own baseline",
+    read: { kind: "vot", axis: "neutral", deltaFrac: -0.27, bandFrac: 0.1 },
+  },
 ];
 
 const TIER_ORDER: Record<SeverityTier, number> = { escalate: 0, notice: 1 };

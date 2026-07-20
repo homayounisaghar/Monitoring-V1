@@ -23,16 +23,11 @@ export function AthleteBalance({ athleteId, sessionId }: Props) {
 
   return (
     <section
-      className="mt-3 rounded-lg border"
-      style={{
-        backgroundColor: "var(--color-surface-card)",
-        borderColor: "var(--color-border)",
-      }}
+      className="mt-4"
       data-section="athlete-balance"
     >
       <div
-        className="flex items-baseline justify-between border-b px-5 py-2"
-        style={{ borderColor: "var(--color-border)" }}
+        className="flex items-baseline justify-between pb-1.5"
       >
         <h3
           className="type-section-h text-[13px]"
@@ -50,7 +45,7 @@ export function AthleteBalance({ athleteId, sessionId }: Props) {
         ) : null}
       </div>
 
-      <div className="px-5 py-3">
+      <div className="pt-1">
         {bal ? (
           <>
             <BalanceBar

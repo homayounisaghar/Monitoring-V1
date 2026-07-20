@@ -356,9 +356,12 @@ export function balanceForSession(
   const typ = BALANCE_TYPICAL_L[athleteId];
   if (typ == null) return null;
 
-  const isPinned = sessionId === "s-2026-07-04-dortmund";
+  // The Werner deviation is written FOR the 18 Jul Dortmund session by
+  // date, not by session id. If the library ever re-keys the id, the
+  // deviation stays welded to the session it was authored against.
+  const isPinnedDate = s.dateISO === "2026-07-18";
   let L: number;
-  if (isPinned && athleteId === "werner") {
+  if (isPinnedDate && athleteId === "werner") {
     // Notable deviation: 8-point drop from his typical.
     L = typ - 8 + jit(0.7, athleteId, sessionId, "bal-werner");
   } else {
