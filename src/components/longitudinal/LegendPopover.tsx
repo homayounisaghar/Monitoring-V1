@@ -73,7 +73,7 @@ function computePresence(w: LongiWindow): Presence {
     }
   }
   // Flag glyph — any athlete in the window has attentionFlagged.
-  const rows = availabilityRows(w);
+  const rows = athleteAvailabilityRanking(w);
   const flag = rows.some((r) => r.attentionFlagged);
   return { hollow, cov, hatch, brk, gap, rest, matchMark, flag };
 }
