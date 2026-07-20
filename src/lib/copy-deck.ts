@@ -305,6 +305,26 @@ export const COPY = {
   "longi.filter.group.sessionType": "Session type",
   "longi.filter.opt.matches": "Matches",
   "longi.filter.opt.training": "Training",
+
+  // ---------- Longitudinal · Summary section ----------
+  "longi.summary.squadLoadHead": "SQUAD LOAD",
+  "longi.summary.availHead": "AVAILABILITY",
+  "longi.basis.tick": "100 — typical, like-for-like",
+  "longi.gauge.tick40": "40",
+  "longi.gauge.tick160": "160",
+  "longi.gauge.coverageTemplate": "across {n} of {m} sessions",
+  "longi.avail.headSuffix": "at Full",
+  "longi.avail.subTemplate": "{full} of {possible} · {trainings} training sessions",
+  "longi.avail.notInSquad": "not in squad",
+  "longi.character.compositionTemplate": "{n} matches in {span}",
+  "longi.character.span.7": "one week",
+  "longi.character.span.14": "two weeks",
+  "longi.character.span.28": "four weeks",
+  "longi.character.span.seasonTemplate": "{n} weeks",
+  "longi.character.fact.rehabOut": "{name} went out through rehab",
+  "longi.character.fact.joined": "{name} joined {date}",
+  "longi.character.fact.unrecorded": "{weekday} is unrecorded",
+  "longi.character.fact.unconfirmed": "{weekday}'s session is not confirmed",
 } as const satisfies Record<string, string>;
 
 export type CopyKey = keyof typeof COPY;
