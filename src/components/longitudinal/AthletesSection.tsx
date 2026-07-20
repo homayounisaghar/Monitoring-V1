@@ -1,0 +1,800 @@
+/**
+ * Longitudinal — Athletes section (Step 5).
+ *
+ * Three surfaces, in order:
+ *   1. Ranked availability list — six rows + one computed remainder line.
+ *   2. Window totals — position-grouped table across three views
+ *      (ABSOLUTE · VS TYPICAL · A:C), with a foot row for the one
+ *      zero-participation athlete.
+ *   3. Matrix — NOT built. The expander control is intentionally omitted.
+ *
+ * No row is clickable and no row shows a hover affordance. This is the last
+ * section; there is nothing to drill into.
+ *
+ * Registers consumed only:
+ *   - participation-style   → TAG_STYLE, NOT_IN_SQUAD_STYLE, PARTICIPATION_TAGS
+ *   - squad-metrics         → METRICS, MAX_COLUMNS (for the twelve-column cap)
+ *   - longitudinal-data     → athleteAvailabilityRanking, windowTotals
+ *   - format-date           → dayMonthLong (deterministic, no toLocaleString)
+ */
+import { useMemo, useState } from "react";
+import { Flag, ChevronUp, ChevronDown } from "lucide-react";
+
+import { copy, tmpl } from "@/lib/copy-deck";
+import { SegmentedToggle } from "@/components/data/SegmentedToggle";
+import {
+  PARTICIPATION_TAGS,
+  TAG_STYLE,
+  NOT_IN_SQUAD_STYLE,
+} from "@/lib/participation-style";
+import {
+  athleteAvailabilityRanking,
+  windowTotals,
+  type LongiWindow,
+  type LongiMetric,
+  type AthleteAvailEntry,
+  type AthleteTotals,
+} from "@/lib/longitudinal-data";
+import type { ParticipationTag, PositionCode } from "@/lib/session-data";
+import { POSITION_LABEL } from "@/lib/session-data";
+import { MAX_COLUMNS } from "@/lib/squad-metrics";
+import { dayMonthLong } from "@/lib/format-date";
+
+/* ─────────────────────────── shared bits ─────────────────────────── */
+
+const VISIBLE_ROWS = 6;
+const POS_ORDER: PositionCode[] = ["GK", "DEF", "MID", "ATT"];
+
+type MetricCol = {
+  id: LongiMetric;
+  head: string;
+  /** Format an absolute value for this metric. */
+  fmtAbs: (v: number) => string;
+};
+
+/** Column definitions consumed by the table (see spec §2). */
+const METRIC_COLS: MetricCol[] = [
+  { id: "totalDistance", head: "DISTANCE (km)", fmtAbs: (v) => (v / 1000).toFixed(1) },
+  { id: "hsr",           head: "HSR (m)",        fmtAbs: (v) => String(Math.round(v)) },
+  { id: "sprintDist",    head: "SPRINT DIST (m)",fmtAbs: (v) => String(Math.round(v)) },
+  { id: "accDec",        head: "ACC–DEC (ct)",   fmtAbs: (v) => String(Math.round(v)) },
+  { id: "cardioLoad",    head: "CARDIO LOAD (AU)", fmtAbs: (v) => String(Math.round(v)) },
+  { id: "srpeAU",        head: "SRPE (AU)",      fmtAbs: (v) => String(Math.round(v)) },
+];
+
+function fmt2(v: number): string {
+  return v.toFixed(2);
+}
+function fmtInt(v: number): string {
+  return String(Math.round(v));
+}
+function surname(name: string): string {
+  const parts = name.trim().split(/\s+/);
+  return parts[parts.length - 1];
+}
+
+/* ─────────────────────────── section ─────────────────────────── */
+
+export function AthletesSection({ window: w }: { window: LongiWindow }) {
+  return (
+    <section id="athletes" className="scroll-mt-28">
+      <header className="mb-4 flex items-baseline gap-2 flex-wrap">
+        <h2
+          className="type-section-h"
+          style={{ color: "var(--color-text-primary)" }}
+        >
+          {copy("longi.anchor.athletes")}
+        </h2>
+        <span
+          className="type-label"
+          style={{ color: "var(--color-text-tertiary)" }}
+        >
+          {copy("longi.athletes.subtitle")}
+        </span>
+      </header>
+
+      <div className="space-y-8">
+        <AvailabilityList window={w} />
+        <WindowTotalsTable window={w} />
+      </div>
+    </section>
+  );
+}
+
+/* ─────────────────────────── 1 · ranked availability list ─────────────────────────── */
+
+function AvailabilityList({ window: w }: { window: LongiWindow }) {
+  const rows = useMemo(() => athleteAvailabilityRanking(w), [w]);
+  const [expanded, setExpanded] = useState(false);
+
+  // Denominator for bar widths — the widest available-sessions across the
+  // whole roster, so a mid-window joiner's bar is visibly shorter.
+  const maxAvailable = useMemo(
+    () => rows.reduce((m, r) => Math.max(m, r.availableSessions), 0),
+    [rows],
+  );
+
+  const visible = expanded ? rows : rows.slice(0, VISIBLE_ROWS);
+  const hidden = expanded ? [] : rows.slice(VISIBLE_ROWS);
+  const hiddenCount = hidden.length;
+  const maxMissedInHidden = hidden.reduce(
+    (m, r) => Math.max(m, r.availableSessions - Math.round(r.fullFraction * r.availableSessions)),
+    0,
+  );
+  // Recompute Full count exactly (fullFraction × available rounds cleanly here).
+  const hiddenMaxMissed = hidden.reduce((m, r) => {
+    const full = Math.round(r.fullFraction * r.availableSessions);
+    return Math.max(m, r.availableSessions - full);
+  }, 0);
+
+  return (
+    <div
+      className="surface-card rounded-lg"
+      style={{
+        backgroundColor: "var(--color-surface-card)",
+        border: "1px solid var(--color-border)",
+      }}
+    >
+      <ul className="divide-y" style={{ borderColor: "var(--color-border)" }}>
+        {visible.map((r) => (
+          <li key={r.athlete.id}>
+            <AvailabilityRow row={r} maxAvailable={maxAvailable} />
+          </li>
+        ))}
+      </ul>
+
+      {hiddenCount > 0 && (
+        <button
+          type="button"
+          onClick={() => setExpanded(true)}
+          className="w-full border-t px-4 py-2.5 text-left text-[12.5px]"
+          style={{
+            borderColor: "var(--color-border)",
+            color: "var(--color-text-tertiary)",
+            backgroundColor: "var(--color-slate-50)",
+          }}
+        >
+          {hiddenMaxMissed === 0 && maxMissedInHidden === 0
+            ? tmpl("longi.athletes.moreNone", { n: hiddenCount })
+            : tmpl("longi.athletes.more", { n: hiddenCount, max: hiddenMaxMissed })}
+        </button>
+      )}
+    </div>
+  );
+}
+
+function AvailabilityRow({
+  row,
+  maxAvailable,
+}: {
+  row: AthleteAvailEntry;
+  maxAvailable: number;
+}) {
+  const { athlete, tagCounts, availableSessions, fullFraction, attentionFlagged } = row;
+  const fullCount = Math.round(fullFraction * availableSessions);
+  const barWidth = maxAvailable > 0 ? (availableSessions / maxAvailable) * 100 : 0;
+
+  // Segments in fixed order; then a hairline leftover (unselected within his
+  // own available window) so the bar denominator = availableSessions.
+  const segs: { key: ParticipationTag; count: number }[] = [];
+  let tagged = 0;
+  for (const t of PARTICIPATION_TAGS) {
+    const c = tagCounts[t] ?? 0;
+    if (c > 0) segs.push({ key: t, count: c });
+    tagged += c;
+  }
+  const leftover = Math.max(0, availableSessions - tagged);
+
+  return (
+    <div className="grid grid-cols-[220px_1fr_88px] items-center gap-4 px-4 py-3">
+      {/* Name + position + optional neutral flag glyph. */}
+      <div className="flex items-center gap-2 min-w-0">
+        {attentionFlagged && (
+          <Flag
+            className="h-3.5 w-3.5 shrink-0"
+            style={{ color: "var(--color-text-tertiary)" }}
+            aria-label="flagged"
+          />
+        )}
+        <span
+          className="truncate text-[13px]"
+          style={{ color: "var(--color-text-primary)" }}
+        >
+          {athlete.name}
+        </span>
+        <span
+          className="type-microcaps shrink-0"
+          style={{ color: "var(--color-text-tertiary)" }}
+        >
+          {athlete.posDetail}
+        </span>
+      </div>
+
+      {/* Stacked participation bar, width scaled to available sessions. */}
+      <div className="relative h-4">
+        <div
+          className="absolute left-0 top-0 flex h-full overflow-hidden rounded-sm"
+          style={{
+            width: `${barWidth}%`,
+            border: "1px solid var(--color-border)",
+          }}
+        >
+          {segs.map((seg, i) => {
+            const wPct = availableSessions > 0 ? (seg.count / availableSessions) * 100 : 0;
+            const isLast = i === segs.length - 1 && leftover === 0;
+            return (
+              <div
+                key={seg.key}
+                style={{
+                  ...TAG_STYLE[seg.key],
+                  width: `${wPct}%`,
+                  borderRight: isLast ? undefined : "1px solid var(--color-border)",
+                }}
+                aria-label={`${seg.key}: ${seg.count}`}
+              />
+            );
+          })}
+          {leftover > 0 && (
+            <div
+              style={{
+                ...NOT_IN_SQUAD_STYLE,
+                border: "none",
+                width: `${(leftover / availableSessions) * 100}%`,
+              }}
+              aria-label={`unselected: ${leftover}`}
+            />
+          )}
+        </div>
+      </div>
+
+      {/* Fraction — the only count on the row. */}
+      <div
+        className="text-right type-num text-[13px]"
+        style={{ color: "var(--color-text-primary)" }}
+      >
+        {tmpl("longi.athletes.fraction", { n: fullCount, m: availableSessions })}
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────────────────── 2 · window totals table ─────────────────────────── */
+
+type View = "absolute" | "typical" | "ac";
+type SortDir = "asc" | "desc";
+type SortKey = "sessions" | "minutes" | LongiMetric;
+type SortState = { key: SortKey; dir: SortDir } | null;
+
+function WindowTotalsTable({ window: w }: { window: LongiWindow }) {
+  const [view, setView] = useState<View>("absolute");
+  const [sort, setSort] = useState<SortState>(null);
+
+  const totals = useMemo(() => windowTotals(w), [w]);
+
+  // Position-first grouping across position-order.
+  const grouped = useMemo(() => {
+    const buckets = new Map<PositionCode, AthleteTotals[]>();
+    for (const p of POS_ORDER) buckets.set(p, []);
+    for (const t of totals.perAthlete) {
+      const arr = buckets.get(t.athlete.position);
+      if (arr) arr.push(t);
+    }
+    // Within each group, apply sort. Rows lacking a comparable value pin
+    // to the group foot in name order.
+    for (const [pos, arr] of buckets) {
+      arr.sort((a, b) => rowCompare(a, b, view, sort));
+      buckets.set(pos, arr);
+    }
+    return buckets;
+  }, [totals, view, sort]);
+
+  // Column cap: SESSIONS + MINUTES + 6 metric columns = 8 ≤ 12. Assert.
+  const columnCount = (view === "absolute" ? 2 : 0) + METRIC_COLS.length;
+  if (columnCount > MAX_COLUMNS) {
+    throw new Error(`Window totals exceeds ${MAX_COLUMNS}-column cap`);
+  }
+
+  return (
+    <div>
+      {/* Title + view toggle. */}
+      <header className="mb-2 flex items-baseline justify-between gap-3">
+        <h3
+          className="type-section-h text-[15px]"
+          style={{ color: "var(--color-text-primary)" }}
+        >
+          {copy("longi.wt.title")}
+        </h3>
+        <SegmentedToggle
+          value={view}
+          onChange={(v) => {
+            setView(v);
+            setSort(null);
+          }}
+          options={[
+            { id: "absolute", label: copy("longi.wt.view.absolute") },
+            { id: "typical",  label: copy("longi.wt.view.typical") },
+            { id: "ac",       label: copy("longi.wt.view.ac") },
+          ]}
+        />
+      </header>
+
+      {/* Basis / method line — VS TYPICAL and A:C only. */}
+      {view === "typical" && (
+        <div
+          className="mb-2 text-[11.5px]"
+          style={{ color: "var(--color-text-tertiary)" }}
+        >
+          {copy("longi.basis.tickTable")}
+        </div>
+      )}
+      {view === "ac" && (
+        <div
+          className="mb-2 text-[11.5px]"
+          style={{ color: "var(--color-text-tertiary)" }}
+        >
+          {copy("longi.ac.method")}
+        </div>
+      )}
+
+      <div
+        className="surface-card overflow-x-auto rounded-lg"
+        style={{
+          backgroundColor: "var(--color-surface-card)",
+          border: "1px solid var(--color-border)",
+        }}
+      >
+        <table className="w-full border-collapse text-[12.5px]">
+          <thead>
+            <tr
+              style={{
+                backgroundColor: "var(--color-slate-50)",
+                borderBottom: "1px solid var(--color-border)",
+              }}
+            >
+              <th
+                className="px-3 py-2 text-left"
+                style={{ minWidth: 200 }}
+              >
+                <span className="type-col-head" style={{ color: "var(--color-text-secondary)" }}>
+                  ATHLETE
+                </span>
+              </th>
+              {view === "absolute" && (
+                <>
+                  <SortableHead
+                    label={copy("longi.wt.head.sessions")}
+                    active={sort?.key === "sessions"}
+                    dir={sort?.key === "sessions" ? sort.dir : null}
+                    onClick={() => setSort(cycleSort(sort, "sessions"))}
+                  />
+                  <SortableHead
+                    label={copy("longi.wt.head.minutes")}
+                    active={sort?.key === "minutes"}
+                    dir={sort?.key === "minutes" ? sort.dir : null}
+                    onClick={() => setSort(cycleSort(sort, "minutes"))}
+                  />
+                </>
+              )}
+              {METRIC_COLS.map((c) => (
+                <SortableHead
+                  key={c.id}
+                  label={c.head}
+                  active={sort?.key === c.id}
+                  dir={sort?.key === c.id ? sort.dir : null}
+                  onClick={() => setSort(cycleSort(sort, c.id))}
+                />
+              ))}
+            </tr>
+          </thead>
+
+          <tbody>
+            {POS_ORDER.map((pos) => {
+              const arr = grouped.get(pos) ?? [];
+              if (arr.length === 0) return null;
+              return (
+                <PositionGroup
+                  key={pos}
+                  pos={pos}
+                  rows={arr}
+                  view={view}
+                  colCount={columnCount + 1 /* athlete col */}
+                />
+              );
+            })}
+
+            {/* Squad average row — computed across participants under the active view. */}
+            <SquadAverageRow
+              rows={totals.perAthlete}
+              view={view}
+            />
+
+            {/* Foot row — the window's zero-participation athlete(s). */}
+            {totals.zeroParticipation.map((z) => (
+              <tr
+                key={z.athlete.id}
+                style={{ borderTop: "1px solid var(--color-border)" }}
+              >
+                <td className="px-3 py-2">
+                  <span
+                    className="text-[13px]"
+                    style={{ color: "var(--color-text-primary)" }}
+                  >
+                    {z.athlete.name}
+                  </span>{" "}
+                  <span
+                    className="type-microcaps"
+                    style={{ color: "var(--color-text-tertiary)" }}
+                  >
+                    {z.athlete.posDetail}
+                  </span>
+                </td>
+                <td
+                  className="px-3 py-2 text-[12px]"
+                  style={{ color: "var(--color-text-tertiary)" }}
+                  colSpan={columnCount}
+                >
+                  {copy("longi.wt.footRow")}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Footnote — em-dash meaning. */}
+      <div
+        className="mt-2 text-[11.5px]"
+        style={{ color: "var(--color-text-tertiary)" }}
+      >
+        {copy("longi.wt.footnote")}
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────────────────── position group + rows ─────────────────────────── */
+
+function PositionGroup({
+  pos,
+  rows,
+  view,
+  colCount,
+}: {
+  pos: PositionCode;
+  rows: AthleteTotals[];
+  view: View;
+  colCount: number;
+}) {
+  return (
+    <>
+      <tr
+        style={{
+          backgroundColor: "var(--color-slate-50)",
+          borderTop: "1px solid var(--color-border)",
+        }}
+      >
+        <td
+          className="px-3 py-1.5 type-microcaps"
+          style={{ color: "var(--color-text-tertiary)" }}
+          colSpan={colCount}
+        >
+          {POSITION_LABEL[pos]}
+        </td>
+      </tr>
+      {rows.map((r) => (
+        <TotalsRow key={r.athlete.id} row={r} view={view} />
+      ))}
+    </>
+  );
+}
+
+function TotalsRow({ row, view }: { row: AthleteTotals; view: View }) {
+  return (
+    <tr style={{ borderTop: "1px solid var(--color-border)" }}>
+      <td className="px-3 py-2 whitespace-nowrap">
+        <span
+          className="text-[13px]"
+          style={{ color: "var(--color-text-primary)" }}
+        >
+          {row.athlete.name}
+        </span>{" "}
+        <span
+          className="type-microcaps"
+          style={{ color: "var(--color-text-tertiary)" }}
+        >
+          {row.athlete.posDetail}
+        </span>
+      </td>
+
+      {view === "absolute" && (
+        <>
+          <NumericCell text={fmtInt(row.sessionsParticipated)} />
+          <NumericCell text={fmtInt(row.minutes)} />
+          {METRIC_COLS.map((c) => {
+            const v = row.absolute[c.id];
+            const hrShare = row.hrCoverageShareByMetric[c.id];
+            const coveragePartial =
+              c.id === "cardioLoad" && hrShare != null && hrShare < 0.8;
+            return (
+              <NumericCell
+                key={c.id}
+                text={v == null || v === 0 ? "—" : c.fmtAbs(v)}
+                sub={
+                  coveragePartial
+                    ? tmpl("longi.days.cov", { pct: Math.round((hrShare as number) * 100) })
+                    : undefined
+                }
+              />
+            );
+          })}
+        </>
+      )}
+
+      {view === "typical" && (
+        <TypicalRowCells row={row} />
+      )}
+
+      {view === "ac" && (
+        <AcRowCells row={row} />
+      )}
+    </tr>
+  );
+}
+
+function TypicalRowCells({ row }: { row: AthleteTotals }) {
+  if (row.vsTypical.state === "withheld") {
+    const n = row.vsTypical.largestBucketSampleCount;
+    const hover = tmpl("longi.wt.hover.baseline", {
+      date: dayMonthLong(row.athlete.joinedISO),
+      n,
+    });
+    return (
+      <td
+        className="px-3 py-2 text-[12px]"
+        style={{ color: "var(--color-text-tertiary)" }}
+        colSpan={METRIC_COLS.length}
+        title={hover}
+      >
+        {tmpl("longi.wt.withheld.sessions", { n })}
+      </td>
+    );
+  }
+  const pct = row.vsTypical.perMetricPct;
+  return (
+    <>
+      {METRIC_COLS.map((c) => {
+        const v = pct[c.id];
+        return (
+          <NumericCell
+            key={c.id}
+            text={v == null ? "—" : fmtInt(v)}
+          />
+        );
+      })}
+    </>
+  );
+}
+
+function AcRowCells({ row }: { row: AthleteTotals }) {
+  if (row.ac.state === "withheld") {
+    const n = row.ac.daysOfData;
+    const hover = tmpl("longi.wt.hover.ac", {
+      date: dayMonthLong(row.athlete.joinedISO),
+      n,
+    });
+    return (
+      <td
+        className="px-3 py-2 text-[12px]"
+        style={{ color: "var(--color-text-tertiary)" }}
+        colSpan={METRIC_COLS.length}
+        title={hover}
+      >
+        {tmpl("longi.wt.withheld.ac", { n })}
+      </td>
+    );
+  }
+  const per = row.ac.perMetric;
+  return (
+    <>
+      {METRIC_COLS.map((c) => {
+        const v = per[c.id];
+        return (
+          <NumericCell
+            key={c.id}
+            // A:C carries bare numbers and nothing else.
+            text={v == null ? "—" : fmt2(v)}
+          />
+        );
+      })}
+    </>
+  );
+}
+
+function NumericCell({ text, sub }: { text: string; sub?: string }) {
+  return (
+    <td
+      className="px-3 py-2 text-right type-num whitespace-nowrap"
+      style={{ color: "var(--color-text-primary)" }}
+    >
+      {text}
+      {sub && (
+        <span
+          className="ml-1 text-[10.5px]"
+          style={{ color: "var(--color-text-tertiary)" }}
+        >
+          {sub}
+        </span>
+      )}
+    </td>
+  );
+}
+
+/* ─────────────────────────── squad average row ─────────────────────────── */
+
+function SquadAverageRow({
+  rows,
+  view,
+}: {
+  rows: AthleteTotals[];
+  view: View;
+}) {
+  // Participants = those with sessions > 0.
+  const participants = rows;
+  const n = participants.length;
+
+  const avg = (nums: number[]): number | null =>
+    nums.length === 0 ? null : nums.reduce((a, b) => a + b, 0) / nums.length;
+
+  return (
+    <tr
+      style={{
+        backgroundColor: "var(--color-slate-50)",
+        borderTop: "1px solid var(--color-border)",
+      }}
+    >
+      <td className="px-3 py-2">
+        <span
+          className="text-[12.5px]"
+          style={{ color: "var(--color-text-secondary)" }}
+        >
+          {tmpl("longi.wt.squadAvg", { n })}
+        </span>
+      </td>
+
+      {view === "absolute" && (
+        <>
+          <NumericCell text={fmtInt(avg(participants.map((r) => r.sessionsParticipated)) ?? 0)} />
+          <NumericCell text={fmtInt(avg(participants.map((r) => r.minutes)) ?? 0)} />
+          {METRIC_COLS.map((c) => {
+            const nums = participants
+              .map((r) => r.absolute[c.id])
+              .filter((x): x is number => x != null && x > 0);
+            const v = avg(nums);
+            return (
+              <NumericCell key={c.id} text={v == null ? "—" : c.fmtAbs(v)} />
+            );
+          })}
+        </>
+      )}
+
+      {view === "typical" && (
+        <>
+          {METRIC_COLS.map((c) => {
+            const nums: number[] = [];
+            for (const r of participants) {
+              if (r.vsTypical.state !== "computed") continue;
+              const v = r.vsTypical.perMetricPct[c.id];
+              if (v != null) nums.push(v);
+            }
+            const v = avg(nums);
+            return (
+              <NumericCell key={c.id} text={v == null ? "—" : fmtInt(v)} />
+            );
+          })}
+        </>
+      )}
+
+      {view === "ac" && (
+        <>
+          {METRIC_COLS.map((c) => {
+            const nums: number[] = [];
+            for (const r of participants) {
+              if (r.ac.state !== "computed") continue;
+              const v = r.ac.perMetric[c.id];
+              if (v != null) nums.push(v);
+            }
+            const v = avg(nums);
+            return (
+              <NumericCell key={c.id} text={v == null ? "—" : fmt2(v)} />
+            );
+          })}
+        </>
+      )}
+    </tr>
+  );
+}
+
+/* ─────────────────────────── sort helpers ─────────────────────────── */
+
+function cycleSort(prev: SortState, key: SortKey): SortState {
+  if (!prev || prev.key !== key) return { key, dir: "desc" };
+  return { key, dir: prev.dir === "desc" ? "asc" : "desc" };
+}
+
+function rowSortValue(r: AthleteTotals, view: View, key: SortKey): number | null {
+  if (key === "sessions") return r.sessionsParticipated;
+  if (key === "minutes") return r.minutes;
+  const metric = key as LongiMetric;
+  if (view === "absolute") return r.absolute[metric] ?? null;
+  if (view === "typical") {
+    if (r.vsTypical.state !== "computed") return null;
+    return r.vsTypical.perMetricPct[metric] ?? null;
+  }
+  if (r.ac.state !== "computed") return null;
+  return r.ac.perMetric[metric] ?? null;
+}
+
+function rowCompare(
+  a: AthleteTotals,
+  b: AthleteTotals,
+  view: View,
+  sort: SortState,
+): number {
+  if (!sort) return a.athlete.name.localeCompare(b.athlete.name);
+  const av = rowSortValue(a, view, sort.key);
+  const bv = rowSortValue(b, view, sort.key);
+  const aHas = av != null;
+  const bHas = bv != null;
+  if (aHas !== bHas) return aHas ? -1 : 1;
+  if (!aHas) return surname(a.athlete.name).localeCompare(surname(b.athlete.name));
+  const cmp = (av as number) - (bv as number);
+  if (cmp === 0) return surname(a.athlete.name).localeCompare(surname(b.athlete.name));
+  return sort.dir === "desc" ? -cmp : cmp;
+}
+
+function SortableHead({
+  label,
+  active,
+  dir,
+  onClick,
+}: {
+  label: string;
+  active: boolean;
+  dir: SortDir | null;
+  onClick: () => void;
+}) {
+  return (
+    <th
+      className="px-3 py-2 text-right"
+      style={{
+        backgroundColor: active ? "var(--color-slate-100)" : undefined,
+      }}
+    >
+      <button
+        type="button"
+        onClick={onClick}
+        className="ml-auto inline-flex items-center gap-1.5"
+      >
+        <span
+          className="type-col-head"
+          style={{
+            color: active
+              ? "var(--color-text-primary)"
+              : "var(--color-text-secondary)",
+          }}
+        >
+          {label}
+        </span>
+        {active ? (
+          dir === "asc" ? (
+            <ChevronUp className="h-3 w-3" />
+          ) : (
+            <ChevronDown className="h-3 w-3" />
+          )
+        ) : (
+          <span className="w-3" />
+        )}
+      </button>
+    </th>
+  );
+}
