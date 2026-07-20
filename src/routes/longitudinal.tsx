@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { SourceSidebar } from "@/components/shell/SourceSidebar";
 import { DemoPill } from "@/components/shell/DemoPill";
-import { copy } from "@/lib/copy-deck";
+
 import {
   windowFor,
   sessionDayIndex,
