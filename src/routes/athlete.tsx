@@ -43,7 +43,7 @@ function AthleteRoute() {
   const setSearch = (patch: Partial<{ athleteId: string; sessionId: string; timeframe: string }>) => {
     navigate({
       to: "/athlete",
-      search: (prev) => ({ ...prev, ...patch }),
+      search: (prev: { athleteId: string; sessionId: string; timeframe: string }) => ({ ...prev, ...patch }),
     });
   };
 
