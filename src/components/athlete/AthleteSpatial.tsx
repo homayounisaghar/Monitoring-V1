@@ -257,7 +257,7 @@ const VB_H = 65;
 const GRID_COLS = 20;
 const GRID_ROWS = 13;
 
-function PitchSvg({ field, mode }: { field: SpatialField; mode: Mode }) {
+function PitchSvg({ field, mode, showAttacking = true }: { field: SpatialField; mode: Mode; showAttacking?: boolean }) {
   return (
     <div className="relative">
       <svg
@@ -269,15 +269,18 @@ function PitchSvg({ field, mode }: { field: SpatialField; mode: Mode }) {
         <PitchOutline />
         {mode === "heat" ? <HeatLayer field={field} /> : <TraceLayer field={field} />}
       </svg>
-      <div
-        className="type-microcaps absolute right-2 top-1 text-[9.5px]"
-        style={{ color: "var(--color-text-tertiary)" }}
-      >
-        {copy("athlete.spatial.attacking")}
-      </div>
+      {showAttacking ? (
+        <div
+          className="type-microcaps absolute right-2 top-1 text-[9.5px]"
+          style={{ color: "var(--color-text-tertiary)" }}
+        >
+          {copy("athlete.spatial.attacking")}
+        </div>
+      ) : null}
     </div>
   );
 }
+
 
 function PitchOutline({ faint = false }: { faint?: boolean }) {
   const stroke = faint ? "var(--color-border)" : "var(--color-slate-300)";
