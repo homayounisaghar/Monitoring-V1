@@ -165,8 +165,8 @@ export function PitchField({
 const VB_W = 100;
 const VB_H = 65;
 
-// Attacking direction = +x. Anchors in demo-spatial place x=0 at his
-// team's goal, x=100 at the attacking goal.
+// Attacking direction = +x. Anchors in demo-spatial place x=0 at the
+// team's own goal, x=100 at the attacking goal.
 
 // Heat grid — 20 columns × 13 rows over the pitch. Points come in as
 // x:0..100, y:0..100; we scale y into VB_H when drawing but bin on the
