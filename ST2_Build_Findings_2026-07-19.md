@@ -342,3 +342,35 @@ Remedy: `src/lib/format-date.ts`, four exports (`dayMonth2`, `dayMonth`, `weekda
 Fence exception: `SourceSidebar.tsx` was edited under the Session fence for the row-date correctness fix. No design change — same shape (`19 Jul · 46'`), same alignment, same day-code badge.
 
 `DEMO_TODAY` as found: `export const DEMO_TODAY = "2026-07-19"` in `src/lib/demo-library.ts` (line 32) — a hard ISO literal. No clock reads; left as-is.
+
+**Window menu clipped by a vestigial `truncate` (Ali, 2026-07-19).** The banner's left group carried `flex min-w-0 items-baseline gap-x-2.5 truncate`, copied from Session's banner where the ellipsis lives on an inner `<h1>`. Here there is no long title, and `truncate`'s `overflow: hidden` clipped the absolutely-positioned window menu — click the range, nothing appeared. Removed `truncate` from the wrapper; the range span already carries `whitespace-nowrap`, so no width guard is lost. The four menu rows now render on screen, `default` on the 28-day row, `since 13 Apr · 14 wk` on Season to date.
+
+**Session banner date — same defect, same remedy (Ali, 2026-07-19).** `EventBanner.formatDate` was `new Date(iso).toLocaleDateString("en-GB", …)` with no `timeZone`. In LA the server wrote `Fri, 17 Jul 2026` and the browser wrote `Sat, 18 Jul 2026` — hydration mismatch on the page's top object, contradicting the sidebar row `18 Jul · 95'` beneath it. Added `weekdayDayMonthYear(iso)` to `format-date.ts`; `EventBanner` now reads `Sat 18 Jul 2026`. `formatDate` deleted.
+
+**Fence exception logged: `EventBanner.tsx` edited under the Session fence — date formatting only, no other change.**
+
+**Default taken — dropped the comma in the Session banner date (Ali, 2026-07-19).** `Sat, 18 Jul 2026` → `Sat 18 Jul 2026`. There was no stable current rendering to preserve — the two sides disagreed by a whole day — and the no-comma form is the idiom the Longitudinal banner already ships (`Mon 22 Jun – Sun 19 Jul 2026`). One date vocabulary across two banners a stakeholder may see side by side. Reversible in one line.
+
+**Sweep — every `toLocale*`, `Intl.`, and unqualified `new Date(` in `src/` (Ali, 2026-07-19).**
+
+Date-producing, reader-visible on Session or Longitudinal — fixed this turn:
+- `src/components/session/EventBanner.tsx:239–240` — `new Date(iso).toLocaleDateString(...)`. Now `weekdayDayMonthYear`.
+
+Number formatting, not date — left in place, safe across zones and locales because they format integers/decimals:
+- `src/lib/squad-metrics.ts:166` — `v.toLocaleString()` on a number.
+- `src/components/ui/chart.tsx:225` — `item.value.toLocaleString()`.
+- `src/components/data/ValueOnTrack.tsx:193` — `value.toLocaleString()`.
+- `src/components/session/SummaryCard.tsx:432, 483` — `value.toLocaleString()`.
+- `src/components/session/SquadCard.tsx:878` — `Math.round(value).toLocaleString()`.
+- `src/components/session/PeriodsCard.tsx:748` — `Math.round(v).toLocaleString()`.
+
+  Note: `toLocaleString()` on a number can insert locale-specific thousands separators (comma in en-US, space in fr-FR, dot in de-DE) and produce different strings on SSR vs client. Not date-wrong, but is the same *class* of nondeterminism. Flagged for a later sweep; not fixed under this fence.
+
+Third-party primitive, not on Session or Longitudinal — left:
+- `src/components/ui/calendar.tsx:35, 157` — react-day-picker internals.
+
+Unqualified `new Date(...)` — all safe:
+- `src/lib/demo-library.ts:11` — comment.
+- `src/lib/demo-library.ts:223`, `src/lib/longitudinal-data.ts:76`, `src/lib/longitudinal-data.check.ts:40`, `src/lib/format-date.ts:26` — `new Date(ms)` where `ms` comes from `Date.UTC(...)` arithmetic; only `getUTC*` accessors are called on the result. Zone-independent.
+- `src/components/shell/SourceSidebar.tsx:120` — `new Date(ms).toISOString().slice(0, 10)` with `ms` from `Date.UTC` arithmetic. Zone-independent.
+
