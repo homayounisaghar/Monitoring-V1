@@ -855,3 +855,348 @@ function SortableHead({
     </th>
   );
 }
+
+/* ─────────────────────────── 3 · session-by-session matrix ─────────────────────────── */
+
+const MATRIX_CELL_W = 22;
+const MATRIX_CELL_H = 20;
+const MATRIX_NAME_W = 168;
+
+type HoverCell = { row: string; col: number; slot: number };
+
+function SessionByMatrix({ window: w }: { window: LongiWindow }) {
+  const [open, setOpen] = useState(false);
+  const [hover, setHover] = useState<HoverCell | null>(null);
+  const matrix = useMemo(() => athleteDayMatrix(w), [w]);
+
+  // Group rows position-first for the muted subheaders.
+  const grouped = useMemo(() => {
+    const byPos = new Map<PositionCode, typeof matrix.rows>();
+    for (const p of POS_ORDER) byPos.set(p, []);
+    for (const r of matrix.rows) byPos.get(r.athlete.position)?.push(r);
+    return byPos;
+  }, [matrix]);
+
+  const gridW = MATRIX_NAME_W + matrix.columns.length * MATRIX_CELL_W;
+
+  const identityText = useMemo(() => {
+    if (!hover) return "";
+    const row = matrix.rows.find((r) => r.athlete.id === hover.row);
+    const col = matrix.columns[hover.col];
+    if (!row || !col) return "";
+    const cell = row.cells[hover.col]?.[hover.slot];
+    if (!cell) return "";
+    const stateLabel = cellStateLabel(cell);
+    return tmpl("longi.matrix.identityTemplate", {
+      athlete: row.athlete.name,
+      date: dayMonthLong(col.dateISO),
+      state: stateLabel,
+    });
+  }, [hover, matrix]);
+
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        className="inline-flex items-center gap-1 rounded px-2 py-1 text-[12.5px] transition-colors hover:bg-[color:var(--color-slate-100)]"
+        style={{ color: "var(--color-text-secondary)" }}
+      >
+        {open ? "Session by session ⌃" : copy("longi.athletes.expander")}
+      </button>
+
+      {open && (
+        <div
+          className="mt-3 surface-card overflow-x-auto rounded-lg"
+          style={{
+            backgroundColor: "var(--color-surface-card)",
+            border: "1px solid var(--color-border)",
+          }}
+          onMouseLeave={() => setHover(null)}
+        >
+          {/* Reserved identity slot — always present so the grid doesn't shift. */}
+          <div
+            className="flex items-center px-3"
+            style={{
+              height: 28,
+              borderBottom: "1px solid var(--color-border)",
+              backgroundColor: "var(--color-slate-50)",
+              color: "var(--color-text-secondary)",
+              fontSize: 12,
+            }}
+          >
+            <span className="type-num" style={{ minHeight: 14 }}>
+              {identityText || "\u00A0"}
+            </span>
+          </div>
+
+          <div style={{ minWidth: gridW }}>
+            {/* Column axis — Monday dates row, then day codes row. */}
+            <MatrixDateAxis
+              columns={matrix.columns}
+              hoverCol={hover?.col ?? null}
+            />
+            <MatrixCodeAxis
+              columns={matrix.columns}
+              hoverCol={hover?.col ?? null}
+            />
+
+            {/* Rows — position groups. */}
+            {POS_ORDER.map((pos) => {
+              const rows = grouped.get(pos) ?? [];
+              if (rows.length === 0) return null;
+              return (
+                <div key={pos}>
+                  <div
+                    className="type-microcaps px-3 py-1"
+                    style={{
+                      color: "var(--color-text-tertiary)",
+                      backgroundColor: "var(--color-slate-50)",
+                      borderTop: "1px solid var(--color-border)",
+                      borderBottom: "1px solid var(--color-border)",
+                    }}
+                  >
+                    {POSITION_LABEL[pos]}
+                  </div>
+                  {rows.map((r) => (
+                    <MatrixRowView
+                      key={r.athlete.id}
+                      athleteId={r.athlete.id}
+                      name={r.athlete.name}
+                      posDetail={r.athlete.posDetail}
+                      cells={r.cells}
+                      columns={matrix.columns}
+                      hover={hover}
+                      setHover={setHover}
+                    />
+                  ))}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function MatrixDateAxis({
+  columns,
+  hoverCol,
+}: {
+  columns: MatrixColumn[];
+  hoverCol: number | null;
+}) {
+  return (
+    <div
+      className="flex"
+      style={{ height: 18, borderBottom: "1px solid var(--color-border)" }}
+    >
+      <div style={{ width: MATRIX_NAME_W }} />
+      {columns.map((c, i) => (
+        <div
+          key={c.dateISO}
+          className="type-num relative"
+          style={{
+            width: MATRIX_CELL_W,
+            fontSize: 10,
+            color: "var(--color-text-tertiary)",
+            backgroundColor: hoverCol === i ? "var(--color-slate-100)" : "transparent",
+          }}
+        >
+          {c.isMondayLabel && (
+            <span
+              style={{
+                position: "absolute",
+                left: 2,
+                top: 2,
+                whiteSpace: "nowrap",
+              }}
+            >
+              {dayMonth(c.dateISO)}
+            </span>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function MatrixCodeAxis({
+  columns,
+  hoverCol,
+}: {
+  columns: MatrixColumn[];
+  hoverCol: number | null;
+}) {
+  return (
+    <div
+      className="flex"
+      style={{ height: 16, borderBottom: "1px solid var(--color-border)" }}
+    >
+      <div style={{ width: MATRIX_NAME_W }} />
+      {columns.map((c, i) => (
+        <div
+          key={c.dateISO}
+          className="type-microcaps grid place-items-center"
+          style={{
+            width: MATRIX_CELL_W,
+            fontSize: 9,
+            color: c.isMatchDay
+              ? "var(--color-text-primary)"
+              : "var(--color-text-tertiary)",
+            backgroundColor: hoverCol === i ? "var(--color-slate-100)" : "transparent",
+          }}
+        >
+          {c.isMatchDay ? "MD" : ""}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function MatrixRowView({
+  athleteId,
+  name,
+  posDetail,
+  cells,
+  columns,
+  hover,
+  setHover,
+}: {
+  athleteId: string;
+  name: string;
+  posDetail: string;
+  cells: MatrixCellState[][];
+  columns: MatrixColumn[];
+  hover: HoverCell | null;
+  setHover: (h: HoverCell | null) => void;
+}) {
+  const rowHovered = hover?.row === athleteId;
+  return (
+    <div
+      className="flex"
+      style={{
+        height: MATRIX_CELL_H,
+        borderTop: "1px solid var(--color-border)",
+        backgroundColor: rowHovered ? "var(--color-slate-50)" : "transparent",
+      }}
+    >
+      <div
+        className="flex items-center gap-1.5 px-3"
+        style={{ width: MATRIX_NAME_W }}
+      >
+        <span
+          className="truncate text-[11.5px]"
+          style={{ color: "var(--color-text-primary)" }}
+        >
+          {name}
+        </span>
+        <span
+          className="type-microcaps shrink-0"
+          style={{ color: "var(--color-text-tertiary)", fontSize: 9 }}
+        >
+          {posDetail}
+        </span>
+      </div>
+      {columns.map((col, i) => {
+        const slots = cells[i];
+        const colHovered = hover?.col === i;
+        return (
+          <div
+            key={col.dateISO}
+            style={{
+              width: MATRIX_CELL_W,
+              height: MATRIX_CELL_H,
+              backgroundColor: colHovered ? "var(--color-slate-100)" : "transparent",
+              padding: 2,
+            }}
+          >
+            <MatrixCell
+              slots={slots}
+              onHoverSlot={(slot) =>
+                setHover({ row: athleteId, col: i, slot })
+              }
+              onLeave={() => {
+                // Row-mouseleave clears; individual slot leave is a no-op so
+                // hover persists across a row scan.
+              }}
+            />
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function MatrixCell({
+  slots,
+  onHoverSlot,
+  onLeave,
+}: {
+  slots: MatrixCellState[];
+  onHoverSlot: (slot: number) => void;
+  onLeave: () => void;
+}) {
+  // slots is length 1 for outside/rest/missing/single-session, or 2 for double.
+  return (
+    <div
+      className="flex h-full w-full flex-col overflow-hidden rounded-[2px]"
+      onMouseLeave={onLeave}
+    >
+      {slots.map((s, idx) => (
+        <div
+          key={idx}
+          onMouseEnter={() => onHoverSlot(idx)}
+          style={{
+            flex: 1,
+            minHeight: 0,
+            ...cellStyle(s),
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
+function cellStyle(s: MatrixCellState): React.CSSProperties {
+  switch (s.kind) {
+    case "tag":
+      return TAG_STYLE[s.tag];
+    case "unselected":
+      // Hairline no-fill costume — in-squad, not picked.
+      return {
+        backgroundColor: "transparent",
+        border: "1px solid var(--color-border)",
+      };
+    case "outside":
+      // Absence of our claim — same treatment as not-in-squad remainder.
+      return NOT_IN_SQUAD_STYLE;
+    case "rest":
+      // Real zero — empty ground across the row.
+      return { backgroundColor: "transparent" };
+    case "missing":
+      // Dashed void — unknown, visibly distinct from rest.
+      return {
+        backgroundColor: "transparent",
+        backgroundImage:
+          "repeating-linear-gradient(45deg, var(--color-border) 0 2px, transparent 2px 5px)",
+      };
+  }
+}
+
+function cellStateLabel(s: MatrixCellState): string {
+  switch (s.kind) {
+    case "tag":
+      return s.tag;
+    case "unselected":
+      return copy("longi.matrix.state.unselected");
+    case "outside":
+      return copy("longi.matrix.state.outside");
+    case "rest":
+      return copy("longi.matrix.state.rest");
+    case "missing":
+      return copy("longi.matrix.state.missing");
+  }
+}
