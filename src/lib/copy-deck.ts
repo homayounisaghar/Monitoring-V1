@@ -415,7 +415,7 @@ export const COPY = {
   "longi.athletes.expander":     "Session by session ⌄",
   "longi.athletes.drill":        "open athlete →",
   "longi.wt.title":              "Window totals",
-  "longi.basis.tickTable":       "100 — their typical, like-for-like",
+  "longi.basis.tickTable":       "100 — their {label}",
   "longi.wt.view.absolute":      "ABSOLUTE",
   "longi.wt.view.typical":       "VS TYPICAL",
   "longi.wt.view.ac":            "A:C",
