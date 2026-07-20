@@ -96,6 +96,7 @@ export function AthleteScopeLine({ athleteId, sessionId, onSessionChange, peerId
       <ReferenceChip
         value={refKind}
         onChange={setRefKind}
+        session={activeSession}
         showSameOpponent={isMatch}
       />
       <Sep />
