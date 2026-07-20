@@ -752,3 +752,25 @@ Duplicated the Longitudinal `AnchorStrip` locally rather than parameterising it 
 
 **Verification**
 Typecheck clean. Playwright screenshot at `/tmp/browser/athlete/1_session.png` shows the full designed shell: banner (K. Werner · RW · full · 88' · max 35.9 km/h · Sat 18 Jul 2026), scope line with all four chips including the `flag — High-speed running ×` chip, four anchor sections rendered as empty `type-section-h` placeholders. `Over time` toggle renders the empty-state sentence and hides the scope line.
+
+---
+
+## 2026-07-20 · W02 · prompt 2 — Athlete Summary spine
+
+Built the Summary spine: six metrics on one shared 40–160 % axis, External group (Total distance · m/min · HSR · Acc–Dec) above, Internal group (Cardio Load · sRPE) anchoring the foot per ratified order. Files: new `src/lib/athlete-data.ts` (derivation only, no JSX), new `src/components/athlete/AthleteSummarySpine.tsx`, new `src/components/athlete/AthleteLegend.tsx`. Wired into `src/routes/athlete.tsx`; scope line receives its resolved period options from `athlete-data`.
+
+### Carried fixes
+- **7.1 · periods slot.** Periods chip now consumes `periodOptionsFor(sessionId)` which returns the 15-minute block set (six blocks + added time when duration > 90'). Werner's Sat 18 Jul match resolves to `all 7`; non-match sessions collapse to `all 1`.
+- **7.2 · legend trigger.** `How to read this` prints to the right of the scope line (route lays it out; not inside `AthleteScopeLine`). Popover is state-aware — a row prints only when the mark actually appears on screen.
+
+### Divergences worth naming
+- **Band ≠ flat ±5 %.** Reference band is the athlete's own mean ± 1 SD from `demo-typicals.ts` per metric, day-type-aware. Session/Longitudinal draw the flat 5 % band because the object there is a squad reference; on Athlete the object is this athlete against himself, and a flat percentage would falsely assert an identical normal range across every athlete and metric.
+- **`furthest from typical` chip.** Renders on exactly one non-flagged row per group per session. On today's Werner render, Acc–Dec carries it in External; the Internal group has no salient outlier.
+- **Beyond-range treatment.** Never redraws the axis. Clamps to the edge, prints a caret, and shows the true delta at the value edge. If a value clears the range in both directions it clamps low and shows the negative delta.
+
+### Ruling recorded verbatim (§8 of the prompt)
+The `--axis-cost-light` token exists to separate the sRPE lane from the Cardio Load lane on the Longitudinal Days chart, where two internal series must be told apart at a glance. It does not mean sRPE is a different kind of quantity or a different colour of cost. On the Athlete Summary spine, hue carries axis membership only (work vs cost), so Cardio Load and sRPE both render in `--axis-cost` — the same purple. The rule from Workstream 01: sRPE is a load in AU with no `/10` anywhere, and it belongs in the Internal group. The Periods section (W02 · prompt 3) draws blocks of the match; sRPE is a whole-session self-report and has no periodic decomposition, so it is excluded from Periods entirely. If a later surface needs to distinguish the two internal series again, use `--axis-cost-light` there — never on the spine.
+
+### Verify
+- Playwright: `/athlete` renders full spine; no console errors; HSR hoists to row 1 of External (flag active); Acc–Dec carries salience chip; character line prints; legend popover opens.
+
