@@ -188,6 +188,7 @@ function AvailabilityRow({
   row: AthleteAvailEntry;
   maxAvailable: number;
 }) {
+  const navigate = useNavigate();
   const { athlete, tagCounts, availableSessions, fullFraction, attentionFlagged } = row;
   const fullCount = Math.round(fullFraction * availableSessions);
   const barWidth = maxAvailable > 0 ? (availableSessions / maxAvailable) * 100 : 0;
@@ -203,8 +204,28 @@ function AvailabilityRow({
   }
   const leftover = Math.max(0, availableSessions - tagged);
 
+  const openAthlete = () =>
+    navigate({
+      to: "/athlete",
+      search: { athleteId: athlete.id, sessionId: "", timeframe: "window" },
+    });
+
   return (
-    <div className="group grid grid-cols-[220px_1fr_88px_88px] items-center gap-4 px-4 py-3">
+    <div
+      role="link"
+      tabIndex={0}
+      onClick={openAthlete}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          openAthlete();
+        }
+      }}
+      className="group grid cursor-pointer grid-cols-[220px_1fr_88px_88px] items-center gap-4 px-4 py-3 focus-visible:outline-none"
+      style={{ transition: "background-color 120ms" }}
+      onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "var(--color-slate-50)")}
+      onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
+    >
       {/* Name + position + optional neutral flag glyph. */}
       <div className="flex items-center gap-2 min-w-0">
         {attentionFlagged && (
