@@ -92,7 +92,7 @@ function SectionHeading({ id, label }: { id: string; label: string }) {
   return (
     <section id={id} className="scroll-mt-28">
       <h2
-        className="text-[20px] font-semibold tracking-tight"
+        className="type-section-h"
         style={{ color: "var(--color-text-primary)" }}
       >
         {label}

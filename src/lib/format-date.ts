@@ -8,7 +8,17 @@ const MONTHS = [
   "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
 ] as const;
 
+const MONTHS_LONG = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
+] as const;
+
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
+
+const WEEKDAYS_LONG = [
+  "Sunday", "Monday", "Tuesday", "Wednesday",
+  "Thursday", "Friday", "Saturday",
+] as const;
 
 type Parts = { y: number; m: number; d: number };
 
@@ -68,4 +78,17 @@ export function rangeLabel(startISO: string, endISO: string): string {
     return `${startCore} – ${endCore} ${e.y}`;
   }
   return `${startCore} ${s.y} – ${endCore} ${e.y}`;
+}
+
+/** "13 April" — full month name, no leading zero on the day. */
+export function dayMonthLong(iso: string): string {
+  const { m, d } = parts(iso);
+  return `${d} ${MONTHS_LONG[m - 1]}`;
+}
+
+/** "Tuesday" — full weekday, zone-independent. */
+export function weekdayLong(iso: string): string {
+  const { y, m, d } = parts(iso);
+  const t = Date.UTC(y, m - 1, d);
+  return WEEKDAYS_LONG[new Date(t).getUTCDay()];
 }

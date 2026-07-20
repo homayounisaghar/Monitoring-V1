@@ -317,6 +317,8 @@ export const COPY = {
   "longi.avail.subTemplate": "{full} of {possible} · {trainings} training sessions",
   "longi.avail.notInSquad": "not in squad",
   "longi.character.compositionTemplate": "{n} matches in {span}",
+  "longi.character.compositionOne": "One match in {span}",
+  "longi.character.compositionNone": "No matches in {span}",
   "longi.character.span.7": "one week",
   "longi.character.span.14": "two weeks",
   "longi.character.span.28": "four weeks",

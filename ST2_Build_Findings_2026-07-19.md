@@ -424,3 +424,25 @@ Zero counts never print (none occurred in 28d; in 7d, `Rehab 0` was correctly ab
 **Anything else that looked wrong.**
 - The 7d grammar quirk noted above.
 - Nothing else — console clean, no hydration warning, no error overlay on either window.
+
+---
+
+## Workstream 04 · Step 3 corrections (Ali, 2026-07-20)
+
+**Four items landed as a set. No new sections.**
+
+**1 · Composition clause branches on match count.** Added `longi.character.compositionOne` (`"One match in {span}"`) and `longi.character.compositionNone` (`"No matches in {span}"`). The two-and-above template is unchanged. `characterLine` picks the form by `comp.matchSessions`. Zero case never fires in this library but is wired for data movement.
+
+**As rendered (verified in `America/Los_Angeles`):**
+- 28d: `Five matches in four weeks; Lange went out through rehab, Köhler joined 7 July.` — byte-identical to the prior render.
+- 7d:  `One match in one week; Tuesday is unrecorded, Sunday's session is not confirmed.` — grammar defect closed.
+
+**2 · Section headers unified.** `SummarySection`'s `<h2>` and the `SectionHeading` in `longitudinal.tsx` (used by Days and Athletes) both now use `type-section-h`. The inline `text-[20px] font-semibold tracking-tight` is gone from both. Longitudinal and Session share one section-header vocabulary at 17px.
+
+**3 · Date helpers consolidated in `format-date.ts`.** `dayMonthLong(iso)` → `"7 July"` and `weekdayLong(iso)` → `"Tuesday"` now live there alongside `MONTHS_LONG` and `WEEKDAYS_LONG` arrays. Same module rules — no `Intl`, no `toLocale*`, no `new Date(iso)` without `Z`. `SummarySection.tsx` imports both and drops its local `MONTHS_LONG` / `WEEKDAYS_LONG` / `isoParts` / `dayMonthLong` / `weekdayLong`. One copy of the month and weekday arrays across the project.
+
+**4 · Session Participation card — verified pixel-identical.** Screenshotted after the participation-style lift. `Full 13 · Part 3 · Injury 2 — Voss, Lange` — three segments in the bar and three swatches in the count row, textures unchanged (Full solid slate-500, Part 45° stripes, Injury 0° horizontal stripes), stripe angles unchanged, count chips unchanged. The 72% `full` read at the top-right of the card is unchanged. Nothing moved.
+
+**Console clean on both routes.** No hydration warning, no error overlay.
+
+**Nothing else flagged.**
