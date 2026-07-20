@@ -950,7 +950,7 @@ function SessionRecoveryBand({ sessionId }: { sessionId: string }) {
       return (
         <div className="flex items-baseline gap-3">
           <span
-            className="type-num text-[25px] font-semibold leading-none"
+            className="type-num text-[18px] font-semibold leading-none"
             style={{ color: "var(--color-text-primary)" }}
           >
             {`${Math.round(read.medianPct)}%`}
