@@ -130,7 +130,7 @@ export function AthleteSummarySpine({ athleteId, sessionId, flagActive }: Props)
 
       {/* Groups */}
       <div className="px-5 py-4">
-        <GroupBlock label={copy("athlete.summary.groupExternal")} rows={external} />
+        <GroupBlock label={copy("athlete.summary.groupExternal")} rows={external} firstRowShowsAxis />
         <div className="my-3 h-px" style={{ backgroundColor: "var(--color-border)" }} aria-hidden />
         <GroupBlock label={copy("athlete.summary.groupInternal")} rows={internal} />
       </div>
