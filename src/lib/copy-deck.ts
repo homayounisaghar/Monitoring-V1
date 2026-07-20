@@ -496,6 +496,13 @@ export const COPY = {
   "athlete.summary.character.shape.flatDown":   "held his volume at a lower cost",
   "athlete.summary.character.shape.flatFlat":   "sat close to his own typical",
 
+  // Athlete · periods slot — still consumed by the scope-line period
+  // chip even though the Periods section is deferred (demo-data gap;
+  // see findings 2026-07-20).
+  "athlete.periods.allTemplate": "all {n}",
+  "athlete.periods.blockTemplate": "block {n}",
+  "athlete.periods.addedTime": "added time",
+
   // Athlete · Spatial section
   "athlete.spatial.title": "Spatial",
   "athlete.spatial.mode.heat": "Heat",
