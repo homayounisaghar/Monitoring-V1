@@ -28,7 +28,7 @@ import {
   EXPECTED_MIN_COVERAGE,
   type ExpectedSumBasis,
 } from "./demo-typicals";
-import type { ParticipationTag } from "./session-data";
+import type { ParticipationTag, PositionCode } from "./session-data";
 import { TIER1_ROWS_DEFAULT } from "./session-flags";
 
 /** Pinned session identity — the flag source below is scoped to this date. */
