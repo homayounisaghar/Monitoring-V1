@@ -12,7 +12,7 @@ import { copy, tmpl } from "@/lib/copy-deck";
 import { METRICS as METRIC_LIB } from "@/lib/squad-metrics";
 import { ScopeTag } from "@/components/session/ScopeTag";
 import { SegmentedToggle } from "@/components/data/SegmentedToggle";
-import { PARTICIPATION_TAGS, TAG_TEXTURE } from "@/lib/participation-style";
+import { PARTICIPATION_TAGS, TAG_STYLE } from "@/lib/participation-style";
 
 /* ---------- Static (curated) squad averages, keyed to Benchmark ---------- */
 
