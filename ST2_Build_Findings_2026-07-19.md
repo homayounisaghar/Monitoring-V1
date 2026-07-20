@@ -797,3 +797,27 @@ Applied eleven corrections against the spine at `ae89d64`:
 - **Rows outside their band, default state:** 2 of 6 (m/min at +13% edge, acc-dec at -20% outside). On the MD-2 Intensive read: 2 of 6 (HSR, acc-dec). Roughly a third across both, matching the expected shape.
 - **Reads as notable, not alarm.** The outlying dot answers "what's off" before any number does, exactly as the spine is intended to.
 - The underlying `demo-typicals` variance is not tuned for this surface. If a later pass wants tighter bands, that is a data-calibration change in the generator, not a display change on the spine.
+
+## 2026-07-20 — Athlete Spatial section · prompt 4
+
+### Periods omitted — demo-data gap, NOT a design decision
+
+The Longitudinal tab has no Periods section because the **feed** carries no named segment definitions — gated on data, absent not empty, and the section invariant permits a tab to omit a family section it honestly lacks. **This is not that.** The Athlete Periods gap is in the **demo library**, not the feed: the real stream supports per-athlete blocks, being the same computation the Session page already performs one level up. The section is ratified structure and is deferred for want of generated data only. Building the per-athlete block series is dataset work, post-meeting. Do not cite the Longitudinal precedent for this omission.
+
+**Design gap surfaced en route:** a Part-participation athlete subbed at 60′ needs a "did not participate in this block" state that the shipped periods costume set does not contain. That is design work outstanding even once the data exists — four costumes today (unconfirmed hatch, thin-coverage trust dot, no-data em-dash, beyond-range break-slash), five needed.
+
+Anchor strip and page reduced to **Summary · Spatial · Detail**. Route no longer points at a section that isn't there.
+
+### Spatial section built
+
+- One `PitchField` per athlete-session. Component structured so a second field can be dropped alongside at identical costume for Workstream 03's subject-plus-peer pair — no `muted` prop, no shared-scale flag, no "primary vs secondary" style hooks.
+- Heat/Trace toggle governs one coordinate stream. Density ramp is a single blue built from `--color-axis-work` with per-cell opacity 0.12 → 0.9 mapped from `sqrt(count / peak)`. No RAG, no severity hue.
+- Peak is per-field. Footer states it plainly — *"Density scales to his own peak this session — never a shared scale."* — so the pair build inherits the wording.
+- Thirds render as three numeric rows only. No bars, no rails; grepped the file to confirm.
+- Attacking direction labelled once at the pitch's top-right.
+- Trace mode marks kick-off (filled dot + label) and final whistle (outlined ring + label). The final-whistle ring lives on an SVG trace layer and cannot collide with the spine's horizontal-track hollow-coverage costume; recorded here so the next reader does not merge them.
+- Unavailable state (M. Meier across the window, plus the scatter set) renders at full size — faint pitch outline, plain reason, one fix mentioning the athlete's name. Never blank, never collapsed.
+
+### Carried §6 — `athlete.summary.withheld.spread` resolved by removal
+
+Verified the branch never fires on shipped spine metrics. The only recorded zero-spread case is `sprintDist` in `MD+1::recovery`, and `sprintDist` is not a spine metric (spine carries totalDistance, mMin, hsr, accDec, cardioLoad, srpeAU). The key was dormant. Removed rather than wired to dead UI — an unused key in a governed deck is its own small defect. The band-suppression branch in `athlete-data.ts` stays as a guard against future data.
