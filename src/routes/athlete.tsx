@@ -8,6 +8,7 @@ import { SegmentedToggle } from "@/components/data/SegmentedToggle";
 import { AthleteBanner } from "@/components/athlete/AthleteBanner";
 import { AthleteScopeLine } from "@/components/athlete/AthleteScopeLine";
 import { AthleteSummarySpine } from "@/components/athlete/AthleteSummarySpine";
+import { AthleteBalance } from "@/components/athlete/AthleteBalance";
 import { AthleteSpatial } from "@/components/athlete/AthleteSpatial";
 import { AthleteDetail } from "@/components/athlete/AthleteDetail";
 import { AthleteLegend } from "@/components/athlete/AthleteLegend";
@@ -141,6 +142,7 @@ function AthleteRoute() {
                     flagActive={flagActive}
                     peerSpine={peerSpine}
                   />
+                  <AthleteBalance athleteId={athleteId} sessionId={sessionId} />
                 </section>
                 <section id="spatial" className="scroll-mt-28 pb-10">
                   <AthleteSpatial

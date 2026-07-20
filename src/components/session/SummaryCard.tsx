@@ -13,6 +13,7 @@ import { METRICS as METRIC_LIB } from "@/lib/squad-metrics";
 import { ScopeTag } from "@/components/session/ScopeTag";
 import { SegmentedToggle } from "@/components/data/SegmentedToggle";
 import { PARTICIPATION_TAGS, TAG_STYLE } from "@/lib/participation-style";
+import { hrvSquadResponseForSession, RECOVERY_INK_VAR } from "@/lib/recovery-data";
 
 /* ---------- Static (curated) squad averages, keyed to Benchmark ---------- */
 
@@ -310,6 +311,13 @@ export function SummaryCard() {
             </div>
           </div>
         </div>
+
+        {/* Recovery — the third read, slate, alongside external work and
+            internal cost. HRV squad median as % of own baseline, the
+            morning after this session. Withheld with reason when that
+            morning has not yet happened. */}
+        <SessionRecoveryBand sessionId="s-2026-07-04-dortmund" />
+
 
         {/* Zones */}
         <div
@@ -926,4 +934,88 @@ function ParticipationCard({
     </div>
   );
 }
+
+/* ---------- Recovery band (HRV, slate, page-scoped) ---------- */
+
+function SessionRecoveryBand({ sessionId }: { sessionId: string }) {
+  const read = hrvSquadResponseForSession(sessionId);
+  const isOk = read.state === "ok";
+  const label = copy("summary.recovery.head");
+  const rowLabel = copy("summary.recovery.label");
+
+  const rightSide = (() => {
+    if (isOk) {
+      const delta = read.medianPct - 100;
+      return (
+        <div className="flex items-baseline gap-3">
+          <span
+            className="type-num text-[25px] font-semibold leading-none"
+            style={{ color: "var(--color-text-primary)" }}
+          >
+            {`${Math.round(read.medianPct)}%`}
+          </span>
+          <span
+            className="type-num text-[12px]"
+            style={{ color: "var(--color-text-secondary)" }}
+          >
+            {`${delta >= 0 ? "+" : ""}${delta.toFixed(0)}%`}
+          </span>
+          <span
+            className="type-num text-[12px]"
+            style={{ color: "var(--color-text-tertiary)" }}
+          >
+            · {tmpl("summary.recovery.readCountTemplate", {
+              n: read.read,
+              m: read.eligible,
+            })}
+          </span>
+        </div>
+      );
+    }
+    const reason =
+      read.state === "withheld" && read.reason === "notYet"
+        ? copy("summary.recovery.notYet")
+        : copy("summary.recovery.none");
+    return (
+      <span
+        className="type-data-label italic text-[12px]"
+        style={{ color: "var(--color-text-tertiary)" }}
+      >
+        {reason}
+      </span>
+    );
+  })();
+
+  return (
+    <div
+      className="border-t px-5 py-4"
+      style={{ borderColor: "var(--color-border)" }}
+    >
+      <div className="mb-2 flex items-center gap-2">
+        <span
+          className="inline-block h-2 w-2 rounded-full"
+          style={{ backgroundColor: RECOVERY_INK_VAR }}
+          aria-hidden
+        />
+        <span className="type-col-head">{label}</span>
+        <span
+          className="type-label"
+          style={{ color: "var(--color-text-tertiary)" }}
+        >
+          — {copy("recovery.basisLine")}
+        </span>
+      </div>
+      <div className="flex items-baseline justify-between gap-4">
+        <span
+          className="type-data-label"
+          style={{ color: "var(--color-text-secondary)" }}
+        >
+          {rowLabel}
+        </span>
+        {rightSide}
+      </div>
+    </div>
+  );
+}
+
 

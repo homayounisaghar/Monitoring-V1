@@ -33,6 +33,11 @@ import {
 } from "@/lib/athlete-data";
 import { demoAthletes } from "@/lib/demo-library";
 import { TIER1_ROWS_DEFAULT } from "@/lib/session-flags";
+import {
+  hrvResponseForSession,
+  RECOVERY_INK_VAR,
+  type HrvReadState,
+} from "@/lib/recovery-data";
 import { Flag } from "lucide-react";
 
 const PINNED_SESSION_ID = "s-2026-07-04-dortmund";
@@ -179,6 +184,8 @@ export function AthleteSummarySpine({ athleteId, sessionId, flagActive, peerSpin
         <GroupBlock label={copy("athlete.summary.groupExternal")} rows={external} firstRowShowsAxis peerByMetric={peerByMetric} />
         <div className="my-3 h-px" style={{ backgroundColor: "var(--color-border)" }} aria-hidden />
         <GroupBlock label={copy("athlete.summary.groupInternal")} rows={internal} peerByMetric={peerByMetric} />
+        <div className="my-3 h-px" style={{ backgroundColor: "var(--color-border)" }} aria-hidden />
+        <RecoveryGroup athleteId={athleteId} sessionId={sessionId} />
       </div>
 
       {/* Character line — the only sentence on this page. */}
@@ -192,6 +199,124 @@ export function AthleteSummarySpine({ athleteId, sessionId, flagActive, peerSpin
         {characterLine}
       </div>
     </section>
+  );
+}
+
+/* ─────────────────── Recovery (HRV) group ───────────────────
+ * A third group at the foot of the spine. Same 40–160 track, same mark
+ * costume, but in SLATE — HRV is neither external work nor internal
+ * cost. Its basis differs from the rows above: the tick is "100 = own
+ * 7-day baseline", not the day-type typical.
+ */
+function RecoveryGroup({ athleteId, sessionId }: { athleteId: string; sessionId: string }) {
+  const read = useMemo(
+    () => hrvResponseForSession(athleteId, sessionId),
+    [athleteId, sessionId],
+  );
+  return (
+    <div>
+      <div
+        className="type-microcaps mb-2 text-[10.5px]"
+        style={{ color: "var(--color-text-tertiary)" }}
+      >
+        {copy("athlete.summary.groupRecovery")}
+      </div>
+      <div
+        className="mb-1 text-[11px]"
+        style={{ color: "var(--color-text-tertiary)" }}
+      >
+        {copy("athlete.summary.recovery.basisLine")}
+      </div>
+      <HrvRowView read={read} />
+    </div>
+  );
+}
+
+function HrvRowView({ read }: { read: HrvReadState & { morningAfterISO?: string } }) {
+  const dotVisible = read.state === "ok";
+  const clampedLeft = dotVisible
+    ? Math.max(0, Math.min(100, pctToLeft(Math.max(DOMAIN_LO, Math.min(DOMAIN_HI, read.pct)))))
+    : 0;
+
+  const rightSide = (() => {
+    if (read.state === "ok") {
+      const delta = read.pct - 100;
+      return (
+        <div className="flex flex-col items-end leading-tight">
+          <span
+            className="type-num text-[13px] font-semibold"
+            title={tmpl("athlete.summary.recovery.rawHoverTemplate", {
+              ms: Math.round(read.valueMs),
+              b: Math.round(read.baselineMs),
+            })}
+            style={{ color: "var(--color-text-primary)" }}
+          >
+            {`${Math.round(read.pct)}%`}
+          </span>
+          <span
+            className="type-num text-[11.5px]"
+            style={{ color: "var(--color-text-secondary)" }}
+          >
+            {`${delta >= 0 ? "+" : ""}${delta.toFixed(0)}%`}
+          </span>
+        </div>
+      );
+    }
+    const reason =
+      read.state === "withheld" && read.reason === "notYet"
+        ? copy("recovery.withheld.notYet")
+        : read.state === "withheld" && read.reason === "noReading"
+          ? copy("recovery.withheld.noReading")
+          : read.state === "withheld" && read.reason === "notEnoughReadings"
+            ? tmpl("recovery.withheld.buildingTemplate", { n: read.readingCount, min: read.min })
+            : "";
+    return (
+      <span
+        className="type-data-label italic text-[11.5px]"
+        style={{ color: "var(--color-text-tertiary)" }}
+      >
+        {reason}
+      </span>
+    );
+  })();
+
+  return (
+    <div className="grid grid-cols-[170px_1fr_128px] items-center gap-4 py-2">
+      <div className="flex items-center gap-1.5 min-w-0">
+        <span
+          className="truncate text-[13px]"
+          style={{ color: "var(--color-text-primary)" }}
+        >
+          {copy("metric.hrv.label")}
+        </span>
+      </div>
+      <div className="relative h-6">
+        <div
+          className="absolute left-0 right-0 top-1/2 h-[6px] -translate-y-1/2 rounded-full"
+          style={{ backgroundColor: "var(--color-data-band)" }}
+        />
+        {/* 100 line — the baseline reference for this row */}
+        <div
+          className="absolute top-1/2 h-4 w-[2px] -translate-x-1/2 -translate-y-1/2 rounded-sm"
+          style={{
+            left: `${pctToLeft(100)}%`,
+            backgroundColor: "var(--color-data-reference)",
+          }}
+          aria-label="own baseline"
+        />
+        {dotVisible && (
+          <div
+            className="absolute top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full"
+            style={{
+              left: `${clampedLeft}%`,
+              backgroundColor: RECOVERY_INK_VAR,
+            }}
+            aria-label="morning-after HRV"
+          />
+        )}
+      </div>
+      <div className="flex justify-end">{rightSide}</div>
+    </div>
   );
 }
 
