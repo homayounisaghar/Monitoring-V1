@@ -85,14 +85,6 @@ export function AthleteScopeLine({ athleteId, sessionId, onSessionChange, peerId
 
   return (
     <div className="flex min-w-0 flex-1 items-center gap-2 text-[12.5px]">
-      <ActivityChip
-        session={activeSession}
-        onSelect={(id) => onSessionChange(id)}
-      />
-      <Sep />
-      <span style={{ color: "var(--color-text-tertiary)" }}>
-        {copy("athlete.scope.readVs")}
-      </span>
       <ReferenceChip
         value={refKind}
         onChange={setRefKind}
