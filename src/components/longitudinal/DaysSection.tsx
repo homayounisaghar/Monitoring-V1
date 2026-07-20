@@ -434,6 +434,58 @@ function DaysChart({
             </div>
           ))}
 
+          {/* RECOVERY group — separated by a larger gap; HRV squad median
+              as % of own baseline, fixed 80–120, slate. Continues across
+              rest days and days with no session — the whole point of the
+              lane. Thin-reading days render the honest empty slot. */}
+          <div style={{ height: 16 }} aria-hidden />
+          <div
+            className="type-microcaps text-[9.5px] absolute"
+            style={{ color: "var(--color-text-tertiary)", left: 0, transform: "translateX(-100%)" }}
+            aria-hidden
+          />
+          <div
+            className="relative grid"
+            style={{
+              gridTemplateColumns: `repeat(${nDays},1fr)`,
+              height: LANE_H,
+              borderBottom: "1px solid var(--color-slate-100)",
+            }}
+            onMouseMove={(e) => {
+              const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+              const x = e.clientX - rect.left;
+              const idx = Math.max(0, Math.min(nDays - 1, Math.floor((x / rect.width) * nDays)));
+              setHover(idx);
+            }}
+          >
+            <div
+              className="pointer-events-none absolute -left-0.5 -top-0.5 type-num text-[9.5px]"
+              style={{ color: "var(--color-text-tertiary)" }}
+            >
+              {HRV_LANE_DOMAIN[1]}
+            </div>
+            <div
+              className="pointer-events-none absolute -left-0.5 -bottom-0.5 type-num text-[9.5px]"
+              style={{ color: "var(--color-text-tertiary)" }}
+            >
+              {HRV_LANE_DOMAIN[0]}
+            </div>
+            {/* 100 baseline */}
+            <div
+              className="pointer-events-none absolute left-0 right-0"
+              style={{
+                top: `${((HRV_LANE_DOMAIN[1] - 100) / (HRV_LANE_DOMAIN[1] - HRV_LANE_DOMAIN[0])) * 100}%`,
+                height: 1,
+                backgroundColor: "var(--color-slate-200)",
+              }}
+              aria-hidden
+            />
+            {series.map((d) => (
+              <RecoveryDot key={d.dateISO} dateISO={d.dateISO} />
+            ))}
+          </div>
+
+
           {/* Day-code axis */}
           <div
             className="mt-2 grid"
