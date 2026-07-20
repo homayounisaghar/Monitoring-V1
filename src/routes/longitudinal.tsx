@@ -12,6 +12,7 @@ import { WindowBanner, DEFAULT_HORIZON } from "@/components/longitudinal/WindowB
 import { AnchorStrip } from "@/components/longitudinal/AnchorStrip";
 import { ScopeLine } from "@/components/longitudinal/ScopeLine";
 import { SummarySection } from "@/components/longitudinal/SummarySection";
+import { DaysSection } from "@/components/longitudinal/DaysSection";
 
 export const Route = createFileRoute("/longitudinal")({
   head: () => ({
