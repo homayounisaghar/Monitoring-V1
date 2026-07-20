@@ -437,7 +437,26 @@ export const COPY = {
   "longi.matrix.state.missing":    "no record",
   "longi.matrix.state.outside":    "not in squad",
   "longi.matrix.state.unselected": "unselected",
+
+  // ---------- Athlete page ----------
+  "athlete.anchor.summary": "Summary",
+  "athlete.anchor.periods": "Periods",
+  "athlete.anchor.spatial": "Spatial",
+  "athlete.anchor.detail": "Detail",
+  "athlete.tf.session": "Session",
+  "athlete.tf.over": "Over time",
+  "athlete.scope.readVs": "read vs",
+  "athlete.scope.periodsLabel": "periods",
+  "athlete.scope.periodsAllTemplate": "all {n}",
+  "athlete.scope.flagTemplate": "flag — {metric}",
+  "athlete.scope.flagDismissAria": "dismiss flag",
+  "athlete.activity.popoverHeadTemplate": "Activity · {venue} · {temp} · {humidity}",
+  "athlete.banner.maxVelTemplate": "max {v} km/h",
+  "athlete.banner.bio": "bio",
+  "athlete.banner.rosterHead": "Athlete",
+  "athlete.overtime.empty": "Over-time view is being completed — arriving after this review cycle.",
 } as const satisfies Record<string, string>;
+
 
 export type CopyKey = keyof typeof COPY;
 
