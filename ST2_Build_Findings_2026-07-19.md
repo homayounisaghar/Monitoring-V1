@@ -696,3 +696,14 @@ surfaces revealed the drill affordance. Console clean on `/longitudinal` and
 The `legend.*` keys authored on the previous pass still carry the corrected
 product-wide wording. Session's own `LegendPopover.tsx` was out of fence on
 both passes and is not yet updated — noted for a later pass.
+
+## 2026-07-20 — scope controls become real; sRPE hue
+
+- Removed gap notes `longi.benchmark.gap`, `longi.reference.gap`, `longi.filter.gap` from the copy deck and the UI. Build-process narration no longer renders on canvas.
+- Benchmark set consumed verbatim from `src/lib/session-scope.tsx` — five options (`typical_daytype`, `typical_match`, `last_match`, `last_5`, `same_opponent`), labels and glosses shared with Session. Default remains typical, like-for-like; foot gloss `each day vs its own typical` is the page's single basis definition.
+- Reference set: six options in three separator-only families (Own history / Cohort / Context) — `own_typical` (default), `last_5_matches`, `season_average`, `positional_norm`, `squad_average`, `same_opponent`. Family headers deliberately omitted; separators carry the taxonomy. Cohort-floor rule (`positional_norm` withholds-and-states below 4) logged as due when scoping is wired; option renders normally now.
+- Filter panel restored to four categories in fixed order: Participation, Positions, Athletes, Session type. Options render and check; Apply produces dismissible chips; nothing recomputes.
+- Selection relabels: Benchmark chip updates the Summary tick and the Days VS TYPICAL 100-line via `longi.basis.tick`; Reference chip updates the window table basis line via `longi.basis.tickTable`. Both chips and echoing ticks take the slate tint (`chip-changed`) when non-default. Two selections held in `longitudinal.tsx` — chip and ticks read one source.
+- sRPE hue: new `--axis-cost-light` token (`#B486E4`) added beside `--axis-cost`. sRPE bars and lane dot render in the lighter sibling; Cardio Load unchanged. `legend.srpeLight` renders always after `legend.int`.
+- Reference band on Summary gauges moved 6 → 5, matching Session. **Open question for record-close: whether the ±5% band was ever derived on either page.** It asserts a normal range and the legend calls a band "their normal range" — provenance unknown. Also still open: Session's own legend carrying the older wording.
+- Verified via Playwright (`America/Los_Angeles`, 28-day default): both chip menus show correct options and ticks, non-default Benchmark (`last match`) propagates to Summary tick and Days 100-line in slate tint, non-default Reference (`season average`) propagates to window table basis, Filter shows all four categories, Days chart shows sRPE visibly lighter than Cardio Load, legend carries the new line, and the gauges still read 103 / 100. Console clean.
