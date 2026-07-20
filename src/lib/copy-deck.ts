@@ -354,6 +354,28 @@ export const COPY = {
   "longi.days.table.footnote": "average per athlete who trained · a double-session day is one day",
   "longi.days.lane.srpeUnit": "AU · where collected",
   "longi.days.lane.cardioUnit": "AU",
+
+  // ---------- Longitudinal · Athletes section ----------
+  "longi.athletes.subtitle":     "— who was there · window totals",
+  "longi.athletes.more":         "{n} more athletes · {max} or fewer training sessions missed",
+  "longi.athletes.moreNone":     "{n} more athletes · no training sessions missed",
+  "longi.athletes.fraction":     "{n} of {m}",
+  "longi.athletes.expander":     "Session by session ⌄",
+  "longi.wt.title":              "Window totals",
+  "longi.basis.tickTable":       "100 — their typical, like-for-like",
+  "longi.wt.view.absolute":      "ABSOLUTE",
+  "longi.wt.view.typical":       "VS TYPICAL",
+  "longi.wt.view.ac":            "A:C",
+  "longi.ac.method":             "A:C — 7-day ÷ 28-day average, per metric",
+  "longi.wt.withheld.sessions":  "— · {n} of 5 sessions",
+  "longi.wt.withheld.ac":        "— · {n} of 28 days",
+  "longi.wt.hover.baseline":     "Joined {date} — {n} of 5 sessions; five needed to compare.",
+  "longi.wt.hover.ac":           "Joined {date} — {n} of 28 days; A:C needs 28.",
+  "longi.wt.squadAvg":           "Squad average · {n} participated",
+  "longi.wt.footnote":           "— not submitted / did not participate",
+  "longi.wt.footRow":            "did not participate · not in squad",
+  "longi.wt.head.sessions":      "SESSIONS",
+  "longi.wt.head.minutes":       "MINUTES",
 } as const satisfies Record<string, string>;
 
 export type CopyKey = keyof typeof COPY;

@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { SourceSidebar } from "@/components/shell/SourceSidebar";
 import { DemoPill } from "@/components/shell/DemoPill";
-import { copy } from "@/lib/copy-deck";
+
 import {
   windowFor,
   sessionDayIndex,
@@ -13,6 +13,7 @@ import { AnchorStrip } from "@/components/longitudinal/AnchorStrip";
 import { ScopeLine } from "@/components/longitudinal/ScopeLine";
 import { SummarySection } from "@/components/longitudinal/SummarySection";
 import { DaysSection } from "@/components/longitudinal/DaysSection";
+import { AthletesSection } from "@/components/longitudinal/AthletesSection";
 
 export const Route = createFileRoute("/longitudinal")({
   head: () => ({
@@ -80,24 +81,11 @@ function LongitudinalRoute() {
           <main className="mx-auto max-w-[1320px] space-y-16 px-6 pt-10 pb-24">
             <SummarySection window={w} horizon={horizon} />
             <DaysSection window={w} />
-            <SectionHeading id="athletes" label={copy("longi.anchor.athletes")} />
+            <AthletesSection window={w} />
           </main>
         </div>
       </div>
       <DemoPill />
     </>
-  );
-}
-
-function SectionHeading({ id, label }: { id: string; label: string }) {
-  return (
-    <section id={id} className="scroll-mt-28">
-      <h2
-        className="type-section-h"
-        style={{ color: "var(--color-text-primary)" }}
-      >
-        {label}
-      </h2>
-    </section>
   );
 }

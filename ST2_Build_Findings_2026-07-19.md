@@ -528,3 +528,43 @@ In VS TYPICAL the sRPE lane can compute a legitimate `0%` on days the club didn'
 
 ### Colour and squint
 Blue (`--color-axis-work`) on the external lane; purple (`--color-axis-cost`) on Cardio Load and sRPE; neutral slate on grid, axis and day codes. No severity hue, no green. Days reads quieter than the 52px availability numeral above it — the numeral still owns the page.
+
+---
+
+## Step 5 · Athletes section — landed as three surfaces
+
+### What was built
+1. **Ranked availability list** — six rows on the shipped surface, one computed remainder line behind. Each row: name + posDetail, participation bar (shared palette + hairline no-fill leftover for unselected sessions within the athlete's own available window), right-aligned fraction. Bar width scales to the athlete's `availableSessions / max(availableSessions)` so a mid-window joiner (Köhler, 10) reads visibly shorter than a full-window athlete (19). Neutral `Flag` glyph on rows whose ids are in `TIER1_ROWS_DEFAULT` and whose pinned session falls in the window.
+2. **Window totals** — three views (`ABSOLUTE · VS TYPICAL · A:C`), position-first grouping with muted subheaders (GK · Defenders · Midfielders · Attackers), sortable both directions within groups, columns capped at eight (well inside `MAX_COLUMNS = 12`). `ABSOLUTE` prints `SESSIONS`, `MINUTES`, and six metric columns (`DISTANCE (km)`, `HSR (m)`, `SPRINT DIST (m)`, `ACC–DEC (ct)`, `CARDIO LOAD (AU)`, `SRPE (AU)`). `VS TYPICAL` prints the same six as integer percentages against a `100 — their typical, like-for-like` basis line. `A:C` prints bare two-decimal ratios under `A:C — 7-day ÷ 28-day average, per metric` — no band, no tick, no arrow, no threshold, no colour anywhere. Withheld rows collapse the six metric cells into one span so the row-level condition prints once, not six times.
+3. **Matrix** — **not built**. Per the spec fence, no expander is emitted; nothing invites a click that goes nowhere.
+
+### Defaults taken
+- Column set fixed as SESSIONS + MINUTES + six metrics (ABSOLUTE) / six metrics only (VS TYPICAL, A:C). Cap remains 12 — this section holds at 8.
+- Zero-participation athletes render as one foot row per athlete after Squad average. Only one occurred (P. Sturm).
+- Sort default: none. First column click cycles desc → asc. Rows without a comparable value pin to the group foot in surname order.
+- Bar-scaling denominator: max `availableSessions` across the shown list, not the window's training-session count. Chosen so joiners read shorter without hiding inside a fraction.
+- `· NN% cov` label surfaced only on the `CARDIO LOAD` cell when `hrCoverageShareByMetric.cardioLoad < 0.8` (T. Brandt shows `2771 · 79% cov`).
+
+### Position-grouping tension (flagged, not resolved)
+The Session > Squad table dropped positional structure by derivation on 17 July with general reasoning. The Step 5 spec is later and surface-specific and asks for position-first grouping here. Followed the later, surface-specific instruction; logging the inconsistency for record-close review.
+
+### Data-layer reading vs spec expectation
+Spec: "Expect exactly one athlete to withhold: B. Köhler, `— · 12 of 28 days`. If more than one withholds, tell me." Rendered: exactly one athlete withholds (B. Köhler), cell reads **`— · 27 of 28 days`** — one, not more than one, but the count differs from the expected 12. Root: `acForAthlete` in `longitudinal-data.ts` counts every record on the athlete's timeline within the 28-day span, and the demo layer seeds records for all athletes on all days regardless of `joinedISO`. Not touched — the fence forbids edits to the data layer. Surface-level fix would be trivial (mask days before `joinedISO`), but it belongs one layer down.
+
+### Greyscale gate — recorded, not acted on
+Grayscale screenshot inspected. Reduced-participation tags (Part / Modified) collapse to near-identical mid-grays; Rehab / Injury separate cleanly from Full only by a warmth cue the greyscale strips out. Result: fails at the reduced-participation end, matching the prior run. Not acted on per the standing suspension of the gate.
+
+### Reporting from the render (28-day window ending 19 Jul)
+- Six visible rows and their fractions:
+  - F. Voss · ST · 0 of 19
+  - P. Sturm · CB · 0 of 19
+  - P. Lange · CB · 5 of 19
+  - L. Wagner · CM · 15 of 19
+  - D. Hoffmann · LB · 16 of 19
+  - H. Meier · RM · 16 of 19
+- Remainder line: `13 more athletes · 2 or fewer training sessions missed`.
+- Flag glyphs on: D. Schäfer, A. Fischer, K. Werner, M. Hofmann (all four Tier-1 ids, all inside the hidden group — none on the six visible rows).
+- A:C withholds: **B. Köhler only**, cell reads `— · 27 of 28 days` (see data-layer note above).
+- Foot row: `P. Sturm CB did not participate · not in squad`.
+
+Console clean. Typecheck clean. Matrix intentionally omitted.
