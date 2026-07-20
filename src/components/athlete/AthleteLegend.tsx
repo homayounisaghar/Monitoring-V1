@@ -45,7 +45,7 @@ function computePresence(spine: AthleteSpine): Presence {
 const EXT_BLUE = "#3B82F6";
 const INT_PURPLE = "#8B5CF6";
 
-export function AthleteLegend({ spine }: { spine: AthleteSpine }) {
+export function AthleteLegend({ spine, peerActive = false }: { spine: AthleteSpine; peerActive?: boolean }) {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
 
