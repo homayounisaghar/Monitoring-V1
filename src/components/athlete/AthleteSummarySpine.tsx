@@ -95,8 +95,12 @@ export function AthleteSummarySpine({ athleteId, sessionId, flagActive, peerSpin
   const external = rows.filter((r) => r.group === "external");
   const internal = rows.filter((r) => r.group === "internal");
 
+  // Echo the scope-line Reference chip: on a match this reads
+  // "their typical match", on other days "their typical MD-N".
   const basisRef = activeSession
-    ? tmpl("athlete.summary.basisRefTemplate", { dayCode: activeSession.dayCode })
+    ? activeSession.type === "match"
+      ? copy("athlete.summary.basisRefMatch")
+      : tmpl("athlete.summary.basisRefDayTemplate", { dayCode: activeSession.dayCode })
     : copy("athlete.summary.basisFallback");
   const basisLine = tmpl("athlete.summary.basisTemplate", { ref: basisRef });
 
