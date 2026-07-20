@@ -2,7 +2,7 @@
  * Athlete page scope line.
  *
  * One sentence, fixed order:
- *   [activity chip] · read vs [Reference chip] · periods [all N]  … [flag chip?]
+ *   [Reference chip] · periods [all N]  … [flag chip?] · [peer chip?]
  *
  * The Reference menu reuses `longi.ref.*` keys (shared object — namespace
  * rename deferred to record-close, not a duplication to fix now).
@@ -15,10 +15,8 @@
 import { ChevronDown, Check, Flag, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { copy, tmpl } from "@/lib/copy-deck";
-import { currentSession, timeline } from "@/lib/session-data";
-import { demoSessions, demoAthletes, DEMO_TODAY } from "@/lib/demo-library";
+import { demoSessions, demoAthletes } from "@/lib/demo-library";
 import { TIER1_ROWS_DEFAULT } from "@/lib/session-flags";
-import { dayMonth2 } from "@/lib/format-date";
 import { periodOptionsFor, type PeriodOption } from "@/lib/athlete-data";
 import { REFERENCE_OPTIONS, type ReferenceKind } from "@/lib/session-scope";
 
