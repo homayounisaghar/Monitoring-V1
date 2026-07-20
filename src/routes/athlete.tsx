@@ -8,6 +8,7 @@ import { SegmentedToggle } from "@/components/data/SegmentedToggle";
 import { AthleteBanner } from "@/components/athlete/AthleteBanner";
 import { AthleteScopeLine } from "@/components/athlete/AthleteScopeLine";
 import { AthleteSummarySpine } from "@/components/athlete/AthleteSummarySpine";
+import { AthleteSpatial } from "@/components/athlete/AthleteSpatial";
 import { AthleteLegend } from "@/components/athlete/AthleteLegend";
 import { spineForAthleteSession, flaggedMetricFor } from "@/lib/athlete-data";
 import { TIER1_ROWS_DEFAULT } from "@/lib/session-flags";
