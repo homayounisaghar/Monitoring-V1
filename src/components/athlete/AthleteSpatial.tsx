@@ -401,7 +401,7 @@ function UnavailablePitch({ athleteName }: { athleteName: string }) {
           viewBox={`0 0 ${VB_W} ${VB_H}`}
           className="block w-full"
           style={{ maxHeight: 380 }}
-          aria-label="no positional data recorded"
+          aria-label={`no positional data recorded${athleteName ? ` for ${athleteName}` : ""}`}
         >
           <PitchOutline faint />
         </svg>
@@ -410,9 +410,9 @@ function UnavailablePitch({ athleteName }: { athleteName: string }) {
           style={{ borderColor: "var(--color-border)", color: "var(--color-text-secondary)" }}
         >
           <div>{copy("athlete.spatial.unavailable.reason")}</div>
-          <div className="mt-0.5" style={{ color: "var(--color-text-tertiary)" }}>
-            {tmpl("athlete.spatial.unavailable.fixTemplate", { name: athleteName })}
-          </div>
+          {/* No remedial sentence: the system does not know the cause, and
+              this card must not be the one place in the product that guesses.
+              Withdrawal recorded in findings 2026-07-20. */}
         </div>
       </div>
       <div
