@@ -597,3 +597,19 @@ Both call sites (`valueSlotText` line 530, `DayBar` line 647) already guard with
 - Days, VS TYPICAL: lane ends read **`160`** (top) and **`40`** (bottom) on all three lanes. Top lane carries **`100 — typical, like-for-like`** at the midline. sRPE lane on 12 Jul and 19 Jul renders the withheld hairline; no `0%` anywhere.
 - Days, ABSOLUTE: unchanged. Ends read `0 / 9000`. `9682` and `231` print at cap-break on 8 Jul. `not collected` prints on 12 and 19 Jul.
 - Console clean; typecheck clean.
+
+## Final pass — the legend, and the shell stops pretending  (2026-07-20)
+
+**Legend built (`src/components/longitudinal/LegendPopover.tsx`).** Light interactive popover, click-open from `How to read this`. Grammar: term + gloss, six words or fewer, no sentences. The two hue lines and the participation key always render; every other mark is data-dependent — `hollow`, `cov`, `hatch`, `break`, `gap` (dash), `rest`, `matchMark`, `flag` are each computed from the current window via `daySeries` (marks) and `athleteAvailabilityRanking` (flag glyph). In the default 28-day window all eleven state-aware lines render because the built data exercises every mark (14 Jul dash, weekly MDs, unconfirmed 19 Jul, 8 Jul break at 9682 / 231, hollow bars on thin-coverage days, M. Frei's flag).
+
+Two authorship notes for the record:
+- `legend.basis` — "typical, like-for-like — each day vs its own typical" — is authored here rather than in the copy deck. §2 of this pass removed the benchmark menu that was the single definition home for the basis; the legend inherits that role. It renders unconditionally because the VS TYPICAL toggle is always reachable.
+- Deliberately **omitted** the "light purple — sRPE, where collected" line. Both internal lanes render in the same cost purple, so that line would describe a distinction the chart doesn't draw. A legend describes the render, not the intention.
+
+**Scope line demoted (`src/components/longitudinal/ScopeLine.tsx`).** The two chips are now plain text with the separator preserved verbatim (`squad vs typical, like-for-like · each athlete vs their typical, day-aware`) — the words are load-bearing (Summary tick, Days 100-line) so their wording did not change; only the offering affordance (chevron, button, hover) is gone. The Filter button and its whole panel are **removed as a demo removal**; they scoped nothing, and a stakeholder selecting `Matches` and watching the counts stand would see a broken product. Reinstates when scoping is wired. The Session-type category itself stays ratified. `How to read this` stays and now opens the legend.
+
+**Banner icons removed (`src/components/longitudinal/WindowBanner.tsx`).** The download and share icons were inert. Both removed as a demo removal. This deliberately diverges from Session's banner, which has a working share menu — noted here rather than papered over. Reinstates when download or share is wired for the Longitudinal view.
+
+**Standing note on `legend.*` keys.** The `legend.*` keys authored on this pass (`legend.basis`, `legend.ext`, `legend.int`, `legend.hollow`, `legend.cov`, `legend.hatch`, `legend.break`, `legend.gap`, `legend.rest`, `legend.matchMark`, `legend.flag`) carry the corrected product-wide wording. Session's own `LegendPopover.tsx` was left untouched by fence; those keys still need propagating to that surface at a later pass.
+
+**Verify — 28-day window, America/Los_Angeles.** Typecheck clean. Console clean on `/longitudinal` and `/session`. Legend opens with the eleven data lines listed above plus the six participation swatches and the `not in squad` hairline. The three anchor entries scroll; window menu, both Days toggles, metric picker, table view, and the remainder expander all respond. Nothing on the Longitudinal shell now offers an action it cannot perform.
