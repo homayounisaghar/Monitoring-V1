@@ -45,7 +45,7 @@ export function AthleteBalance({ athleteId, sessionId }: Props) {
         ) : null}
       </div>
 
-      <div className="px-5 py-3">
+      <div className="pt-1">
         {bal ? (
           <>
             <BalanceBar
