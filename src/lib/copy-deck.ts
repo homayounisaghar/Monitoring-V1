@@ -383,6 +383,7 @@ export const COPY = {
   "longi.athletes.moreNone":     "{n} more athletes · no training sessions missed",
   "longi.athletes.fraction":     "{n} of {m}",
   "longi.athletes.expander":     "Session by session ⌄",
+  "longi.athletes.drill":        "open athlete →",
   "longi.wt.title":              "Window totals",
   "longi.basis.tickTable":       "100 — their typical, like-for-like",
   "longi.wt.view.absolute":      "ABSOLUTE",
