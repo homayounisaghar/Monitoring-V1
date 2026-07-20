@@ -111,15 +111,10 @@ export function WindowBanner({
           </span>
         </div>
 
-        {/* Right — icon-only actions (same idiom as Session's banner) */}
-        <div className="flex items-center gap-1">
-          <IconBtn label="Download">
-            <Pencil className="h-3.5 w-3.5" />
-          </IconBtn>
-          <IconBtn label="Share">
-            <Share2 className="h-3.5 w-3.5" />
-          </IconBtn>
-        </div>
+        {/* Right side intentionally empty — the download and share icon
+            buttons were removed as a demo removal (both were inert). This
+            makes Longitudinal's banner differ from Session's, which has a
+            working share menu; see findings. */}
       </div>
     </div>
   );
