@@ -339,7 +339,20 @@ function DaysChart({
               marginBottom={i < laneMetrics.length - 1 ? LANE_GAP : 0}
             />
           ))}
+          {/* Recovery group label — sits above the recovery lane label,
+              aligned with the recovery lane in the track column. */}
+          <div
+            className="type-microcaps text-[9.5px] pt-4 pb-1"
+            style={{ color: "var(--color-text-tertiary)" }}
+          >
+            {copy("longi.days.recoveryHead")}
+          </div>
+          <RecoveryLaneLabel
+            activeDay={activeDay}
+            heightPx={LANE_H}
+          />
         </div>
+
 
         {/* Track — three lanes + axis rows */}
         <div
