@@ -38,6 +38,7 @@ import {
   type AthleteTotals,
   type MatrixCellState,
   type MatrixColumn,
+  type Horizon,
 } from "@/lib/longitudinal-data";
 import type { ParticipationTag, PositionCode } from "@/lib/session-data";
 import { POSITION_LABEL } from "@/lib/session-data";
@@ -82,12 +83,14 @@ function surname(name: string): string {
 
 export function AthletesSection({
   window: w,
+  horizon,
   refKind,
 }: {
   window: LongiWindow;
+  horizon: Horizon;
   refKind: RefKind;
 }) {
-  const referenceLabel = refLabel(refKind);
+  const referenceLabel = refLabel(refKind, horizon);
   const referenceIsDefault = refKind === DEFAULT_REF;
   return (
     <section id="athletes" className="scroll-mt-28">

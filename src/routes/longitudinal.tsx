@@ -76,6 +76,7 @@ function LongitudinalRoute() {
             <div className="mx-auto flex h-12 max-w-[1320px] items-center gap-4 px-6">
               <ScopeLine
                 window={w}
+                horizon={horizon}
                 benchKind={benchKind}
                 onBenchChange={setBenchKind}
                 refKind={refKind}
@@ -90,8 +91,8 @@ function LongitudinalRoute() {
 
           <main className="mx-auto max-w-[1320px] space-y-16 px-6 pt-10 pb-24">
             <SummarySection window={w} horizon={horizon} benchKind={benchKind} />
-            <DaysSection window={w} benchKind={benchKind} />
-            <AthletesSection window={w} refKind={refKind} />
+            <DaysSection window={w} horizon={horizon} benchKind={benchKind} />
+            <AthletesSection window={w} horizon={horizon} refKind={refKind} />
           </main>
         </div>
       </div>
