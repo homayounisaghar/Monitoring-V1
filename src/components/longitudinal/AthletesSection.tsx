@@ -186,7 +186,7 @@ function AvailabilityRow({
   const leftover = Math.max(0, availableSessions - tagged);
 
   return (
-    <div className="grid grid-cols-[220px_1fr_88px] items-center gap-4 px-4 py-3">
+    <div className="group grid grid-cols-[220px_1fr_88px_88px] items-center gap-4 px-4 py-3">
       {/* Name + position + optional neutral flag glyph. */}
       <div className="flex items-center gap-2 min-w-0">
         {attentionFlagged && (
@@ -254,7 +254,26 @@ function AvailabilityRow({
       >
         {tmpl("longi.athletes.fraction", { n: fullCount, m: availableSessions })}
       </div>
+
+      {/* Drill affordance — hover-only. Click intentionally unwired: the
+          destination athlete page is not built, and cross-page navigation
+          into an unbuilt page is worse than none. */}
+      <DrillAffordance />
     </div>
+  );
+}
+
+function DrillAffordance() {
+  return (
+    <button
+      type="button"
+      tabIndex={-1}
+      aria-hidden
+      className="text-right text-[11.5px] opacity-0 transition-opacity group-hover:opacity-100"
+      style={{ color: "var(--color-text-tertiary)" }}
+    >
+      {copy("longi.athletes.drill")}
+    </button>
   );
 }
 
@@ -490,21 +509,34 @@ function PositionGroup({
 
 function TotalsRow({ row, view }: { row: AthleteTotals; view: View }) {
   return (
-    <tr style={{ borderTop: "1px solid var(--color-border)" }}>
+    <tr className="group" style={{ borderTop: "1px solid var(--color-border)" }}>
       <td className="px-3 py-2 whitespace-nowrap">
-        <span
-          className="text-[13px]"
-          style={{ color: "var(--color-text-primary)" }}
-        >
-          {row.athlete.name}
-        </span>{" "}
-        <span
-          className="type-microcaps"
-          style={{ color: "var(--color-text-tertiary)" }}
-        >
-          {row.athlete.posDetail}
-        </span>
+        <div className="flex items-center justify-between gap-3">
+          <span>
+            <span
+              className="text-[13px]"
+              style={{ color: "var(--color-text-primary)" }}
+            >
+              {row.athlete.name}
+            </span>{" "}
+            <span
+              className="type-microcaps"
+              style={{ color: "var(--color-text-tertiary)" }}
+            >
+              {row.athlete.posDetail}
+            </span>
+          </span>
+          {/* Drill affordance — hover-only, click intentionally unwired. */}
+          <span
+            aria-hidden
+            className="text-[11.5px] opacity-0 transition-opacity group-hover:opacity-100"
+            style={{ color: "var(--color-text-tertiary)" }}
+          >
+            {copy("longi.athletes.drill")}
+          </span>
+        </div>
       </td>
+
 
       {view === "absolute" && (
         <>

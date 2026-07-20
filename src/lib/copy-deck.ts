@@ -121,6 +121,9 @@ export const COPY = {
   "control.reset": "Reset to default",
   "control.legend": "How to read this",
   "control.clearAll": "Clear all",
+  "control.filter": "Filter",
+  "control.apply": "Apply",
+  "control.cancel": "Cancel",
   "squad.dnpRow": "did not participate",
   "squad.dnpChart": "DNP",
   "squad.avgRow": "Squad avg",
@@ -315,10 +318,15 @@ export const COPY = {
   "longi.scope.benchmarkChip": "squad vs typical, like-for-like",
   "longi.scope.referenceChip": "each athlete vs their typical, day-aware",
   "longi.scope.benchmarkGloss": "each day vs its own typical",
+  "longi.benchmark.gap": "further options not yet in copy deck",
+  "longi.reference.gap": "six options not yet in copy deck",
 
+  "longi.filter.title": "Filter",
   "longi.filter.group.sessionType": "Session type",
   "longi.filter.opt.matches": "Matches",
   "longi.filter.opt.training": "Training",
+  "longi.filter.gap": "further categories not yet in copy deck",
+  "longi.filter.chipDismissAria": "dismiss filter",
 
   // ---------- Longitudinal · Summary section ----------
   "longi.summary.squadLoadHead": "SQUAD LOAD",
@@ -375,6 +383,7 @@ export const COPY = {
   "longi.athletes.moreNone":     "{n} more athletes · no training sessions missed",
   "longi.athletes.fraction":     "{n} of {m}",
   "longi.athletes.expander":     "Session by session ⌄",
+  "longi.athletes.drill":        "open athlete →",
   "longi.wt.title":              "Window totals",
   "longi.basis.tickTable":       "100 — their typical, like-for-like",
   "longi.wt.view.absolute":      "ABSOLUTE",

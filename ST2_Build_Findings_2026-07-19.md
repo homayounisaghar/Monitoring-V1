@@ -613,3 +613,86 @@ Two authorship notes for the record:
 **Standing note on `legend.*` keys.** The `legend.*` keys authored on this pass (`legend.basis`, `legend.ext`, `legend.int`, `legend.hollow`, `legend.cov`, `legend.hatch`, `legend.break`, `legend.gap`, `legend.rest`, `legend.matchMark`, `legend.flag`) carry the corrected product-wide wording. Session's own `LegendPopover.tsx` was left untouched by fence; those keys still need propagating to that surface at a later pass.
 
 **Verify — 28-day window, America/Los_Angeles.** Typecheck clean. Console clean on `/longitudinal` and `/session`. Legend opens with the eleven data lines listed above plus the six participation swatches and the `not in squad` hairline. The three anchor entries scroll; window menu, both Days toggles, metric picker, table view, and the remainder expander all respond. Nothing on the Longitudinal shell now offers an action it cannot perform.
+
+## Restore the full designed shell — high-fidelity rule (2026-07-20)
+
+Standing rule ratified: this is a high-fidelity prototype demonstrating design
+decisions, not a simulated product. Every ratified control renders; interactions
+respond visually; data stays in its default state. **Honesty floor:** numbers
+never change incorrectly.
+
+### Deck enumeration for the scope-line menus
+
+Keys already present under `longi.scope.*`, `longi.benchmark.*`, `longi.reference.*`,
+`longi.filter.*`:
+
+- `longi.scope.benchmarkChip` — chip label
+- `longi.scope.referenceChip` — chip label
+- `longi.scope.benchmarkGloss` — the basis gloss (menu foot)
+- `longi.filter.group.sessionType` · `longi.filter.opt.matches` · `longi.filter.opt.training`
+
+**Option-set gaps** — built what exists, named what is missing rather than
+inventing options:
+
+- **Benchmark menu:** no option keys authored. Renders one active row echoing
+  the chip label + the ratified foot gloss + a named-gap note `longi.benchmark.gap`.
+- **Reference menu:** none of the six option keys authored. Renders one active
+  row echoing the chip label + `longi.reference.gap`.
+- **Filter panel:** only Session-type category (Matches / Training) authored;
+  panel shows that group plus `longi.filter.gap` as a named-gap note.
+
+### What was restored / retired
+
+- **Scope line — both chips clickable again.** Chevron affordances back;
+  popovers open in the shipped light idiom; the active option shows checked;
+  clicking an option moves the check and closes the menu. **The chip label
+  does not change, and neither does the Summary tick or the Days 100-line.**
+  This is deliberate under the honesty floor: those strings are the basis
+  the numbers on screen were actually computed against, and re-labelling them
+  while the data stands still would put a false basis on a real number. The
+  control demonstrates itself fully by opening, showing its options, and
+  taking a selection.
+
+- **Filter — full panel restored.** All authored categories (currently just
+  Session-type) render as check rows with Cancel / Apply / Clear all. On
+  Apply, chosen filters land in the scope line as **dismissible chips**, each
+  with its own dismiss control. Charts and numbers do not re-scope. Values
+  verified unchanged before and after applying a two-chip filter: `79%`, `103`,
+  `100`, and the 8-Jul break at `9682` all hold.
+
+- **Athlete drill affordance.** New `longi.athletes.drill` = `open athlete →`
+  renders on row hover (right-aligned, tertiary weight) in both surfaces:
+  the ranked availability list and the window-totals table. Both are per-
+  athlete rows; showing it on one would read as a bug. **The click is
+  intentionally unwired** — this is the named exception to the render-
+  everything rule, because navigating into an unbuilt athlete page is worse
+  than no navigation at all.
+
+- **Banner icons restored.** Download and Share2 buttons return in the
+  shipped icon idiom; each opens a small menu; choosing an item closes it.
+  Menu items reuse the canonical Session-banner keys (`exportCsv`,
+  `exportPdf`, `copyLink`) so there is one product-wide vocabulary for these
+  actions.
+
+- **`legend.basis` retired from the popover.** With the Benchmark menu
+  restored, its foot gloss is again the single definition home for
+  "typical, like-for-like". The key remains in the deck (unused), and the
+  swatch function `SwBasis` is kept (referenced by a `void` statement) so
+  either can come back if that menu is ever removed again. Every other
+  legend line renders exactly as built.
+
+### Verification
+
+Type-check clean. Playwright in `timezone_id="America/Los_Angeles"`, 28-day
+default: Benchmark menu, Reference menu, Filter panel, banner Download and
+Share menus, and the legend all open and screenshot as expected. Applying a
+two-chip filter produced two dismissible chips beside the scope chips;
+dismissing one removed just that chip. Row hover in each of the two athlete
+surfaces revealed the drill affordance. Console clean on `/longitudinal` and
+`/session`.
+
+### Cross-surface debt
+
+The `legend.*` keys authored on the previous pass still carry the corrected
+product-wide wording. Session's own `LegendPopover.tsx` was out of fence on
+both passes and is not yet updated — noted for a later pass.
