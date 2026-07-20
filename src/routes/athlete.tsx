@@ -142,6 +142,7 @@ function AthleteRoute() {
                     flagActive={flagActive}
                     peerSpine={peerSpine}
                   />
+                  <AthleteBalance athleteId={athleteId} sessionId={sessionId} />
                 </section>
                 <section id="spatial" className="scroll-mt-28 pb-10">
                   <AthleteSpatial
