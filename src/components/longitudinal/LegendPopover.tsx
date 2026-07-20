@@ -16,6 +16,7 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { copy } from "@/lib/copy-deck";
 import {
   daySeries,
   athleteAvailabilityRanking,
@@ -23,6 +24,7 @@ import {
   type LongiMetric,
   type DayEntry,
 } from "@/lib/longitudinal-data";
+import {
   PARTICIPATION_TAGS,
   TAG_FILL,
   TAG_STYLE,
