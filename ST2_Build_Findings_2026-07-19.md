@@ -733,3 +733,22 @@ Verified by clicking, not by reading code. All four claims re-tested in Playwrig
 - **Window totals `ABSOLUTE / VS TYPICAL / A:C`** — clicked all three. `ABSOLUTE` header row: `ATHLETE · SESSIONS · MINUTES · DISTANCE · HSR · SPRINT DIST · ACC–DEC · CARDIO LOAD · SRPE`. `VS TYPICAL` and `A:C` both drop `SESSIONS` and `MINUTES` and show only the six metric columns, correct for those views. List correct; build correct.
 
 No regression search needed. No code touched this pass — the interactive-elements table lied about the build; the build is intact.
+
+## 20 July · Workstream 02 · prompt 1 — Athlete shell
+
+**Files edited / created**
+- `src/lib/copy-deck.ts` — added `athlete.*` namespace (anchors, timeframe, scope labels, banner templates, empty state).
+- `src/components/athlete/AthleteBanner.tsx` — new. Dark navy banner. Avatar → name+chevron (opens roster popover, click re-scopes `athleteId`) → position badge → participation + minutes → max velocity → session date. No jersey number, no bio expander — those fields are absent from `DemoAthlete` and the roster row, so I refused to fabricate them.
+- `src/components/athlete/AthleteScopeLine.tsx` — new. Activity chip (recent 14 sessions, header line built only from the fields that exist — currentSession is the only session with `weather`/`venue`, so training rows print `Activity` alone). Reference chip reuses `longi.ref.*` keys — namespace rename deferred to record-close. Periods chip (`all N` + per-period). Flag chip only when this athlete is in `TIER1_ROWS_DEFAULT` and the pinned session is current; dismissible.
+- `src/routes/athlete.tsx` — placeholder rewritten. `SourceSidebar` on the left, banner + sticky scope row + local anchor strip + four anchor placeholders (`Summary`, `Periods`, `Spatial`, `Detail`). `Over time` renders the empty-state sentence. All state lives on the search params (`athleteId`, `sessionId`, `timeframe`); default athlete is Werner (a flagged tier-1 subject, so the flag chip is visible on first paint).
+
+**Anchor strip**
+Duplicated the Longitudinal `AnchorStrip` locally rather than parameterising it — three call sites is still one, and the Longitudinal component reads its anchor set from `copy("longi.anchor.*")` inline. Costume matches: slate underline, same anchor-line offset (140), same scroll-into-view behaviour.
+
+**Honesty-floor decisions**
+- Activity chip's popover header prints `Activity` alone on training rows because those sessions have no venue/weather in the library. Only currentSession (18 Jul) surfaces `Signal Iduna Park · 14°C · 72% RH`.
+- Selecting a different session in the activity popover updates `sessionId` in the URL but does not re-scope the banner (banner still reads `currentSession`). This is the same honesty-floor rule the Longitudinal scope line follows; the wiring to per-session data lands in a later prompt.
+- Bio chevron and jersey number are omitted, not stubbed. Adding them would require inventing fields.
+
+**Verification**
+Typecheck clean. Playwright screenshot at `/tmp/browser/athlete/1_session.png` shows the full designed shell: banner (K. Werner · RW · full · 88' · max 35.9 km/h · Sat 18 Jul 2026), scope line with all four chips including the `flag — High-speed running ×` chip, four anchor sections rendered as empty `type-section-h` placeholders. `Over time` toggle renders the empty-state sentence and hides the scope line.
