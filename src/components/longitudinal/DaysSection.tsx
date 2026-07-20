@@ -18,6 +18,7 @@ import {
   type DayEntry,
 } from "@/lib/longitudinal-data";
 import { dayMonth2, weekdayDayMonth } from "@/lib/format-date";
+import { benchLabel, DEFAULT_BENCH, type BenchKind } from "./ScopeLine";
 
 /* ─────────────────── fixed drawn domains (§2) ─────────────────── */
 /*
@@ -61,13 +62,21 @@ function laneUnit(m: LongiMetric): string {
 
 /* ─────────────────── section shell ─────────────────── */
 
-export function DaysSection({ window: w }: { window: LongiWindow }) {
+export function DaysSection({
+  window: w,
+  benchKind,
+}: {
+  window: LongiWindow;
+  benchKind: BenchKind;
+}) {
   const [metric, setMetric] = useState<LongiMetric>("totalDistance");
   const [mode, setMode] = useState<Mode>("absolute");
   const [view, setView] = useState<View>("chart");
 
   const series = useMemo(() => daySeries(w), [w]);
   const laneMetrics: LongiMetric[] = [metric, "cardioLoad", "srpeAU"];
+  const tickText = tmpl("longi.basis.tick", { label: benchLabel(benchKind) });
+  const benchmarkIsDefault = benchKind === DEFAULT_BENCH;
 
   return (
     <section id="days" className="scroll-mt-28">
