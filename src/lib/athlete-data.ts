@@ -330,8 +330,11 @@ export function spineForAthleteSession(
     buildingBaseline,
     comparableCount,
     basisPhrase: t
-      ? `MD (${t.sessionType})`
-      : "this day type",
+      ? tmpl("athlete.summary.basisPhraseTemplate", {
+          dayCode: t.dayCode,
+          sessionType: t.sessionType,
+        })
+      : copy("athlete.summary.basisFallback"),
   };
 
   return { athleteId, sessionId, rows, header };
