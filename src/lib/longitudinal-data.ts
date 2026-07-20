@@ -585,8 +585,7 @@ function acForAthlete(athleteId: string, endISO: string): AcRatio {
   // Withhold on history, not record count: he must have been in the squad
   // on every day of the window. The unrecorded 14 Jul day is absent for
   // everyone and does not count against anyone.
-  const athlete = demoAthletes.find((x) => x.id === athleteId);
-  const hasFullHistory = athlete != null && athlete.joinedISO <= win28.startISO;
+  const hasFullHistory = athleteRec != null && athleteRec.joinedISO <= win28.startISO;
   if (!hasFullHistory) {
     return { state: "withheld", reason: "insufficient_days", daysOfData: daysOfData28, required: 28 };
   }
