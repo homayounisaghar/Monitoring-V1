@@ -238,17 +238,30 @@ export function SourceSidebar(props: SourceSidebarProps = {}) {
             ))}
           </div>
 
+          {/* Sub-line — scoped windows only */}
+          {subline && (
+            <div
+              className="px-2.5 text-[11px]"
+              style={{ color: "var(--color-text-tertiary)" }}
+            >
+              {subline}
+            </div>
+          )}
+
           {/* Session list */}
           <ul className="flex flex-col gap-0.5">
             {filtered.map((s) => {
-              const selected = s.id === currentSession.id;
+              const selected = s.id === selectedId;
               const displayName = stripDayCodePrefix(s.label, s.dayCode);
+              const muted = !s.inWindow;
               return (
                 <li key={s.id}>
                   <button
+                    onClick={() => handleClick(s.id)}
                     className="flex w-full items-center gap-2 rounded px-1.5 py-1.5 text-left transition-colors"
                     style={{
                       backgroundColor: selected ? "var(--color-slate-100)" : "transparent",
+                      opacity: muted ? 0.5 : 1,
                     }}
                   >
                     <span className="flex min-w-0 flex-1 flex-col">
@@ -265,6 +278,9 @@ export function SourceSidebar(props: SourceSidebarProps = {}) {
                         style={{ color: "var(--color-text-tertiary)" }}
                       >
                         {formatShort(s.dateISO)} · {s.durationMin}'
+                        {s.unconfirmed && (
+                          <span className="ml-1">{copy("sidebar.rowUnconfirmedSuffix")}</span>
+                        )}
                       </span>
                     </span>
                     <span
@@ -284,6 +300,14 @@ export function SourceSidebar(props: SourceSidebarProps = {}) {
               );
             })}
           </ul>
+          {overflowN > 0 && (
+            <div
+              className="px-2.5 py-1 text-[11px]"
+              style={{ color: "var(--color-text-tertiary)" }}
+            >
+              {tmpl("sidebar.overflowTemplate", { n: overflowN })}
+            </div>
+          )}
           {filtered.length === 0 && (
             <div
               className="px-2.5 py-2 text-[12px]"
@@ -298,6 +322,7 @@ export function SourceSidebar(props: SourceSidebarProps = {}) {
     </aside>
   );
 }
+
 
 function CollapsedRail() {
   return (
