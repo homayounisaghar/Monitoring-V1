@@ -178,29 +178,6 @@ function Sep() {
   );
 }
 
-function IconBtn({
-  children,
-  label,
-}: {
-  children: React.ReactNode;
-  label: string;
-}) {
-  return (
-    <button
-      aria-label={label}
-      title={label}
-      className="grid h-8 w-8 place-items-center rounded transition-colors"
-      style={{ color: "var(--color-slate-300)" }}
-      onMouseEnter={(e) =>
-        (e.currentTarget.style.backgroundColor =
-          "color-mix(in oklab, white 8%, transparent)")
-      }
-      onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
-    >
-      {children}
-    </button>
-  );
-}
 
 
 export { HORIZONS, DEFAULT_HORIZON };
