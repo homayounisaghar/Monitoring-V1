@@ -16,10 +16,13 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { copy } from "@/lib/copy-deck";
-import { daySeries, type LongiWindow, type LongiMetric, type DayEntry } from "@/lib/longitudinal-data";
-import { availabilityRows } from "@/lib/longitudinal-data";
 import {
+  daySeries,
+  athleteAvailabilityRanking,
+  type LongiWindow,
+  type LongiMetric,
+  type DayEntry,
+} from "@/lib/longitudinal-data";
   PARTICIPATION_TAGS,
   TAG_FILL,
   TAG_STYLE,
