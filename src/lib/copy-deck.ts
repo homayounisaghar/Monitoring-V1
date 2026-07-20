@@ -534,6 +534,15 @@ export const COPY = {
   "athlete.detail.columnsButton": "Columns",
   "athlete.detail.columnsHint": "Curated set · up to 12 columns",
   "athlete.detail.footnote": "Vs typical · their own record for this day type",
+
+  // Peer compare (Workstream 02 · prompt 7 §4–5). Session-scope only.
+  "athlete.scope.peerLabel": "peer",
+  "athlete.scope.peerNone": "none",
+  "athlete.scope.peerHead": "Compare peer",
+  "athlete.peer.subjectHeadTemplate": "{name} · subject",
+  "athlete.peer.peerHeadTemplate": "{name} · peer",
+  "athlete.spatial.peer.unavailable": "No positional data was recorded for this peer.",
+  "legend.peer": "muted dot — peer, same axis",
 } as const satisfies Record<string, string>;
 
 
