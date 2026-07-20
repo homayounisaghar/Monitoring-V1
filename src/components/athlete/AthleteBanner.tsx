@@ -21,7 +21,7 @@ type Props = {
   onAthleteChange: (id: string) => void;
 };
 
-export function AthleteBanner({ athleteId, onAthleteChange }: Props) {
+export function AthleteBanner({ athleteId, sessionId, onAthleteChange }: Props) {
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
