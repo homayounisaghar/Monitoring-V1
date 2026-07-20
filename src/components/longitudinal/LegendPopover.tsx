@@ -133,6 +133,7 @@ export function LegendPopover({ window: w }: { window: LongiWindow }) {
                 deck, unused, in case that menu is ever removed again. */}
             <LegendRow swatch={<SwHue kind="ext" />} text={copy("legend.ext")} />
             <LegendRow swatch={<SwHue kind="int" />} text={copy("legend.int")} />
+            <LegendRow swatch={<SwSrpeLight />} text={copy("legend.srpeLight")} />
             {presence.hollow && (
               <LegendRow swatch={<SwHollow />} text={copy("legend.hollow")} />
             )}
@@ -221,6 +222,14 @@ function SwHue({ kind }: { kind: "ext" | "int" }) {
     <span
       className="inline-block h-3 w-3 rounded-[2px]"
       style={{ backgroundColor: kind === "ext" ? EXT_BLUE : INT_PURPLE }}
+    />
+  );
+}
+function SwSrpeLight() {
+  return (
+    <span
+      className="inline-block h-3 w-3 rounded-[2px]"
+      style={{ backgroundColor: "var(--color-axis-cost-light)" }}
     />
   );
 }

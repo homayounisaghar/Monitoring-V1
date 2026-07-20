@@ -10,7 +10,13 @@ import {
 } from "@/lib/longitudinal-data";
 import { WindowBanner, DEFAULT_HORIZON } from "@/components/longitudinal/WindowBanner";
 import { AnchorStrip } from "@/components/longitudinal/AnchorStrip";
-import { ScopeLine } from "@/components/longitudinal/ScopeLine";
+import {
+  ScopeLine,
+  DEFAULT_BENCH,
+  DEFAULT_REF,
+  type BenchKind,
+  type RefKind,
+} from "@/components/longitudinal/ScopeLine";
 import { SummarySection } from "@/components/longitudinal/SummarySection";
 import { DaysSection } from "@/components/longitudinal/DaysSection";
 import { AthletesSection } from "@/components/longitudinal/AthletesSection";
@@ -31,10 +37,11 @@ export const Route = createFileRoute("/longitudinal")({
 function LongitudinalRoute() {
   const [horizon, setHorizon] = useState<Horizon>(DEFAULT_HORIZON);
   const [focusId, setFocusId] = useState<string | undefined>(undefined);
+  const [benchKind, setBenchKind] = useState<BenchKind>(DEFAULT_BENCH);
+  const [refKind, setRefKind] = useState<RefKind>(DEFAULT_REF);
 
   const w = useMemo(() => windowFor(horizon), [horizon]);
 
-  // Focus derivation is wired but nothing is rendered from it yet.
   const _focusDayIndex = useMemo(
     () => (focusId ? sessionDayIndex(focusId, w) : null),
     [focusId, w],
@@ -51,7 +58,6 @@ function LongitudinalRoute() {
           showOutOfWindow
         />
         <div className="min-w-0 flex-1">
-          {/* Banner — content, grid-width, aligned to the same grid as below */}
           <div className="mx-auto max-w-[1320px] px-6 pt-4">
             <WindowBanner
               horizon={horizon}
@@ -60,7 +66,6 @@ function LongitudinalRoute() {
             />
           </div>
 
-          {/* Sticky shell row: scope line + filter */}
           <div
             className="sticky top-12 z-30 border-b"
             style={{
@@ -69,19 +74,24 @@ function LongitudinalRoute() {
             }}
           >
             <div className="mx-auto flex h-12 max-w-[1320px] items-center gap-4 px-6">
-              <ScopeLine window={w} />
+              <ScopeLine
+                window={w}
+                benchKind={benchKind}
+                onBenchChange={setBenchKind}
+                refKind={refKind}
+                onRefChange={setRefKind}
+              />
             </div>
           </div>
 
-          {/* Sticky section anchor-nav */}
           <div className="sticky top-24 z-20">
             <AnchorStrip />
           </div>
 
           <main className="mx-auto max-w-[1320px] space-y-16 px-6 pt-10 pb-24">
-            <SummarySection window={w} horizon={horizon} />
-            <DaysSection window={w} />
-            <AthletesSection window={w} />
+            <SummarySection window={w} horizon={horizon} benchKind={benchKind} />
+            <DaysSection window={w} benchKind={benchKind} />
+            <AthletesSection window={w} refKind={refKind} />
           </main>
         </div>
       </div>

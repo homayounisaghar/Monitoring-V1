@@ -1,48 +1,180 @@
 /**
  * Longitudinal — scope line.
  *
- * High-fidelity: both chips are click-open popovers again, and the Filter
- * button opens the full panel. Selections **do not re-scope** any data.
- * That is the honesty floor: the chip labels state what the numbers on the
- * page were actually computed against; re-labelling them while the data
- * stands still would put a false basis on a real number. So the menu
- * opens, options render, the active option shows checked, clicking one
- * moves the check and closes the menu — but the chip label, the Summary
- * tick, and the Days 100-line stay put.
+ * High-fidelity prototype: choosing an option moves the check AND the
+ * chip's label; the Summary tick and the Days 100-line follow the
+ * Benchmark chip, the Athletes basis line follows the Reference chip.
+ * Numbers do not recompute — that is the honesty floor. Non-default
+ * labels take the slate tint, chip and echoing ticks alike.
  *
- * Filter applies as dismissible chips beside the two scope chips, each
- * with its own dismiss control. Charts and numbers remain unchanged.
+ * Benchmark set is consumed from src/lib/session-scope.ts (typical_daytype,
+ * typical_match, last_match, last_5, same_opponent). Longitudinal's
+ * default is typical_daytype — the same day-type basis Session uses on
+ * training days, generalised to the whole window.
  *
- * Option-key gaps discovered in the deck (see findings §Final pass):
- *   - Benchmark menu: no option keys authored — shows only the gloss.
- *   - Reference menu: none of six option keys authored — panel empty.
- *   - Filter: only Session-type group is authored.
+ * Filter categories in fixed order: Participation, Positions, Athletes,
+ * Session-type. Options render and check; Apply produces dismissible chips.
+ * `positional norm` withholds below the cohort floor (default 4) — data
+ * behaviour, due when scoping is wired; the option renders normally now.
  */
 import { ChevronDown, Filter as FilterIcon, Check, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { copy } from "@/lib/copy-deck";
 import { LegendPopover } from "./LegendPopover";
 import type { LongiWindow } from "@/lib/longitudinal-data";
+import {
+  PARTICIPATION_TAGS,
+  TAG_STYLE,
+} from "@/lib/participation-style";
+import { POSITION_LABEL, type PositionCode, type ParticipationTag } from "@/lib/session-data";
+import { demoAthletes } from "@/lib/demo-library";
+
+/* ─────────────────── option sets ─────────────────── */
+
+export type BenchKind =
+  | "typical_daytype"
+  | "typical_match"
+  | "last_match"
+  | "last_5"
+  | "same_opponent";
+
+export type RefKind =
+  | "own_typical"
+  | "last_5"
+  | "season"
+  | "positional"
+  | "cohort"
+  | "same_opponent";
+
+export const BENCH_ORDER: BenchKind[] = [
+  "typical_daytype",
+  "typical_match",
+  "last_match",
+  "last_5",
+  "same_opponent",
+];
+
+export const REF_ORDER: RefKind[] = [
+  "own_typical",
+  "last_5",
+  "season",
+  "positional",
+  "cohort",
+  "same_opponent",
+];
+
+/** Reference options with hairline separators after these families. */
+const REF_FAMILY_END: ReadonlySet<RefKind> = new Set(["season", "cohort"]);
+
+export const DEFAULT_BENCH: BenchKind = "typical_daytype";
+export const DEFAULT_REF: RefKind = "own_typical";
+
+export function benchLabel(k: BenchKind): string {
+  return copy(`longi.bench.opt.${k}`);
+}
+export function refLabel(k: RefKind): string {
+  return copy(`longi.ref.opt.${k}`);
+}
 
 /* ─────────────────── filter state (demo-local) ─────────────────── */
 
 type SessionTypeOpt = "matches" | "training";
-type FilterState = { sessionType: SessionTypeOpt[] };
-const EMPTY_FILTER: FilterState = { sessionType: [] };
+type FilterState = {
+  participation: Set<ParticipationTag>;
+  positions: Set<PositionCode>;
+  athletes: Set<string>;
+  sessionType: Set<SessionTypeOpt>;
+};
 
-export function ScopeLine({ window: w }: { window: LongiWindow }) {
-  const [applied, setApplied] = useState<FilterState>(EMPTY_FILTER);
+function emptyFilter(): FilterState {
+  return {
+    participation: new Set(),
+    positions: new Set(),
+    athletes: new Set(),
+    sessionType: new Set(),
+  };
+}
 
-  const dismissSessionType = (opt: SessionTypeOpt) =>
-    setApplied((s) => ({ ...s, sessionType: s.sessionType.filter((o) => o !== opt) }));
+function cloneFilter(f: FilterState): FilterState {
+  return {
+    participation: new Set(f.participation),
+    positions: new Set(f.positions),
+    athletes: new Set(f.athletes),
+    sessionType: new Set(f.sessionType),
+  };
+}
+
+function isEmpty(f: FilterState): boolean {
+  return (
+    f.participation.size === 0 &&
+    f.positions.size === 0 &&
+    f.athletes.size === 0 &&
+    f.sessionType.size === 0
+  );
+}
+
+/* ─────────────────── section ─────────────────── */
+
+export function ScopeLine({
+  window: w,
+  benchKind,
+  onBenchChange,
+  refKind,
+  onRefChange,
+}: {
+  window: LongiWindow;
+  benchKind: BenchKind;
+  onBenchChange: (k: BenchKind) => void;
+  refKind: RefKind;
+  onRefChange: (k: RefKind) => void;
+}) {
+  const [applied, setApplied] = useState<FilterState>(emptyFilter());
+
+  const dismiss = (mut: (f: FilterState) => void) =>
+    setApplied((s) => {
+      const next = cloneFilter(s);
+      mut(next);
+      return next;
+    });
 
   return (
     <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
-      <BenchmarkChip />
+      <span className="text-[12.5px]" style={{ color: "var(--color-text-secondary)" }}>
+        {copy("longi.scope.squadPrefix")}
+      </span>
+      <BenchmarkChip active={benchKind} onSelect={onBenchChange} />
       <Sep />
-      <ReferenceChip />
+      <span className="text-[12.5px]" style={{ color: "var(--color-text-secondary)" }}>
+        {copy("longi.scope.athletePrefix")}
+      </span>
+      <ReferenceChip active={refKind} onSelect={onRefChange} />
 
-      {applied.sessionType.map((opt) => (
+      {/* Applied filter chips */}
+      {[...applied.participation].map((p) => (
+        <AppliedChip
+          key={`p-${p}`}
+          label={p}
+          onDismiss={() => dismiss((f) => f.participation.delete(p))}
+        />
+      ))}
+      {[...applied.positions].map((p) => (
+        <AppliedChip
+          key={`pos-${p}`}
+          label={POSITION_LABEL[p]}
+          onDismiss={() => dismiss((f) => f.positions.delete(p))}
+        />
+      ))}
+      {[...applied.athletes].map((id) => {
+        const a = demoAthletes.find((x) => x.id === id);
+        return (
+          <AppliedChip
+            key={`a-${id}`}
+            label={a ? a.name : id}
+            onDismiss={() => dismiss((f) => f.athletes.delete(id))}
+          />
+        );
+      })}
+      {[...applied.sessionType].map((opt) => (
         <AppliedChip
           key={`stype-${opt}`}
           label={
@@ -50,7 +182,7 @@ export function ScopeLine({ window: w }: { window: LongiWindow }) {
               ? copy("longi.filter.opt.matches")
               : copy("longi.filter.opt.training")
           }
-          onDismiss={() => dismissSessionType(opt)}
+          onDismiss={() => dismiss((f) => f.sessionType.delete(opt))}
         />
       ))}
 
@@ -71,32 +203,43 @@ function Sep() {
       className="text-[12.5px]"
       style={{ color: "var(--color-text-tertiary)" }}
     >
-      ·
+      {copy("longi.scope.separator")}
     </span>
   );
 }
 
-function BenchmarkChip() {
+function BenchmarkChip({
+  active,
+  onSelect,
+}: {
+  active: BenchKind;
+  onSelect: (k: BenchKind) => void;
+}) {
   const [open, setOpen] = useState(false);
-  const [selected, setSelected] = useState<string>("default");
   const wrapRef = useOutsideClose(open, () => setOpen(false));
+  const isDefault = active === DEFAULT_BENCH;
 
   return (
     <div className="relative" ref={wrapRef}>
-      <ChipButton open={open} onClick={() => setOpen((o) => !o)}>
-        {copy("longi.scope.benchmarkChip")}
+      <ChipButton open={open} onClick={() => setOpen((o) => !o)} changed={!isDefault}>
+        {benchLabel(active)}
       </ChipButton>
       {open && (
         <Popover>
-          <MenuRow
-            checked={selected === "default"}
-            label={copy("longi.scope.benchmarkChip")}
-            onClick={() => {
-              setSelected("default");
-              setOpen(false);
-            }}
-          />
-          <GapNote text={copy("longi.benchmark.gap")} />
+          <MenuHead title={copy("longi.scope.benchmarkMenuTitle")} />
+          {BENCH_ORDER.map((k) => (
+            <OptionRow
+              key={k}
+              label={benchLabel(k)}
+              gloss={copy(`longi.bench.gloss.${k}`)}
+              checked={k === active}
+              isDefault={k === DEFAULT_BENCH}
+              onClick={() => {
+                onSelect(k);
+                setOpen(false);
+              }}
+            />
+          ))}
           <FootGloss text={copy("longi.scope.benchmarkGloss")} />
         </Popover>
       )}
@@ -104,27 +247,46 @@ function BenchmarkChip() {
   );
 }
 
-function ReferenceChip() {
+function ReferenceChip({
+  active,
+  onSelect,
+}: {
+  active: RefKind;
+  onSelect: (k: RefKind) => void;
+}) {
   const [open, setOpen] = useState(false);
-  const [selected, setSelected] = useState<string>("default");
   const wrapRef = useOutsideClose(open, () => setOpen(false));
+  const isDefault = active === DEFAULT_REF;
 
   return (
     <div className="relative" ref={wrapRef}>
-      <ChipButton open={open} onClick={() => setOpen((o) => !o)}>
-        {copy("longi.scope.referenceChip")}
+      <ChipButton open={open} onClick={() => setOpen((o) => !o)} changed={!isDefault}>
+        {refLabel(active)}
       </ChipButton>
       {open && (
         <Popover>
-          <MenuRow
-            checked={selected === "default"}
-            label={copy("longi.scope.referenceChip")}
-            onClick={() => {
-              setSelected("default");
-              setOpen(false);
-            }}
-          />
-          <GapNote text={copy("longi.reference.gap")} />
+          <MenuHead title={copy("longi.scope.referenceMenuTitle")} />
+          {REF_ORDER.map((k, i) => (
+            <div key={k}>
+              <OptionRow
+                label={refLabel(k)}
+                gloss={copy(`longi.ref.gloss.${k}`)}
+                checked={k === active}
+                isDefault={k === DEFAULT_REF}
+                onClick={() => {
+                  onSelect(k);
+                  setOpen(false);
+                }}
+              />
+              {REF_FAMILY_END.has(k) && i < REF_ORDER.length - 1 && (
+                <div
+                  aria-hidden
+                  className="mx-2 my-1 h-px"
+                  style={{ backgroundColor: "var(--color-border)" }}
+                />
+              )}
+            </div>
+          ))}
         </Popover>
       )}
     </div>
@@ -135,22 +297,31 @@ function ChipButton({
   children,
   open,
   onClick,
+  changed,
 }: {
   children: React.ReactNode;
   open: boolean;
   onClick: () => void;
+  changed: boolean;
 }) {
   return (
     <button
       onClick={onClick}
       aria-haspopup="menu"
       aria-expanded={open}
-      className="inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[12.5px] transition-colors hover:bg-[color:var(--color-slate-50)]"
-      style={{
-        borderColor: "var(--color-border)",
-        color: "var(--color-text-secondary)",
-        backgroundColor: "var(--color-surface-card)",
-      }}
+      className={
+        "inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[12.5px] transition-colors " +
+        (changed ? "chip-changed" : "hover:bg-[color:var(--color-slate-50)]")
+      }
+      style={
+        changed
+          ? undefined
+          : {
+              borderColor: "var(--color-border)",
+              color: "var(--color-text-secondary)",
+              backgroundColor: "var(--color-surface-card)",
+            }
+      }
     >
       <span>{children}</span>
       <ChevronDown className="h-3 w-3 opacity-70" aria-hidden />
@@ -192,24 +363,29 @@ function FilterButton({
   onApply: (f: FilterState) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const [draft, setDraft] = useState<FilterState>(applied);
+  const [draft, setDraft] = useState<FilterState>(() => cloneFilter(applied));
   const wrapRef = useOutsideClose(open, () => setOpen(false));
 
-  const activeCount = applied.sessionType.length;
+  const activeCount =
+    applied.participation.size +
+    applied.positions.size +
+    applied.athletes.size +
+    applied.sessionType.size;
 
-  const toggle = (opt: SessionTypeOpt) =>
-    setDraft((s) => ({
-      ...s,
-      sessionType: s.sessionType.includes(opt)
-        ? s.sessionType.filter((o) => o !== opt)
-        : [...s.sessionType, opt],
-    }));
+  const toggle = <K,>(set: Set<K>, opt: K): Set<K> => {
+    const n = new Set(set);
+    if (n.has(opt)) n.delete(opt);
+    else n.add(opt);
+    return n;
+  };
+
+  const positionCodes: PositionCode[] = ["GK", "DEF", "MID", "ATT"];
 
   return (
     <div className="relative" ref={wrapRef}>
       <button
         onClick={() => {
-          setDraft(applied);
+          setDraft(cloneFilter(applied));
           setOpen((o) => !o);
         }}
         aria-haspopup="dialog"
@@ -238,7 +414,7 @@ function FilterButton({
       {open && (
         <div
           role="dialog"
-          className="absolute right-0 top-full z-40 mt-2 w-[280px] overflow-hidden rounded-md border shadow-xl"
+          className="absolute right-0 top-full z-40 mt-2 w-[320px] max-h-[70vh] overflow-y-auto rounded-md border shadow-xl"
           style={{
             backgroundColor: "var(--color-surface-card)",
             borderColor: "var(--color-border)",
@@ -255,40 +431,75 @@ function FilterButton({
             <span>{copy("longi.filter.title")}</span>
           </div>
 
-          <div className="px-3 py-2">
-            <div
-              className="type-microcaps mb-1.5"
-              style={{ color: "var(--color-text-tertiary)" }}
-            >
-              {copy("longi.filter.group.sessionType")}
-            </div>
-            <div className="flex flex-col">
+          {/* Participation */}
+          <FilterGroup title={copy("longi.filter.group.participation")}>
+            {PARTICIPATION_TAGS.map((t) => (
               <CheckRow
-                label={copy("longi.filter.opt.matches")}
-                checked={draft.sessionType.includes("matches")}
-                onClick={() => toggle("matches")}
+                key={t}
+                label={t}
+                swatch={TAG_STYLE[t]}
+                checked={draft.participation.has(t)}
+                onClick={() =>
+                  setDraft((s) => ({ ...s, participation: toggle(s.participation, t) }))
+                }
               />
-              <CheckRow
-                label={copy("longi.filter.opt.training")}
-                checked={draft.sessionType.includes("training")}
-                onClick={() => toggle("training")}
-              />
-            </div>
-          </div>
+            ))}
+          </FilterGroup>
 
-          <div
-            className="px-3 pb-2 text-[11.5px]"
-            style={{ color: "var(--color-text-tertiary)" }}
-          >
-            {copy("longi.filter.gap")}
-          </div>
+          {/* Positions */}
+          <FilterGroup title={copy("longi.filter.group.positions")}>
+            {positionCodes.map((p) => (
+              <CheckRow
+                key={p}
+                label={POSITION_LABEL[p]}
+                checked={draft.positions.has(p)}
+                onClick={() =>
+                  setDraft((s) => ({ ...s, positions: toggle(s.positions, p) }))
+                }
+              />
+            ))}
+          </FilterGroup>
+
+          {/* Athletes */}
+          <FilterGroup title={copy("longi.filter.group.athletes")}>
+            <div className="max-h-40 overflow-y-auto">
+              {demoAthletes.map((a) => (
+                <CheckRow
+                  key={a.id}
+                  label={a.name}
+                  checked={draft.athletes.has(a.id)}
+                  onClick={() =>
+                    setDraft((s) => ({ ...s, athletes: toggle(s.athletes, a.id) }))
+                  }
+                />
+              ))}
+            </div>
+          </FilterGroup>
+
+          {/* Session type — last, per workstream doc */}
+          <FilterGroup title={copy("longi.filter.group.sessionType")}>
+            <CheckRow
+              label={copy("longi.filter.opt.matches")}
+              checked={draft.sessionType.has("matches")}
+              onClick={() =>
+                setDraft((s) => ({ ...s, sessionType: toggle(s.sessionType, "matches") }))
+              }
+            />
+            <CheckRow
+              label={copy("longi.filter.opt.training")}
+              checked={draft.sessionType.has("training")}
+              onClick={() =>
+                setDraft((s) => ({ ...s, sessionType: toggle(s.sessionType, "training") }))
+              }
+            />
+          </FilterGroup>
 
           <div
             className="flex items-center justify-between gap-2 border-t px-3 py-2"
             style={{ borderColor: "var(--color-border)" }}
           >
             <button
-              onClick={() => setDraft(EMPTY_FILTER)}
+              onClick={() => setDraft(emptyFilter())}
               className="text-[12px] transition-colors hover:underline"
               style={{ color: "var(--color-text-secondary)" }}
             >
@@ -304,7 +515,7 @@ function FilterButton({
               </button>
               <button
                 onClick={() => {
-                  onApply(draft);
+                  onApply(cloneFilter(draft));
                   setOpen(false);
                 }}
                 className="rounded px-2.5 py-1 text-[12px] transition-colors"
@@ -319,6 +530,20 @@ function FilterButton({
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function FilterGroup({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="border-t px-3 py-2" style={{ borderColor: "var(--color-border)" }}>
+      <div
+        className="type-microcaps mb-1.5"
+        style={{ color: "var(--color-text-tertiary)" }}
+      >
+        {title}
+      </div>
+      <div className="flex flex-col">{children}</div>
     </div>
   );
 }
@@ -341,13 +566,31 @@ function Popover({ children }: { children: React.ReactNode }) {
   );
 }
 
-function MenuRow({
+function MenuHead({ title }: { title: string }) {
+  return (
+    <div
+      className="type-microcaps px-3 py-2"
+      style={{
+        color: "var(--color-text-secondary)",
+        borderBottom: "1px solid var(--color-border)",
+      }}
+    >
+      {title}
+    </div>
+  );
+}
+
+function OptionRow({
   label,
+  gloss,
   checked,
+  isDefault,
   onClick,
 }: {
   label: string;
+  gloss?: string;
   checked: boolean;
+  isDefault?: boolean;
   onClick: () => void;
 }) {
   return (
@@ -355,11 +598,38 @@ function MenuRow({
       role="menuitemradio"
       aria-checked={checked}
       onClick={onClick}
-      className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-[12.5px] transition-colors hover:bg-[color:var(--color-slate-100)]"
-      style={{ color: "var(--color-text-primary)" }}
+      className="block w-full px-3 py-2 text-left transition-colors hover:bg-[color:var(--color-slate-100)]"
     >
-      <span>{label}</span>
-      {checked && <Check className="h-3.5 w-3.5" aria-hidden />}
+      <span className="flex items-center justify-between gap-3">
+        <span
+          className="text-[12.5px]"
+          style={{
+            color: checked ? "var(--color-text-primary)" : "var(--color-text-secondary)",
+            fontWeight: checked ? 500 : 400,
+          }}
+        >
+          {label}
+        </span>
+        <span className="flex items-center gap-2">
+          {isDefault && (
+            <span
+              className="type-label"
+              style={{ color: "var(--color-text-tertiary)" }}
+            >
+              {copy("canonical.readingLine.default")}
+            </span>
+          )}
+          {checked && <Check className="h-3.5 w-3.5" aria-hidden />}
+        </span>
+      </span>
+      {gloss && (
+        <span
+          className="mt-0.5 block text-[11.5px]"
+          style={{ color: "var(--color-text-tertiary)" }}
+        >
+          {gloss}
+        </span>
+      )}
     </button>
   );
 }
@@ -368,10 +638,12 @@ function CheckRow({
   label,
   checked,
   onClick,
+  swatch,
 }: {
   label: string;
   checked: boolean;
   onClick: () => void;
+  swatch?: React.CSSProperties;
 }) {
   return (
     <button
@@ -391,22 +663,11 @@ function CheckRow({
       >
         {checked && <Check className="h-2.5 w-2.5" aria-hidden />}
       </span>
+      {swatch && (
+        <span className="h-2.5 w-2.5 rounded-sm" style={swatch} aria-hidden />
+      )}
       <span>{label}</span>
     </button>
-  );
-}
-
-function GapNote({ text }: { text: string }) {
-  return (
-    <div
-      className="px-3 py-2 text-[11.5px]"
-      style={{
-        color: "var(--color-text-tertiary)",
-        borderTop: "1px dashed var(--color-border)",
-      }}
-    >
-      {text}
-    </div>
   );
 }
 

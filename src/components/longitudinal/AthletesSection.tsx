@@ -39,6 +39,7 @@ import type { ParticipationTag, PositionCode } from "@/lib/session-data";
 import { POSITION_LABEL } from "@/lib/session-data";
 import { MAX_COLUMNS } from "@/lib/squad-metrics";
 import { dayMonthLong } from "@/lib/format-date";
+import { refLabel, DEFAULT_REF, type RefKind } from "./ScopeLine";
 
 /* ─────────────────────────── shared bits ─────────────────────────── */
 
@@ -75,7 +76,15 @@ function surname(name: string): string {
 
 /* ─────────────────────────── section ─────────────────────────── */
 
-export function AthletesSection({ window: w }: { window: LongiWindow }) {
+export function AthletesSection({
+  window: w,
+  refKind,
+}: {
+  window: LongiWindow;
+  refKind: RefKind;
+}) {
+  const referenceLabel = refLabel(refKind);
+  const referenceIsDefault = refKind === DEFAULT_REF;
   return (
     <section id="athletes" className="scroll-mt-28">
       <header className="mb-4 flex items-baseline gap-2 flex-wrap">
@@ -95,7 +104,11 @@ export function AthletesSection({ window: w }: { window: LongiWindow }) {
 
       <div className="space-y-8">
         <AvailabilityList window={w} />
-        <WindowTotalsTable window={w} />
+        <WindowTotalsTable
+          window={w}
+          referenceLabel={referenceLabel}
+          referenceIsDefault={referenceIsDefault}
+        />
       </div>
     </section>
   );
@@ -284,7 +297,15 @@ type SortDir = "asc" | "desc";
 type SortKey = "sessions" | "minutes" | LongiMetric;
 type SortState = { key: SortKey; dir: SortDir } | null;
 
-function WindowTotalsTable({ window: w }: { window: LongiWindow }) {
+function WindowTotalsTable({
+  window: w,
+  referenceLabel,
+  referenceIsDefault,
+}: {
+  window: LongiWindow;
+  referenceLabel: string;
+  referenceIsDefault: boolean;
+}) {
   const [view, setView] = useState<View>("absolute");
   const [sort, setSort] = useState<SortState>(null);
 
@@ -340,10 +361,10 @@ function WindowTotalsTable({ window: w }: { window: LongiWindow }) {
       {/* Basis / method line — VS TYPICAL and A:C only. */}
       {view === "typical" && (
         <div
-          className="mb-2 text-[11.5px]"
-          style={{ color: "var(--color-text-tertiary)" }}
+          className={"mb-2 text-[11.5px] " + (referenceIsDefault ? "" : "chip-changed inline-block px-2 py-0.5 rounded")}
+          style={referenceIsDefault ? { color: "var(--color-text-tertiary)" } : undefined}
         >
-          {copy("longi.basis.tickTable")}
+          {tmpl("longi.basis.tickTable", { label: referenceLabel })}
         </div>
       )}
       {view === "ac" && (

@@ -18,6 +18,7 @@ import {
   type DayEntry,
 } from "@/lib/longitudinal-data";
 import { dayMonth2, weekdayDayMonth } from "@/lib/format-date";
+import { benchLabel, DEFAULT_BENCH, type BenchKind } from "./ScopeLine";
 
 /* ─────────────────── fixed drawn domains (§2) ─────────────────── */
 /*
@@ -61,13 +62,21 @@ function laneUnit(m: LongiMetric): string {
 
 /* ─────────────────── section shell ─────────────────── */
 
-export function DaysSection({ window: w }: { window: LongiWindow }) {
+export function DaysSection({
+  window: w,
+  benchKind,
+}: {
+  window: LongiWindow;
+  benchKind: BenchKind;
+}) {
   const [metric, setMetric] = useState<LongiMetric>("totalDistance");
   const [mode, setMode] = useState<Mode>("absolute");
   const [view, setView] = useState<View>("chart");
 
   const series = useMemo(() => daySeries(w), [w]);
   const laneMetrics: LongiMetric[] = [metric, "cardioLoad", "srpeAU"];
+  const tickText = tmpl("longi.basis.tick", { label: benchLabel(benchKind) });
+  const benchmarkIsDefault = benchKind === DEFAULT_BENCH;
 
   return (
     <section id="days" className="scroll-mt-28">
@@ -109,7 +118,13 @@ export function DaysSection({ window: w }: { window: LongiWindow }) {
       </div>
 
       {view === "chart" ? (
-        <DaysChart series={series} laneMetrics={laneMetrics} mode={mode} />
+        <DaysChart
+          series={series}
+          laneMetrics={laneMetrics}
+          mode={mode}
+          tickText={tickText}
+          benchmarkIsDefault={benchmarkIsDefault}
+        />
       ) : (
         <DaysTable series={series} laneMetrics={laneMetrics} />
       )}
@@ -242,10 +257,14 @@ function DaysChart({
   series,
   laneMetrics,
   mode,
+  tickText,
+  benchmarkIsDefault,
 }: {
   series: DayEntry[];
   laneMetrics: LongiMetric[];
   mode: Mode;
+  tickText: string;
+  benchmarkIsDefault: boolean;
 }) {
   const [hover, setHover] = useState<number | null>(null);
   const nDays = series.length;
@@ -370,14 +389,19 @@ function DaysChart({
               </div>
               {mode === "typical" && li === 0 && (
                 <div
-                  className="pointer-events-none absolute right-0.5 type-num text-[9.5px] whitespace-nowrap"
+                  className={
+                    "pointer-events-none absolute right-0.5 type-num text-[9.5px] whitespace-nowrap " +
+                    (benchmarkIsDefault ? "" : "chip-changed")
+                  }
                   style={{
                     top: "50%",
                     transform: "translateY(-110%)",
-                    color: "var(--color-text-tertiary)",
+                    ...(benchmarkIsDefault
+                      ? { color: "var(--color-text-tertiary)" }
+                      : {}),
                   }}
                 >
-                  {copy("longi.basis.tick")}
+                  {tickText}
                 </div>
               )}
 
@@ -463,7 +487,11 @@ function LaneLabel({
 }) {
   const axis = metric === "cardioLoad" || metric === "srpeAU" ? "cost" : "work";
   const dot =
-    axis === "cost" ? "var(--color-axis-cost)" : "var(--color-axis-work)";
+    metric === "srpeAU"
+      ? "var(--color-axis-cost-light)"
+      : axis === "cost"
+      ? "var(--color-axis-cost)"
+      : "var(--color-axis-work)";
 
   const slotText = valueSlotText(activeDay, metric, mode, windowAvg);
 
@@ -553,7 +581,11 @@ function DayBar({
 }) {
   const axis = metric === "cardioLoad" || metric === "srpeAU" ? "cost" : "work";
   const color =
-    axis === "cost" ? "var(--color-axis-cost)" : "var(--color-axis-work)";
+    metric === "srpeAU"
+      ? "var(--color-axis-cost-light)"
+      : axis === "cost"
+      ? "var(--color-axis-cost)"
+      : "var(--color-axis-work)";
   const unconfirmed = day.unconfirmed;
   const hatch =
     "repeating-linear-gradient(45deg, transparent 0 3px, rgba(255,255,255,0.35) 3px 6px)";

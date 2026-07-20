@@ -25,6 +25,7 @@ import {
   type LongiWindow,
   type Horizon,
 } from "@/lib/longitudinal-data";
+import { benchLabel, DEFAULT_BENCH, type BenchKind } from "./ScopeLine";
 import {
   demoAthletes,
   demoSessions,
@@ -56,10 +57,14 @@ function surname(name: string): string {
 export function SummarySection({
   window: w,
   horizon,
+  benchKind,
 }: {
   window: LongiWindow;
   horizon: Horizon;
+  benchKind: BenchKind;
 }) {
+  const benchmarkLabel = benchLabel(benchKind);
+  const benchmarkIsDefault = benchKind === DEFAULT_BENCH;
   return (
     <section id="summary" className="scroll-mt-28">
       <h2
@@ -76,7 +81,11 @@ export function SummarySection({
         }}
       >
         <div className="grid grid-cols-2 gap-x-10 gap-y-6 p-6">
-          <SquadLoadPane window={w} />
+          <SquadLoadPane
+            window={w}
+            benchmarkLabel={benchmarkLabel}
+            benchmarkIsDefault={benchmarkIsDefault}
+          />
           <AvailabilityPane window={w} />
         </div>
         <CharacterFoot window={w} horizon={horizon} />
@@ -87,8 +96,17 @@ export function SummarySection({
 
 /* ─────────────────────────── left pane ─────────────────────────── */
 
-function SquadLoadPane({ window: w }: { window: LongiWindow }) {
+function SquadLoadPane({
+  window: w,
+  benchmarkLabel,
+  benchmarkIsDefault,
+}: {
+  window: LongiWindow;
+  benchmarkLabel: string;
+  benchmarkIsDefault: boolean;
+}) {
   const g = squadLoadGauges(w);
+  const tickText = tmpl("longi.basis.tick", { label: benchmarkLabel });
 
   const withheld = g.state === "withheld";
   const volumeInt = !withheld ? Math.round(g.volumePct) : null;
@@ -96,7 +114,7 @@ function SquadLoadPane({ window: w }: { window: LongiWindow }) {
   const showCoverage =
     g.state === "computed"
       ? g.contributingSessions < g.windowSessions
-      : true; // withheld branch always prints coverage
+      : true;
 
   return (
     <div>
@@ -118,22 +136,35 @@ function SquadLoadPane({ window: w }: { window: LongiWindow }) {
         <GaugeRow
           label={copy("canonical.summary.vsFullMatch.volume")}
           value={volumeInt}
+          tickText={tickText}
         />
         <GaugeRow
           label={copy("canonical.summary.vsFullMatch.intensity")}
           value={intensityInt}
+          tickText={tickText}
         />
       </div>
 
-      {/* Under the pair: end labels, tick label, coverage line. */}
       <div className="mt-3">
         <div
           className="flex justify-between type-num text-[10.5px]"
-          style={{ color: "var(--color-text-tertiary)" }}
         >
-          <span>{copy("longi.gauge.tick40")}</span>
-          <span className="type-data-label">{copy("longi.basis.tick")}</span>
-          <span>{copy("longi.gauge.tick160")}</span>
+          <span style={{ color: "var(--color-text-tertiary)" }}>
+            {copy("longi.gauge.tick40")}
+          </span>
+          <span
+            className={"type-data-label " + (benchmarkIsDefault ? "" : "chip-changed")}
+            style={
+              benchmarkIsDefault
+                ? { color: "var(--color-text-tertiary)" }
+                : undefined
+            }
+          >
+            {tickText}
+          </span>
+          <span style={{ color: "var(--color-text-tertiary)" }}>
+            {copy("longi.gauge.tick160")}
+          </span>
         </div>
         {showCoverage && (
           <div
@@ -151,7 +182,15 @@ function SquadLoadPane({ window: w }: { window: LongiWindow }) {
   );
 }
 
-function GaugeRow({ label, value }: { label: string; value: number | null }) {
+function GaugeRow({
+  label,
+  value,
+  tickText,
+}: {
+  label: string;
+  value: number | null;
+  tickText: string;
+}) {
   return (
     <div className="space-y-1">
       <div className="flex items-baseline justify-between">
@@ -169,7 +208,6 @@ function GaugeRow({ label, value }: { label: string; value: number | null }) {
         </span>
       </div>
       {value == null ? (
-        // Withheld: draw the track (band only) with no reference tick or dot.
         <div className="relative h-5 flex-1">
           <div
             className="absolute left-0 right-0 top-1/2 h-[6px] -translate-y-1/2 rounded-full"
@@ -184,8 +222,8 @@ function GaugeRow({ label, value }: { label: string; value: number | null }) {
           reference={100}
           scaleMin={40}
           scaleMax={160}
-          referenceBandPct={6}
-          scaleLabel={copy("longi.basis.tick")}
+          referenceBandPct={5}
+          scaleLabel={tickText}
           size="compact"
           showValue={false}
           showDelta={false}
