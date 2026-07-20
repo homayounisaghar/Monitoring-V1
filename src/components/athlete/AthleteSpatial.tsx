@@ -236,7 +236,7 @@ function HeatLayer({ field }: { field: SpatialField }) {
   for (const row of bins) for (const v of row) if (v > peak) peak = v;
   if (peak === 0) return null;
 
-  const rects: JSX.Element[] = [];
+  const rects: React.ReactElement[] = [];
   const drawCellW = VB_W / GRID_COLS;
   const drawCellH = VB_H / GRID_ROWS;
   for (let r = 0; r < GRID_ROWS; r++) {
