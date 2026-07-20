@@ -19,6 +19,7 @@ import { currentSession, timeline } from "@/lib/session-data";
 import { demoSessions, DEMO_TODAY } from "@/lib/demo-library";
 import { TIER1_ROWS_DEFAULT } from "@/lib/session-flags";
 import { dayMonth2 } from "@/lib/format-date";
+import { periodOptionsFor, type PeriodOption } from "@/lib/athlete-data";
 
 const PINNED_SESSION_ID = "s-2026-07-04-dortmund";
 
@@ -54,10 +55,12 @@ export function AthleteScopeLine({ athleteId, sessionId, onSessionChange }: Prop
   const isMatch = activeSession?.type === "match";
   const isPinned = activeSession?.id === PINNED_SESSION_ID;
 
-  const periodCount = useMemo(() => {
-    if (isPinned) return timeline(currentSession, "halves").length;
-    return activeSession?.type === "match" ? 2 : 1;
-  }, [isPinned, activeSession]);
+  // Fix 7.1 — periods == 15-minute block set (blocks 1–6 + added time) for
+  // the pinned match; single period elsewhere.
+  const periodOpts = useMemo(
+    () => (activeSession ? periodOptionsFor(activeSession.id) : []),
+    [activeSession],
+  );
 
   const [periodSel, setPeriodSel] = useState<string>("all");
 
@@ -86,7 +89,7 @@ export function AthleteScopeLine({ athleteId, sessionId, onSessionChange }: Prop
       <PeriodsChip
         value={periodSel}
         onChange={setPeriodSel}
-        n={periodCount}
+        options={periodOpts}
       />
 
       {showFlag && tier1Row && (
@@ -310,25 +313,19 @@ function ReferenceChip({
 function PeriodsChip({
   value,
   onChange,
-  n,
+  options,
 }: {
   value: string;
   onChange: (v: string) => void;
-  n: number;
+  options: PeriodOption[];
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   useDocClick(ref, open, () => setOpen(false));
 
-  const options: Array<{ id: string; label: string }> = [
-    { id: "all", label: tmpl("athlete.scope.periodsAllTemplate", { n }) },
-    ...Array.from({ length: n }, (_, i) => ({
-      id: `p${i + 1}`,
-      label: `period ${i + 1}`,
-    })),
-  ];
   const active = options.find((o) => o.id === value) ?? options[0];
   const changed = value !== "all";
+  if (!active) return null;
 
   return (
     <div className="relative" ref={ref}>

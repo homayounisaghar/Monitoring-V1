@@ -1,12 +1,16 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { zodValidator, fallback } from "@tanstack/zod-adapter";
 import { z } from "zod";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { SourceSidebar } from "@/components/shell/SourceSidebar";
 import { DemoPill } from "@/components/shell/DemoPill";
 import { SegmentedToggle } from "@/components/data/SegmentedToggle";
 import { AthleteBanner } from "@/components/athlete/AthleteBanner";
 import { AthleteScopeLine } from "@/components/athlete/AthleteScopeLine";
+import { AthleteSummarySpine } from "@/components/athlete/AthleteSummarySpine";
+import { AthleteLegend } from "@/components/athlete/AthleteLegend";
+import { spineForAthleteSession, flaggedMetricFor } from "@/lib/athlete-data";
+import { TIER1_ROWS_DEFAULT } from "@/lib/session-flags";
 import { copy } from "@/lib/copy-deck";
 
 const timeframeSchema = fallback(z.string(), "session").default("session");
@@ -39,6 +43,20 @@ function AthleteRoute() {
   const athleteId = search.athleteId || DEFAULT_ATHLETE;
   const sessionId = search.sessionId || DEFAULT_SESSION;
   const timeframe: TF = search.timeframe === "window" ? "window" : "session";
+
+  // Flag state is lifted here so both the scope chip and the spine agree
+  // on whether the flagged metric hoists.
+  const [flagDismissed, setFlagDismissed] = useState(false);
+  const tier1 = TIER1_ROWS_DEFAULT.find((r) => r.id === athleteId);
+  const flagActive =
+    Boolean(tier1) && sessionId === DEFAULT_SESSION && !flagDismissed;
+  const flaggedMetric = flagActive && tier1 ? flaggedMetricFor(tier1.reason) : null;
+
+  // Spine is derived once for both the legend (state-aware) and the section.
+  const spine = useMemo(
+    () => spineForAthleteSession(athleteId, sessionId, { flaggedMetric }),
+    [athleteId, sessionId, flaggedMetric],
+  );
 
   const setSearch = (patch: Partial<{ athleteId: string; sessionId: string; timeframe: string }>) => {
     navigate({
@@ -78,11 +96,17 @@ function AthleteRoute() {
                 ]}
               />
               {timeframe === "session" && (
-                <AthleteScopeLine
-                  athleteId={athleteId}
-                  sessionId={sessionId}
-                  onSessionChange={(id) => setSearch({ sessionId: id })}
-                />
+                <>
+                  <AthleteScopeLine
+                    athleteId={athleteId}
+                    sessionId={sessionId}
+                    onSessionChange={(id) => setSearch({ sessionId: id })}
+                  />
+                  {/* Fix 7.2 — `How to read this` sits at the right of the scope line. */}
+                  <div className="ml-auto shrink-0">
+                    <AthleteLegend spine={spine} />
+                  </div>
+                </>
               )}
             </div>
           </div>
@@ -93,7 +117,13 @@ function AthleteRoute() {
                 <AthleteAnchorStrip />
               </div>
               <main className="mx-auto max-w-[1320px] px-6 pt-8">
-                <SectionAnchor id="summary" label={copy("athlete.anchor.summary")} />
+                <section id="summary" className="scroll-mt-28 pb-10">
+                  <AthleteSummarySpine
+                    athleteId={athleteId}
+                    sessionId={sessionId}
+                    flagActive={flagActive}
+                  />
+                </section>
                 <SectionAnchor id="periods" label={copy("athlete.anchor.periods")} />
                 <SectionAnchor id="spatial" label={copy("athlete.anchor.spatial")} />
                 <SectionAnchor id="detail" label={copy("athlete.anchor.detail")} />
