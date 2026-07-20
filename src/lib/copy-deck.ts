@@ -361,7 +361,7 @@ export const COPY = {
   // ---------- Longitudinal · Summary section ----------
   "longi.summary.squadLoadHead": "SQUAD LOAD",
   "longi.summary.availHead": "AVAILABILITY",
-  "longi.basis.tick": "100 — typical, like-for-like",
+  "longi.basis.tick": "100 — {label}",
   "longi.gauge.tick40": "40",
   "longi.gauge.tick160": "160",
   "longi.gauge.coverageTemplate": "across {n} of {m} sessions",
