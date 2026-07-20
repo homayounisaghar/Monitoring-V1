@@ -29,6 +29,7 @@ import {
   SPINE_METRICS,
   type SpineRow,
   type SpineMetricId,
+  type AthleteSpine,
 } from "@/lib/athlete-data";
 import { demoAthletes } from "@/lib/demo-library";
 import { TIER1_ROWS_DEFAULT } from "@/lib/session-flags";
@@ -40,6 +41,7 @@ type Props = {
   athleteId: string;
   sessionId: string;
   flagActive: boolean;
+  peerSpine?: AthleteSpine | null;
 };
 
 /** The one place the spine is ordered for render. External group first;
