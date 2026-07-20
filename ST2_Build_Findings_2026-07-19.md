@@ -988,6 +988,9 @@ Ran headless Chromium (viewport 1280×1800) against `http://localhost:8080` and 
 
 No `error`, no `warning`, no `pageerror`, no hydration-mismatch message on any of the three routes.
 
+**Correction (prompt 10 §2).** The clean result above is a **load-time** check only. A subsequent interaction flow on `/athlete` (opening the peer chip, picking a peer, toggling Heat/Trace, clearing) surfaced a hydration mismatch on `SourceSidebar`'s search input — `caret-color` differs between SSR and client. `SourceSidebar` is shell, so the warning is present on `/session` and `/longitudinal` as well, not just `/athlete`. Cosmetic in effect; not fixed in this pass. Logged as an open item in §1.6.
+
+
 ## Prompt 8 · §3 peer dot — axis-hued, muted
 
 `AthleteSummarySpine.tsx` peer-dot fill changed from `var(--color-text-tertiary)` at opacity 0.55 to the row's own axis `color` at opacity 0.42. External rows (Total distance, m/min, HSR, Acc-Dec) now draw the peer in muted external blue; internal rows (Cardio Load, sRPE) in muted cost purple. Subject and peer are distinguishable by ink weight, not by hue meaning.
