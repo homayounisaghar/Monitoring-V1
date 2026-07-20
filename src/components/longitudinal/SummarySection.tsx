@@ -30,35 +30,14 @@ import {
   demoSessions,
   recordsForAthlete,
 } from "@/lib/demo-library";
+import { dayMonthLong, weekdayLong } from "@/lib/format-date";
 import type { ParticipationTag } from "@/lib/session-data";
 
-const MONTHS_LONG = [
-  "January", "February", "March", "April", "May", "June",
-  "July", "August", "September", "October", "November", "December",
-];
-const WEEKDAYS_LONG = [
-  "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday",
-];
 const WORDS = [
   "zero", "one", "two", "three", "four", "five", "six",
   "seven", "eight", "nine", "ten", "eleven", "twelve",
 ];
 
-function isoParts(iso: string) {
-  return {
-    y: parseInt(iso.slice(0, 4), 10),
-    m: parseInt(iso.slice(5, 7), 10),
-    d: parseInt(iso.slice(8, 10), 10),
-  };
-}
-function dayMonthLong(iso: string): string {
-  const { m, d } = isoParts(iso);
-  return `${d} ${MONTHS_LONG[m - 1]}`;
-}
-function weekdayLong(iso: string): string {
-  const { y, m, d } = isoParts(iso);
-  return WEEKDAYS_LONG[new Date(Date.UTC(y, m - 1, d)).getUTCDay()];
-}
 function nWord(n: number): string {
   if (n >= 0 && n <= 12) return WORDS[n];
   return String(n);
@@ -84,7 +63,7 @@ export function SummarySection({
   return (
     <section id="summary" className="scroll-mt-28">
       <h2
-        className="mb-4 text-[20px] font-semibold tracking-tight"
+        className="type-section-h mb-4"
         style={{ color: "var(--color-text-primary)" }}
       >
         {copy("longi.anchor.summary")}
