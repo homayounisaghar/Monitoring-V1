@@ -551,8 +551,20 @@ function PositionGroup({
 }
 
 function TotalsRow({ row, view }: { row: AthleteTotals; view: View }) {
+  const navigate = useNavigate();
+  const openAthlete = () =>
+    navigate({
+      to: "/athlete",
+      search: { athleteId: row.athlete.id, sessionId: "", timeframe: "window" },
+    });
   return (
-    <tr className="group" style={{ borderTop: "1px solid var(--color-border)" }}>
+    <tr
+      className="group cursor-pointer"
+      style={{ borderTop: "1px solid var(--color-border)" }}
+      onClick={openAthlete}
+      onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "var(--color-slate-50)")}
+      onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
+    >
       <td className="px-3 py-2 whitespace-nowrap">
         <div className="flex items-center justify-between gap-3">
           <span>
