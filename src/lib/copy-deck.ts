@@ -276,6 +276,35 @@ export const COPY = {
   "canonical.attention.hrCoverageSuffix": "% HR coverage",
   "canonical.attention.hrCovSuffix": "% HR cov",
   "canonical.attention.flaggedInAttentionSuffix": "flagged in Attention",
+
+  // ---------- Sidebar — scoped sub-lines (owned here, chosen by presence of scope) ----------
+  "sidebar.subline.allInWindowTemplate": "all {n} sessions in the window",
+  "sidebar.subline.partialTemplate": "{n} of {m} sessions in the {d}-day window",
+  "sidebar.overflowTemplate": "…{n} more in the window",
+  "sidebar.rowUnconfirmedSuffix": "· unconfirmed",
+
+  // ---------- Longitudinal ----------
+  "longi.anchor.summary": "Summary",
+  "longi.anchor.days": "Days",
+  "longi.anchor.athletes": "Athletes",
+
+  "longi.banner.compositionTemplate": "{days} days · {trainings} trainings · {matches} matches",
+
+  "longi.window.buttonTemplate": "Last {n} days",
+  "longi.window.seasonButton": "Season to date",
+  "longi.window.opt.7": "Last 7 days",
+  "longi.window.opt.14": "Last 14 days",
+  "longi.window.opt.28": "Last 28 days",
+  "longi.window.opt.season": "Season to date",
+  "longi.window.seasonGlossTemplate": "since {date} · {n} wk",
+
+  "longi.scope.benchmarkChip": "squad vs typical, like-for-like",
+  "longi.scope.referenceChip": "each athlete vs their typical, day-aware",
+  "longi.scope.benchmarkGloss": "each day vs its own typical",
+
+  "longi.filter.group.sessionType": "Session type",
+  "longi.filter.opt.matches": "Matches",
+  "longi.filter.opt.training": "Training",
 } as const satisfies Record<string, string>;
 
 export type CopyKey = keyof typeof COPY;
