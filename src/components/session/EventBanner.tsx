@@ -112,7 +112,7 @@ export function EventBanner() {
             className="whitespace-nowrap text-[12.5px]"
             style={{ color: "var(--color-slate-300)" }}
           >
-            {formatDate(s.dateISO)}
+            {weekdayDayMonthYear(s.dateISO)}
             <Sep />
             <span className="type-num">{s.durationMin}{copy("canonical.eventBanner.totalSuffix")}</span>
             {s.venue && (
