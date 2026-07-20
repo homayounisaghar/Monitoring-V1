@@ -116,7 +116,6 @@ function AthleteRoute() {
                   <AthleteScopeLine
                     athleteId={athleteId}
                     sessionId={sessionId}
-                    onSessionChange={(id) => setSearch({ sessionId: id })}
                     peerId={effectivePeer}
                     onPeerChange={setPeerId}
                   />
