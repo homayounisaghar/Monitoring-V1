@@ -360,15 +360,15 @@ function DaysChart({
                 className="pointer-events-none absolute -left-0.5 -top-0.5 type-num text-[9.5px]"
                 style={{ color: "var(--color-text-tertiary)" }}
               >
-                {mode === "vsTypical" ? 160 : ABS_CAP[m]}
+                {mode === "typical" ? 160 : ABS_CAP[m]}
               </div>
               <div
                 className="pointer-events-none absolute -left-0.5 -bottom-0.5 type-num text-[9.5px]"
                 style={{ color: "var(--color-text-tertiary)" }}
               >
-                {mode === "vsTypical" ? 40 : 0}
+                {mode === "typical" ? 40 : 0}
               </div>
-              {mode === "vsTypical" && li === 0 && (
+              {mode === "typical" && li === 0 && (
                 <div
                   className="pointer-events-none absolute right-0.5 type-num text-[9.5px] whitespace-nowrap"
                   style={{
