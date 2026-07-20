@@ -279,10 +279,10 @@ export function SummaryCard() {
                   value={
                     srpeState === "filled"
                       ? marks.srpeMean
-                      : Number((marks.srpeMean * 0.97).toFixed(1))
+                      : Math.round(marks.srpeMean * 0.97)
                   }
                   reference={refs.refSrpeMean}
-                  unit="/10"
+                  unit="AU"
                   badge={
                     srpeState === "partial" ? (
                       <SrpeBadge
