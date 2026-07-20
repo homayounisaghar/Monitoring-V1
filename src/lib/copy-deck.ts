@@ -430,6 +430,13 @@ export const COPY = {
   "longi.wt.footRow":            "did not participate · not in squad",
   "longi.wt.head.sessions":      "SESSIONS",
   "longi.wt.head.minutes":       "MINUTES",
+
+  // ---------- Longitudinal · Athletes · session-by-session matrix ----------
+  "longi.matrix.identityTemplate": "{athlete} · {date} · {state}",
+  "longi.matrix.state.rest":       "rest",
+  "longi.matrix.state.missing":    "no record",
+  "longi.matrix.state.outside":    "not in squad",
+  "longi.matrix.state.unselected": "unselected",
 } as const satisfies Record<string, string>;
 
 export type CopyKey = keyof typeof COPY;

@@ -28,7 +28,7 @@ import {
   EXPECTED_MIN_COVERAGE,
   type ExpectedSumBasis,
 } from "./demo-typicals";
-import type { ParticipationTag } from "./session-data";
+import type { ParticipationTag, PositionCode } from "./session-data";
 import { TIER1_ROWS_DEFAULT } from "./session-flags";
 
 /** Pinned session identity — the flag source below is scoped to this date. */
@@ -730,3 +730,130 @@ export function sessionCategories(w: LongiWindow): SessionCategory[] {
   for (const s of ss) codes.add(s.dayCode);
   return ["All", "Matches", "Training", ...[...codes].sort()];
 }
+
+/* ─────────────────────────── athlete × day matrix (§B9 — Step 5c) ─────────────────────────── */
+
+/**
+ * Per-slot participation state for one athlete on one session slot.
+ *
+ * `outside` = before this athlete's joinedISO — a claim we do not make,
+ * distinct from `unselected` (in squad, not picked for this session).
+ * `rest` and `missing` are day-level facts that repeat across the row's
+ * one slot for that column.
+ */
+export type MatrixCellState =
+  | { kind: "outside" }
+  | { kind: "rest" }
+  | { kind: "missing" }
+  | { kind: "unselected"; sessionId: string }
+  | { kind: "tag"; sessionId: string; tag: ParticipationTag };
+
+export type MatrixColumn = {
+  dateISO: string;
+  /** Day code (e.g. MD, MD-1, REST) or null on a missing day. */
+  dayCode: string | null;
+  kind: DayKind;
+  /** In session-order for the date; length 0 on rest/missing, 1 or 2 otherwise. */
+  sessionIds: string[];
+  isDouble: boolean;
+  /** True when dateISO is a Monday (deterministic UTC). */
+  isMondayLabel: boolean;
+  /** True when any session on the date is a match. */
+  isMatchDay: boolean;
+};
+
+export type MatrixRow = {
+  athlete: DemoAthlete;
+  /**
+   * One entry per column, in column order. Cell contains one slot for
+   * rest/missing/outside days, and one slot per session for session days
+   * (so double-session days carry two slots).
+   */
+  cells: MatrixCellState[][];
+};
+
+export type AthleteDayMatrix = {
+  columns: MatrixColumn[];
+  /** Position-first, alphabetical within group. */
+  rows: MatrixRow[];
+};
+
+const MATRIX_POS_ORDER: PositionCode[] = ["GK", "DEF", "MID", "ATT"];
+
+/** Deterministic UTC day-of-week. 1 = Monday. */
+function isoDayOfWeek(iso: string): number {
+  const d = new Date(parseISO(iso));
+  const js = d.getUTCDay(); // 0 = Sun
+  return js === 0 ? 7 : js;
+}
+
+export function athleteDayMatrix(w: LongiWindow): AthleteDayMatrix {
+  const dayByDate = new Map(demoDays.map((d) => [d.dateISO, d]));
+  const sessionsByDate = new Map<string, DemoSession[]>();
+  for (const s of demoSessions) {
+    const arr = sessionsByDate.get(s.dateISO) ?? [];
+    arr.push(s);
+    sessionsByDate.set(s.dateISO, arr);
+  }
+  // Deterministic session order within a date: matches before trainings,
+  // then by id — a stable slot order for the split-cell rendering.
+  for (const [k, arr] of sessionsByDate) {
+    arr.sort((a, b) => {
+      if (a.type !== b.type) return a.type === "match" ? -1 : 1;
+      return a.id.localeCompare(b.id);
+    });
+    sessionsByDate.set(k, arr);
+  }
+
+  const columns: MatrixColumn[] = [];
+  for (let i = 0; i < w.days; i++) {
+    const dateISO = addDays(w.startISO, i);
+    const d = dayByDate.get(dateISO);
+    const ss = sessionsByDate.get(dateISO) ?? [];
+    const kind: DayKind = !d ? "missing" : d.kind === "rest" ? "rest" : "session";
+    columns.push({
+      dateISO,
+      dayCode: d?.dayCode ?? null,
+      kind,
+      sessionIds: ss.map((s) => s.id),
+      isDouble: ss.length > 1,
+      isMondayLabel: isoDayOfWeek(dateISO) === 1,
+      isMatchDay: ss.some((s) => s.type === "match"),
+    });
+  }
+
+  // Pre-index records by session for O(1) athlete lookup.
+  const recordsBySession = new Map<string, Map<string, DemoRecord>>();
+  for (const r of demoRecords) {
+    if (r.sessionId == null) continue;
+    const inner = recordsBySession.get(r.sessionId) ?? new Map();
+    inner.set(r.athleteId, r);
+    recordsBySession.set(r.sessionId, inner);
+  }
+
+  const sortedAthletes = [...demoAthletes].sort((a, b) => {
+    const pa = MATRIX_POS_ORDER.indexOf(a.position);
+    const pb = MATRIX_POS_ORDER.indexOf(b.position);
+    if (pa !== pb) return pa - pb;
+    return a.name.localeCompare(b.name);
+  });
+
+  const rows: MatrixRow[] = sortedAthletes.map((a) => {
+    const cells: MatrixCellState[][] = columns.map((col) => {
+      if (col.dateISO < a.joinedISO) return [{ kind: "outside" }];
+      if (col.kind === "missing") return [{ kind: "missing" }];
+      if (col.kind === "rest") return [{ kind: "rest" }];
+      // Session day — one slot per session on the date.
+      return col.sessionIds.map<MatrixCellState>((sid) => {
+        const rec = recordsBySession.get(sid)?.get(a.id);
+        const tag = rec?.participation ?? null;
+        if (tag) return { kind: "tag", sessionId: sid, tag };
+        return { kind: "unselected", sessionId: sid };
+      });
+    });
+    return { athlete: a, cells };
+  });
+
+  return { columns, rows };
+}
+
