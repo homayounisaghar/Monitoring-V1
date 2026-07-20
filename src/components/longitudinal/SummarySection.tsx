@@ -63,7 +63,7 @@ export function SummarySection({
   horizon: Horizon;
   benchKind: BenchKind;
 }) {
-  const benchmarkLabel = benchLabel(benchKind);
+  const benchmarkLabel = benchLabel(benchKind, horizon);
   const benchmarkIsDefault = benchKind === DEFAULT_BENCH;
   return (
     <section id="summary" className="scroll-mt-28">

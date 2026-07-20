@@ -16,6 +16,7 @@ import {
   type LongiWindow,
   type LongiMetric,
   type DayEntry,
+  type Horizon,
 } from "@/lib/longitudinal-data";
 import { dayMonth2, weekdayDayMonth } from "@/lib/format-date";
 import { benchLabel, DEFAULT_BENCH, type BenchKind } from "./ScopeLine";
@@ -64,9 +65,11 @@ function laneUnit(m: LongiMetric): string {
 
 export function DaysSection({
   window: w,
+  horizon,
   benchKind,
 }: {
   window: LongiWindow;
+  horizon: Horizon;
   benchKind: BenchKind;
 }) {
   const [metric, setMetric] = useState<LongiMetric>("totalDistance");
@@ -75,7 +78,7 @@ export function DaysSection({
 
   const series = useMemo(() => daySeries(w), [w]);
   const laneMetrics: LongiMetric[] = [metric, "cardioLoad", "srpeAU"];
-  const tickText = tmpl("longi.basis.tick", { label: benchLabel(benchKind) });
+  const tickText = tmpl("longi.basis.tick", { label: benchLabel(benchKind, horizon) });
   const benchmarkIsDefault = benchKind === DEFAULT_BENCH;
 
   return (

@@ -20,24 +20,40 @@ import { demoSessions, demoAthletes, DEMO_TODAY } from "@/lib/demo-library";
 import { TIER1_ROWS_DEFAULT } from "@/lib/session-flags";
 import { dayMonth2 } from "@/lib/format-date";
 import { periodOptionsFor, type PeriodOption } from "@/lib/athlete-data";
+import { REFERENCE_OPTIONS, type ReferenceKind } from "@/lib/session-scope";
 
 const PINNED_SESSION_ID = "s-2026-07-04-dortmund";
 
-export type RefKind =
-  | "own_typical"
-  | "last_5"
-  | "season"
-  | "positional"
-  | "cohort"
-  | "same_opponent";
+// Athlete uses Session's Reference set verbatim; the own_typical label is
+// dynamic and echoes Session's helper — "their typical match" on a match,
+// "their typical {dayCode}" on other days.
+export type RefKind = ReferenceKind;
 
 const REF_GROUPS: Array<{ kind: RefKind }[]> = [
-  [{ kind: "own_typical" }, { kind: "last_5" }, { kind: "season" }],
+  [{ kind: "own_typical" }, { kind: "last_n" }, { kind: "season" }],
   [{ kind: "positional" }, { kind: "cohort" }],
   [{ kind: "same_opponent" }],
 ];
 
 const DEFAULT_REF: RefKind = "own_typical";
+
+function ownTypicalLabel(
+  session: { type: string; dayCode: string } | undefined | null,
+): string {
+  if (!session) return "their typical match";
+  return session.type === "match"
+    ? "their typical match"
+    : `their typical ${session.dayCode}`;
+}
+
+function refLabelFor(
+  kind: RefKind,
+  session: { type: string; dayCode: string } | undefined | null,
+): string {
+  if (kind === "own_typical") return ownTypicalLabel(session);
+  const opt = REFERENCE_OPTIONS.find((o) => o.kind === kind);
+  return opt ? opt.label : String(kind);
+}
 
 type Props = {
   athleteId: string;
@@ -80,6 +96,7 @@ export function AthleteScopeLine({ athleteId, sessionId, onSessionChange, peerId
       <ReferenceChip
         value={refKind}
         onChange={setRefKind}
+        session={activeSession}
         showSameOpponent={isMatch}
       />
       <Sep />
@@ -317,10 +334,12 @@ function ActivityChip({
 function ReferenceChip({
   value,
   onChange,
+  session,
   showSameOpponent,
 }: {
   value: RefKind;
   onChange: (k: RefKind) => void;
+  session: { type: string; dayCode: string } | undefined | null;
   showSameOpponent: boolean;
 }) {
   const [open, setOpen] = useState(false);
@@ -328,7 +347,7 @@ function ReferenceChip({
   useDocClick(ref, open, () => setOpen(false));
 
   const changed = value !== DEFAULT_REF;
-  const label = copy(`longi.ref.opt.${value}`);
+  const label = refLabelFor(value, session);
 
   return (
     <div className="relative" ref={ref}>
@@ -380,12 +399,12 @@ function ReferenceChip({
                           <span className="mt-0.5 inline-block h-3.5 w-3.5" aria-hidden />
                         )}
                         <span>
-                          <span className="block">{copy(`longi.ref.opt.${o.kind}`)}</span>
+                          <span className="block">{refLabelFor(o.kind, session)}</span>
                           <span
                             className="block text-[11.5px]"
                             style={{ color: "var(--color-text-tertiary)" }}
                           >
-                            {copy(`longi.ref.gloss.${o.kind}`)}
+                            {copy(`readingLine.gloss.${o.kind}`)}
                           </span>
                         </span>
                       </span>

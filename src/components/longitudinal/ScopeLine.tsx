@@ -5,12 +5,16 @@
  * chip's label; the Summary tick and the Days 100-line follow the
  * Benchmark chip, the Athletes basis line follows the Reference chip.
  * Numbers do not recompute — that is the honesty floor. Non-default
- * labels take the slate tint, chip and echoing ticks alike.
+ * labels take the slate tint, chip and echoing ticks alike; a non-default
+ * chip carries a dismissible × that resets to default.
  *
- * Benchmark set is consumed from src/lib/session-scope.ts (typical_daytype,
- * typical_match, last_match, last_5, same_opponent). Longitudinal's
- * default is typical_daytype — the same day-type basis Session uses on
- * training days, generalised to the whole window.
+ * Benchmark set is Longitudinal-specific (one family — the squad's own
+ * history): typical_daytype (default), previous_window, season. The
+ * match-scoped options (typical_match, last_match, same_opponent) have
+ * no referent for a multi-day window and live only on Session.
+ *
+ * Reference set: own_typical (default), previous_window, season,
+ * positional, cohort. Hairline separator after "season".
  *
  * Filter categories in fixed order: Participation, Positions, Athletes,
  * Session-type. Options render and check; Apply produces dismissible chips.
@@ -19,9 +23,9 @@
  */
 import { ChevronDown, Filter as FilterIcon, Check, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { copy } from "@/lib/copy-deck";
+import { copy, tmpl } from "@/lib/copy-deck";
 import { LegendPopover } from "./LegendPopover";
-import type { LongiWindow } from "@/lib/longitudinal-data";
+import type { LongiWindow, Horizon } from "@/lib/longitudinal-data";
 import {
   PARTICIPATION_TAGS,
   TAG_STYLE,
@@ -33,48 +37,69 @@ import { demoAthletes } from "@/lib/demo-library";
 
 export type BenchKind =
   | "typical_daytype"
-  | "typical_match"
-  | "last_match"
-  | "last_5"
-  | "same_opponent";
+  | "previous_window"
+  | "season";
 
 export type RefKind =
   | "own_typical"
-  | "last_5"
+  | "previous_window"
   | "season"
   | "positional"
-  | "cohort"
-  | "same_opponent";
+  | "cohort";
 
 export const BENCH_ORDER: BenchKind[] = [
   "typical_daytype",
-  "typical_match",
-  "last_match",
-  "last_5",
-  "same_opponent",
+  "previous_window",
+  "season",
 ];
 
 export const REF_ORDER: RefKind[] = [
   "own_typical",
-  "last_5",
+  "previous_window",
   "season",
   "positional",
   "cohort",
-  "same_opponent",
 ];
 
-/** Reference options with hairline separators after these families. */
-const REF_FAMILY_END: ReadonlySet<RefKind> = new Set(["season", "cohort"]);
+/** Reference options with hairline separators after this family. */
+const REF_FAMILY_END: ReadonlySet<RefKind> = new Set(["season"]);
 
 export const DEFAULT_BENCH: BenchKind = "typical_daytype";
 export const DEFAULT_REF: RefKind = "own_typical";
 
-export function benchLabel(k: BenchKind): string {
+export function benchLabel(k: BenchKind, horizon: Horizon): string {
+  if (k === "previous_window") {
+    return horizon === "season"
+      ? copy("longi.bench.opt.previous_period")
+      : tmpl("longi.bench.opt.previous_window", { n: horizon });
+  }
   return copy(`longi.bench.opt.${k}`);
 }
-export function refLabel(k: RefKind): string {
+export function refLabel(k: RefKind, horizon: Horizon): string {
+  if (k === "previous_window") {
+    return horizon === "season"
+      ? copy("longi.ref.opt.previous_period")
+      : tmpl("longi.ref.opt.previous_window", { n: horizon });
+  }
   return copy(`longi.ref.opt.${k}`);
 }
+function benchGloss(k: BenchKind, horizon: Horizon): string {
+  if (k === "previous_window") {
+    return horizon === "season"
+      ? copy("longi.bench.gloss.previous_period")
+      : tmpl("longi.bench.gloss.previous_window", { n: horizon });
+  }
+  return copy(`longi.bench.gloss.${k}`);
+}
+function refGloss(k: RefKind, horizon: Horizon): string {
+  if (k === "previous_window") {
+    return horizon === "season"
+      ? copy("longi.ref.gloss.previous_period")
+      : tmpl("longi.ref.gloss.previous_window", { n: horizon });
+  }
+  return copy(`longi.ref.gloss.${k}`);
+}
+
 
 /* ─────────────────── filter state (demo-local) ─────────────────── */
 
@@ -117,12 +142,14 @@ function isEmpty(f: FilterState): boolean {
 
 export function ScopeLine({
   window: w,
+  horizon,
   benchKind,
   onBenchChange,
   refKind,
   onRefChange,
 }: {
   window: LongiWindow;
+  horizon: Horizon;
   benchKind: BenchKind;
   onBenchChange: (k: BenchKind) => void;
   refKind: RefKind;
@@ -142,12 +169,12 @@ export function ScopeLine({
       <span className="text-[12.5px]" style={{ color: "var(--color-text-secondary)" }}>
         {copy("longi.scope.squadPrefix")}
       </span>
-      <BenchmarkChip active={benchKind} onSelect={onBenchChange} />
+      <BenchmarkChip active={benchKind} onSelect={onBenchChange} horizon={horizon} />
       <Sep />
       <span className="text-[12.5px]" style={{ color: "var(--color-text-secondary)" }}>
         {copy("longi.scope.athletePrefix")}
       </span>
-      <ReferenceChip active={refKind} onSelect={onRefChange} />
+      <ReferenceChip active={refKind} onSelect={onRefChange} horizon={horizon} />
 
       {/* Applied filter chips */}
       {[...applied.participation].map((p) => (
@@ -187,8 +214,8 @@ export function ScopeLine({
       ))}
 
       <div className="ml-auto flex items-center gap-3">
-        <FilterButton applied={applied} onApply={setApplied} />
         <LegendPopover window={w} />
+        <FilterButton applied={applied} onApply={setApplied} />
       </div>
     </div>
   );
@@ -211,9 +238,11 @@ function Sep() {
 function BenchmarkChip({
   active,
   onSelect,
+  horizon,
 }: {
   active: BenchKind;
   onSelect: (k: BenchKind) => void;
+  horizon: Horizon;
 }) {
   const [open, setOpen] = useState(false);
   const wrapRef = useOutsideClose(open, () => setOpen(false));
@@ -221,8 +250,13 @@ function BenchmarkChip({
 
   return (
     <div className="relative" ref={wrapRef}>
-      <ChipButton open={open} onClick={() => setOpen((o) => !o)} changed={!isDefault}>
-        {benchLabel(active)}
+      <ChipButton
+        open={open}
+        onClick={() => setOpen((o) => !o)}
+        changed={!isDefault}
+        onReset={!isDefault ? () => onSelect(DEFAULT_BENCH) : undefined}
+      >
+        {benchLabel(active, horizon)}
       </ChipButton>
       {open && (
         <Popover>
@@ -230,8 +264,8 @@ function BenchmarkChip({
           {BENCH_ORDER.map((k) => (
             <OptionRow
               key={k}
-              label={benchLabel(k)}
-              gloss={copy(`longi.bench.gloss.${k}`)}
+              label={benchLabel(k, horizon)}
+              gloss={benchGloss(k, horizon)}
               checked={k === active}
               isDefault={k === DEFAULT_BENCH}
               onClick={() => {
@@ -250,9 +284,11 @@ function BenchmarkChip({
 function ReferenceChip({
   active,
   onSelect,
+  horizon,
 }: {
   active: RefKind;
   onSelect: (k: RefKind) => void;
+  horizon: Horizon;
 }) {
   const [open, setOpen] = useState(false);
   const wrapRef = useOutsideClose(open, () => setOpen(false));
@@ -260,8 +296,13 @@ function ReferenceChip({
 
   return (
     <div className="relative" ref={wrapRef}>
-      <ChipButton open={open} onClick={() => setOpen((o) => !o)} changed={!isDefault}>
-        {refLabel(active)}
+      <ChipButton
+        open={open}
+        onClick={() => setOpen((o) => !o)}
+        changed={!isDefault}
+        onReset={!isDefault ? () => onSelect(DEFAULT_REF) : undefined}
+      >
+        {refLabel(active, horizon)}
       </ChipButton>
       {open && (
         <Popover>
@@ -269,8 +310,8 @@ function ReferenceChip({
           {REF_ORDER.map((k, i) => (
             <div key={k}>
               <OptionRow
-                label={refLabel(k)}
-                gloss={copy(`longi.ref.gloss.${k}`)}
+                label={refLabel(k, horizon)}
+                gloss={refGloss(k, horizon)}
                 checked={k === active}
                 isDefault={k === DEFAULT_REF}
                 onClick={() => {
@@ -298,19 +339,18 @@ function ChipButton({
   open,
   onClick,
   changed,
+  onReset,
 }: {
   children: React.ReactNode;
   open: boolean;
   onClick: () => void;
   changed: boolean;
+  onReset?: () => void;
 }) {
   return (
-    <button
-      onClick={onClick}
-      aria-haspopup="menu"
-      aria-expanded={open}
+    <span
       className={
-        "inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[12.5px] transition-colors " +
+        "inline-flex items-center rounded-full border " +
         (changed ? "chip-changed" : "hover:bg-[color:var(--color-slate-50)]")
       }
       style={
@@ -323,9 +363,28 @@ function ChipButton({
             }
       }
     >
-      <span>{children}</span>
-      <ChevronDown className="h-3 w-3 opacity-70" aria-hidden />
-    </button>
+      <button
+        onClick={onClick}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        className="inline-flex items-center gap-1 px-2.5 py-1 text-[12.5px]"
+        style={{ color: "inherit" }}
+      >
+        <span>{children}</span>
+        <ChevronDown className="h-3 w-3 opacity-70" aria-hidden />
+      </button>
+      {onReset && (
+        <button
+          type="button"
+          onClick={onReset}
+          aria-label={copy("longi.filter.chipDismissAria")}
+          className="grid h-5 w-5 place-items-center rounded-full pr-1 transition-colors hover:bg-[color:var(--color-slate-100)]"
+          style={{ color: "inherit" }}
+        >
+          <X className="h-3 w-3" />
+        </button>
+      )}
+    </span>
   );
 }
 
