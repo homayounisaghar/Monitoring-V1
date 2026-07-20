@@ -61,6 +61,7 @@ export const COPY = {
   "legend.basis": "typical, like-for-like — each day vs its own typical",
   "legend.ext": "blue — external · work",
   "legend.int": "purple — internal · cost",
+  "legend.srpeLight": "light purple — sRPE, where collected",
   "legend.hollow": "hollow — coverage below 80%",
   "legend.cov": "· NN% cov — coverage, beside the value",
   "legend.hatch": "hatch — unconfirmed",
