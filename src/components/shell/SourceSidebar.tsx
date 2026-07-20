@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight, Calendar, Tag, Search, X } from "lucide-react";
-import { copy } from "@/lib/copy-deck";
+import { copy, tmpl } from "@/lib/copy-deck";
 import { currentSession } from "@/lib/session-data";
 import { demoSessions, DEMO_TODAY, type DemoSession } from "@/lib/demo-library";
 import {
@@ -9,6 +9,19 @@ import {
   toggleSidebarCollapsed,
   useSidebarCollapsed,
 } from "@/lib/sidebar-store";
+
+export type SidebarScope = {
+  startISO: string;
+  endISO: string;
+  horizonDays: number; // for the "{d}-day window" phrasing
+};
+
+type SourceSidebarProps = {
+  scope?: SidebarScope;
+  focusSessionId?: string;
+  onFocusSession?: (id: string) => void;
+  showOutOfWindow?: boolean;
+};
 
 type SidebarRow = {
   id: string;
