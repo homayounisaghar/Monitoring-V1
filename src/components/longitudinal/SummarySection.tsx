@@ -13,7 +13,7 @@ import { copy, tmpl } from "@/lib/copy-deck";
 import { ValueOnTrack } from "@/components/data/ValueOnTrack";
 import {
   PARTICIPATION_TAGS,
-  TAG_TEXTURE,
+  TAG_STYLE,
   NOT_IN_SQUAD_CLASS,
   NOT_IN_SQUAD_STYLE,
 } from "@/lib/participation-style";
