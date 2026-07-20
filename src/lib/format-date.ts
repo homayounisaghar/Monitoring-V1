@@ -48,6 +48,12 @@ export function dayMonth(iso: string): string {
   return `${d} ${MONTHS[m - 1]}`;
 }
 
+/** "Sat 18 Jul 2026" — weekday, day (no leading zero), month, year. */
+export function weekdayDayMonthYear(iso: string): string {
+  const { y, m, d } = parts(iso);
+  return `${weekday(iso)} ${d} ${MONTHS[m - 1]} ${y}`;
+}
+
 /**
  * "Mon 22 Jun – Sun 19 Jul 2026" — en dash, single space each side.
  * Same-year: year prints once at the end.
