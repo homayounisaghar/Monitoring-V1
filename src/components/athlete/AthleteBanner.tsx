@@ -35,9 +35,11 @@ export function AthleteBanner({ athleteId, sessionId, onAthleteChange }: Props) 
   }, [open]);
 
   const athlete = demoAthletes.find((a) => a.id === athleteId) ?? demoAthletes[0];
-  const s = currentSession;
-  const sessionRow = squad.find((a) => a.id === athlete.id);
-  const participation = sessionRow?.participation;
+  // Session record — read from the demo library for the *selected*
+  // session (per activity chip), not from the pinned Session-page row.
+  // The banner's participation and minutes must agree with the chip.
+  const sessionRow = recordsForSession(sessionId).find((r) => r.athleteId === athlete.id);
+  const participation = sessionRow?.participation ?? null;
   const minutes = sessionRow?.minutes ?? 0;
 
   return (
