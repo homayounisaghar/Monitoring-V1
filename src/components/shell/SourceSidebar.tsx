@@ -114,7 +114,9 @@ export function SourceSidebar(props: SourceSidebarProps = {}) {
     // "24 sessions in the window" total is the visible-max: sessions in a 28-day
     // window ending on the same day. When the current horizon equals that max,
     // it prints "all N"; a shorter horizon prints "N of M".
-    const max28Start = fmtDate(new Date(scope.endISO + "T00:00:00Z"), -27);
+    const endMs = new Date(scope.endISO + "T00:00:00Z").getTime();
+    const max28StartMs = endMs - 27 * 86_400_000;
+    const max28Start = new Date(max28StartMs).toISOString().slice(0, 10);
     const max28Count = demoSessions.filter(
       (s) => s.dateISO >= max28Start && s.dateISO <= scope.endISO,
     ).length;
