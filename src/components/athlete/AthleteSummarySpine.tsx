@@ -67,12 +67,11 @@ function orderRowsForRender(rows: SpineRow[]): SpineRow[] {
   return out;
 }
 
-export function AthleteSummarySpine({ athleteId, sessionId, flagActive }: Props) {
+export function AthleteSummarySpine({ athleteId, sessionId, flagActive, peerSpine = null }: Props) {
   const activeSession =
     demoSessions.find((s) => s.id === sessionId) ??
     demoSessions.find((s) => s.id === PINNED_SESSION_ID);
 
-  // Flag entry: pass the resolved metric id in only when the chip is live.
   const tier1 = TIER1_ROWS_DEFAULT.find((r) => r.id === athleteId);
   const flaggedMetric = flagActive && tier1 ? flaggedMetricFor(tier1.reason) : null;
 
@@ -80,6 +79,17 @@ export function AthleteSummarySpine({ athleteId, sessionId, flagActive }: Props)
     () => spineForAthleteSession(athleteId, sessionId, { flaggedMetric }),
     [athleteId, sessionId, flaggedMetric],
   );
+
+  // Peer row lookup — passed to each SpineRowView so the muted dot lands
+  // on the same track as the subject's dot (same axis basis: peer's own
+  // valuePct against their own typical for this day type).
+  const peerByMetric = useMemo(() => {
+    const m = new Map<SpineMetricId, SpineRow>();
+    if (peerSpine) for (const r of peerSpine.rows) m.set(r.metricId, r);
+    return m;
+  }, [peerSpine]);
+  const peer = peerSpine ? demoAthletes.find((a) => a.id === peerSpine.athleteId) ?? null : null;
+  const subject = demoAthletes.find((a) => a.id === athleteId) ?? null;
 
   const rows = orderRowsForRender(spine.rows);
   const external = rows.filter((r) => r.group === "external");
