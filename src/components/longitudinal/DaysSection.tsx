@@ -533,6 +533,7 @@ function valueSlotText(
     }
     return base;
   }
+  if (metric === "srpeAU" && !activeDay.srpeCollected) return "—";
   const c = activeDay.vsTypical[metric];
   if (!c || c.state !== "computed") return "—";
   return `${Math.round(c.pct)}%`;
