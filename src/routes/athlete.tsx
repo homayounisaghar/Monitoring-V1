@@ -8,6 +8,7 @@ import { SegmentedToggle } from "@/components/data/SegmentedToggle";
 import { AthleteBanner } from "@/components/athlete/AthleteBanner";
 import { AthleteScopeLine } from "@/components/athlete/AthleteScopeLine";
 import { AthleteSummarySpine } from "@/components/athlete/AthleteSummarySpine";
+import { AthleteSpatial } from "@/components/athlete/AthleteSpatial";
 import { AthleteLegend } from "@/components/athlete/AthleteLegend";
 import { spineForAthleteSession, flaggedMetricFor } from "@/lib/athlete-data";
 import { TIER1_ROWS_DEFAULT } from "@/lib/session-flags";
@@ -125,8 +126,9 @@ function AthleteRoute() {
                     flagActive={flagActive}
                   />
                 </section>
-                <SectionAnchor id="periods" label={copy("athlete.anchor.periods")} />
-                <SectionAnchor id="spatial" label={copy("athlete.anchor.spatial")} />
+                <section id="spatial" className="scroll-mt-28 pb-10">
+                  <AthleteSpatial athleteId={athleteId} sessionId={sessionId} />
+                </section>
                 <SectionAnchor id="detail" label={copy("athlete.anchor.detail")} />
               </main>
             </>
@@ -166,7 +168,6 @@ function SectionAnchor({ id, label }: { id: string; label: string }) {
 
 const ANCHORS = [
   { id: "summary", key: "athlete.anchor.summary" as const },
-  { id: "periods", key: "athlete.anchor.periods" as const },
   { id: "spatial", key: "athlete.anchor.spatial" as const },
   { id: "detail",  key: "athlete.anchor.detail"  as const },
 ];
