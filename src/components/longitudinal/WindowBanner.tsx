@@ -1,4 +1,4 @@
-import { Pencil, Share2, ChevronDown } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { copy, tmpl } from "@/lib/copy-deck";
 import {
