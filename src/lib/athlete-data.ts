@@ -396,7 +396,7 @@ export function characterLineFor(spine: AthleteSpine): string {
   const a = demoAthletes.find((x) => x.id === spine.athleteId);
   const rows = spine.rows.filter((r) => r.deltaPct != null);
   if (rows.length === 0) {
-    return "Nothing on the spine is comparable — no baseline is drawn.";
+    return copy("athlete.summary.character.fallback");
   }
 
   // Aggregate external/internal shape.
@@ -412,26 +412,27 @@ export function characterLineFor(spine: AthleteSpine): string {
   const dir = (d: number): "up" | "down" | "flat" =>
     d > 6 ? "up" : d < -6 ? "down" : "flat";
 
-  const first = a ? `${a.name.split(" ").pop()}` : "This athlete";
+  const first = a ? `${a.name.split(" ").pop()}` : copy("athlete.summary.character.anon");
 
-  const shapePhrase = (() => {
+  const shapeKey = ((): string => {
     const e = dir(extMean), i = dir(intMean);
-    if (e === "up" && i === "up") return "worked hard and it cost him";
-    if (e === "up" && i === "flat") return "did more work at his usual cost";
-    if (e === "up" && i === "down") return "did more work for less cost";
-    if (e === "flat" && i === "up") return "held his volume but paid a higher cost";
-    if (e === "down" && i === "up") return "did less work at a higher cost";
-    if (e === "down" && i === "flat") return "did less work, cost unchanged";
-    if (e === "down" && i === "down") return "did less across the board";
-    if (e === "flat" && i === "down") return "held his volume at a lower cost";
-    return "sat close to his own typical";
+    if (e === "up"   && i === "up")   return "athlete.summary.character.shape.upUp";
+    if (e === "up"   && i === "flat") return "athlete.summary.character.shape.upFlat";
+    if (e === "up"   && i === "down") return "athlete.summary.character.shape.upDown";
+    if (e === "flat" && i === "up")   return "athlete.summary.character.shape.flatUp";
+    if (e === "down" && i === "up")   return "athlete.summary.character.shape.downUp";
+    if (e === "down" && i === "flat") return "athlete.summary.character.shape.downFlat";
+    if (e === "down" && i === "down") return "athlete.summary.character.shape.downDown";
+    if (e === "flat" && i === "down") return "athlete.summary.character.shape.flatDown";
+    return "athlete.summary.character.shape.flatFlat";
   })();
 
-  const tailPhrase = salient
-    ? `; ${salient.label.toLowerCase()} carried the read`
+  const shape = copy(shapeKey);
+  const tail = salient
+    ? tmpl("athlete.summary.character.tailTemplate", { metric: salient.label.toLowerCase() })
     : "";
 
-  return `${first} ${shapePhrase}${tailPhrase}.`;
+  return tmpl("athlete.summary.character.template", { first, shape, tail });
 }
 
 /* ─────────────────── periods derivation (fix 7.1) ─────────────────── */
