@@ -487,7 +487,11 @@ function LaneLabel({
 }) {
   const axis = metric === "cardioLoad" || metric === "srpeAU" ? "cost" : "work";
   const dot =
-    axis === "cost" ? "var(--color-axis-cost)" : "var(--color-axis-work)";
+    metric === "srpeAU"
+      ? "var(--color-axis-cost-light)"
+      : axis === "cost"
+      ? "var(--color-axis-cost)"
+      : "var(--color-axis-work)";
 
   const slotText = valueSlotText(activeDay, metric, mode, windowAvg);
 
@@ -577,7 +581,11 @@ function DayBar({
 }) {
   const axis = metric === "cardioLoad" || metric === "srpeAU" ? "cost" : "work";
   const color =
-    axis === "cost" ? "var(--color-axis-cost)" : "var(--color-axis-work)";
+    metric === "srpeAU"
+      ? "var(--color-axis-cost-light)"
+      : axis === "cost"
+      ? "var(--color-axis-cost)"
+      : "var(--color-axis-work)";
   const unconfirmed = day.unconfirmed;
   const hatch =
     "repeating-linear-gradient(45deg, transparent 0 3px, rgba(255,255,255,0.35) 3px 6px)";
