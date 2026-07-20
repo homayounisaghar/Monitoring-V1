@@ -875,3 +875,127 @@ Anchor strip is **Summary · Spatial · Detail**. Every anchor now points at rea
 ### Ruling: sRPE unit in the Detail table
 
 Same as the spine — printed as **AU**, not `/10`. The `/10` unit on `METRICS.srpe` is the Squad rating column and does not travel to this page. The unit override lives in `SPINE_METRIC_META.srpeAU` (already ratified in prompt 2c).
+
+## Workstream 02 · closing state
+
+Written under prompt 8 §1. Prior pass (prompt 7 §6) did not produce this section; this remedies that. Latest commit before this write: `e48884f`.
+
+### 1.1 Per-item results for prompt 7
+
+- **§1 runtime check** — was not executed on prompt 7. Executed under prompt 8 §2; see that section below for the verbatim per-route console output.
+- **§2 sRPE reconciliation** — **passed.** Session Summary card sRPE is now printed as **AU**, hardcoded in `SummaryCard.tsx`. Basis is *average per athlete over athletes who submitted, where-collected rule*, matching the Longitudinal Days-lane derivation. Figures (all read from the shipped library object, not multiplied):
+  - Dortmund 18 Jul (12 submitters): **571 AU**.
+  - Typical match day-type (mean of 11 other match averages): **526 AU**.
+  - Last match (11 Jul): **516 AU**.
+  - Last 5 matches: **554 AU**.
+  - Typical day-type (menu default): **526 AU**.
+  - Same opponent: **placeholder, not derived** — see §4 below.
+- **§3 drill inheritance** — **passed.** `AvailabilityRow` and `TotalsRow` in `AthletesSection.tsx` both navigate to `/athlete` with `athleteId` and `timeframe=window`. **Not carried:** the actual window horizon (start/end dates). The athlete page renders its own empty over-time state with the default window; the caller's horizon is dropped. Logged in §1.4.
+- **§4 paired spatial** — **passed.** Peer chip switches `AthleteSpatial` to two `PitchField`s side by side, sharing the mode toggle. Missing-positional peer renders the full-size unavailable card labelled with the peer's name.
+- **§5 peer spine** — **passed structurally.** Peer chip in the scope line, state lifted to `/athlete` route, cleared on session/athlete/timeframe change. Peer mark drawn on the row's own track using the row's axis basis (peer's own valuePct against peer's own typical). Peer identity block prints between the two group blocks. **Defect on the hue:** shipped in slate (`--color-text-tertiary`), which is neutral. Corrected under prompt 8 §3 — peer dot now draws in the row's own axis colour at reduced opacity.
+- **§6 closing state** — **failed on prompt 7** (findings file was not in the diff). This section is the remedy.
+
+### 1.2 Final commit SHA (before this write)
+
+`e48884f`.
+
+### 1.3 What is built, per page
+
+**Session (`/session`).** Banner with squad and pinned session identity. Summary card with six governed metrics (Total distance, m/min, HSR, Acc-Dec, Cardio Load, sRPE) drawn against a Benchmark chip (Typical daytype · Typical match · Last match · Last 5 · Same opponent). sRPE printed as AU. Fifth periods costume was not built (see §1.4). Full Session content beyond Summary is prior work outside Workstream 02's scope.
+
+**Longitudinal (`/longitudinal`).** Window banner with Download and Share menus. Scope line with Benchmark and Reference chips (interactive; label reflects selection with slate tint on non-default). Filter panel with Participation / Positions / Athletes / Session-type; chosen filters surface as dismissible chips. Summary spine at squad level. Days lane with metric picker (switches lane 1), window totals with ABSOLUTE / VS TYPICAL / A:C toggle (switches all three views), VS TYPICAL end labels `40` / `160` and `100 — typical`, sRPE withheld hairline on days without data, `{n} of {m}` suppressed when equal, A:C day count filtered by athlete `joinedISO`. Athletes section with availability and totals rows, each row navigating to `/athlete?athleteId=…&timeframe=window` on click. Session-by-session matrix (rows × days, split cells for double sessions, hover cross-highlight, identity print in reserved header slot). Legend popover, state-aware, `legend.basis` removed. Reference band at 5 %.
+
+**Athlete (`/athlete`).** Dark navy banner reading the athlete's record for the selected session (no session date, no "flagged on Session" text). Scope line: Activity chip, Reference chip, Periods slot (page-level, not editable — see §1.4), Flag chip, Peer chip. Anchor strip **Summary · Spatial · Detail** — no Periods anchor. Summary spine on shared 40–160 % axis with `100 — typical` centre, ±1 SD band (withheld when SD = 0), out-of-range carets with true % in full ink, hollow-mark thin-coverage costume, salience chip hoists the flagged metric to row one. Peer mark drawn on the same track in the row's own axis colour at reduced opacity. Spatial section with Heat / Trace toggle, single blue density ramp, third numbers only (no bars), basis text on canvas, paired mode when peer active, full-size unavailable card. Detail section with curated six-row table derived from `spineForAthleteSession`, `not submitted` in words for absent sRPE, coverage suffix on internal rows (no ring glyph), inert Columns picker. Over-time timeframe state: banner + toggle + one line only, no scope line, no anchor strip.
+
+### 1.4 What is logged and not built
+
+- **Athlete Periods** — demo-data gap. Periods requires per-window aggregation the demo library does not carry (`DemoRecord` is session-scoped and holds no rolling-week reduction). Explicitly **not** the Longitudinal precedent: Longitudinal's periods are built because that page's derivation is over the very window it renders; Athlete Periods would need a shipped rolling series the library does not have. Anchor strip omits Periods per the anchor-strip rule.
+- **Detail vs-full-match row (SUM-5)** — omitted on the demo default (a match). Not a conditional but a second form; the training-day costume renders it. No render on a match, no anchor.
+- **Detail Z1–Z5 zone distribution** — omitted. `DemoRecord` carries `topSpeedKmh` and `sprintDist` but no per-athlete zone shares; deriving a distribution from session totals would fabricate the individualisation the row promises.
+- **Detail wellness (sleep / soreness / mood)** — omitted. Not present in `DemoRecord`; optional read by decision.
+- **SUM-5 render condition** — logged as a second form for training-day sessions, not a conditional collapse. Build deferred to the training-day demo.
+- **Session → library migration** — deferred. Session card **reads** the library's derived values and hardcodes those numbers into `SummaryCard.tsx` (`SQUAD_REF`, `SESSION_MARKS`). No live wiring, by decision on prompt 7 §2.3.
+- **Fifth periods costume for part-participation blocks** — not built. The Longitudinal periods module has four costumes shipped; the fifth (part-participation split) was descoped this pass and remains in the design backlog.
+- **Longitudinal → Athlete window horizon** — the drill navigates with `athleteId` and `timeframe=window` but **does not carry** the caller's window start/end. Athlete renders its own default window. Wiring the horizon requires the Athlete route to accept `windowStart`/`windowEnd` search params and its data hooks to honour them; deferred.
+
+### 1.5 Every default taken across all eight prompts
+
+- **Default athlete** on `/athlete`: first athlete in `demoAthletes` order.
+- **Default session** on `/athlete`: `DORTMUND_SESSION_ID` (18 July 2026 match), id kept as opaque key though the date shifted to 18 Jul.
+- **Default timeframe** on `/athlete`: `session`. `window` renders the empty over-time state.
+- **Default Benchmark** on Session and Athlete: `typical_daytype`.
+- **Default Reference** on Longitudinal and Athlete: `typical_daytype`.
+- **Default Peer** on Athlete: none (peer state starts null, dot layer inert).
+- **Default axis on Summary spines**: fixed 40–160 % of own typical, unclamped display via caret at edges.
+- **Default band on Athlete spine**: mean ± 1 SD, withheld when SD = 0.
+- **Default thin-coverage floor**: hollow-mark costume below the floor; below the building-baseline floor prints text, no mark.
+- **Default sRPE unit on Session and Athlete**: **AU**. Squad rating column is the only place `/10` still prints (unit lives on `METRICS.srpe`, not on `SPINE_METRIC_META.srpeAU`).
+- **Default reference band width** on Longitudinal gauges: **5 %** on either side of 100.
+- **Default sRPE hue** on Longitudinal Days lane: `#B486E4` (lighter purple, same-axis sub-series to Cardio Load).
+- **Default participation ordering** in Longitudinal availability bar: fixed order over `PARTICIPATION_TAGS` with a hairline leftover segment for unselected within own available window.
+- **Default matrix double-session split**: two half-cells stacked within the day column.
+- **Default Detail curated set**: six rows (Total distance, m/min, HSR, Acc-Dec, Cardio Load, sRPE), well below the 12-column cap.
+- **Default Columns picker state**: inert; opens a note stating the curated set.
+- **Default anchor strip on Athlete**: `Summary · Spatial · Detail`. No Periods anchor.
+- **Default pronoun in prose deck**: `their / them` throughout; the `⟨his⟩` slot in the build doc is withdrawn.
+- **Default Spatial unavailable remedy**: none — the card states the absence and stops.
+- **Default drill target** from Longitudinal athlete row: `/athlete?athleteId=…&timeframe=window`, window horizon **not** carried.
+- **Default peer mark**: row's own axis colour at 0.42 opacity, muted by ink weight not hue.
+
+### 1.6 Every open question held
+
+- Should the Longitudinal → Athlete drill carry the window horizon (start/end) as search params? Held because the Athlete route's data hooks do not yet accept a caller-supplied window.
+- Is `DORTMUND_SESSION_ID = "s-2026-07-04-dortmund"` re-keyed to the corrected 18 Jul date, or kept as an opaque slug? Currently kept as opaque; not re-keyed.
+- Does the Athlete Detail table promote to SUM-5 (vs-full-match Volume/Intensity %) automatically on a training-day session, or does the user toggle a form? Held.
+- Peer identity block above the group blocks currently prints a small slate dot next to the peer's name; is that dot expected to also follow the axis-hue rule, or is it correctly neutral because it does not sit on any single axis's track? This pass reads it as neutral by design; open for veto.
+- Same-opponent reference values on Session — all six numbers were authored, not just sRPE. Held pending a real reverse-fixture in the library. See §4.
+- Fifth periods costume (part-participation blocks) — costume brief exists in the design backlog but is not written into the deck. Held.
+
+### 1.7 Charter gap — verbatim
+
+> The charter requires atomic prompts and continuous execution but says nothing about what to do when context runs out mid-workstream. Prompt 7 bundled five items for that reason. **The answer is to hand off, not to bundle** — bundling does not make an outcome more likely to be wrong, it makes it harder to localise when it is. Attribution is recoverable by reading the commit diff rather than the agent's summary: a file that did not change is an item that did not land. The charter should say both things.
+
+### 1.8 The general failure — verbatim
+
+> The unit was right and the value was authored by arithmetic rather than against the data it has to agree with. On a product whose claim is honesty, a number that is internally plausible and externally contradictory is the harder defect to see, because nothing about it looks wrong until two tabs are put side by side.
+
+## Prompt 8 · §2 runtime check
+
+Ran headless Chromium (viewport 1280×1800) against `http://localhost:8080` and read console + pageerror on each route to `networkidle`. Verbatim output:
+
+```
+=== /session ===
+[debug] [vite] connecting...
+[debug] [vite] connected.
+[debug] [vite] connecting...
+[debug] [vite] connected.
+[debug] [vite] connecting...
+[debug] [vite] connected.
+[info] Download the React DevTools for a better development experience: https://react.dev/link/react-devtools
+
+=== /longitudinal ===
+[debug] [vite] connecting...
+[debug] [vite] connected.
+[info] Download the React DevTools for a better development experience: https://react.dev/link/react-devtools
+
+=== /athlete ===
+[debug] [vite] connecting...
+[debug] [vite] connected.
+[info] Download the React DevTools for a better development experience: https://react.dev/link/react-devtools
+```
+
+No `error`, no `warning`, no `pageerror`, no hydration-mismatch message on any of the three routes.
+
+## Prompt 8 · §3 peer dot — axis-hued, muted
+
+`AthleteSummarySpine.tsx` peer-dot fill changed from `var(--color-text-tertiary)` at opacity 0.55 to the row's own axis `color` at opacity 0.42. External rows (Total distance, m/min, HSR, Acc-Dec) now draw the peer in muted external blue; internal rows (Cardio Load, sRPE) in muted cost purple. Subject and peer are distinguishable by ink weight, not by hue meaning.
+
+The peer identity block above the group blocks still prints a neutral slate dot beside the peer's name — that dot sits on no axis and is a name-tag glyph, not a mark on a track. Logged in §1.6 as an open question in case the rule extends to that costume too.
+
+## Prompt 8 · §4 `same_opponent` sRPE — recorded as unbacked demo placeholder
+
+The library carries no same-opponent key and the window contains no reverse fixture against this opponent. There is nothing honest to derive from. `refSrpeMean: 518` (previously authored as `526 × 0.985`) is **not corrected to a different arithmetic** — the whole `same_opponent` row in `SQUAD_REF` is recorded here as a hand-authored placeholder for the Benchmark menu, and the code header comment in `SummaryCard.tsx` now says so:
+
+> `Same opponent — UNBACKED DEMO PLACEHOLDER: no library basis; the library holds no same-opponent key and the window contains no reverse fixture against this opponent. The whole same_opponent row is a hand-authored costume for the menu; do not treat as derived.`
+
+A stated placeholder is honest; an unstated fudge is the failure this whole pass was about. When a real reverse-fixture exists in the library, this row should be re-derived from it and this note deleted.
