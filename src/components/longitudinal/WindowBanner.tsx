@@ -105,7 +105,7 @@ export function WindowBanner({
             style={{ color: "var(--color-slate-300)" }}
           >
             <Sep />
-            {rangeLabel}
+            {range}
             <Sep />
             <span className="type-num">{composition}</span>
           </span>
