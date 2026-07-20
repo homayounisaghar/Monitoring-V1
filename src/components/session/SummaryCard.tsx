@@ -786,8 +786,9 @@ function ParticipationCard({
             <button
               key={seg.tag}
               onClick={() => setPopover((p) => (p === seg.tag ? null : seg.tag))}
-              className={`relative transition-opacity hover:opacity-90 ${TAG_TEXTURE[seg.tag]}`}
+              className="relative transition-opacity hover:opacity-90"
               style={{
+                ...TAG_STYLE[seg.tag],
                 width: `${pct}%`,
                 borderRight: isLast
                   ? undefined
