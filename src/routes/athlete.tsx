@@ -130,7 +130,13 @@ function AthleteRoute() {
                 <section id="spatial" className="scroll-mt-28 pb-10">
                   <AthleteSpatial athleteId={athleteId} sessionId={sessionId} />
                 </section>
-                <SectionAnchor id="detail" label={copy("athlete.anchor.detail")} />
+                <section id="detail" className="scroll-mt-28 pb-10">
+                  <AthleteDetail
+                    athleteId={athleteId}
+                    sessionId={sessionId}
+                    flaggedMetric={flaggedMetric}
+                  />
+                </section>
               </main>
             </>
           ) : (
