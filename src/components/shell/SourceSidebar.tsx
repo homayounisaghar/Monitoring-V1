@@ -30,6 +30,8 @@ type SidebarRow = {
   dayCode: string;
   dateISO: string;
   durationMin: number;
+  unconfirmed: boolean;
+  inWindow: boolean;
 };
 
 function daysBetween(aIso: string, bIso: string): number {
@@ -38,7 +40,7 @@ function daysBetween(aIso: string, bIso: string): number {
   return Math.round((a - b) / 86_400_000);
 }
 
-function toRow(s: DemoSession): SidebarRow {
+function toRow(s: DemoSession, inWindow: boolean): SidebarRow {
   const kind: "match" | "training" = s.type === "match" ? "match" : "training";
   const label = s.type === "match" && s.opponent ? `vs ${s.opponent}` : s.name;
   return {
@@ -48,29 +50,50 @@ function toRow(s: DemoSession): SidebarRow {
     dayCode: s.dayCode,
     dateISO: s.dateISO,
     durationMin: s.durationMin,
+    unconfirmed: Boolean(s.unconfirmed),
+    inWindow,
   };
 }
 
-export function SourceSidebar() {
+export function SourceSidebar(props: SourceSidebarProps = {}) {
+  const { scope, focusSessionId, onFocusSession, showOutOfWindow = false } = props;
   const collapsed = useSidebarCollapsed();
   const [split, setSplit] = useState<"all" | "match" | "training">("all");
   const [query, setQuery] = useState("");
 
-  // Last 30 days, most-recent-first (double-days broken by id for stability).
+  // Row source: scoped (window + optional out-of-window tail) or the shipped
+  // 30-day default when no scope is passed.
   const sessionLibrary = useMemo<SidebarRow[]>(() => {
-    return demoSessions
-      .filter((s) => {
-        const age = daysBetween(DEMO_TODAY, s.dateISO);
-        return age >= 0 && age <= 30;
-      })
-      .slice()
-      .sort((a, b) =>
-        a.dateISO === b.dateISO
-          ? b.id.localeCompare(a.id)
-          : a.dateISO < b.dateISO ? 1 : -1
-      )
-      .map(toRow);
-  }, []);
+    const cmp = (a: SidebarRow, b: SidebarRow) =>
+      a.dateISO === b.dateISO
+        ? b.id.localeCompare(a.id)
+        : a.dateISO < b.dateISO ? 1 : -1;
+
+    if (!scope) {
+      return demoSessions
+        .filter((s) => {
+          const age = daysBetween(DEMO_TODAY, s.dateISO);
+          return age >= 0 && age <= 30;
+        })
+        .map((s) => toRow(s, true))
+        .sort(cmp);
+    }
+
+    const inWin = demoSessions
+      .filter((s) => s.dateISO >= scope.startISO && s.dateISO <= scope.endISO)
+      .map((s) => toRow(s, true))
+      .sort(cmp);
+    if (!showOutOfWindow) return inWin;
+
+    // Muted tail: sessions before the window's start, most-recent-first, capped.
+    const OUT_CAP = 12;
+    const out = demoSessions
+      .filter((s) => s.dateISO < scope.startISO)
+      .map((s) => toRow(s, false))
+      .sort(cmp)
+      .slice(0, OUT_CAP);
+    return [...inWin, ...out];
+  }, [scope, showOutOfWindow]);
 
   const q = query.trim().toLowerCase();
   const filtered = sessionLibrary.filter((s) => {
@@ -81,6 +104,36 @@ export function SourceSidebar() {
     }
     return true;
   });
+
+  // Sub-line — chosen from deck by presence of scope; component owns the copy.
+  const inWindowCount = sessionLibrary.filter((s) => s.inWindow).length;
+  const OVERFLOW_CAP = 15;
+  const overflowN = scope ? Math.max(0, inWindowCount - OVERFLOW_CAP) : 0;
+  let subline: string | null = null;
+  if (scope) {
+    // "24 sessions in the window" total is the visible-max: sessions in a 28-day
+    // window ending on the same day. When the current horizon equals that max,
+    // it prints "all N"; a shorter horizon prints "N of M".
+    const max28Start = fmtDate(new Date(scope.endISO + "T00:00:00Z"), -27);
+    const max28Count = demoSessions.filter(
+      (s) => s.dateISO >= max28Start && s.dateISO <= scope.endISO,
+    ).length;
+    if (inWindowCount === max28Count) {
+      subline = tmpl("sidebar.subline.allInWindowTemplate", { n: inWindowCount });
+    } else {
+      subline = tmpl("sidebar.subline.partialTemplate", {
+        n: inWindowCount,
+        m: max28Count,
+        d: scope.horizonDays,
+      });
+    }
+  }
+
+  const selectedId = focusSessionId ?? currentSession.id;
+  const handleClick = (id: string) => {
+    if (onFocusSession) onFocusSession(id);
+  };
+
 
 
   return (
