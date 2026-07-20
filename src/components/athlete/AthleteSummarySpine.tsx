@@ -33,6 +33,11 @@ import {
 } from "@/lib/athlete-data";
 import { demoAthletes } from "@/lib/demo-library";
 import { TIER1_ROWS_DEFAULT } from "@/lib/session-flags";
+import {
+  hrvResponseForSession,
+  RECOVERY_INK_VAR,
+  type HrvReadState,
+} from "@/lib/recovery-data";
 import { Flag } from "lucide-react";
 
 const PINNED_SESSION_ID = "s-2026-07-04-dortmund";
