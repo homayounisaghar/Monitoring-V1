@@ -722,3 +722,14 @@ both passes and is not yet updated — noted for a later pass.
 - Copy additions kept to what the header needs: `longi.matrix.identityTemplate`, `longi.matrix.state.{rest,missing,outside,unselected}`. Tag names come from the participation vocabulary itself; no sentences in the object.
 - Verified end-to-end at 28-day default in `America/Los_Angeles`: collapsed, opened, hovered — screenshots captured. Constants unchanged: `79%`, `278 of 352 · 19 training sessions`, gauges `103` and `100`, `across 16 of 24 sessions`, the 8 July break at `9682`, and the character line. `/session` route unchanged. Console clean on both.
 - Left open still: the ±5% reference band's provenance on either page, and Session's own legend copy.
+
+## 2026-07-20 — Correction · interactive-elements table was wrong twice
+
+Verified by clicking, not by reading code. All four claims re-tested in Playwright at 28-day default; type-check clean, no console errors.
+
+- **`CHART / TABLE` toggle** — my list said "Table view stubbed; CHART is default". Wrong. TABLE renders the full spec: columns `DATE · DAY · SESSIONS · ATHLETES · [metric] · % TYPICAL · CARDIO LOAD · % TYPICAL · SRPE`, footer `Average · {n} days with sessions`, footnote `average per athlete who trained · a double-session day is one day`. All ten header/footer/footnote substrings present in the DOM. Build correct; list wrong.
+- **`13 more athletes · 2 or fewer training sessions missed`** — my list said "static line". Wrong. It is a click target: 6 rows visible before, 18 rows visible after clicking, and the line's own copy switches to a collapse control on the expanded state (that is why my re-selector for the same text timed out on the second read). Build correct; list wrong.
+- **Metric picker** — clicked. Popover opens with all six external metrics. Picking `HSR` swapped the picker label to `HSR ⌄` and lane 1's title to `HSR ⌄` in the same paint. List correct; build correct.
+- **Window totals `ABSOLUTE / VS TYPICAL / A:C`** — clicked all three. `ABSOLUTE` header row: `ATHLETE · SESSIONS · MINUTES · DISTANCE · HSR · SPRINT DIST · ACC–DEC · CARDIO LOAD · SRPE`. `VS TYPICAL` and `A:C` both drop `SESSIONS` and `MINUTES` and show only the six metric columns, correct for those views. List correct; build correct.
+
+No regression search needed. No code touched this pass — the interactive-elements table lied about the build; the build is intact.
