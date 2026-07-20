@@ -573,11 +573,14 @@ function acForAthlete(athleteId: string, endISO: string): AcRatio {
   // 28-day and 7-day day series for this athlete, using his own records.
   const win28 = windowFor(28, endISO);
   const win7 = windowFor(7, endISO);
+  const athleteRec = demoAthletes.find((x) => x.id === athleteId);
+  const joinedISO = athleteRec?.joinedISO ?? win28.startISO;
   const recsByDate = new Map<string, DemoRecord>();
   for (const r of recordsForAthlete(athleteId)) {
+    if (r.dateISO < joinedISO) continue;
     if (r.dateISO >= win28.startISO && r.dateISO <= win28.endISO) recsByDate.set(r.dateISO, r);
   }
-  // Days he actually has data for (rest = real zero, missing = absent).
+  // Days he actually has data for since joining (rest = real zero, missing = absent).
   const daysOfData28 = recsByDate.size;
   // Withhold on history, not record count: he must have been in the squad
   // on every day of the window. The unrecorded 14 Jul day is absent for
