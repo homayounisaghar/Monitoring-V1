@@ -162,11 +162,17 @@ export const SPINE_METRIC_META: Record<SpineMetricId, SpineMetricMeta> = {
     unit: METRICS.cardioLoad.unit,
   },
   // sRPE prints as a LOAD in AU here, not a rating out of ten.
-  // The `/10` unit on METRICS.srpe belongs to Squad's rating column
-  // and does not travel to this page.
+  // The `/10` unit on METRICS.srpe belongs to Squad's rating column and
+  // does not travel to this page. We read the display *label* from the
+  // library (governed record) and override only the unit at this call site.
+  //
+  // Governance gap logged in ST2_Build_Findings: the metric library
+  // needs a first-class `srpeAU` entry with unit `AU`. Adding one is a
+  // Decision-Set-governed change, not a build call — hence the local
+  // override here.
   srpeAU: {
-    label: "sRPE load",
-    short: "sRPE",
+    label: METRICS.srpe.label,
+    short: METRICS.srpe.short,
     axis: "cost", group: "internal",
     unit: "AU",
   },
