@@ -3,6 +3,7 @@ import { ChevronLeft, ChevronRight, Calendar, Tag, Search, X } from "lucide-reac
 import { copy, tmpl } from "@/lib/copy-deck";
 import { currentSession } from "@/lib/session-data";
 import { demoSessions, DEMO_TODAY, type DemoSession } from "@/lib/demo-library";
+import { dayMonth2 } from "@/lib/format-date";
 import {
   SIDEBAR_COLLAPSED,
   SIDEBAR_EXPANDED,
