@@ -11,6 +11,7 @@ import {
   type Horizon,
   type LongiWindow,
 } from "@/lib/longitudinal-data";
+import { dayMonth, rangeLabel } from "@/lib/format-date";
 
 const HORIZONS: Horizon[] = [7, 14, 28, "season"];
 const DEFAULT_HORIZON: Horizon = 28;
