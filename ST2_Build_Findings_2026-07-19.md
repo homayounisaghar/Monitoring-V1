@@ -1005,3 +1005,9 @@ The library carries no same-opponent key and the window contains no reverse fixt
 > `Same opponent — UNBACKED DEMO PLACEHOLDER: no library basis; the library holds no same-opponent key and the window contains no reverse fixture against this opponent. The whole same_opponent row is a hand-authored costume for the menu; do not treat as derived.`
 
 A stated placeholder is honest; an unstated fudge is the failure this whole pass was about. When a real reverse-fixture exists in the library, this row should be re-derived from it and this note deleted.
+
+## Prompt 10 · verification results and attacking-label fix
+
+- **Peer spine verified by render.** Axis-hued muted peer at 0.42 opacity — external blue on Total distance / m/min / HSR / Acc-Dec, cost purple on Cardio Load / sRPE. State-aware `legend.peer` appears only while a peer is selected. Peer clears on session change, athlete change, `timeframe=window`, and explicit `none`. Judgement recorded: separable on every row; subtle on rows where subject and peer converge near 100 %, never reading as a different metric family.
+- **Paired spatial verified by render.** Two fields, subject first, identical costume — same ramp, same opacity range, same pitch outline weight. One shared Heat/Trace toggle governs both. Per-field basis line ("Density scales to their own peak this session — never a shared scale.") and per-field thirds table. Geometry holds when the peer has no positional data (M. Meier): peer slot renders the unavailable card at full size and the section does not collapse.
+- **Defect found and fixed — `ATTACKING →` was labelled twice** in paired mode. `PitchSvg` now takes a `showAttacking` prop (default `true`); `PitchField` forwards it. In paired mode, only the subject field renders the label; the peer field suppresses it. Single-field state is unchanged — the label still renders there, where it is the only statement of orientation.
