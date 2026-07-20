@@ -822,7 +822,8 @@ function ParticipationCard({
                   style={{ color: "var(--color-text-secondary)" }}
                 >
                   <span
-                    className={`h-2.5 w-2.5 rounded-sm ${TAG_TEXTURE[seg.tag]}`}
+                    className="h-2.5 w-2.5 rounded-sm"
+                    style={TAG_STYLE[seg.tag]}
                     aria-hidden
                   />
                   <span>{seg.tag}</span>
