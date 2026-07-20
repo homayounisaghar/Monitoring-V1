@@ -89,16 +89,3 @@ function LongitudinalRoute() {
     </>
   );
 }
-
-function SectionHeading({ id, label }: { id: string; label: string }) {
-  return (
-    <section id={id} className="scroll-mt-28">
-      <h2
-        className="type-section-h"
-        style={{ color: "var(--color-text-primary)" }}
-      >
-        {label}
-      </h2>
-    </section>
-  );
-}
