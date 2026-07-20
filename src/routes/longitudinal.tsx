@@ -79,7 +79,7 @@ function LongitudinalRoute() {
 
           <main className="mx-auto max-w-[1320px] space-y-16 px-6 pt-10 pb-24">
             <SummarySection window={w} horizon={horizon} />
-            <SectionHeading id="days" label={copy("longi.anchor.days")} />
+            <DaysSection window={w} />
             <SectionHeading id="athletes" label={copy("longi.anchor.athletes")} />
           </main>
         </div>
