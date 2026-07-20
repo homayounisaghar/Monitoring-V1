@@ -493,3 +493,38 @@ it.
 post-meeting review. It stands in for the open question of *six unordered
 categories at roughly 10px without hue*, which the greyscale run confirms is
 still unsolved. Not a ratified palette; do not extend, defend, or reuse.
+
+## Step 4 — Days chart
+
+### Note on prior prompt
+The previous participation-palette prompt shipped **halved stripe pitches** on Part, Modified and Rehab (Part 45° at ~5px, Modified −45° at 4px, Rehab 90° at 5px) — not what the prompt asked for. Angles were preserved. It reads better and separability is unchanged, so it stands, but the record needs to say the shipped pitches are not the specified ones.
+
+### Defaults taken
+- **Non-selectable internal rows in the metric picker.** Cardio Load and sRPE render in the menu as fixed, italic, cursor:not-allowed rows visibly distinct from selectable ones. Built up front rather than after a broken render, on the reasoning that a picker over three lanes with only external options reads as an omission.
+- **Rail at rest shows window average.** Each lane's value slot at the right of its label carries the mean over session days of that lane's value (absolute integer, or `%` in VS TYPICAL). At-rest reads as the reference point; on hover it swaps to the hovered day's value. Reserved-width empty was not needed at 1400px.
+
+### Computed lane domains
+Applied the rule (95th-percentile day / 0.85, rounded to a readable number) once to the built data. Bake as constants; never re-derive at render.
+
+| lane          | p95 (obs) | cap / 0.85 | shipped cap |
+|---------------|-----------|-----------|-------------|
+| Sprint dist   | 184 m     | 216 m     | **220 m**   |
+| Acc–Dec       | 94 ct     | 111 ct    | **110 ct**  |
+
+Reported values sit alongside the four fixed caps (TD 9,000 m · HSR 700 m · CL 220 AU · sRPE 700 AU).
+
+### Render observations (28-day ABSOLUTE, TZ America/Los_Angeles)
+- **Gap** — Tue 14 Jul: slot kept, no bar, code row prints `—`. Never compressed, never zero.
+- **Rest dots** — 22 Jun, 29 Jun, 5 Jul, 6 Jul: baseline dot, `rest` in the code row. Distinct from gap.
+- **Hatch** — Sun 19 Jul: unconfirmed. Bar rendered with translucent white 45° stripe overlay across all three lanes.
+- **Hollow** — Cardio Load bars with sub-threshold HR coverage render as outline-only in axis-cost color. Multiple days show this across the window.
+- **Break** — Wed 8 Jul: Total distance breaks at 9,000 with `9682` printed at the cap; Cardio Load breaks at 220 with `231` printed. HSR/sRPE do not break on this day. The two printed numerals are the only ones on the plot canvas.
+- **Rail on Wed 8 Jul** — header identity slot: `Wed 8 Jul · MD · 15 trained`. Lane slots: Total distance `9682`, Cardio Load `231`, sRPE `630 · 14 of 15`. Highlight column drawn full-height through all three lanes.
+- **sRPE day-level not collected** — 12 Jul, 19 Jul: sRPE lane prints `not collected` in the day's slot; no bar. Table cell mirrors.
+- **VS TYPICAL** — three lanes re-anchor to a shared 40–160 domain with a light `100` baseline. Bars grow above or below the line; withheld days render a small hairline mark, never a bare 0%.
+
+### Known artefact, not fixed
+In VS TYPICAL the sRPE lane can compute a legitimate `0%` on days the club didn't collect sRPE (obs 0 / exp > 0). The chart correctly prints the numeral because it falls beyond the 40–160 range, but a reader might expect `not collected` there instead. Recorded, not remediated — the ABSOLUTE lane already carries the collection fact and the vs-typical numeral is honest to the derivation.
+
+### Colour and squint
+Blue (`--color-axis-work`) on the external lane; purple (`--color-axis-cost`) on Cardio Load and sRPE; neutral slate on grid, axis and day codes. No severity hue, no green. Days reads quieter than the 52px availability numeral above it — the numeral still owns the page.

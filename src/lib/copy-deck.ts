@@ -327,6 +327,33 @@ export const COPY = {
   "longi.character.fact.joined": "{name} joined {date}",
   "longi.character.fact.unrecorded": "{weekday} is unrecorded",
   "longi.character.fact.unconfirmed": "{weekday}'s session is not confirmed",
+
+  // ---------- Longitudinal · Days section ----------
+  "longi.days.subtitle": "— day by day",
+  "longi.days.basisLine": "average per athlete who trained",
+  "longi.days.metricMenuHead": "External metric",
+  "longi.days.mode.absolute": "ABSOLUTE",
+  "longi.days.mode.typical": "VS TYPICAL",
+  "longi.days.view.chart": "CHART",
+  "longi.days.view.table": "TABLE",
+  "longi.days.restLabel": "rest",
+  "longi.days.missingLabel": "—",
+  "longi.days.matchMark": "MD",
+  "longi.days.srpeNotCollected": "not collected",
+  "longi.days.srpePartial": "{n} of {m}",
+  "longi.days.cov": "· {pct}% cov",
+  "longi.days.identity": "{date} · {code} · {n} trained",
+  "longi.days.hover.noData": "no data recorded for this day",
+  "longi.days.hover.double": "double-session day",
+  "longi.days.table.head.date": "DATE",
+  "longi.days.table.head.day": "DAY",
+  "longi.days.table.head.sessions": "SESSIONS",
+  "longi.days.table.head.athletes": "ATHLETES",
+  "longi.days.table.head.pctTypical": "% TYPICAL",
+  "longi.days.table.average": "Average · {n} days with sessions",
+  "longi.days.table.footnote": "average per athlete who trained · a double-session day is one day",
+  "longi.days.lane.srpeUnit": "AU · where collected",
+  "longi.days.lane.cardioUnit": "AU",
 } as const satisfies Record<string, string>;
 
 export type CopyKey = keyof typeof COPY;
