@@ -13,6 +13,7 @@ import { AnchorStrip } from "@/components/longitudinal/AnchorStrip";
 import { ScopeLine } from "@/components/longitudinal/ScopeLine";
 import { SummarySection } from "@/components/longitudinal/SummarySection";
 import { DaysSection } from "@/components/longitudinal/DaysSection";
+import { AthletesSection } from "@/components/longitudinal/AthletesSection";
 
 export const Route = createFileRoute("/longitudinal")({
   head: () => ({
