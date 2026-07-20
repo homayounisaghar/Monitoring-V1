@@ -57,6 +57,7 @@
   /* The two data hues */
   --color-axis-work: var(--axis-work);
   --color-axis-cost: var(--axis-cost);
+  --color-axis-cost-light: var(--axis-cost-light);
   --color-axis-work-tinted: var(--axis-work-tinted);
   --color-axis-cost-tinted: var(--axis-cost-tinted);
 
