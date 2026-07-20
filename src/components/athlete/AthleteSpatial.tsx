@@ -26,7 +26,7 @@
  *     field. M. Meier is the whole-window instance.
  */
 
-import { useState } from "react";
+import { useState, type ReactElement } from "react";
 import { copy, tmpl } from "@/lib/copy-deck";
 import { demoAthletes, recordsForSession } from "@/lib/demo-library";
 import { spatialFor, type SpatialField } from "@/lib/demo-spatial";
