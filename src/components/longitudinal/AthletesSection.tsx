@@ -39,6 +39,7 @@ import type { ParticipationTag, PositionCode } from "@/lib/session-data";
 import { POSITION_LABEL } from "@/lib/session-data";
 import { MAX_COLUMNS } from "@/lib/squad-metrics";
 import { dayMonthLong } from "@/lib/format-date";
+import { refLabel, DEFAULT_REF, type RefKind } from "./ScopeLine";
 
 /* ─────────────────────────── shared bits ─────────────────────────── */
 
@@ -75,7 +76,15 @@ function surname(name: string): string {
 
 /* ─────────────────────────── section ─────────────────────────── */
 
-export function AthletesSection({ window: w }: { window: LongiWindow }) {
+export function AthletesSection({
+  window: w,
+  refKind,
+}: {
+  window: LongiWindow;
+  refKind: RefKind;
+}) {
+  const referenceLabel = refLabel(refKind);
+  const referenceIsDefault = refKind === DEFAULT_REF;
   return (
     <section id="athletes" className="scroll-mt-28">
       <header className="mb-4 flex items-baseline gap-2 flex-wrap">
@@ -95,7 +104,11 @@ export function AthletesSection({ window: w }: { window: LongiWindow }) {
 
       <div className="space-y-8">
         <AvailabilityList window={w} />
-        <WindowTotalsTable window={w} />
+        <WindowTotalsTable
+          window={w}
+          referenceLabel={referenceLabel}
+          referenceIsDefault={referenceIsDefault}
+        />
       </div>
     </section>
   );
