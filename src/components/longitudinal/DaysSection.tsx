@@ -360,14 +360,26 @@ function DaysChart({
                 className="pointer-events-none absolute -left-0.5 -top-0.5 type-num text-[9.5px]"
                 style={{ color: "var(--color-text-tertiary)" }}
               >
-                {ABS_CAP[m]}
+                {mode === "vsTypical" ? 160 : ABS_CAP[m]}
               </div>
               <div
                 className="pointer-events-none absolute -left-0.5 -bottom-0.5 type-num text-[9.5px]"
                 style={{ color: "var(--color-text-tertiary)" }}
               >
-                0
+                {mode === "vsTypical" ? 40 : 0}
               </div>
+              {mode === "vsTypical" && li === 0 && (
+                <div
+                  className="pointer-events-none absolute right-0.5 type-num text-[9.5px] whitespace-nowrap"
+                  style={{
+                    top: "50%",
+                    transform: "translateY(-110%)",
+                    color: "var(--color-text-tertiary)",
+                  }}
+                >
+                  {copy("longi.basis.tick")}
+                </div>
+              )}
 
               {series.map((d, i) => (
                 <DayBar
