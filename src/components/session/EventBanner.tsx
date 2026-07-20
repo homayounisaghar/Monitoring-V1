@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from "react";
 import { currentSession } from "@/lib/session-data";
 import { useSessionScope } from "@/lib/session-scope";
 import { copy } from "@/lib/copy-deck";
+import { weekdayDayMonthYear } from "@/lib/format-date";
 import { buildShareUrl, isShareStateDefault, type ShareDefaults } from "@/lib/share-state";
 
 const STATIC_DEFAULTS = {
