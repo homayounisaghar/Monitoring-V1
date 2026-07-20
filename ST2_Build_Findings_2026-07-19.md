@@ -897,7 +897,7 @@ Written under prompt 8 §1. Prior pass (prompt 7 §6) did not produce this secti
 
 ### 1.2 Final commit SHA (before this write)
 
-`e48884f`.
+`1504d549e35dab6775f435d941417820c7570e7b`. True final SHA is the commit that applies this correction.
 
 ### 1.3 What is built, per page
 
@@ -909,13 +909,15 @@ Written under prompt 8 §1. Prior pass (prompt 7 §6) did not produce this secti
 
 ### 1.4 What is logged and not built
 
-- **Athlete Periods** — demo-data gap. Periods requires per-window aggregation the demo library does not carry (`DemoRecord` is session-scoped and holds no rolling-week reduction). Explicitly **not** the Longitudinal precedent: Longitudinal's periods are built because that page's derivation is over the very window it renders; Athlete Periods would need a shipped rolling series the library does not have. Anchor strip omits Periods per the anchor-strip rule.
+- **Athlete Periods — demo-data gap, NOT a design decision, and NOT the Longitudinal precedent.**
+  **Why it is not built:** per-athlete, per-time-block values do not exist in the demo library. `DemoRecord` carries session totals only; `periodsBlocks` in `session-data.ts` is squad-level for the pinned match with no athlete dimension; the `demo-spatial.ts` waypoints are positional and not time-sampled. Scaling squad blocks by an athlete's share, or spreading his session total evenly across blocks, would fabricate a distribution the data does not contain — both were considered and refused at the prompt 3 §0 gate.
+  **Why it is not the Longitudinal precedent:** Longitudinal has **no Periods section at all**, and never had one. It is absent there because the **feed** carries no named segment definitions — gated on data, absent not empty, with the cross-tab section invariant permitting a tab to omit a family section it honestly lacks. **This is a different gap.** The Athlete shortfall is in the **demo library**, not the feed: the real stream supports per-athlete blocks, being the same computation the Session page already performs one level up. The section is ratified structure, deferred only for want of generated data. Building the per-athlete block series is dataset work, post-meeting. **Do not cite the Longitudinal precedent for this omission.**
+  **Design gap outstanding even once the data exists:** a Part-participation athlete substituted at 60′ needs a *"did not participate in this block"* state, which the shipped periods costume set does not contain — four costumes today, five needed.
 - **Detail vs-full-match row (SUM-5)** — omitted on the demo default (a match). Not a conditional but a second form; the training-day costume renders it. No render on a match, no anchor.
 - **Detail Z1–Z5 zone distribution** — omitted. `DemoRecord` carries `topSpeedKmh` and `sprintDist` but no per-athlete zone shares; deriving a distribution from session totals would fabricate the individualisation the row promises.
 - **Detail wellness (sleep / soreness / mood)** — omitted. Not present in `DemoRecord`; optional read by decision.
 - **SUM-5 render condition** — logged as a second form for training-day sessions, not a conditional collapse. Build deferred to the training-day demo.
 - **Session → library migration** — deferred. Session card **reads** the library's derived values and hardcodes those numbers into `SummaryCard.tsx` (`SQUAD_REF`, `SESSION_MARKS`). No live wiring, by decision on prompt 7 §2.3.
-- **Fifth periods costume for part-participation blocks** — not built. The Longitudinal periods module has four costumes shipped; the fifth (part-participation split) was descoped this pass and remains in the design backlog.
 - **Longitudinal → Athlete window horizon** — the drill navigates with `athleteId` and `timeframe=window` but **does not carry** the caller's window start/end. Athlete renders its own default window. Wiring the horizon requires the Athlete route to accept `windowStart`/`windowEnd` search params and its data hooks to honour them; deferred.
 
 ### 1.5 Every default taken across all eight prompts
