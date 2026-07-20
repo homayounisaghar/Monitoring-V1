@@ -30,7 +30,6 @@
  * anchor strip is trimmed if it does not (see `athlete.tsx`).
  */
 
-import { useState } from "react";
 import { copy, tmpl } from "@/lib/copy-deck";
 import { spineForAthleteSession, type SpineRow } from "@/lib/athlete-data";
 
