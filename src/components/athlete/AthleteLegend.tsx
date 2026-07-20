@@ -179,3 +179,11 @@ function SwFlag() {
     </svg>
   );
 }
+function SwPeer() {
+  return (
+    <span
+      className="inline-block h-3 w-3 rounded-full"
+      style={{ backgroundColor: "var(--color-text-tertiary)", opacity: 0.55 }}
+    />
+  );
+}
