@@ -272,15 +272,6 @@ function ActivityChip({
     <div className="relative" ref={ref}>
       <ChipButton onClick={() => setOpen((o) => !o)} changed={false}>
         <span className="truncate max-w-[220px]">{chipLabel}</span>
-        <span
-          className="type-microcaps ml-1.5 rounded px-1 py-0.5"
-          style={{
-            backgroundColor: "var(--color-slate-100)",
-            color: "var(--color-text-secondary)",
-          }}
-        >
-          {session.dayCode}
-        </span>
         <ChevronDown className="ml-1 h-3.5 w-3.5 opacity-70" aria-hidden />
       </ChipButton>
       {open && (
