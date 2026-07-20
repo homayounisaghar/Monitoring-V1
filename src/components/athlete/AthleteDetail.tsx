@@ -210,40 +210,6 @@ function Dash() {
   );
 }
 
-/* ─────────────────── columns picker (inert) ─────────────────── */
-
-function ColumnsButton() {
-  const [open, setOpen] = useState(false);
-  return (
-    <div className="relative">
-      <button
-        onClick={() => setOpen((v) => !v)}
-        className="type-microcaps rounded border px-2 py-1 text-[10.5px] transition-colors"
-        style={{
-          borderColor: "var(--color-border)",
-          color: "var(--color-text-secondary)",
-          backgroundColor: open ? "var(--color-slate-100)" : "transparent",
-        }}
-        aria-expanded={open}
-      >
-        {copy("athlete.detail.columnsButton")} ⌄
-      </button>
-      {open && (
-        <div
-          className="absolute right-0 top-full z-20 mt-1 w-[220px] rounded-md border p-2 text-[12px] shadow-sm"
-          style={{
-            borderColor: "var(--color-border)",
-            backgroundColor: "var(--color-surface-card)",
-            color: "var(--color-text-secondary)",
-          }}
-          onMouseLeave={() => setOpen(false)}
-        >
-          {copy("athlete.detail.columnsHint")}
-        </div>
-      )}
-    </div>
-  );
-}
 
 /* ─────────────────── value formatting ─────────────────── */
 
