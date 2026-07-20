@@ -774,3 +774,26 @@ The `--axis-cost-light` token exists to separate the sRPE lane from the Cardio L
 ### Verify
 - Playwright: `/athlete` renders full spine; no console errors; HSR hoists to row 1 of External (flag active); Acc–Dec carries salience chip; character line prints; legend popover opens.
 
+
+## 2026-07-20 — Athlete Summary spine · prompt 2c corrections
+
+Applied eleven corrections against the spine at `ae89d64`:
+
+1. **Cold-read gate restored.** The `100 — typical` label now prints on the canvas, once, at the 100 position on the first row's track (external group, first metric). The old `aria-label` alone did not satisfy the gate.
+2. **White ring halos removed** from every dot. `ring-2 ring-white` was reserved costume for the two-mark pair's internal marker; the spine has no such pair, so the halo distinguished nothing.
+3. **Axis end labels `40` / `160`** now print once per section, on the first row only. Previously twelve numerals stated one scale.
+4. **Beyond-range value edge** prints the true percent as an ordinary primary-ink value (e.g. `161%`) alongside the absolute, matching the Periods lane precedent. The old `+61%` in secondary ink is gone.
+5. **Band withholds per metric when `sd = 0`.** A zero-width band is a lie about certainty (the sprintDist defect logged 2026-07-19). The dot and value are unaffected; only the band suppresses.
+6. **All user-facing strings moved to the deck.** Five inline sentences (basis-ref template, `baseline building`, `basisPhrase`, every shape fragment of the character line, sRPE label) are now `copy()` / `tmpl()` reads. The character line is assembled from a template + shape key + optional tail, mirroring `longi.character.*`.
+7. **`basisPhrase` in the spine header** now reads `{dayCode} ({sessionType})` from the resolved typical, not a hardcoded `MD`. A training session no longer prints `MD (training)`.
+8. **sRPE display name** now reads from `METRICS.srpe.label` in the governed metric library with only the unit overridden to `AU` at this call site. **Governance gap logged:** the metric library needs a first-class `srpeAU` entry (label + unit `AU`) so the override can be retired. Adding one is a Decision-Set-governed change, not a build call.
+9. **Dead `isInternal ? null : null` line** deleted.
+10. **Banner reads the selected session, not `currentSession`.** `AthleteBanner` now takes `sessionId` and reads participation/minutes from `recordsForSession(sessionId)`. Selecting a training session on the activity chip changes the banner's minutes to that session's value (verified: Werner on MD-2 Intensive reads `full · 82'`, on the pinned match reads `full · 88'`).
+11. **Banner date removed.** Session identity belongs to the activity chip; the banner is the athlete.
+
+### Data-calibration observations (not build calls)
+
+- **±1 SD band width, default state (Werner · Dortmund):** roughly 10–20% of the 40–160 track on each row — narrow but visible, not a hairline and not swallowing the track. The bands are usable for the "in the normal spread / outside it" gate.
+- **Rows outside their band, default state:** 2 of 6 (m/min at +13% edge, acc-dec at -20% outside). On the MD-2 Intensive read: 2 of 6 (HSR, acc-dec). Roughly a third across both, matching the expected shape.
+- **Reads as notable, not alarm.** The outlying dot answers "what's off" before any number does, exactly as the spine is intended to.
+- The underlying `demo-typicals` variance is not tuned for this surface. If a later pass wants tighter bands, that is a data-calibration change in the generator, not a display change on the spine.
