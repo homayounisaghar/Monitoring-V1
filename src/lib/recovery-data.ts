@@ -112,14 +112,14 @@ export function hrvBaselineFor(athleteId: string): number | null {
 }
 
 /**
- * Personal balance typical (percent on LEFT foot/side, 44–56). The tick
+ * Personal balance typical (percent on LEFT foot/side, 48–52). The tick
  * on the Balance bar sits here, never at 50.
  */
 const BALANCE_TYPICAL_L: Record<string, number> = (() => {
   const out: Record<string, number> = {};
   for (const a of demoAthletes) {
-    // 44 to 56 inclusive; deterministic per athlete.
-    out[a.id] = 44 + (hashSeed(a.id, "bal-typ") % 13);
+    // 48 to 52 inclusive; deterministic per athlete.
+    out[a.id] = 48 + (hashSeed(a.id, "bal-typ") % 5);
   }
   return out;
 })();
@@ -362,10 +362,10 @@ export function balanceForSession(
   const isPinnedDate = s.dateISO === "2026-07-18";
   let L: number;
   if (isPinnedDate && athleteId === "werner") {
-    // Notable deviation: 8-point drop from his typical.
-    L = typ - 8 + jit(0.7, athleteId, sessionId, "bal-werner");
+    // Notable deviation: 3-point drop from his typical.
+    L = typ - 3 + jit(0.7, athleteId, sessionId, "bal-werner");
   } else {
-    L = typ + jit(3.5, athleteId, sessionId, "bal");
+    L = typ + jit(1.5, athleteId, sessionId, "bal");
   }
   L = Math.max(30, Math.min(70, Math.round(L)));
   return {
