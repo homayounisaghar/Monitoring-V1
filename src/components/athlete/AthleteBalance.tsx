@@ -12,6 +12,17 @@
 import { copy, tmpl } from "@/lib/copy-deck";
 import { balanceForSession, balanceTypicalFor, RECOVERY_INK_VAR } from "@/lib/recovery-data";
 
+/** Fixed drawn window for the Balance bar. The data are still 0–100 %; the
+ *  window is presentation-only, so a 3-point deviation is legible against a
+ *  stated scale. */
+const BALANCE_DRAW_MIN = 40;
+const BALANCE_DRAW_MAX = 60;
+
+function pctToDrawPos(pct: number): number {
+  const clamped = Math.max(BALANCE_DRAW_MIN, Math.min(BALANCE_DRAW_MAX, pct));
+  return ((clamped - BALANCE_DRAW_MIN) / (BALANCE_DRAW_MAX - BALANCE_DRAW_MIN)) * 100;
+}
+
 type Props = {
   athleteId: string;
   sessionId: string;
@@ -56,7 +67,7 @@ export function AthleteBalance({ athleteId, sessionId }: Props) {
               className="mt-2 flex items-baseline justify-between text-[11.5px]"
               style={{ color: "var(--color-text-tertiary)" }}
             >
-              <span aria-hidden>L</span>
+              <span aria-hidden>{BALANCE_DRAW_MIN}</span>
               <span>
                 {bal.deltaPts === 0
                   ? copy("athlete.balance.deltaZero")
@@ -65,7 +76,7 @@ export function AthleteBalance({ athleteId, sessionId }: Props) {
                       d: Math.abs(bal.deltaPts),
                     })}
               </span>
-              <span aria-hidden>R</span>
+              <span aria-hidden>{BALANCE_DRAW_MAX}</span>
             </div>
           </>
         ) : (
@@ -88,13 +99,16 @@ function BalanceBar({
   leftPct: number;
   typicalLeftPct: number;
 }) {
+  const leftPos = pctToDrawPos(leftPct);
+  const typicalPos = pctToDrawPos(typicalLeftPct);
+
   return (
     <div className="relative h-3 w-full rounded-full" style={{ backgroundColor: "var(--color-slate-100)" }}>
       {/* L fill in slate */}
       <div
         className="absolute inset-y-0 left-0 rounded-l-full"
         style={{
-          width: `${leftPct}%`,
+          width: `${leftPos}%`,
           backgroundColor: RECOVERY_INK_VAR,
           opacity: 0.55,
         }}
@@ -105,7 +119,7 @@ function BalanceBar({
       <div
         className="absolute inset-y-0 right-0 rounded-r-full"
         style={{
-          width: `${100 - leftPct}%`,
+          width: `${100 - leftPos}%`,
           backgroundColor: RECOVERY_INK_VAR,
           opacity: 0.28,
         }}
@@ -115,7 +129,7 @@ function BalanceBar({
       <div
         className="absolute top-1/2 h-4 w-[2px] -translate-x-1/2 -translate-y-1/2 rounded-sm"
         style={{
-          left: `${typicalLeftPct}%`,
+          left: `${typicalPos}%`,
           backgroundColor: "var(--color-data-reference)",
         }}
         title={copy("athlete.balance.tickHover")}
