@@ -83,7 +83,10 @@ function AthleteRoute() {
   return (
     <>
       <div className="flex min-h-[calc(100vh-3rem)]">
-        <SourceSidebar />
+        <SourceSidebar
+          focusSessionId={sessionId}
+          onFocusSession={(id) => setSearch({ sessionId: id })}
+        />
         <div className="min-w-0 flex-1">
           {/* Banner — content-column width */}
           <div className="mx-auto max-w-[1320px] px-6 pt-4">
