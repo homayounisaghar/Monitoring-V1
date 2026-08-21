@@ -67,7 +67,44 @@ function fmt(n: number) {
 }
 
 /* ------------------------------------------------------------------ */
-/* TrackAxis — the scale, uttered once above a stack of tracks          */
+/* Endpoints — anatomy of every track                                   */
+/* ------------------------------------------------------------------ */
+export function endpointFontSize(size: "default" | "compact") {
+  return size === "compact" ? 9 : 10;
+}
+
+/** Scale numeral riding just outside an end cap, centred on the hairline. */
+export function TrackEndpoint({
+  label,
+  geo,
+  size = "default",
+  hidden = false,
+}: {
+  label: string;
+  geo: { h: number; y: number };
+  size?: "default" | "compact";
+  hidden?: boolean;
+}) {
+  const fs = endpointFontSize(size);
+  return (
+    <span
+      className="type-num shrink-0 whitespace-nowrap"
+      aria-hidden={hidden || undefined}
+      style={{
+        fontSize: fs,
+        lineHeight: `${fs + 2}px`,
+        color: "var(--color-text-tertiary)",
+        transform: `translateY(${geo.y - geo.h / 2}px)`,
+        visibility: hidden ? "hidden" : undefined,
+      }}
+    >
+      {label}
+    </span>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* TrackAxis — the tick label only, uttered once per scale group        */
 /* ------------------------------------------------------------------ */
 export type TrackAxisProps = {
   mode: "deviation" | "shared";
@@ -98,8 +135,12 @@ export function TrackAxis({
   withValueColumn = true,
   leadingGutter,
 }: TrackAxisProps) {
+  // Endpoints now live on every track; an axis with no tick label has
+  // nothing left to say.
+  if (!tickLabel) return null;
+
   const deviation = mode === "deviation";
-  const fs = size === "compact" ? 9 : 10;
+  const fs = endpointFontSize(size);
   const lo = deviation ? `${Math.round((1 - windowPct) * 100)}` : `${fmt(scaleMin)}`;
   const hi = deviation
     ? `${Math.round((1 + windowPct) * 100)}`
@@ -111,14 +152,16 @@ export function TrackAxis({
   return (
     <div className="flex items-end gap-3">
       {leadingGutter ? <div style={{ width: leadingGutter }} className="shrink-0" /> : null}
-      <div className="relative flex-1" style={{ height: fs + 4 }}>
+      {/* mirror the row's endpoint gutters so the tick label stays over the tick */}
+      <div className="flex flex-1 items-end gap-1">
         <span
-          className="type-num absolute bottom-0 left-0"
-          style={{ fontSize: fs, color: "var(--color-text-tertiary)" }}
+          className="type-num shrink-0 whitespace-nowrap"
+          style={{ fontSize: fs, visibility: "hidden" }}
+          aria-hidden
         >
           {lo}
         </span>
-        {tickLabel ? (
+        <div className="relative flex-1" style={{ height: fs + 4 }}>
           <span
             className="type-num absolute bottom-0 whitespace-nowrap"
             style={{
@@ -130,10 +173,11 @@ export function TrackAxis({
           >
             {tickLabel}
           </span>
-        ) : null}
+        </div>
         <span
-          className="type-num absolute bottom-0 right-0"
-          style={{ fontSize: fs, color: "var(--color-text-tertiary)" }}
+          className="type-num shrink-0 whitespace-nowrap"
+          style={{ fontSize: fs, visibility: "hidden" }}
+          aria-hidden
         >
           {hi}
         </span>
@@ -142,6 +186,7 @@ export function TrackAxis({
     </div>
   );
 }
+
 
 export type ValueOnTrackProps = {
   mode: "deviation" | "shared";
