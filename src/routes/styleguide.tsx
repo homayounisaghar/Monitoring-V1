@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { ValueOnTrack } from "@/components/data/ValueOnTrack";
+import { ValueOnTrack, TrackAxis } from "@/components/data/ValueOnTrack";
 import { GapPair } from "@/components/data/GapPair";
 import { TrustMark, WithheldMark } from "@/components/data/TrustMark";
 import { SeverityGlyph } from "@/components/data/SeverityGlyph";
