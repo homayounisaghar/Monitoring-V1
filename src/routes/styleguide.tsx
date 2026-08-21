@@ -418,11 +418,12 @@ function Styleguide() {
         {/* ValueOnTrack */}
         <Section
           title="ValueOnTrack"
-          desc="Canonical comparison object. Track band + reference band (typical variation) + reference tick + value in the owning hue + signed % delta. Past the tick = above typical; past the band = beyond normal variation. One dot style everywhere it is used — filled in its axis hue, one diameter per density, white keyline against the band. No open/filled, dark/light or double-dot variants; hue says which axis, position says how much. Every printed value carries its unit."
+          desc="Canonical comparison object. Hairline + end caps · reference band (a bounded interval, 16px, slate-200 with slate-300 edges) · 22px reference tick · 8px session dot in the owning axis hue. The signed % delta rides the mark — mono 11px, centred on the dot, 21px above the hairline, in the axis ink. The value column carries the absolute value and its unit, nothing else. One-utterance rule: every scale fact is printed exactly once, by the axis header — never per row, never as a sentence. Band bounds and the reference absolute live on hover only."
         >
           <div className="grid grid-cols-2 gap-4">
-            <Card eyebrow="Deviation mode · window ±40%">
-              <div className="space-y-4">
+            <Card eyebrow="deviation mode - one axis header, three rows">
+              <div className="space-y-3">
+                <TrackAxis mode="deviation" tickLabel="100 · typical match" />
                 <div className="space-y-1">
                   <div className="type-data-label">Total distance vs athlete reference</div>
                   <ValueOnTrack mode="deviation" axis="work" value={9820} reference={8600} unit="m" deltaAbs="+1,220 m" />
@@ -432,14 +433,15 @@ function Styleguide() {
                   <ValueOnTrack mode="deviation" axis="cost" value={168} reference={195} unit="CL" deltaAbs="−27 CL" />
                 </div>
                 <div className="space-y-1">
-                  <div className="type-data-label">HSR — clamped overflow (+62%)</div>
+                  <div className="type-data-label">HSR — clamped past the window</div>
                   <ValueOnTrack mode="deviation" axis="work" value={890} reference={550} unit="m" deltaAbs="+340 m" />
                 </div>
               </div>
             </Card>
 
-            <Card eyebrow="Shared-scale mode · 0–12 km">
+            <Card eyebrow="shared absolute mode - unit printed once, in the header">
               <div className="space-y-3">
+                <TrackAxis mode="shared" scaleMin={0} scaleMax={12} unit="km" leadingGutter={80} />
                 {[
                   { name: "Ortega", v: 10.2, r: 9.4 },
                   { name: "Vidic", v: 7.8, r: 8.9 },
@@ -462,7 +464,7 @@ function Styleguide() {
             </Card>
           </div>
 
-          <Card eyebrow="Reference band — three baseline states">
+          <Card eyebrow="anatomy - the four marks, and the states">
             <div className="space-y-5">
               <div className="grid grid-cols-[160px_1fr] items-center gap-4">
                 <div>
@@ -501,9 +503,25 @@ function Styleguide() {
               <div className="grid grid-cols-[160px_1fr] items-center gap-4">
                 <div>
                   <div className="type-data-label" style={{ color: "var(--color-text-primary)" }}>
+                    Clamped overflow
+                  </div>
+                  <div className="type-data-label">dot pinned at the end, break glyph inside it, exact % still printed</div>
+                </div>
+                <ValueOnTrack
+                  mode="deviation"
+                  axis="cost"
+                  value={340}
+                  reference={195}
+                  unit="CL"
+                  deltaAbs="+145 CL"
+                />
+              </div>
+              <div className="grid grid-cols-[160px_1fr] items-center gap-4">
+                <div>
+                  <div className="type-data-label" style={{ color: "var(--color-text-primary)" }}>
                     Building baseline
                   </div>
-                  <div className="type-data-label">reference withheld — no false-confident compare</div>
+                  <div className="type-data-label">no dot, no band, no delta — the hairline states why</div>
                 </div>
                 <ValueOnTrack
                   mode="deviation"
@@ -512,11 +530,34 @@ function Styleguide() {
                   reference={8600}
                   unit="m"
                   baselineState="building"
+                  baselineSessions={3}
+                />
+              </div>
+              <div className="grid grid-cols-[160px_1fr] items-center gap-4">
+                <div>
+                  <div className="type-data-label" style={{ color: "var(--color-text-primary)" }}>
+                    Compact
+                  </div>
+                  <div className="type-data-label">same anatomy, floors held: dot 6px, delta 10px, band 12px</div>
+                </div>
+                <ValueOnTrack
+                  mode="deviation"
+                  axis="work"
+                  value={9200}
+                  reference={8600}
+                  unit="m"
+                  size="compact"
                 />
               </div>
             </div>
+            <p className="type-section-desc mt-4">
+              Hover any track: the tooltip carries only the numbers not on canvas — band bounds in
+              scale units and the reference absolute with its unit. It never narrates the scale,
+              and never repeats the delta or the printed value.
+            </p>
           </Card>
         </Section>
+
 
 
 
