@@ -459,11 +459,11 @@ function GapMiniTrack({
         }}
       />
       <div
-        className="absolute top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full ring-2 ring-white"
+        className={`absolute top-1/2 ${dataDotSize("compact")} -translate-x-1/2 -translate-y-1/2 ${DATA_DOT_KEYLINE}`}
         style={{ left: `${extPos}%`, backgroundColor: "var(--color-axis-work)" }}
       />
       <div
-        className="absolute top-1/2 h-[10px] w-[10px] -translate-x-1/2 -translate-y-1/2 rounded-full ring-2 ring-white"
+        className={`absolute top-1/2 ${dataDotSize("compact")} -translate-x-1/2 -translate-y-1/2 ${DATA_DOT_KEYLINE}`}
         style={{
           left: `${intPos}%`,
           backgroundColor: "var(--color-axis-cost)",
