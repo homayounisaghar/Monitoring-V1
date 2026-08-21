@@ -199,13 +199,19 @@ export const COPY = {
   // Row-level scaled tag pattern; consumers substitute the minutes.
   "squad.row.scaledTagTemplate": "{min}′ · scaled",
   "squad.row.scaledHoverTemplate": "played {min}′ — reference adjusted to minutes",
+  // Row-level withheld qualifiers — printed beside the minutes so the row's
+  // dashes are explained without hover.
+  "squad.row.notComparableTagTemplate": "{min}′ · not comparable",
+  "squad.row.scaledNotComparableTagTemplate": "{min}′ · scaled, not comparable",
+  "squad.row.buildingTagTemplate": "{min}′ · building baseline",
   // Replaces per-cell "NOT COMPARED".
   "squad.cell.notCompared": "—",
   "squad.cell.notComparedHoverTemplate": "{min}′ — too short to compare",
   // DRAFT — hover for the empty %-mode cell on the building-baseline row.
   "squad.cell.buildingHoverTemplate": "Building baseline · {done} of {min} sessions to minimum history",
-  // Column-picker counter.
-  "squad.columnPicker.counterTemplate": "{n} / {max}",
+  // Column-picker counter. 12 is a cap, not a total — the template says so.
+  "squad.columnPicker.counterTemplate": "{n} of {max} max",
+
   // Full-data pointer.
   "squad.export.link": "Full data in export →",
 
