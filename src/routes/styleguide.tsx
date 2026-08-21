@@ -633,10 +633,10 @@ function Styleguide() {
                   style={{ borderColor: "var(--color-border)" }}
                 >
                   <div className="type-microcaps mb-1">Wrong — hover-only</div>
-                  <div className="type-num text-[13px] line-through" style={{ color: "var(--color-negative)" }}>
+                  <div className="type-num text-[13px] line-through" style={{ color: "var(--color-red-700)" }}>
                     26′
                   </div>
-                  <div className="type-num mt-1 text-[13px] line-through" style={{ color: "var(--color-negative)" }}>
+                  <div className="type-num mt-1 text-[13px] line-through" style={{ color: "var(--color-red-700)" }}>
                     —&nbsp;&nbsp;—&nbsp;&nbsp;—
                   </div>
                 </div>
