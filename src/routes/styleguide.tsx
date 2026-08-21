@@ -589,7 +589,7 @@ function Styleguide() {
         {/* TrustMark — trust grammar */}
         <Section
           title="Trust grammar"
-          desc="A clean value with a small hollow dot before it. Coverage lives on hover (e.g. “74% HR coverage”). Texture never sits behind numerals anywhere in the system."
+          desc="A clean value with a small hollow dot before it. Hover carries the detailed coverage read (e.g. “74% HR coverage”) — but a cell or row whose values are fully withheld states its reason on the canvas. Texture never sits behind numerals anywhere in the system."
         >
           <Card>
             <div className="flex items-center gap-10">
@@ -600,8 +600,51 @@ function Styleguide() {
             <p className="type-label mt-4">
               Hover any value to see the coverage read. The hollow dot is the trust affordance — the number stays fully legible.
             </p>
+
+            <div
+              className="mt-6 border-t pt-4"
+              style={{ borderColor: "var(--color-border)" }}
+            >
+              <div className="type-microcaps mb-2">Withheld states — reason on the canvas</div>
+              <p className="type-label mb-3">
+                Ratified: a static screenshot must never show an unexplained dash. The
+                “building baseline” pattern generalises — every fully withheld cell or row
+                prints a short qualifier beside its dash, and hover keeps the longer read.
+              </p>
+              <div className="flex flex-wrap items-center gap-8">
+                <WithheldMark reason="notComparable" detail="26′ — too short to compare" />
+                <WithheldMark reason="buildingBaseline" detail="3 of 5 sessions to minimum history" />
+                <WithheldMark reason="notSubmitted" />
+                <WithheldMark reason="thinCoverage" detail="2 of 6 sessions contributed" />
+              </div>
+              <div className="mt-4 grid gap-3 md:grid-cols-2">
+                <div
+                  className="rounded-md border p-3"
+                  style={{ borderColor: "var(--color-border)" }}
+                >
+                  <div className="type-microcaps mb-1">Right — row qualifier</div>
+                  <div className="type-num text-[13px]">26′ · not comparable</div>
+                  <div className="type-num mt-1 text-[13px]" style={{ color: "var(--color-text-tertiary)" }}>
+                    —&nbsp;&nbsp;—&nbsp;&nbsp;—
+                  </div>
+                </div>
+                <div
+                  className="rounded-md border p-3"
+                  style={{ borderColor: "var(--color-border)" }}
+                >
+                  <div className="type-microcaps mb-1">Wrong — hover-only</div>
+                  <div className="type-num text-[13px] line-through" style={{ color: "var(--color-negative)" }}>
+                    26′
+                  </div>
+                  <div className="type-num mt-1 text-[13px] line-through" style={{ color: "var(--color-negative)" }}>
+                    —&nbsp;&nbsp;—&nbsp;&nbsp;—
+                  </div>
+                </div>
+              </div>
+            </div>
           </Card>
         </Section>
+
 
 
         {/* SeverityGlyphs */}
