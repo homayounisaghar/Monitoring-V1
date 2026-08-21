@@ -84,49 +84,80 @@ export function AttentionCard() {
       </header>
 
       <div className="surface-card-attention overflow-hidden rounded-lg">
-        {/* Headline slot */}
-        <Headline
-          state={headlineState}
-          manageCount={manageCount}
-          clearCount={clearCount}
-          totalSquad={totalParticipants}
-          squadLowCov={squadLowCov.length}
-          comparableCount={comparableCount}
-        />
-
-        {/* Body by state */}
+        {/* Degraded states use the ratified degraded-state banner:
+            one-line headline, one summary line, collapsed detail. */}
         {headlineState === "covThin" ? (
-          <CovThinBody rows={squadLowCov.map((a) => ({ id: a.id, name: a.name, cov: a.hrCoveragePct ?? 0 }))} />
+          <DegradedBanner
+            headline={copy("attention.covThin.headline")}
+            summaryNumeral={`${squadLowCov.length}`}
+            summaryText={tmpl("attention.covThin.summaryTemplate", {
+              total: totalParticipants,
+            })}
+            detailCount={squadLowCov.length}
+          >
+            <CovThinBody
+              rows={squadLowCov.map((a) => ({
+                id: a.id,
+                name: a.name,
+                cov: a.hrCoveragePct ?? 0,
+              }))}
+            />
+          </DegradedBanner>
         ) : headlineState === "baselineThin" ? (
-          <BaselineThinBody building={building} />
-        ) : headlineState === "allClear" ? (
-          <AllClearBody building={building} />
+          <DegradedBanner
+            headline={copy("attention.baselineThin.headline")}
+            summaryNumeral={`${comparableCount}`}
+            summaryText={tmpl("attention.baselineThin.summaryTemplate", {
+              total: totalParticipants,
+            })}
+            detailCount={building.length}
+          >
+            <BaselineThinBody building={building} />
+          </DegradedBanner>
         ) : (
           <>
-            <ul>
-              {tier1.map((r) => (
-                <Tier1RowUI key={r.id} row={r} />
-              ))}
-            </ul>
-
-            {outsideEscalations.length > 0 && (
-              <OutsideEscalationLine />
-            )}
-
-            {!referenceIsDefault && <BasisNoteLine />}
-
-            <AccountingLine
-              lowCov={squadLowCov.map((a) => ({ name: a.name, cov: a.hrCoveragePct ?? 0 }))}
-              building={building}
-              baselineThin={baselineThin}
-              comparableCount={comparableCount}
+            {/* Headline slot */}
+            <Headline
+              state={headlineState}
+              manageCount={manageCount}
+              clearCount={clearCount}
               totalSquad={totalParticipants}
+              squadLowCov={squadLowCov.length}
+              comparableCount={comparableCount}
             />
 
-            <CloserLine />
+            {headlineState === "allClear" ? (
+              <AllClearBody building={building} />
+            ) : (
+              <>
+                <ul>
+                  {tier1.map((r) => (
+                    <Tier1RowUI key={r.id} row={r} />
+                  ))}
+                </ul>
+
+                {outsideEscalations.length > 0 && <OutsideEscalationLine />}
+
+                {!referenceIsDefault && <BasisNoteLine />}
+
+                <AccountingLine
+                  lowCov={squadLowCov.map((a) => ({
+                    name: a.name,
+                    cov: a.hrCoveragePct ?? 0,
+                  }))}
+                  building={building}
+                  baselineThin={baselineThin}
+                  comparableCount={comparableCount}
+                  totalSquad={totalParticipants}
+                />
+
+                <CloserLine />
+              </>
+            )}
           </>
         )}
       </div>
+
     </section>
   );
 }
