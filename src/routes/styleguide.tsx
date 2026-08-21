@@ -273,8 +273,31 @@ function Styleguide() {
             </Card>
             <Card eyebrow="3 · data">
               <div className="type-data">Total distance · 9,820 m · +14%</div>
-              <div className="type-data">Cardio Load · 168 · −14%</div>
+              <div className="type-data">Cardio Load · 168 CL · −14%</div>
+              <p className="type-label mt-3">
+                Units, ratified. Every numeral carries its unit. In a serialized
+                list the unit repeats on every value — never printed once on the
+                last item. A delta unit is self-explanatory where it stands.
+              </p>
+              <div className="mt-2 space-y-1 text-[12.5px]">
+                <div className="type-num" style={{ color: "var(--color-text-secondary)" }}>
+                  T. Brandt 74% HR cov · S. Kuhn 61% HR cov · F. Voss 43% HR cov
+                </div>
+                <div
+                  className="type-num line-through"
+                  style={{ color: "var(--color-escalate-ink)" }}
+                >
+                  T. Brandt 74 · S. Kuhn 61 · F. Voss 43% HR cov
+                </div>
+                <div className="type-num" style={{ color: "var(--color-text-secondary)" }}>
+                  +22 pts gap
+                  <span className="ml-2" style={{ color: "var(--color-text-tertiary)" }}>
+                    beside a −14% delta, "+22 pts" alone would not say what it counts
+                  </span>
+                </div>
+              </div>
             </Card>
+
             <Card eyebrow="4 · label · sentence case, no tracking">
               <p className="type-label">Total distance vs athlete reference</p>
               <p className="type-label">Baseline is still building — 3 of 5 sessions.</p>
