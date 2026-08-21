@@ -299,9 +299,22 @@ export function ValueOnTrack({
 
   const hoverText = `normal range ${bandLoLabel}–${bandHiLabel} · typical ${fmt(reference)}${unit ? ` ${unit}` : ""}`;
 
+  // Endpoint numerals — anatomy of every track.
+  const loLabel =
+    mode === "deviation"
+      ? `${Math.round((1 - windowPct) * 100)}`
+      : fmt(scaleMin ?? 0);
+  const hiLabel =
+    mode === "deviation"
+      ? `${Math.round((1 + windowPct) * 100)}`
+      : `${fmt(scaleMax ?? 1)}${unit ? ` ${unit}` : ""}`;
+
   return (
     <div className="flex items-center gap-3">
+      <div className="flex flex-1 items-center gap-1">
+      <TrackEndpoint label={loLabel} geo={g} size={size} />
       <div className="group relative flex-1" style={{ height: g.h }}>
+
         {/* hairline */}
         <div
           className="absolute left-0 right-0"
