@@ -642,8 +642,70 @@ function Styleguide() {
                 </div>
               </div>
             </div>
+
+            <div
+              className="mt-6 border-t pt-4"
+              style={{ borderColor: "var(--color-border)" }}
+            >
+              <div className="type-microcaps mb-2">
+                The 80% HR-coverage gate — internal load
+              </div>
+              <p className="type-label mb-3">
+                Ratified: where an athlete&rsquo;s HR coverage for the scope is below 80%
+                (0% included), Cardio Load and every other HR-derived value is withheld —
+                a dash with its reason, never a number. Squad and window averages are taken
+                over the covered athletes only; a withheld athlete is excluded, never counted
+                at zero. A value must never appear on a screen that also states the metric
+                was not measured. Between the gate and full coverage the value prints with
+                its hollow trust dot and its coverage read.
+              </p>
+              <div className="grid gap-3 md:grid-cols-2">
+                <div
+                  className="rounded-md border p-3"
+                  style={{ borderColor: "var(--color-border)" }}
+                >
+                  <div className="type-microcaps mb-1">Right — 61% coverage</div>
+                  <div className="flex items-center justify-between">
+                    <span className="type-label">S. Kuhn · Cardio Load</span>
+                    <WithheldMark
+                      reason="noHrCoverage"
+                      detail="61% HR coverage — below the 80% gate, internal load withheld"
+                    />
+                  </div>
+                  <div className="mt-2 flex items-center justify-between">
+                    <span className="type-label">Squad avg · covered only</span>
+                    <TrustMark size="sm" value="196" unit="CL" coverage={86} coverageOf="HR coverage" />
+                  </div>
+                </div>
+                <div
+                  className="rounded-md border p-3"
+                  style={{ borderColor: "var(--color-border)" }}
+                >
+                  <div className="type-microcaps mb-1">Wrong — value under the gate</div>
+                  <div className="flex items-center justify-between">
+                    <span className="type-label">S. Kuhn · Cardio Load</span>
+                    <span
+                      className="type-num text-[13px] line-through"
+                      style={{ color: "var(--color-red-700)" }}
+                    >
+                      142 CL
+                    </span>
+                  </div>
+                  <div className="mt-2 flex items-center justify-between">
+                    <span className="type-label">Squad avg · zeros counted</span>
+                    <span
+                      className="type-num text-[13px] line-through"
+                      style={{ color: "var(--color-red-700)" }}
+                    >
+                      118 CL
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
           </Card>
         </Section>
+
 
 
 

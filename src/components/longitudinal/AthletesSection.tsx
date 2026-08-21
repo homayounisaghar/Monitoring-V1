@@ -79,7 +79,10 @@ function fmtInt(v: number): string {
  * amended trust grammar. sRPE is the one metric an athlete can withhold
  * himself, so it reads "not submitted"; everything else reads "no data". */
 function dashReason(metricId: string): WithheldReason {
-  return metricId === "srpeAU" ? "notSubmitted" : "noData";
+  if (metricId === "srpeAU") return "notSubmitted";
+  // Internal load withheld by the 80 % HR-coverage gate.
+  if (metricId === "cardioLoad") return "noHrCoverage";
+  return "noData";
 }
 
 function surname(name: string): string {

@@ -31,6 +31,7 @@ function withheldText(reason: WithheldReason): string {
 /** Maps a data-layer withhold reason onto the grammar's short qualifier. */
 function reasonToQualifier(reason: string): WithheldReason {
   if (reason === "insufficient_coverage") return "thinCoverage";
+  if (reason === "no_hr_coverage") return "noHrCoverage";
   if (reason === "no_comparable_typical" || reason === "metric_not_in_expected")
     return "noTypical";
   if (reason === "insufficient_days") return "noTypical";
@@ -631,7 +632,7 @@ function valueSlotText(
   if (activeDay.kind === "rest") return "0";
   if (mode === "absolute") {
     const v = activeDay.perMetric[metric];
-    if (v == null) return withheldText("noData");
+    if (v == null) return withheldText(metric === "cardioLoad" ? "noHrCoverage" : "noData");
     const base = formatAbs(v, metric);
     if (metric === "cardioLoad" && activeDay.hrCoverageShare != null && activeDay.hrCoverageShare < 1) {
       const pct = Math.round(activeDay.hrCoverageShare * 100);

@@ -30,20 +30,21 @@ import {
   type TypicalMetric,
   type PerMetricTypical,
 } from "./demo-typicals";
-import { METRICS } from "./squad-metrics";
+import { METRICS, HR_COVERAGE_GATE, hrGateWithholds } from "./squad-metrics";
 import { copy, tmpl } from "./copy-deck";
 
 /** Fixed drawn range — demo-calibrated placeholder. Never auto-fit. */
 export const ATHLETE_SPINE_DOMAIN: readonly [number, number] = [40, 160] as const;
 
 /** HR-coverage floor for internal metrics. Below this the value withholds
- *  outright with its reason — no number, no dot. Demo-calibrated. */
-export const VALUE_COVERAGE_FLOOR = 40;
+ *  outright with its reason — no number, no dot. This is the ratified 80 %
+ *  gate, enforced through `hrGateWithholds` in the metrics layer. */
+export const VALUE_COVERAGE_FLOOR = HR_COVERAGE_GATE;
 
-/** Above this, coverage is treated as complete. Below → hollow mark
- *  plus `· NN% cov` at the value edge. Mirrors the 80 % floor used
- *  elsewhere in the record. */
-export const COVERAGE_FULL = 80;
+/** Above this, coverage is treated as complete. Between the gate and here
+ *  the mark is hollow and carries `· NN% cov` at the value edge. */
+export const COVERAGE_FULL = 100;
+
 
 export type SpineAxis = "work" | "cost";
 export type SpineGroup = "external" | "internal";
@@ -271,15 +272,13 @@ export function spineForAthleteSession(
       return baseRow(m, meta, null, reference, bandLoPct, bandHiPct, { kind: "withheld", reason: "notSubmitted" });
     }
 
-    // Internal (Cardio Load) — coverage gates.
+    // Internal (Cardio Load) — the shared 80 % HR-coverage gate.
     if (m === "cardioLoad") {
-      if (rawValue == null) {
-        return baseRow(m, meta, null, reference, bandLoPct, bandHiPct, { kind: "withheld", reason: "coverage" });
-      }
-      if (hrCovPct != null && hrCovPct < VALUE_COVERAGE_FLOOR) {
+      if (rawValue == null || hrGateWithholds(hrCovPct, "cardioLoad")) {
         return baseRow(m, meta, null, reference, bandLoPct, bandHiPct, { kind: "withheld", reason: "coverage" });
       }
     }
+
 
     // Building baseline — value stays; band/dot/delta suppress.
     if (buildingBaseline || reference == null || reference <= 0) {

@@ -94,6 +94,8 @@ export const COPY = {
   "trust.withheld.thinCoverage": "coverage too thin",
   "trust.withheld.noTypical": "no typical yet",
   "trust.withheld.noSession": "no session",
+  "trust.withheld.noHrCoverage": "HR not measured",
+
   "columns.capReason": "At the 12-column cap — remove one to add another",
 
   "chart.captionAbsolute": "Ranked by {metric}",
@@ -207,6 +209,8 @@ export const COPY = {
   // Replaces per-cell "NOT COMPARED".
   "squad.cell.notCompared": "—",
   "squad.cell.notComparedHoverTemplate": "{min}′ — too short to compare",
+  "squad.cell.noHrHoverTemplate": "{cov}% HR coverage — below the {gate}% gate, internal load withheld",
+
   // DRAFT — hover for the empty %-mode cell on the building-baseline row.
   "squad.cell.buildingHoverTemplate": "Building baseline · {done} of {min} sessions to minimum history",
   // Column-picker counter. 12 is a cap, not a total — the template says so.

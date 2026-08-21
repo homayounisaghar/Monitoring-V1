@@ -150,10 +150,17 @@ export function SquadCard() {
     () => new Set(activeAthletes.map((a) => a.id)),
     [activeAthletes],
   );
+  // Every row reads the scenario-adjusted athlete, never the raw record —
+  // otherwise a demo overlay (e.g. no HR data) would change the headline
+  // while the table kept printing the old numbers.
+  const effectiveSquad: Athlete[] = useMemo(() => {
+    const byId = new Map(effectiveParticipants.map((a) => [a.id, a]));
+    return squad.map((a) => byId.get(a.id) ?? a);
+  }, [effectiveParticipants]);
   const tableRows: Athlete[] = useMemo(() => {
-    if (filterIsDefault) return squad;
-    return squad.filter((a) => scopedIds.has(a.id));
-  }, [filterIsDefault, scopedIds]);
+    if (filterIsDefault) return effectiveSquad;
+    return effectiveSquad.filter((a) => scopedIds.has(a.id));
+  }, [filterIsDefault, scopedIds, effectiveSquad]);
 
   /* --- flagged identity set --- */
 
@@ -362,7 +369,7 @@ export function SquadCard() {
           metric={METRICS[chartMetric]}
           display={display}
           rows={activeAthletes}
-          allSquadForTray={squad}
+          allSquadForTray={effectiveSquad}
           flagged={flagged}
           onRowClick={(a) => goToAthlete(a.id)}
           onFlagClick={handleFlagClick}
@@ -781,6 +788,20 @@ function Cell({
       </span>
     );
   }
+  if (state === "no_hr") {
+    // The 80 % HR-coverage gate (squad-metrics). Internal load is withheld
+    // and the reason prints beside the dash — never a number.
+    return (
+      <WithheldMark
+        className="text-[13px]"
+        reason="noHrCoverage"
+        detail={tmpl("squad.cell.noHrHoverTemplate", {
+          cov: a.hrCoveragePct ?? 0,
+          gate: COVERAGE_MIN,
+        })}
+      />
+    );
+  }
   if (state === "empty") {
     // Cell-level withholding — the reason prints beside the dash.
     return (
@@ -790,6 +811,7 @@ function Cell({
       />
     );
   }
+
 
   if (state === "building") {
     const v = valueFor(a, m);
@@ -829,7 +851,10 @@ function Cell({
   const r = refFor(a, m, buildingIds);
   const isCardio = m.id === "cardioLoad";
   const cov = a.hrCoveragePct ?? 100;
-  const lowCov = isCardio && cov < COVERAGE_MIN;
+  // Below the gate the cell never reaches here (state === "no_hr"). Between
+  // the gate and full coverage the value prints with its coverage read.
+  const partialCov = isCardio && cov < 100;
+
 
   const cellIsPercent = display === "percent" && r != null;
   const pct = cellIsPercent && r ? Math.round(((v as number) / r) * 100) : null;
@@ -841,7 +866,7 @@ function Cell({
 
   return (
     <div className="flex flex-col items-end">
-      {lowCov ? (
+      {partialCov ? (
         <TrustMark size="sm" value={primary} coverage={cov} coverageOf="HR coverage" />
       ) : (
         <span

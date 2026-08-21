@@ -101,7 +101,45 @@ function jitter(id: string, m: MetricId): number {
   return (n - 20) / 100; // -0.20..+0.20
 }
 
+/* ---------- Ratified: the 80 % HR-coverage gate ----------
+ * Internal load is only real where the heart-rate trace is. Below the gate
+ * the value is withheld everywhere it would otherwise render — cell, spine
+ * row, day lane, window total — and every average excludes the withheld
+ * athlete rather than counting them at zero. A value must never appear on a
+ * screen that also states the metric was not measured.
+ *
+ * This is the single enforcement point: every surface calls `hrGateWithholds`
+ * (or a data-layer function that does) rather than re-deriving the test.
+ * ------------------------------------------------------------------------ */
+
+/** Coverage at or above this counts as measured. Mirrors `COVERAGE_MIN`. */
+export const HR_COVERAGE_GATE = 80;
+
+/** Metric ids whose values are derived from the heart-rate trace. */
+const HR_DERIVED_IDS: ReadonlySet<string> = new Set([
+  "cardioLoad",
+  "z4z5Share",
+]);
+
+export function isHrDerived(metricId: string): boolean {
+  return HR_DERIVED_IDS.has(metricId);
+}
+
+/**
+ * True when this metric must be withheld for this scope's HR coverage.
+ * `coveragePct` is the athlete's coverage for the scope being drawn — a
+ * session percentage, or the share of covered sessions in a window.
+ */
+export function hrGateWithholds(
+  coveragePct: number | null | undefined,
+  metricId: string,
+): boolean {
+  if (!isHrDerived(metricId)) return false;
+  return coveragePct == null || coveragePct < HR_COVERAGE_GATE;
+}
+
 /* ---------- Public API: refFor / valueFor / cell state ---------- */
+
 
 export function refFor(a: Athlete, m: Metric, buildingIds?: Set<string>): number | null {
   const bset = buildingIds ?? new Set([BUILDING_ID]);
@@ -118,6 +156,8 @@ export function valueFor(a: Athlete, m: Metric): number | null {
   if (a.participation === null) return null;
   if (m.id === "min") return a.minutes;
   if (m.id === "srpe" && !a.srpeSubmitted) return null;
+  // The gate: an HR-derived value below the coverage floor does not exist.
+  if (hrGateWithholds(a.hrCoveragePct, m.id)) return null;
   const pt = posTypical[a.position]?.[m.id];
   if (pt == null) return null;
   const scaleFactor = m.scaling === "cumulative" ? a.minutes / 90 : 1;
@@ -133,18 +173,21 @@ export type CellState =
   | "not_compared" // partial + vsFull metric
   | "building"     // no reference exists (Köhler)
   | "dnp"          // did not participate
+  | "no_hr"        // HR-derived metric below the 80 % coverage gate
   | "empty";       // "—" (no data or non-submitter)
 
 export function cellState(a: Athlete, m: Metric, buildingIds?: Set<string>): CellState {
   const bset = buildingIds ?? new Set([BUILDING_ID]);
   if (a.participation === null) return "dnp";
   if (m.scaling === "identity") return "ok";
+  if (hrGateWithholds(a.hrCoveragePct, m.id)) return "no_hr";
   if (bset.has(a.id)) return "building";
   if (m.scaling === "vsFull" && a.minutes < 60) return "not_compared";
   if (m.id === "srpe" && !a.srpeSubmitted) return "empty";
   if (valueFor(a, m) == null) return "empty";
   return "ok";
 }
+
 
 /** True where cumulative metric on a partial player — deltas are minutes-scaled and tagged "· scaled". */
 export function isScaled(a: Athlete, m: Metric, buildingIds?: Set<string>): boolean {

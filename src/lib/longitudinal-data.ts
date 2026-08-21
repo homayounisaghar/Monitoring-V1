@@ -28,6 +28,7 @@ import {
   EXPECTED_MIN_COVERAGE,
   type ExpectedSumBasis,
 } from "./demo-typicals";
+import { hrGateWithholds } from "./squad-metrics";
 import type { ParticipationTag, PositionCode } from "./session-data";
 import { TIER1_ROWS_DEFAULT } from "./session-flags";
 
@@ -215,6 +216,9 @@ function sumFieldOnDate(
       if (r.minutes <= 0) continue;
       const v = (r as unknown as Record<string, number | null>)[field];
       if (v == null) continue;
+      // The 80 % HR-coverage gate: an uncovered record contributes nothing
+      // to an HR-derived metric — it is excluded, never counted at zero.
+      if (hrGateWithholds(r.hrCoveragePct, field)) continue;
       total += v;
       athleteSet.add(r.athleteId);
       if (r.hrCoveragePct != null) {
@@ -292,8 +296,11 @@ export function daySeries(w: LongiWindow): DayEntry[] {
     const perMetric: Partial<Record<LongiMetric, number | null>> = {};
     let hrNHR = 0, hrNHROk = 0, hrNHRBelow = 0, hrMin: number | null = null;
     for (const m of LONGI_METRICS) {
-      const { total, nHR, nHROk, nHRBelow, hrMin: mn } = sumFieldOnDate(sessionIds, m);
-      perMetric[m] = athletesTrained > 0 ? total / athletesTrained : null;
+      const { total, count, nHR, nHROk, nHRBelow, hrMin: mn } = sumFieldOnDate(sessionIds, m);
+      // HR-derived metrics average over the covered athletes only; with none
+      // covered the day withholds rather than printing a zero.
+      const denom = hrGateWithholds(null, m) ? count : athletesTrained;
+      perMetric[m] = denom > 0 ? total / denom : null;
       // HR facts are shared across metrics — accumulate once (any metric pass surfaces the same records).
       if (m === "cardioLoad") {
         hrNHR = nHR; hrNHROk = nHROk; hrNHRBelow = nHRBelow; hrMin = mn;
@@ -324,6 +331,7 @@ export function daySeries(w: LongiWindow): DayEntry[] {
       // Observed sum = sum over sessions of sum over contributed athletes of record's metric.
       for (const m of LONGI_METRICS) {
         let obs = 0;
+        let nObs = 0;
         let exp = 0;
         let missing = false;
         for (let k = 0; k < sessionIds.length; k++) {
@@ -338,11 +346,15 @@ export function daySeries(w: LongiWindow): DayEntry[] {
             if (!contribSet.has(r.athleteId)) continue;
             const v = (r as unknown as Record<string, number | null>)[m];
             if (v == null) continue;
+            if (hrGateWithholds(r.hrCoveragePct, m)) continue;
+            nObs++;
             obs += v;
           }
         }
         if (missing || exp <= 0) {
           vsTypical[m] = { state: "withheld", reason: "metric_not_in_expected" };
+        } else if (nObs === 0) {
+          vsTypical[m] = { state: "withheld", reason: "no_hr_coverage" };
         } else {
           vsTypical[m] = { state: "computed", pct: (obs / exp) * 100 };
         }
@@ -593,10 +605,12 @@ function acForAthlete(athleteId: string, endISO: string): AcRatio {
   for (const m of LONGI_METRICS) {
     let sum28 = 0, n28 = 0, sum7 = 0, n7 = 0;
     for (const [dateISO, r] of recsByDate) {
+      if (hrGateWithholds(r.hrCoveragePct, m)) continue;
       const v = (r as unknown as Record<string, number | null>)[m] ?? 0;
       sum28 += v; n28++;
       if (dateISO >= win7.startISO) { sum7 += v; n7++; }
     }
+    if (n28 === 0) { perMetric[m] = null; continue; }
     const avg28 = n28 > 0 ? sum28 / n28 : 0;
     const avg7 = n7 > 0 ? sum7 / n7 : 0;
     perMetric[m] = avg28 > 0 ? avg7 / avg28 : null;
@@ -614,7 +628,8 @@ export function windowTotals(w: LongiWindow): WindowTotals {
     let sessions = 0;
     const absolute: Partial<Record<LongiMetric, number>> = {};
     const hrTotals: Partial<Record<LongiMetric, { n: number; ok: number }>> = {};
-    for (const m of LONGI_METRICS) { absolute[m] = 0; hrTotals[m] = { n: 0, ok: 0 }; }
+    const contributed: Partial<Record<LongiMetric, number>> = {};
+    for (const m of LONGI_METRICS) { absolute[m] = 0; hrTotals[m] = { n: 0, ok: 0 }; contributed[m] = 0; }
 
     // Vs-typical aggregation on typicalDuration basis.
     const vtObs: Partial<Record<LongiMetric, number>> = {};
@@ -634,6 +649,8 @@ export function windowTotals(w: LongiWindow): WindowTotals {
       for (const m of LONGI_METRICS) {
         const v = (r as unknown as Record<string, number | null>)[m];
         if (v == null) continue;
+        if (hrGateWithholds(r.hrCoveragePct, m)) continue;
+        contributed[m] = (contributed[m] ?? 0) + 1;
         absolute[m] = (absolute[m] ?? 0) + v;
         const hr = hrTotals[m]!;
         if (r.hrCoveragePct != null) {
@@ -651,6 +668,7 @@ export function windowTotals(w: LongiWindow): WindowTotals {
           if (!pm || pm.perMinute == null) continue;
           const obs = (r as unknown as Record<string, number | null>)[m];
           if (obs == null) continue;
+          if (hrGateWithholds(r.hrCoveragePct, m)) continue;
           vtObs[m] = (vtObs[m] ?? 0) + obs;
           vtExp[m] = (vtExp[m] ?? 0) + pm.perMinute * t.typicalDurationMin;
         }
@@ -675,6 +693,9 @@ export function windowTotals(w: LongiWindow): WindowTotals {
     for (const m of LONGI_METRICS) {
       const hr = hrTotals[m]!;
       hrShare[m] = hr.n > 0 ? hr.ok / hr.n : null;
+      // No covered record contributed — the window total for this metric is
+      // withheld outright rather than printed as a partial or a zero.
+      if ((contributed[m] ?? 0) === 0) delete absolute[m];
     }
 
     let vsTypical: VsTypicalAthlete;
