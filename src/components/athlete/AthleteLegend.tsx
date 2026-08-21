@@ -10,7 +10,7 @@ import { useEffect, useRef, useState } from "react";
 import { copy } from "@/lib/copy-deck";
 import { HowToReadLegendPanel } from "@/components/data/HowToReadLegend";
 
-export function AthleteLegend({ _peerActive = false }: { _peerActive?: boolean }) {
+export function AthleteLegend(_props: { spine?: unknown; peerActive?: boolean }) {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
 
