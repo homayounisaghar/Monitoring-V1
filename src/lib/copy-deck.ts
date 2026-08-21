@@ -302,6 +302,9 @@ export const COPY = {
   "canonical.trust.coverage": "coverage",
 
   "canonical.attention.pts": "pts",
+  // Units rule (styleguide · Type scale "data"): a delta unit must be
+  // self-explanatory in place, so a points delta names what it counts.
+  "canonical.attention.ptsGap": "pts gap",
   "canonical.attention.hrCoverageSuffix": "% HR coverage",
   "canonical.attention.hrCovSuffix": "% HR cov",
   "canonical.attention.flaggedInAttentionSuffix": "flagged in Attention",
