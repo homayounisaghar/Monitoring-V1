@@ -26,6 +26,7 @@ import {
 import type { Athlete } from "@/lib/session-data";
 import { copy, tmpl, BUILDING_BASELINE_MIN_SESSIONS } from "@/lib/copy-deck";
 import { ValueOnTrack, TrackAxis, dataDotSize, DATA_DOT_KEYLINE } from "@/components/data/ValueOnTrack";
+import { GapPair } from "@/components/data/GapPair";
 import { AthleteAvatar } from "@/components/data/AthleteAvatar";
 import { DegradedBanner } from "@/components/data/DegradedBanner";
 
@@ -383,7 +384,11 @@ function Tier1RowUI({ row }: { row: Tier1Row }) {
               deltaTone="default"
             />
           ) : (
-            <GapMiniTrack
+            /* Gap rows: the pair prints its own bracket label, so the
+               right-hand delta column stays empty (no detached echo). */
+            <GapPair
+              mode="signed"
+              size="compact"
               externalPct={row.read.externalPct}
               internalPct={row.read.internalPct}
             />
@@ -434,55 +439,6 @@ function Tier1RowUI({ row }: { row: Tier1Row }) {
         </div>
       </button>
     </li>
-  );
-}
-
-/* Track-only signed gap for the row read (no delta — that lives at right) */
-function GapMiniTrack({
-  externalPct,
-  internalPct,
-}: {
-  externalPct: number;
-  internalPct: number;
-}) {
-  const W = 40;
-  const toPos = (v: number) =>
-    ((Math.max(-W, Math.min(W, v)) + W) / (W * 2)) * 100;
-  const extPos = toPos(externalPct);
-  const intPos = toPos(internalPct);
-  const left = Math.min(extPos, intPos);
-  const right = Math.max(extPos, intPos);
-
-  return (
-    <div className="relative h-5">
-      <div
-        className="absolute left-0 right-0 top-1/2 h-[6px] -translate-y-1/2 rounded-full"
-        style={{ backgroundColor: "var(--color-data-band)" }}
-      />
-      <div
-        className="absolute top-1/2 h-3 w-[2px] -translate-x-1/2 -translate-y-1/2 rounded-sm"
-        style={{ left: "50%", backgroundColor: "var(--color-data-reference)" }}
-      />
-      <div
-        className="absolute top-1/2 h-[2px] -translate-y-1/2"
-        style={{
-          left: `${left}%`,
-          width: `${right - left}%`,
-          backgroundColor: "var(--color-slate-400)",
-        }}
-      />
-      <div
-        className={`absolute top-1/2 ${dataDotSize("compact")} -translate-x-1/2 -translate-y-1/2 ${DATA_DOT_KEYLINE}`}
-        style={{ left: `${extPos}%`, backgroundColor: "var(--color-axis-work)" }}
-      />
-      <div
-        className={`absolute top-1/2 ${dataDotSize("compact")} -translate-x-1/2 -translate-y-1/2 ${DATA_DOT_KEYLINE}`}
-        style={{
-          left: `${intPos}%`,
-          backgroundColor: "var(--color-axis-cost)",
-        }}
-      />
-    </div>
   );
 }
 

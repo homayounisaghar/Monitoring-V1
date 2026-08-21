@@ -45,17 +45,27 @@ function DotSwatch() {
   );
 }
 function GapPairSwatch() {
-  // External (work-blue) + internal (cost-purple, smaller) with white halos,
-  // matches the recostumed pair in GapPair / AttentionCard.GapMiniTrack.
+  // Work (blue) + cost (purple) dots on one track, measured by a neutral
+  // bracket rail with end ticks — matches the GapPair anatomy.
   return (
-    <span className="relative inline-block h-3 w-6 shrink-0" aria-hidden>
+    <span className="relative inline-block h-4 w-6 shrink-0" aria-hidden>
+      {/* hairline */}
+      <span className="absolute left-0 right-0 top-[13px] h-px" style={{ backgroundColor: "var(--color-slate-300)" }} />
+      {/* bracket rail above, with 2px down-ticks */}
       <span
-        className="absolute top-1/2 h-3 w-3 -translate-y-1/2 rounded-full ring-2 ring-white"
-        style={{ left: "20%", backgroundColor: "var(--color-axis-work)", transform: "translate(-50%, -50%)" }}
+        className="absolute left-0 right-0 top-[7px] h-px"
+        style={{ left: "20%", width: "60%", backgroundColor: "var(--color-slate-500)" }}
+      />
+      <span className="absolute top-[5px] h-[3px] w-px" style={{ left: "20%", backgroundColor: "var(--color-slate-500)" }} />
+      <span className="absolute top-[5px] h-[3px] w-px" style={{ left: "80%", backgroundColor: "var(--color-slate-500)" }} />
+      {/* dots */}
+      <span
+        className="absolute top-1/2 h-3 w-3 -translate-y-1/2 rounded-full"
+        style={{ left: "32%", transform: "translate(-50%, -50%)", backgroundColor: "var(--color-axis-work)" }}
       />
       <span
-        className="absolute top-1/2 h-[10px] w-[10px] -translate-y-1/2 rounded-full ring-2 ring-white"
-        style={{ left: "70%", backgroundColor: "var(--color-axis-cost)", transform: "translate(-50%, -50%)" }}
+        className="absolute top-1/2 h-3 w-3 -translate-y-1/2 rounded-full"
+        style={{ left: "68%", transform: "translate(-50%, -50%)", backgroundColor: "var(--color-axis-cost)" }}
       />
     </span>
   );

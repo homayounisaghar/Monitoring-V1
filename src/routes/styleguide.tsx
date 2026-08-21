@@ -564,12 +564,13 @@ function Styleguide() {
         {/* GapPair */}
         <Section
           title="GapPair"
-          desc="External vs internal on one shared % scale. Blue = external, purple = internal — both in the one canonical dot style, slate connector = gap. Named in plain language everywhere: distance vs cardio gap (pts), and its delta prints as +22 pts gap so the unit explains itself beside percent deltas."
+          desc="Work vs cost on one shared track, drawn in the ValueOnTrack anatomy (hairline + end caps, bounded reference band, reference tick). Two canonical dots — work blue, cost purple — under the same TrackAxis as sibling rows; the pair never prints its own endpoints. The distance between the marks is a measurement bracket: 1px slate-500 rail with 4px down-ticks, labelled with the gap in neutral slate (e.g. +27 pts gap). Bracket and label stay neutral — no severity, no third hue. Reads as two marks plus a measured distance, not as a range interval. Hover shows the two component deltas only (e.g. distance +14 · cardio −18), never the printed gap."
         >
-          <Card eyebrow="basis - stated per surface (demo: % of session-average rate)">
-            <div className="space-y-6">
-              <GapPair externalPct={82} internalPct={55} />
-              <GapPair externalPct={41} internalPct={68} />
+          <Card eyebrow="distance vs cardio gap (pts) — pair under the shared axis header, bracket = measured distance">
+            <div className="space-y-2">
+              <TrackAxis mode="shared" scaleMin={0} scaleMax={100} tickLabel="50 · session average" reference={50} withValueColumn={false} />
+              <GapPair externalPct={82} internalPct={55} deltaLabel="+27 pts gap" />
+              <GapPair externalPct={41} internalPct={68} deltaLabel="−27 pts gap" />
             </div>
           </Card>
         </Section>
