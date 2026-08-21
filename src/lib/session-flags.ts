@@ -46,13 +46,13 @@ export const TIER1_ROWS_DEFAULT: Tier1Row[] = [
     id: "fischer",
     tier: "escalate",
     reason: "Sprint distance · HSR",
-    read: { kind: "vot", axis: "work", deltaFrac: 0.34, bandFrac: 0.1 },
+    read: { kind: "vot", axis: "work", deltaFrac: 0.34, bandFrac: 0.1, metric: "hsr" },
   },
   {
     id: "werner",
     tier: "notice",
     reason: "High-speed running",
-    read: { kind: "vot", axis: "work", deltaFrac: 0.22, bandFrac: 0.1 },
+    read: { kind: "vot", axis: "work", deltaFrac: 0.22, bandFrac: 0.1, metric: "hsr" },
   },
   {
     id: "schaefer",
@@ -64,7 +64,7 @@ export const TIER1_ROWS_DEFAULT: Tier1Row[] = [
     id: "hofmann",
     tier: "notice",
     reason: "Total distance",
-    read: { kind: "vot", axis: "work", deltaFrac: 0.14, bandFrac: 0.14 },
+    read: { kind: "vot", axis: "work", deltaFrac: 0.14, bandFrac: 0.14, metric: "totalDistance" },
   },
   {
     // Chronic HRV suppression through his injury stretch (recovery-data.ts).
@@ -74,7 +74,7 @@ export const TIER1_ROWS_DEFAULT: Tier1Row[] = [
     id: "lange",
     tier: "notice",
     reason: "HRV · own baseline",
-    read: { kind: "vot", axis: "neutral", deltaFrac: -0.27, bandFrac: 0.1 },
+    read: { kind: "vot", axis: "neutral", deltaFrac: -0.27, bandFrac: 0.1, metric: "hrv" },
   },
 ];
 
