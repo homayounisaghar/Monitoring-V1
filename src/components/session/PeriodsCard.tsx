@@ -1053,12 +1053,16 @@ function BlockHover({
   push(METRIC_LIB.cardioLoad.label, row.cells.cardioLoad, "periods.unit.cl");
 
 
+  // Units rule: every numeral in the line carries its unit, and the gap
+  // delta names what it counts so it reads beside percent deltas.
+  const gapUnit = copy("canonical.attention.ptsGap");
+  const rateUnit = copy("canonical.attention.pts");
   const gapBody =
     gap === null
       ? `— · ${copy("periods.hover.internalAbsent")}`
       : extRate !== null
-        ? `${gap >= 0 ? "+" : ""}${gap} pts · ${copy("periods.hover.gapVsDist")} ${Math.round(extRate)}`
-        : `${gap >= 0 ? "+" : ""}${gap} pts`;
+        ? `${gap >= 0 ? "+" : ""}${gap} ${gapUnit} · ${copy("periods.hover.gapVsDist")} ${Math.round(extRate)} ${rateUnit}`
+        : `${gap >= 0 ? "+" : ""}${gap} ${gapUnit}`;
   rows.push({ label: copy("periods.hover.rowLabel.gap"), body: gapBody });
 
   const includesUnconfirmed =

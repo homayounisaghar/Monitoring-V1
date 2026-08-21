@@ -25,7 +25,7 @@ import {
 } from "@/lib/session-flags";
 import type { Athlete } from "@/lib/session-data";
 import { copy, tmpl, BUILDING_BASELINE_MIN_SESSIONS } from "@/lib/copy-deck";
-import { ValueOnTrack } from "@/components/data/ValueOnTrack";
+import { ValueOnTrack, dataDotSize, DATA_DOT_KEYLINE } from "@/components/data/ValueOnTrack";
 import { AthleteAvatar } from "@/components/data/AthleteAvatar";
 import { DegradedBanner } from "@/components/data/DegradedBanner";
 
@@ -414,7 +414,7 @@ function Tier1RowUI({ row }: { row: Tier1Row }) {
                 className="type-data-label"
                 style={{ color: "var(--color-text-tertiary)" }}
               >
-                {copy("canonical.attention.pts")}
+                {copy("canonical.attention.ptsGap")}
               </span>
             </span>
           )}
@@ -459,11 +459,11 @@ function GapMiniTrack({
         }}
       />
       <div
-        className="absolute top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full ring-2 ring-white"
+        className={`absolute top-1/2 ${dataDotSize("compact")} -translate-x-1/2 -translate-y-1/2 ${DATA_DOT_KEYLINE}`}
         style={{ left: `${extPos}%`, backgroundColor: "var(--color-axis-work)" }}
       />
       <div
-        className="absolute top-1/2 h-[10px] w-[10px] -translate-x-1/2 -translate-y-1/2 rounded-full ring-2 ring-white"
+        className={`absolute top-1/2 ${dataDotSize("compact")} -translate-x-1/2 -translate-y-1/2 ${DATA_DOT_KEYLINE}`}
         style={{
           left: `${intPos}%`,
           backgroundColor: "var(--color-axis-cost)",
@@ -544,7 +544,9 @@ function AccountingLine({
           {a.name}{" "}
           <span className="type-num" style={{ color: "var(--color-text-tertiary)" }}>
             {a.cov}
-            {i === lowCov.length - 1 ? copy("canonical.attention.hrCovSuffix") : ""}
+            {/* Units rule: the unit repeats on every value in a serialized
+                list — never printed once on the last item only. */}
+            {copy("canonical.attention.hrCovSuffix")}
           </span>
         </span>,
       );

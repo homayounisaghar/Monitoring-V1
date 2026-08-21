@@ -273,8 +273,31 @@ function Styleguide() {
             </Card>
             <Card eyebrow="3 · data">
               <div className="type-data">Total distance · 9,820 m · +14%</div>
-              <div className="type-data">Cardio Load · 168 · −14%</div>
+              <div className="type-data">Cardio Load · 168 CL · −14%</div>
+              <p className="type-label mt-3">
+                Units, ratified. Every numeral carries its unit. In a serialized
+                list the unit repeats on every value — never printed once on the
+                last item. A delta unit is self-explanatory where it stands.
+              </p>
+              <div className="mt-2 space-y-1 text-[12.5px]">
+                <div className="type-num" style={{ color: "var(--color-text-secondary)" }}>
+                  T. Brandt 74% HR cov · S. Kuhn 61% HR cov · F. Voss 43% HR cov
+                </div>
+                <div
+                  className="type-num line-through"
+                  style={{ color: "var(--color-escalate-ink)" }}
+                >
+                  T. Brandt 74 · S. Kuhn 61 · F. Voss 43% HR cov
+                </div>
+                <div className="type-num" style={{ color: "var(--color-text-secondary)" }}>
+                  +22 pts gap
+                  <span className="ml-2" style={{ color: "var(--color-text-tertiary)" }}>
+                    beside a −14% delta, "+22 pts" alone would not say what it counts
+                  </span>
+                </div>
+              </div>
             </Card>
+
             <Card eyebrow="4 · label · sentence case, no tracking">
               <p className="type-label">Total distance vs athlete reference</p>
               <p className="type-label">Baseline is still building — 3 of 5 sessions.</p>
@@ -395,7 +418,7 @@ function Styleguide() {
         {/* ValueOnTrack */}
         <Section
           title="ValueOnTrack"
-          desc="Canonical comparison object. Track band + reference band (typical variation) + reference tick + value in the owning hue + signed % delta. Past the tick = above typical; past the band = beyond normal variation."
+          desc="Canonical comparison object. Track band + reference band (typical variation) + reference tick + value in the owning hue + signed % delta. Past the tick = above typical; past the band = beyond normal variation. One dot style everywhere it is used — filled in its axis hue, one diameter per density, white keyline against the band. No open/filled, dark/light or double-dot variants; hue says which axis, position says how much. Every printed value carries its unit."
         >
           <div className="grid grid-cols-2 gap-4">
             <Card eyebrow="Deviation mode · window ±40%">
@@ -500,7 +523,7 @@ function Styleguide() {
         {/* GapPair */}
         <Section
           title="GapPair"
-          desc="External vs internal on one shared % scale. Filled blue = external, open purple = internal, slate connector = gap. Named in plain language everywhere: distance vs cardio gap (pts)."
+          desc="External vs internal on one shared % scale. Blue = external, purple = internal — both in the one canonical dot style, slate connector = gap. Named in plain language everywhere: distance vs cardio gap (pts), and its delta prints as +22 pts gap so the unit explains itself beside percent deltas."
         >
           <Card eyebrow="basis - stated per surface (demo: % of session-average rate)">
             <div className="space-y-6">

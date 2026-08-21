@@ -1,7 +1,8 @@
 import { copy } from "@/lib/copy-deck";
+import { dataDotSize } from "@/components/data/ValueOnTrack";
 /**
- * GapPair — external (blue filled) vs internal (purple open ring) on
- * one shared track. Slate connector = the gap.
+ * GapPair — external (blue) vs internal (purple) on one shared track,
+ * both drawn in the one canonical dot style. Slate connector = the gap.
  *
  * Two modes:
  *   - "shared": absolute % scale 0-100 (or scaleMin..scaleMax).
@@ -71,16 +72,15 @@ export function GapPair({
   const gapPts = externalPct - internalPct;
   const printedDelta =
     deltaLabel ??
-    `${gapPts >= 0 ? "+" : ""}${gapPts.toFixed(0)} pts`;
+    `${gapPts >= 0 ? "+" : ""}${gapPts.toFixed(0)} ${copy("canonical.attention.ptsGap")}`;
 
   const trackH = compact ? "h-5" : "h-8";
   const trackBandH = compact ? "h-[6px]" : "h-[7px]";
-  const dotDim = heavy
-    ? compact ? "h-[18px] w-[18px]" : "h-[22px] w-[22px]"
-    : compact ? "h-3 w-3" : "h-3.5 w-3.5";
-  const dotDimInternal = heavy
-    ? compact ? "h-[16px] w-[16px]" : "h-[20px] w-[20px]"
-    : compact ? "h-[10px] w-[10px]" : "h-3 w-3";
+  // One dot style for both marks — see dataDotSize in ValueOnTrack.
+  const dotDim = dataDotSize(
+    heavy ? (compact ? "heavyCompact" : "heavy") : compact ? "compact" : "default",
+  );
+  const dotDimInternal = dotDim;
   const connectorH = heavy ? "h-[4px]" : "h-[2px]";
   const connectorInk = heavy ? "var(--color-slate-500)" : "var(--color-slate-400)";
   const deltaInk =
@@ -159,8 +159,8 @@ export function GapPair({
               </span>
               <span className="inline-flex items-center gap-1.5">
                 <span
-                  className="h-2.5 w-2.5 rounded-full bg-white"
-                  style={{ border: "2px solid var(--color-axis-cost)" }}
+                  className="h-2.5 w-2.5 rounded-full"
+                  style={{ backgroundColor: "var(--color-axis-cost)" }}
                 />
                 {copy("canonical.axisGroup.internalCost")}
               </span>
