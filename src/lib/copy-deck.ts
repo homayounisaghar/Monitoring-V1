@@ -83,7 +83,19 @@ export const COPY = {
   // ---------- Register-class hovers / labels (v2 + v3) ----------
   "flag.hover": "Flagged in Attention — view",
   "trust.hoverGeneric": "coverage under 80%",
+  // Withheld qualifiers — a fully withheld cell or row states its reason on
+  // the canvas. Hover keeps the detailed coverage read; these are the visible
+  // short forms, so a static screenshot never shows an unexplained dash.
+  "trust.withheld.notComparable": "not comparable",
+  "trust.withheld.buildingBaseline": "building baseline",
+  "trust.withheld.noData": "no data",
+  "trust.withheld.notSubmitted": "not submitted",
+  "trust.withheld.notCollected": "not collected",
+  "trust.withheld.thinCoverage": "coverage too thin",
+  "trust.withheld.noTypical": "no typical yet",
+  "trust.withheld.noSession": "no session",
   "columns.capReason": "At the 12-column cap — remove one to add another",
+
   "chart.captionAbsolute": "Ranked by {metric}",
   "chart.captionPercent": "Ranked by delta · {metric}",
 
@@ -187,13 +199,19 @@ export const COPY = {
   // Row-level scaled tag pattern; consumers substitute the minutes.
   "squad.row.scaledTagTemplate": "{min}′ · scaled",
   "squad.row.scaledHoverTemplate": "played {min}′ — reference adjusted to minutes",
+  // Row-level withheld qualifiers — printed beside the minutes so the row's
+  // dashes are explained without hover.
+  "squad.row.notComparableTagTemplate": "{min}′ · not comparable",
+  "squad.row.scaledNotComparableTagTemplate": "{min}′ · scaled, not comparable",
+  "squad.row.buildingTagTemplate": "{min}′ · building baseline",
   // Replaces per-cell "NOT COMPARED".
   "squad.cell.notCompared": "—",
   "squad.cell.notComparedHoverTemplate": "{min}′ — too short to compare",
   // DRAFT — hover for the empty %-mode cell on the building-baseline row.
   "squad.cell.buildingHoverTemplate": "Building baseline · {done} of {min} sessions to minimum history",
-  // Column-picker counter.
-  "squad.columnPicker.counterTemplate": "{n} / {max}",
+  // Column-picker counter. 12 is a cap, not a total — the template says so.
+  "squad.columnPicker.counterTemplate": "{n} of {max} max",
+
   // Full-data pointer.
   "squad.export.link": "Full data in export →",
 

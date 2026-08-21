@@ -43,6 +43,7 @@ import {
 import type { ParticipationTag, PositionCode } from "@/lib/session-data";
 import { POSITION_LABEL } from "@/lib/session-data";
 import { MAX_COLUMNS } from "@/lib/squad-metrics";
+import { withheldQualifier, type WithheldReason } from "@/components/data/TrustMark";
 import { dayMonth, dayMonthLong } from "@/lib/format-date";
 import { refLabel, DEFAULT_REF, type RefKind } from "./ScopeLine";
 
@@ -74,6 +75,13 @@ function fmt2(v: number): string {
 function fmtInt(v: number): string {
   return String(Math.round(v));
 }
+/* Withheld cell — the dash carries its reason on the canvas, per the
+ * amended trust grammar. sRPE is the one metric an athlete can withhold
+ * himself, so it reads "not submitted"; everything else reads "no data". */
+function dashReason(metricId: string): WithheldReason {
+  return metricId === "srpeAU" ? "notSubmitted" : "noData";
+}
+
 function surname(name: string): string {
   const parts = name.trim().split(/\s+/);
   return parts[parts.length - 1];
@@ -608,9 +616,11 @@ function TotalsRow({ row, view }: { row: AthleteTotals; view: View }) {
             return (
               <NumericCell
                 key={c.id}
-                text={v == null || v === 0 ? "—" : c.fmtAbs(v)}
+                text={v == null || v === 0 ? "\u2014" : c.fmtAbs(v)}
                 sub={
-                  coveragePartial
+                  v == null || v === 0
+                    ? withheldQualifier(dashReason(c.id))
+                    : coveragePartial
                     ? tmpl("longi.days.cov", { pct: Math.round((hrShare as number) * 100) })
                     : undefined
                 }
@@ -657,7 +667,8 @@ function TypicalRowCells({ row }: { row: AthleteTotals }) {
         return (
           <NumericCell
             key={c.id}
-            text={v == null ? "—" : fmtInt(v)}
+            text={v == null ? "\u2014" : fmtInt(v)}
+            sub={v == null ? withheldQualifier(dashReason(c.id)) : undefined}
           />
         );
       })}
@@ -691,8 +702,8 @@ function AcRowCells({ row }: { row: AthleteTotals }) {
         return (
           <NumericCell
             key={c.id}
-            // A:C carries bare numbers and nothing else.
-            text={v == null ? "—" : fmt2(v)}
+            text={v == null ? "\u2014" : fmt2(v)}
+            sub={v == null ? withheldQualifier(dashReason(c.id)) : undefined}
           />
         );
       })}
@@ -761,7 +772,11 @@ function SquadAverageRow({
               .filter((x): x is number => x != null && x > 0);
             const v = avg(nums);
             return (
-              <NumericCell key={c.id} text={v == null ? "—" : c.fmtAbs(v)} />
+              <NumericCell
+                key={c.id}
+                text={v == null ? "\u2014" : c.fmtAbs(v)}
+                sub={v == null ? withheldQualifier("noData") : undefined}
+              />
             );
           })}
         </>
@@ -778,7 +793,11 @@ function SquadAverageRow({
             }
             const v = avg(nums);
             return (
-              <NumericCell key={c.id} text={v == null ? "—" : fmtInt(v)} />
+              <NumericCell
+                key={c.id}
+                text={v == null ? "\u2014" : fmtInt(v)}
+                sub={v == null ? withheldQualifier("noData") : undefined}
+              />
             );
           })}
         </>
@@ -795,7 +814,11 @@ function SquadAverageRow({
             }
             const v = avg(nums);
             return (
-              <NumericCell key={c.id} text={v == null ? "—" : fmt2(v)} />
+              <NumericCell
+                key={c.id}
+                text={v == null ? "\u2014" : fmt2(v)}
+                sub={v == null ? withheldQualifier("noData") : undefined}
+              />
             );
           })}
         </>

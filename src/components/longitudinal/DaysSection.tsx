@@ -21,6 +21,21 @@ import {
 import { dayMonth2, weekdayDayMonth } from "@/lib/format-date";
 import { benchLabel, DEFAULT_BENCH, type BenchKind } from "./ScopeLine";
 import { hrvSquadOnDay, HRV_LANE_DOMAIN, RECOVERY_INK_VAR } from "@/lib/recovery-data";
+import { withheldQualifier, type WithheldReason } from "@/components/data/TrustMark";
+
+/* Withheld text — the dash plus its visible reason. Trust grammar: hover
+ * carries the detail, the canvas carries the reason. */
+function withheldText(reason: WithheldReason): string {
+  return `\u2014 ${withheldQualifier(reason)}`;
+}
+/** Maps a data-layer withhold reason onto the grammar's short qualifier. */
+function reasonToQualifier(reason: string): WithheldReason {
+  if (reason === "insufficient_coverage") return "thinCoverage";
+  if (reason === "no_comparable_typical" || reason === "metric_not_in_expected")
+    return "noTypical";
+  if (reason === "insufficient_days") return "noTypical";
+  return "noData";
+}
 
 /* ─────────────────── fixed drawn domains (§2) ─────────────────── */
 /*
@@ -612,11 +627,11 @@ function valueSlotText(
       ? formatAbs(windowAvg, metric)
       : `${Math.round(windowAvg)}%`;
   }
-  if (activeDay.kind === "missing") return "—";
+  if (activeDay.kind === "missing") return withheldText("noSession");
   if (activeDay.kind === "rest") return "0";
   if (mode === "absolute") {
     const v = activeDay.perMetric[metric];
-    if (v == null) return "—";
+    if (v == null) return withheldText("noData");
     const base = formatAbs(v, metric);
     if (metric === "cardioLoad" && activeDay.hrCoverageShare != null && activeDay.hrCoverageShare < 1) {
       const pct = Math.round(activeDay.hrCoverageShare * 100);
@@ -630,9 +645,10 @@ function valueSlotText(
     }
     return base;
   }
-  if (metric === "srpeAU" && !activeDay.srpeCollected) return "—";
+  if (metric === "srpeAU" && !activeDay.srpeCollected) return withheldText("notCollected");
   const c = activeDay.vsTypical[metric];
-  if (!c || c.state !== "computed") return "—";
+  if (!c) return withheldText("noData");
+  if (c.state !== "computed") return withheldText(reasonToQualifier(c.reason));
   return `${Math.round(c.pct)}%`;
 }
 
@@ -872,7 +888,7 @@ function DaysTable({
   };
   const pct = (c: DayEntry["vsTypical"][LongiMetric]): string => {
     if (!c) return "";
-    if (c.state === "withheld") return "—";
+    if (c.state === "withheld") return withheldText(reasonToQualifier(c.reason));
     return `${Math.round(c.pct)}%`;
   };
 
@@ -971,7 +987,7 @@ function RecoveryLaneLabel({
   const read = dateISO ? hrvSquadOnDay(dateISO) : null;
   const slotText = (() => {
     if (!read) return "";
-    if (read.state === "withheld") return "—";
+    if (read.state === "withheld") return withheldText("noTypical");
     return `${Math.round(read.medianPct)}%`;
   })();
 
