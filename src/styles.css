@@ -58,6 +58,8 @@
   --color-axis-work: var(--axis-work);
   --color-axis-cost: var(--axis-cost);
   --color-axis-cost-light: var(--axis-cost-light);
+  --color-axis-work-ink: var(--axis-work-ink);
+  --color-axis-cost-ink: var(--axis-cost-ink);
   --color-axis-work-tinted: var(--axis-work-tinted);
   --color-axis-cost-tinted: var(--axis-cost-tinted);
 
@@ -146,6 +148,8 @@
   --axis-work: #3B82F6;
   --axis-cost: #7E22CE;
   --axis-cost-light: #B486E4;
+  --axis-work-ink: #1D4ED8;
+  --axis-cost-ink: #6B21A8;
   --axis-work-tinted: #F5F8FE;
   --axis-cost-tinted: #FAF6FE;
 
