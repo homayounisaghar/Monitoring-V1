@@ -61,6 +61,58 @@ function Card({
   );
 }
 
+/** Styleguide-only demo bars for the chart-legibility rules. */
+function MiniBars({
+  values,
+  caption,
+  labelDetached = false,
+  invert = false,
+  wrong = false,
+}: {
+  values: number[];
+  caption: string;
+  labelDetached?: boolean;
+  invert?: boolean;
+  wrong?: boolean;
+}) {
+  const H = 56;
+  const max = 150;
+  return (
+    <div className="space-y-2">
+      <div className="flex items-end gap-4" style={{ height: H + 18 }}>
+        {values.map((v, i) => {
+          const drawn = invert ? max - v + 30 : v;
+          const h = Math.max(3, (drawn / max) * H);
+          return (
+            <div key={i} className="relative flex-1" style={{ height: H + 18 }}>
+              <div
+                className="absolute bottom-0 left-1/2 w-8 -translate-x-1/2 rounded-[2px]"
+                style={{ height: h, backgroundColor: "var(--color-axis-work)" }}
+              />
+              <span
+                className="type-num absolute left-1/2 -translate-x-1/2 text-[11px]"
+                style={{
+                  bottom: labelDetached ? H + 2 : h + 1,
+                  color: "var(--color-text-secondary)",
+                }}
+              >
+                {v}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+      <div
+        className="type-label"
+        style={{ color: wrong ? "var(--color-escalate-ink)" : "var(--color-text-tertiary)" }}
+      >
+        {caption}
+      </div>
+    </div>
+
+  );
+}
+
 function Swatch({
   token,
   hex,
