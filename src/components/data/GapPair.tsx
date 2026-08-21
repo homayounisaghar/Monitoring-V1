@@ -81,9 +81,10 @@ export function GapPair({
   const hiLabel = `${Math.round(max)}`;
 
   return (
-    <div className="flex w-full items-center gap-1">
-      <TrackEndpoint label={loLabel} geo={g} size={size} />
+    <div className="flex w-full items-center">
       <div className="group relative flex-1" style={{ height: g.h }}>
+      <TrackEndpoint label={loLabel} geo={g} side="lo" size={size} />
+      <TrackEndpoint label={hiLabel} geo={g} side="hi" size={size} />
       {/* hairline */}
       <div
         className="absolute left-0 right-0"
@@ -203,7 +204,6 @@ export function GapPair({
         {hoverText}
       </div>
       </div>
-      <TrackEndpoint label={hiLabel} geo={g} size={size} />
     </div>
   );
 }
