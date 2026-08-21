@@ -544,7 +544,9 @@ function AccountingLine({
           {a.name}{" "}
           <span className="type-num" style={{ color: "var(--color-text-tertiary)" }}>
             {a.cov}
-            {i === lowCov.length - 1 ? copy("canonical.attention.hrCovSuffix") : ""}
+            {/* Units rule: the unit repeats on every value in a serialized
+                list — never printed once on the last item only. */}
+            {copy("canonical.attention.hrCovSuffix")}
           </span>
         </span>,
       );
