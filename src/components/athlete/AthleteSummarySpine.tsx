@@ -598,8 +598,11 @@ function SpineRowView({
             typical for this day type. Withheld/building states skip. */}
         {peerRow && (peerRow.state.kind === "ok" || peerRow.state.kind === "hollow" || peerRow.state.kind === "beyondRange") && (
           <div
-            className="absolute top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full"
+            className="absolute -translate-x-1/2 rounded-full"
             style={{
+              top: g.y - 4,
+              height: 8,
+              width: 8,
               left: `${
                 peerRow.state.kind === "beyondRange"
                   ? peerRow.state.side === "high" ? 100 : 0
@@ -676,6 +679,9 @@ function SpineRowView({
               }}
             />
           </div>
+        )}
+
+          </>
         )}
 
         {/* transient hover — only band bounds + reference value */}
