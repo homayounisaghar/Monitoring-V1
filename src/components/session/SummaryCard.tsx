@@ -221,7 +221,7 @@ export function SummaryCard() {
                 withValueColumn={false}
                 tickLabel={`100 · ${axisTick}`}
               />
-              <TrackAxis mode="deviation" withValueColumn={false} />
+              <div />
               <WorkMark
                 label={METRIC_LIB.totalDistance.label}
                 value={marks.totalDistanceM}
