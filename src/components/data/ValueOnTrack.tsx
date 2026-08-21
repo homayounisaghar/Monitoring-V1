@@ -1,28 +1,36 @@
 import { copy } from "@/lib/copy-deck";
 /**
  * ValueOnTrack — canonical comparison object (foundation anatomy).
- * Band always rendered. Reference band + tick honor baseline state
- * (mature=narrow, young=wide, building=withheld). Value in owning
- * axis hue. Signed % delta in the canonical dialect. Overflow clamps
- * to the window edge and shows a caret past the printed number.
  *
- * `size="compact"` renders a row-height version (used inside Attention
- * rows). `showValue={false}` hides the absolute number and shows only
- * the track + delta, useful for row reads where the label lives at the
- * left of the row.
+ * Anatomy (ratified 2026-08-21):
+ *   • hairline      — 1px slate-300 rule, with 1px × 8px end caps at both extremes
+ *   • reference band— slate-200 fill, 16px tall, 1px slate-300 left/right edges,
+ *                     2px radius. A bounded interval, not a smudge.
+ *   • reference tick— 1px slate-400, 22px tall, crossing the hairline
+ *   • session mark  — 8px dot, filled in the metric's axis hue, on the hairline
+ *   • delta         — rides the mark: mono 11px, centred on the dot, 21px above
+ *                     the hairline. Never detached in the value column.
+ *   • value column  — absolute value + unit only.
+ *
+ * One-utterance rule: every scale fact (endpoints, the 100 tick label) is
+ * printed exactly once, by <TrackAxis> above a stack of tracks sharing one
+ * scale. Never per row, never as a sentence.
+ *
+ * Hover on the track reveals only what is not on canvas: the band bounds in
+ * scale units and the reference absolute with its unit.
  */
 export type Axis = "work" | "cost" | "neutral";
 
 /**
  * Canonical data-mark glyph. One dot style across every track in the
- * system: filled in its axis hue, one diameter per density, separated
- * from the band by a white keyline. No single/double, dark/light or
- * open/filled variants — hue says which axis, position says how much.
+ * system: filled in its axis hue, one diameter per density. Hue says which
+ * axis, position says how much. No open/filled or double-dot variants, and
+ * no halo — the reserved white ring belongs to the two-mark pair only.
  */
 export function dataDotSize(density: "default" | "compact" | "heavy" | "heavyCompact") {
   if (density === "heavy") return "h-[22px] w-[22px]";
   if (density === "heavyCompact") return "h-[18px] w-[18px]";
-  return density === "compact" ? "h-3 w-3" : "h-3.5 w-3.5";
+  return density === "compact" ? "h-[6px] w-[6px]" : "h-2 w-2";
 }
 export const DATA_DOT_KEYLINE = "rounded-full ring-2 ring-white";
 export type BaselineState = "mature" | "young" | "building";
@@ -31,6 +39,96 @@ function axisColor(axis: Axis) {
   if (axis === "work") return "var(--color-axis-work)";
   if (axis === "cost") return "var(--color-axis-cost)";
   return "var(--color-data-ink)";
+}
+
+function axisDeltaInk(axis: Axis) {
+  if (axis === "work") return "var(--color-axis-work-ink)";
+  if (axis === "cost") return "var(--color-axis-cost-ink)";
+  return "var(--color-text-secondary)";
+}
+
+/* ------------------------------------------------------------------ */
+/* Geometry — one table, two densities. Nothing shrinks into illegibility. */
+/* ------------------------------------------------------------------ */
+const GEO = {
+  default: { h: 42, y: 30, band: 16, tick: 22, cap: 8, dot: 8, delta: 11, deltaUp: 21 },
+  compact: { h: 34, y: 25, band: 12, tick: 18, cap: 7, dot: 6, delta: 10, deltaUp: 17 },
+} as const;
+
+function fmt(n: number) {
+  return Math.abs(n) >= 1000 || Number.isInteger(n)
+    ? n.toLocaleString()
+    : n.toFixed(1);
+}
+
+/* ------------------------------------------------------------------ */
+/* TrackAxis — the scale, uttered once above a stack of tracks          */
+/* ------------------------------------------------------------------ */
+export type TrackAxisProps = {
+  mode: "deviation" | "shared";
+  windowPct?: number;
+  scaleMin?: number;
+  scaleMax?: number;
+  unit?: string;
+  /** Label sitting over the reference tick, e.g. "100 · typical match". */
+  tickLabel?: string;
+  /** Reserve the same right-hand value column the rows use. */
+  withValueColumn?: boolean;
+  /** Optional left gutter matching the row's label column width, in px. */
+  leadingGutter?: number;
+};
+
+export function TrackAxis({
+  mode,
+  windowPct = 0.4,
+  scaleMin = 0,
+  scaleMax = 1,
+  unit,
+  tickLabel,
+  withValueColumn = true,
+  leadingGutter,
+}: TrackAxisProps) {
+  const deviation = mode === "deviation";
+  const lo = deviation ? `${Math.round((1 - windowPct) * 100)}` : `${fmt(scaleMin)}`;
+  const hi = deviation
+    ? `${Math.round((1 + windowPct) * 100)}`
+    : `${fmt(scaleMax)}${unit ? ` ${unit}` : ""}`;
+  const refPct = deviation
+    ? 50
+    : Math.max(0, Math.min(100, ((100 - scaleMin) / (scaleMax - scaleMin)) * 100));
+
+  return (
+    <div className="flex items-end gap-3">
+      {leadingGutter ? <div style={{ width: leadingGutter }} className="shrink-0" /> : null}
+      <div className="relative h-4 flex-1">
+        <span
+          className="type-num absolute bottom-0 left-0 text-[10px]"
+          style={{ color: "var(--color-text-tertiary)" }}
+        >
+          {lo}
+        </span>
+        {tickLabel ? (
+          <span
+            className="type-num absolute bottom-0 whitespace-nowrap text-[10px]"
+            style={{
+              left: `${refPct}%`,
+              transform: "translateX(-50%)",
+              color: "var(--color-text-secondary)",
+            }}
+          >
+            {tickLabel}
+          </span>
+        ) : null}
+        <span
+          className="type-num absolute bottom-0 right-0 text-[10px]"
+          style={{ color: "var(--color-text-tertiary)" }}
+        >
+          {hi}
+        </span>
+      </div>
+      {withValueColumn ? <div className="min-w-[130px] shrink-0" /> : null}
+    </div>
+  );
 }
 
 export type ValueOnTrackProps = {
@@ -47,6 +145,8 @@ export type ValueOnTrackProps = {
   unit?: string;
   deltaAbs?: string;
   baselineState?: BaselineState;
+  /** Sessions banked so far, printed in the building-baseline state. */
+  baselineSessions?: number;
   size?: "default" | "compact";
   showValue?: boolean;
   showDelta?: boolean;
@@ -68,6 +168,7 @@ export function ValueOnTrack({
   unit,
   deltaAbs,
   baselineState = "mature",
+  baselineSessions = 3,
   size = "default",
   showValue,
   showDelta = true,
@@ -75,7 +176,8 @@ export function ValueOnTrack({
   qualified = true,
 }: ValueOnTrackProps) {
   const compact = size === "compact";
-  const withValue = showValue ?? !compact;
+  const g = compact ? GEO.compact : GEO.default;
+  const withValue = showValue ?? true;
   const color = axisColor(axis);
   const withheld = baselineState === "building";
   const deltaPct = ((value - reference) / reference) * 100;
@@ -87,6 +189,8 @@ export function ValueOnTrack({
   let bandRightPct = 0;
   let clamped = false;
   let clampDir: "high" | "low" | null = null;
+  let bandLoLabel: string;
+  let bandHiLabel: string;
 
   if (mode === "deviation") {
     const raw = (value - reference) / reference;
@@ -105,6 +209,8 @@ export function ValueOnTrack({
     const halfBandFrac = referenceBandPct ?? 0.08;
     bandLeftPct = Math.max(0, ((-halfBandFrac + windowPct) / (windowPct * 2)) * 100);
     bandRightPct = Math.min(100, ((halfBandFrac + windowPct) / (windowPct * 2)) * 100);
+    bandLoLabel = `${Math.round((1 - halfBandFrac) * 100)}`;
+    bandHiLabel = `${Math.round((1 + halfBandFrac) * 100)}`;
   } else {
     const min = scaleMin ?? 0;
     const max = scaleMax ?? 1;
@@ -123,68 +229,162 @@ export function ValueOnTrack({
     const halfBandAbs = referenceBandPct ?? (max - min) * 0.05;
     bandLeftPct = Math.max(0, ((reference - halfBandAbs - min) / (max - min)) * 100);
     bandRightPct = Math.min(100, ((reference + halfBandAbs - min) / (max - min)) * 100);
+    bandLoLabel = fmt(reference - halfBandAbs);
+    bandHiLabel = fmt(reference + halfBandAbs);
   }
 
-
-  const trackH = compact ? "h-5" : "h-7";
-  const trackBandH = compact ? "h-[6px]" : "h-[7px]";
-  const refBandH = compact ? "h-[9px]" : "h-[11px]";
-  const tickH = compact ? "h-3" : "h-4";
-  const dotDim = dataDotSize(compact ? "compact" : "default");
   const deltaInk =
     deltaTone === "escalate"
       ? "var(--color-escalate-ink)"
       : deltaTone === "notice"
         ? "var(--color-notice-ink)"
-        : "var(--color-text-secondary)";
+        : axisDeltaInk(axis);
+
+  const hoverText = `normal range ${bandLoLabel}–${bandHiLabel} · typical ${fmt(reference)}${unit ? ` ${unit}` : ""}`;
 
   return (
     <div className="flex items-center gap-3">
-      <div className={`relative ${trackH} flex-1`}>
+      <div className="group relative flex-1" style={{ height: g.h }}>
+        {/* hairline */}
         <div
-          className={`absolute left-0 right-0 top-1/2 ${trackBandH} -translate-y-1/2 rounded-full`}
-          style={{ backgroundColor: "var(--color-data-band)" }}
+          className="absolute left-0 right-0"
+          style={{ top: g.y, height: 1, backgroundColor: "var(--color-slate-300)" }}
         />
-        {!withheld && (
-          <div
-            className={`absolute top-1/2 ${refBandH} -translate-y-1/2 rounded-sm`}
-            style={{
-              left: `${bandLeftPct}%`,
-              width: `${bandRightPct - bandLeftPct}%`,
-              backgroundColor: "var(--color-reference-band)",
-            }}
-            aria-label={copy("vot.bandHover")}
-          />
-        )}
-        {!withheld && (
-          <div
-            className={`absolute top-1/2 ${tickH} w-[2px] -translate-x-1/2 -translate-y-1/2 rounded-sm`}
-            style={{ left: `${refPct}%`, backgroundColor: "var(--color-data-reference)" }}
-            aria-label={copy("canonical.vot.reference")}
-            title={scaleLabel}
-          />
-        )}
+        {/* end caps */}
         <div
-          className={`absolute top-1/2 ${dotDim} -translate-x-1/2 -translate-y-1/2 rounded-full ring-2 ring-white`}
-          style={{ left: `${posPct}%`, backgroundColor: color }}
-          aria-label={copy("canonical.vot.value")}
+          className="absolute left-0"
+          style={{ top: g.y - g.cap / 2, height: g.cap, width: 1, backgroundColor: "var(--color-slate-300)" }}
         />
-        {clamped && !withheld && (
-          <div
-            className="absolute top-1/2 -translate-y-1/2 type-num text-[10px] font-semibold"
+        <div
+          className="absolute right-0"
+          style={{ top: g.y - g.cap / 2, height: g.cap, width: 1, backgroundColor: "var(--color-slate-300)" }}
+        />
+
+        {withheld ? (
+          <span
+            className="absolute left-1/2 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap px-2 text-[11px]"
             style={{
-              [clampDir === "high" ? "right" : "left"]: "-4px",
-              color: "var(--color-text-secondary)",
+              top: g.y,
+              color: "var(--color-text-tertiary)",
+              backgroundColor: "var(--color-surface-card)",
             }}
           >
-            {clampDir === "high" ? "▸" : "◂"}
-          </div>
+            {copy("canonical.vot.baselineBuilding")} · {baselineSessions} of 5 sessions
+          </span>
+        ) : (
+          <>
+            {/* reference band — a bounded interval */}
+            <div
+              className="absolute"
+              style={{
+                left: `${bandLeftPct}%`,
+                width: `${bandRightPct - bandLeftPct}%`,
+                top: g.y - g.band / 2,
+                height: g.band,
+                backgroundColor: "var(--color-reference-band)",
+                borderLeft: "1px solid var(--color-slate-300)",
+                borderRight: "1px solid var(--color-slate-300)",
+                borderRadius: 2,
+              }}
+              aria-label={copy("vot.bandHover")}
+            />
+            {/* reference tick */}
+            <div
+              className="absolute -translate-x-1/2"
+              style={{
+                left: `${refPct}%`,
+                top: g.y - g.tick / 2,
+                height: g.tick,
+                width: 1,
+                backgroundColor: "var(--color-data-reference)",
+              }}
+              aria-label={copy("canonical.vot.reference")}
+              title={scaleLabel}
+            />
+            {/* clamp break glyph — two slanted strokes just inside the end */}
+            {clamped && (
+              <div
+                className="absolute"
+                style={{
+                  left: clampDir === "high" ? undefined : 10,
+                  right: clampDir === "high" ? 10 : undefined,
+                  top: g.y - 5,
+                  height: 10,
+                  width: 9,
+                }}
+                aria-hidden
+              >
+                <div
+                  className="absolute left-0 top-0"
+                  style={{
+                    height: 10,
+                    width: 1,
+                    backgroundColor: "var(--color-trust-dot)",
+                    transform: "rotate(24deg)",
+                  }}
+                />
+                <div
+                  className="absolute right-0 top-0"
+                  style={{
+                    height: 10,
+                    width: 1,
+                    backgroundColor: "var(--color-trust-dot)",
+                    transform: "rotate(24deg)",
+                  }}
+                />
+              </div>
+            )}
+            {/* session mark */}
+            <div
+              className="absolute -translate-x-1/2 rounded-full"
+              style={{
+                left: `${posPct}%`,
+                top: g.y - g.dot / 2,
+                height: g.dot,
+                width: g.dot,
+                backgroundColor: color,
+              }}
+              aria-label={copy("canonical.vot.value")}
+            />
+            {/* delta rides the mark */}
+            {showDelta && (
+              <span
+                className="type-num absolute -translate-x-1/2 whitespace-nowrap font-medium"
+                style={{
+                  left: `${posPct}%`,
+                  top: g.y - g.deltaUp - g.delta,
+                  fontSize: g.delta,
+                  lineHeight: `${g.delta + 2}px`,
+                  color: deltaInk,
+                }}
+                title={deltaAbs ? `Δ ${deltaAbs}` : undefined}
+              >
+                {deltaLabel}
+              </span>
+            )}
+            {/* transient hover — only the numbers not on canvas */}
+            <div
+              className="type-num pointer-events-none absolute left-1/2 z-10 hidden -translate-x-1/2 whitespace-nowrap rounded px-2 py-1 text-[10.5px] group-hover:block"
+              style={{
+                top: g.y + 8,
+                backgroundColor: "var(--color-slate-800)",
+                color: "#FFFFFF",
+              }}
+              role="tooltip"
+            >
+              {hoverText}
+            </div>
+          </>
         )}
       </div>
 
-      {(withValue || showDelta) &&
-        (withValue ? (
-          <div className="flex min-w-[130px] items-baseline justify-end gap-2">
+      {withValue && (
+        <div className="flex min-w-[130px] items-baseline justify-end gap-2">
+          {withheld ? (
+            <span className="type-num text-[13px]" style={{ color: "var(--color-text-tertiary)" }}>
+              —
+            </span>
+          ) : (
             <span
               className="inline-flex items-baseline gap-1.5"
               title={!qualified ? copy("trust.hoverGeneric") : undefined}
@@ -200,46 +400,23 @@ export function ValueOnTrack({
                 />
               )}
               <span
-                className="type-num text-sm font-semibold"
+                className="type-num text-[13px] font-semibold"
                 style={{ color: qualified ? "var(--color-text-primary)" : "var(--color-text-tertiary)" }}
               >
                 {value.toLocaleString()}
-                {unit ? <span className="type-data-label ml-0.5">{unit}</span> : null}
               </span>
+              {unit ? (
+                <span
+                  className="type-num text-[10.5px]"
+                  style={{ color: "var(--color-text-tertiary)" }}
+                >
+                  {unit}
+                </span>
+              ) : null}
             </span>
-            {withheld ? (
-              <span
-                className="type-data-label italic"
-                title={copy("vot.baselineHover")}
-              >
-                {copy("canonical.vot.baselineBuilding")}
-              </span>
-            ) : (
-              <span
-                className="type-num text-xs font-medium"
-                style={{ color: deltaInk }}
-                title={deltaAbs ? `Δ ${deltaAbs}` : undefined}
-              >
-                {deltaLabel}
-              </span>
-            )}
-          </div>
-        ) : withheld ? (
-          <span
-            className="type-data-label w-[54px] shrink-0 text-right italic"
-            title={copy("vot.baselineHover")}
-          >
-            {copy("canonical.vot.building")}
-          </span>
-        ) : (
-          <span
-            className="type-num w-[54px] shrink-0 text-right text-[12.5px] font-semibold"
-            style={{ color: deltaInk }}
-            title={deltaAbs ? `Δ ${deltaAbs}` : undefined}
-          >
-            {deltaLabel}
-          </span>
-        ))}
+          )}
+        </div>
+      )}
     </div>
   );
 }
