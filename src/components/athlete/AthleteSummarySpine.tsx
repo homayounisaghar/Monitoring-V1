@@ -39,6 +39,7 @@ import {
   type HrvReadState,
 } from "@/lib/recovery-data";
 import { Flag } from "lucide-react";
+import { TrackAxis, TRACK_GEO } from "@/components/data/ValueOnTrack";
 
 const PINNED_SESSION_ID = "s-2026-07-04-dortmund";
 
@@ -181,7 +182,19 @@ export function AthleteSummarySpine({ athleteId, sessionId, flagActive, peerSpin
 
       {/* Groups */}
       <div className="px-5 py-4">
-        <GroupBlock label={copy("athlete.summary.groupExternal")} rows={external} firstRowShowsAxis peerByMetric={peerByMetric} />
+        {/* The scale, uttered once for every stack on this page — all rows
+            share the same 40–160 % drawn range. Never repeated per row. */}
+        <TrackAxis
+          mode="shared"
+          scaleMin={ATHLETE_SPINE_DOMAIN[0]}
+          scaleMax={ATHLETE_SPINE_DOMAIN[1]}
+          reference={100}
+          tickLabel={copy("athlete.summary.hundred")}
+          leadingGutter={170}
+          withValueColumn={false}
+        />
+        <div className="h-1" />
+        <GroupBlock label={copy("athlete.summary.groupExternal")} rows={external} peerByMetric={peerByMetric} />
         <div className="my-3 h-px" style={{ backgroundColor: "var(--color-border)" }} aria-hidden />
         <GroupBlock label={copy("athlete.summary.groupInternal")} rows={internal} peerByMetric={peerByMetric} />
         <div className="my-3 h-px" style={{ backgroundColor: "var(--color-border)" }} aria-hidden />
@@ -325,12 +338,10 @@ function HrvRowView({ read }: { read: HrvReadState & { morningAfterISO?: string 
 function GroupBlock({
   label,
   rows,
-  firstRowShowsAxis = false,
   peerByMetric,
 }: {
   label: string;
   rows: SpineRow[];
-  firstRowShowsAxis?: boolean;
   peerByMetric?: Map<SpineMetricId, SpineRow>;
 }) {
   return (
@@ -342,11 +353,10 @@ function GroupBlock({
         {label}
       </div>
       <div className="flex flex-col">
-        {rows.map((r, idx) => (
+        {rows.map((r) => (
           <SpineRowView
             key={r.metricId}
             row={r}
-            showAxisLabels={firstRowShowsAxis && idx === 0}
             peerRow={peerByMetric?.get(r.metricId) ?? null}
           />
         ))}
@@ -379,11 +389,9 @@ function formatValue(v: number, unit: string) {
 
 function SpineRowView({
   row,
-  showAxisLabels = false,
   peerRow = null,
 }: {
   row: SpineRow;
-  showAxisLabels?: boolean;
   peerRow?: SpineRow | null;
 }) {
   const color = axisColor(row.axis);
@@ -412,8 +420,22 @@ function SpineRowView({
 
   const hollow = row.state.kind === "hollow";
 
-  // Delta ink stays neutral — no severity colour here, ever.
-  const deltaInk = "var(--color-text-secondary)";
+  // Delta rides the mark, in the owning axis ink — never in the value
+  // column, never neutral.
+  const deltaInk =
+    row.axis === "work"
+      ? "var(--color-axis-work-ink)"
+      : "var(--color-axis-cost-ink)";
+
+  const g = TRACK_GEO.default;
+
+  // Hover — only the numbers not printed on canvas.
+  const bandLo =
+    row.bandLoPct != null ? Math.round(row.bandLoPct) : Math.round(100);
+  const bandHi =
+    row.bandHiPct != null ? Math.round(row.bandHiPct) : Math.round(100);
+  const hoverText =
+    `normal range ${bandLo}–${bandHi} · typical ${row.value == null ? "" : formatValue(row.value, row.unit)} ${row.unit ?? ""}`.trim();
 
   // Right-edge value
   const rightSide = (() => {
@@ -466,18 +488,8 @@ function SpineRowView({
           )}
         </span>
         {row.state.kind === "building" ? (
-          <span
-            className="type-data-label italic text-[11px]"
-            style={{ color: "var(--color-text-tertiary)" }}
-          >
-            {copy("athlete.summary.baselineBuilding")}
-          </span>
-        ) : row.deltaPct != null && row.state.kind !== "beyondRange" ? (
-          <span
-            className="type-num text-[11.5px]"
-            style={{ color: deltaInk }}
-          >
-            {`${row.deltaPct >= 0 ? "+" : ""}${row.deltaPct.toFixed(0)}%`}
+          <span className="type-num text-[13px]" style={{ color: "var(--color-text-tertiary)" }}>
+            —
           </span>
         ) : (
           <span className="text-[11.5px]" style={{ color: "transparent" }}>·</span>
@@ -519,75 +531,78 @@ function SpineRowView({
         )}
       </div>
 
-      {/* The track */}
-      <div className={showAxisLabels ? "relative h-9 pt-3" : "relative h-6"}>
-        {/* base rail */}
+      {/* The track — new anatomy */}
+      <div className="group relative" style={{ height: g.h }}>
+        {/* hairline */}
         <div
-          className="absolute left-0 right-0 top-1/2 h-[6px] -translate-y-1/2 rounded-full"
-          style={{ backgroundColor: "var(--color-data-band)" }}
+          className="absolute left-0 right-0"
+          style={{ top: g.y, height: 1, backgroundColor: "var(--color-slate-300)" }}
         />
-        {/* 40 / 160 tick labels — printed ONCE per section, on the first row. */}
-        {showAxisLabels && (
+        {/* end caps */}
+        <div
+          className="absolute left-0"
+          style={{ top: g.y - g.cap / 2, height: g.cap, width: 1, backgroundColor: "var(--color-slate-300)" }}
+        />
+        <div
+          className="absolute right-0"
+          style={{ top: g.y - g.cap / 2, height: g.cap, width: 1, backgroundColor: "var(--color-slate-300)" }}
+        />
+
+        {row.state.kind === "building" ? (
+          /* Building baseline — the hairline states why. No dot, no band,
+             no delta; the value column shows an em dash. */
+          <span
+            className="absolute left-1/2 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap px-2 text-[11px]"
+            style={{
+              top: g.y,
+              color: "var(--color-text-tertiary)",
+              backgroundColor: "var(--color-surface-card)",
+            }}
+          >
+            {copy("athlete.summary.baselineBuilding")}
+          </span>
+        ) : (
           <>
-            <span
-              className="type-num absolute -left-0.5 top-0 text-[9.5px]"
-              style={{ color: "var(--color-text-tertiary)" }}
-              aria-hidden
-            >
-              {DOMAIN_LO}
-            </span>
-            <span
-              className="type-num absolute -right-0.5 top-0 text-[9.5px]"
-              style={{ color: "var(--color-text-tertiary)" }}
-              aria-hidden
-            >
-              {DOMAIN_HI}
-            </span>
-            {/* `100 — typical` label — printed once for the section, on
-                the first row's track. Required by the scale cold-read
-                gate: a screen-reader aria-label is not a mark on the
-                canvas. */}
-            <span
-              className="type-num absolute top-0 -translate-x-1/2 whitespace-nowrap text-[9.5px]"
+            {/* band ±1 SD — a bounded interval, edges drawn */}
+            {bandVisible && (
+              <div
+                className="absolute"
+                style={{
+                  left: `${bandLeft}%`,
+                  width: `${Math.max(0, bandRight - bandLeft)}%`,
+                  top: g.y - g.band / 2,
+                  height: g.band,
+                  backgroundColor: "var(--color-reference-band)",
+                  borderLeft: "1px solid var(--color-slate-300)",
+                  borderRight: "1px solid var(--color-slate-300)",
+                  borderRadius: 2,
+                }}
+                aria-label="normal range · ±1 SD"
+              />
+            )}
+            {/* 100 line — always present so the gate holds */}
+            <div
+              className="absolute -translate-x-1/2"
               style={{
                 left: `${pctToLeft(100)}%`,
-                color: "var(--color-text-tertiary)",
+                top: g.y - g.tick / 2,
+                height: g.tick,
+                width: 1,
+                backgroundColor: "var(--color-data-reference)",
               }}
-              aria-hidden
-            >
-              {copy("athlete.summary.hundred")}
-            </span>
-          </>
-        )}
-        {/* band ±1 SD */}
-        {bandVisible && (
-          <div
-            className="absolute top-1/2 h-[10px] -translate-y-1/2 rounded-sm"
-            style={{
-              left: `${bandLeft}%`,
-              width: `${Math.max(0, bandRight - bandLeft)}%`,
-              backgroundColor: "var(--color-reference-band)",
-            }}
-            aria-label="normal range · ±1 SD"
-          />
-        )}
-        {/* 100 line — always present so the gate holds */}
-        <div
-          className="absolute top-1/2 h-4 w-[2px] -translate-x-1/2 -translate-y-1/2 rounded-sm"
-          style={{
-            left: `${pctToLeft(100)}%`,
-            backgroundColor: "var(--color-data-reference)",
-          }}
-          aria-label="typical"
-        />
+              aria-label="typical"
+            />
         {/* Peer dot — muted, on the same track, drawn beneath the
             subject's mark so the subject stays legible on overlap.
             Same axis basis: peer's own valuePct against their own
             typical for this day type. Withheld/building states skip. */}
         {peerRow && (peerRow.state.kind === "ok" || peerRow.state.kind === "hollow" || peerRow.state.kind === "beyondRange") && (
           <div
-            className="absolute top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full"
+            className="absolute -translate-x-1/2 rounded-full"
             style={{
+              top: g.y - 4,
+              height: 8,
+              width: 8,
               left: `${
                 peerRow.state.kind === "beyondRange"
                   ? peerRow.state.side === "high" ? 100 : 0
@@ -603,29 +618,85 @@ function SpineRowView({
             marker in the product grammar; this page has no such pair. */}
         {dotVisible && (
           <div
-            className="absolute top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full"
+            className="absolute -translate-x-1/2 rounded-full"
             style={{
               left: `${clampedLeft}%`,
+              top: g.y - g.dot / 2,
+              height: g.dot,
+              width: g.dot,
               backgroundColor: hollow ? "transparent" : color,
-              border: hollow ? `1.75px solid ${color}` : undefined,
+              border: hollow ? `1.5px solid ${color}` : undefined,
               boxSizing: "border-box",
             }}
             aria-label="this session"
           />
         )}
-        {/* caret at edge for beyond-range */}
-        {row.state.kind === "beyondRange" && (
+        {/* delta rides the mark, axis ink */}
+        {dotVisible && row.deltaPct != null && row.state.kind !== "beyondRange" && (
           <span
-            className="absolute top-1/2 -translate-y-1/2 type-num text-[10px]"
+            className="type-num absolute -translate-x-1/2 whitespace-nowrap font-medium"
             style={{
-              [row.state.side === "high" ? "right" : "left"]: "-8px",
-              color: "var(--color-text-secondary)",
+              left: `${clampedLeft}%`,
+              top: g.y - g.deltaUp - g.delta,
+              fontSize: g.delta,
+              lineHeight: `${g.delta + 2}px`,
+              color: deltaInk,
+            }}
+          >
+            {`${row.deltaPct >= 0 ? "+" : ""}${row.deltaPct.toFixed(0)}%`}
+          </span>
+        )}
+        {/* break glyph for beyond-range — two slanted strokes just inside
+            the pinned end, visually distinct from a dot at the bound */}
+        {row.state.kind === "beyondRange" && (
+          <div
+            className="absolute"
+            style={{
+              left: row.state.side === "high" ? undefined : 10,
+              right: row.state.side === "high" ? 10 : undefined,
+              top: g.y - 5,
+              height: 10,
+              width: 9,
             }}
             aria-hidden
           >
-            {row.state.side === "high" ? "▸" : "◂"}
-          </span>
+            <div
+              className="absolute left-0 top-0"
+              style={{
+                height: 10,
+                width: 1,
+                backgroundColor: "var(--color-trust-dot)",
+                transform: "rotate(24deg)",
+              }}
+            />
+            <div
+              className="absolute right-0 top-0"
+              style={{
+                height: 10,
+                width: 1,
+                backgroundColor: "var(--color-trust-dot)",
+                transform: "rotate(24deg)",
+              }}
+            />
+          </div>
         )}
+
+          </>
+        )}
+
+        {/* transient hover — only band bounds + reference value */}
+        <div
+          className="type-num pointer-events-none absolute left-1/2 z-10 hidden -translate-x-1/2 whitespace-nowrap rounded px-2 py-1 text-[10.5px] group-hover:block"
+          style={{
+            top: g.y + 8,
+            backgroundColor: "var(--color-slate-800)",
+            color: "#FFFFFF",
+          }}
+          role="tooltip"
+        >
+          {hoverText}
+        </div>
+
       </div>
 
       {/* Value edge */}

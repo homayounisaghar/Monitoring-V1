@@ -50,10 +50,11 @@ function axisDeltaInk(axis: Axis) {
 /* ------------------------------------------------------------------ */
 /* Geometry — one table, two densities. Nothing shrinks into illegibility. */
 /* ------------------------------------------------------------------ */
-const GEO = {
+export const TRACK_GEO = {
   default: { h: 42, y: 30, band: 16, tick: 22, cap: 8, dot: 8, delta: 11, deltaUp: 21 },
   compact: { h: 34, y: 25, band: 12, tick: 18, cap: 7, dot: 6, delta: 10, deltaUp: 17 },
 } as const;
+const GEO = TRACK_GEO;
 
 function fmt(n: number) {
   return Math.abs(n) >= 1000 || Number.isInteger(n)
@@ -72,6 +73,9 @@ export type TrackAxisProps = {
   unit?: string;
   /** Label sitting over the reference tick, e.g. "100 · typical match". */
   tickLabel?: string;
+  /** Shared mode: the reference value the tick label sits over. */
+  reference?: number;
+  size?: "default" | "compact";
   /** Reserve the same right-hand value column the rows use. */
   withValueColumn?: boolean;
   /** Optional left gutter matching the row's label column width, in px. */
@@ -85,32 +89,36 @@ export function TrackAxis({
   scaleMax = 1,
   unit,
   tickLabel,
+  reference = 100,
+  size = "default",
   withValueColumn = true,
   leadingGutter,
 }: TrackAxisProps) {
   const deviation = mode === "deviation";
+  const fs = size === "compact" ? 9 : 10;
   const lo = deviation ? `${Math.round((1 - windowPct) * 100)}` : `${fmt(scaleMin)}`;
   const hi = deviation
     ? `${Math.round((1 + windowPct) * 100)}`
     : `${fmt(scaleMax)}${unit ? ` ${unit}` : ""}`;
   const refPct = deviation
     ? 50
-    : Math.max(0, Math.min(100, ((100 - scaleMin) / (scaleMax - scaleMin)) * 100));
+    : Math.max(0, Math.min(100, ((reference - scaleMin) / (scaleMax - scaleMin)) * 100));
 
   return (
     <div className="flex items-end gap-3">
       {leadingGutter ? <div style={{ width: leadingGutter }} className="shrink-0" /> : null}
-      <div className="relative h-4 flex-1">
+      <div className="relative flex-1" style={{ height: fs + 4 }}>
         <span
-          className="type-num absolute bottom-0 left-0 text-[10px]"
-          style={{ color: "var(--color-text-tertiary)" }}
+          className="type-num absolute bottom-0 left-0"
+          style={{ fontSize: fs, color: "var(--color-text-tertiary)" }}
         >
           {lo}
         </span>
         {tickLabel ? (
           <span
-            className="type-num absolute bottom-0 whitespace-nowrap text-[10px]"
+            className="type-num absolute bottom-0 whitespace-nowrap"
             style={{
+              fontSize: fs,
               left: `${refPct}%`,
               transform: "translateX(-50%)",
               color: "var(--color-text-secondary)",
@@ -120,8 +128,8 @@ export function TrackAxis({
           </span>
         ) : null}
         <span
-          className="type-num absolute bottom-0 right-0 text-[10px]"
-          style={{ color: "var(--color-text-tertiary)" }}
+          className="type-num absolute bottom-0 right-0"
+          style={{ fontSize: fs, color: "var(--color-text-tertiary)" }}
         >
           {hi}
         </span>
