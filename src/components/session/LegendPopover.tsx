@@ -134,7 +134,7 @@ function LegendBody() {
   const stateTerms = copy("periods.legend.states").split(" · ");
   // Order in the deck string: [thin coverage, ring+hatch unconfirmed, break, — no data]
   const unconfirmedTerm = stateTerms[1] ?? "unconfirmed";
-  const beyondTerm = stateTerms[2] ?? "beyond chart range";
+  const beyondTerm = stateTerms[2] ?? "beyond drawn range";
   const notMeasuredTerm = (stateTerms[3] ?? "no data").replace(/^—\s*/, "");
 
   const rows: Array<{ swatch: React.ReactNode; text: string }> = [
