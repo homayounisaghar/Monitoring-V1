@@ -690,7 +690,6 @@ function SpineRowView({
         >
           {hoverText}
         </div>
-      </div>
 
       {/* Value edge */}
       <div className="flex justify-end">{rightSide}</div>
