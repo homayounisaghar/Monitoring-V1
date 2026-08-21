@@ -418,10 +418,10 @@ function Styleguide() {
         {/* ValueOnTrack */}
         <Section
           title="ValueOnTrack"
-          desc="Canonical comparison object. Hairline + end caps · reference band (a bounded interval, 16px, slate-200 with slate-300 edges) · 22px reference tick · 8px session dot in the owning axis hue. The signed % delta rides the mark — mono 11px, centred on the dot, 21px above the hairline, in the axis ink. The value column carries the absolute value and its unit, nothing else. One-utterance rule: every scale fact is printed exactly once, by the axis header — never per row, never as a sentence. Band bounds and the reference absolute live on hover only."
+          desc="Canonical comparison object. Endpoint numerals (mono 10px default / 9px compact, tertiary ink) sit just outside the end caps with a 4px gap on EVERY track — they are anatomy, not a header. Then: hairline + end caps · reference band (a bounded interval, 16px, slate-200 with slate-300 edges) · 22px reference tick · 8px session dot in the owning axis hue. The signed % delta rides the mark — mono 11px, centred on the dot, 21px above the hairline, in the axis ink. The value column carries the absolute value and its unit, nothing else. One-utterance rule: endpoints are anatomy of every track; the tick label (100 · typical match) is uttered once per scale group per card, by TrackAxis — never per row, never as a sentence. A TrackAxis with no tick label has nothing to say and must not be rendered. Band bounds and the reference absolute live on hover only."
         >
           <div className="grid grid-cols-2 gap-4">
-            <Card eyebrow="deviation mode - one axis header, three rows">
+            <Card eyebrow="deviation mode - one tick label, endpoints on every row">
               <div className="space-y-3">
                 <TrackAxis mode="deviation" tickLabel="100 · typical match" />
                 <div className="space-y-1">
@@ -439,9 +439,9 @@ function Styleguide() {
               </div>
             </Card>
 
-            <Card eyebrow="shared absolute mode - unit printed once, in the header">
+            <Card eyebrow="shared absolute mode - unit printed once, on the high endpoint">
               <div className="space-y-3">
-                <TrackAxis mode="shared" scaleMin={0} scaleMax={12} unit="km" leadingGutter={80} />
+                <TrackAxis mode="shared" scaleMin={0} scaleMax={12} unit="km" reference={9.5} tickLabel="9.5 · squad typical" leadingGutter={80} />
                 {[
                   { name: "Ortega", v: 10.2, r: 9.4 },
                   { name: "Vidic", v: 7.8, r: 8.9 },
