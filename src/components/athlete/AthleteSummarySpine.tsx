@@ -39,7 +39,7 @@ import {
   type HrvReadState,
 } from "@/lib/recovery-data";
 import { Flag } from "lucide-react";
-import { TrackAxis, TRACK_GEO } from "@/components/data/ValueOnTrack";
+import { TrackAxis, TRACK_GEO, TrackEndpoint } from "@/components/data/ValueOnTrack";
 
 const PINNED_SESSION_ID = "s-2026-07-04-dortmund";
 
@@ -531,8 +531,10 @@ function SpineRowView({
         )}
       </div>
 
-      {/* The track — new anatomy */}
-      <div className="group relative" style={{ height: g.h }}>
+      {/* The track — new anatomy; endpoints on every track */}
+      <div className="flex items-center gap-1">
+      <TrackEndpoint label={`${ATHLETE_SPINE_DOMAIN[0]}`} geo={g} />
+      <div className="group relative flex-1" style={{ height: g.h }}>
         {/* hairline */}
         <div
           className="absolute left-0 right-0"
@@ -697,6 +699,8 @@ function SpineRowView({
           {hoverText}
         </div>
 
+      </div>
+      <TrackEndpoint label={`${ATHLETE_SPINE_DOMAIN[1]}`} geo={g} />
       </div>
 
       {/* Value edge */}
