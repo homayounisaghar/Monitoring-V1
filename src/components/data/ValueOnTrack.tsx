@@ -117,7 +117,7 @@ export function ValueOnTrack({
   const trackBandH = compact ? "h-[6px]" : "h-[7px]";
   const refBandH = compact ? "h-[9px]" : "h-[11px]";
   const tickH = compact ? "h-3" : "h-4";
-  const dotDim = compact ? "h-3 w-3" : "h-3.5 w-3.5";
+  const dotDim = dataDotSize(compact ? "compact" : "default");
   const deltaInk =
     deltaTone === "escalate"
       ? "var(--color-escalate-ink)"
