@@ -559,7 +559,7 @@ function SpineRowView({
               backgroundColor: "var(--color-surface-card)",
             }}
           >
-            {copy("athlete.summary.baselineBuilding")} · 3 of 5 sessions
+            {copy("athlete.summary.baselineBuilding")}
           </span>
         ) : (
           <>
