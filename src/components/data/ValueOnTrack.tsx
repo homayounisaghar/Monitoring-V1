@@ -210,6 +210,8 @@ export type ValueOnTrackProps = {
   deltaTone?: "default" | "escalate" | "notice";
   /** When false, applies TrustMark treatment to the value (hatch veil + grey ink). */
   qualified?: boolean;
+  /** No absolute reference exists — hover omits the "typical …" segment. */
+  referenceUnknown?: boolean;
 };
 
 export function ValueOnTrack({
@@ -231,6 +233,7 @@ export function ValueOnTrack({
   showDelta = true,
   deltaTone = "default",
   qualified = true,
+  referenceUnknown = false,
 }: ValueOnTrackProps) {
   const compact = size === "compact";
   const g = compact ? GEO.compact : GEO.default;
