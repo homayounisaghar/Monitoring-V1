@@ -61,10 +61,10 @@ export const TRACK_GEO = {
 const GEO = TRACK_GEO;
 
 function fmt(n: number) {
-  return Math.abs(n) >= 1000 || Number.isInteger(n)
-    ? n.toLocaleString()
-    : n.toFixed(1);
+  if (Math.abs(n) >= 1000) return Math.round(n).toLocaleString();
+  return Number.isInteger(n) ? n.toLocaleString() : n.toFixed(1);
 }
+
 
 /* ------------------------------------------------------------------ */
 /* Endpoints — anatomy of every track                                   */
