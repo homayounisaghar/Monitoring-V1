@@ -75,7 +75,9 @@ export type WithheldReason =
   | "notCollected"
   | "thinCoverage"
   | "noTypical"
-  | "noSession";
+  | "noSession"
+  | "noHrCoverage";
+
 
 /** The short visible qualifier for a withheld reason. */
 export function withheldQualifier(reason: WithheldReason): string {
