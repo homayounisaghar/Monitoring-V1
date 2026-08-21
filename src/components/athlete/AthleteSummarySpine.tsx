@@ -303,7 +303,9 @@ function HrvRowView({ read }: { read: HrvReadState & { morningAfterISO?: string 
           {copy("metric.hrv.label")}
         </span>
       </div>
-      <div className="relative h-6">
+      <div className="flex items-center gap-1">
+      <TrackEndpoint label={`${DOMAIN_LO}`} geo={{ h: 24, y: 12 }} />
+      <div className="relative h-6 flex-1">
         <div
           className="absolute left-0 right-0 top-1/2 h-[6px] -translate-y-1/2 rounded-full"
           style={{ backgroundColor: "var(--color-data-band)" }}
@@ -327,6 +329,8 @@ function HrvRowView({ read }: { read: HrvReadState & { morningAfterISO?: string 
             aria-label="morning-after HRV"
           />
         )}
+      </div>
+      <TrackEndpoint label={`${DOMAIN_HI}`} geo={{ h: 24, y: 12 }} />
       </div>
       <div className="flex justify-end">{rightSide}</div>
     </div>
