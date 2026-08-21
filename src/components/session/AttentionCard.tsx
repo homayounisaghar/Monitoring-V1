@@ -167,13 +167,13 @@ export function AttentionCard() {
 
 /* ---------- Headline ---------- */
 
+/* Degraded states (covThin, baselineThin) never reach here — they are
+   dressed by DegradedBanner above, per the ratified pattern. */
 function Headline({
   state,
   manageCount,
   clearCount,
   totalSquad,
-  squadLowCov,
-  comparableCount,
 }: {
   state: "flags" | "allClear" | "covThin" | "baselineThin";
   manageCount: number;
@@ -182,43 +182,7 @@ function Headline({
   squadLowCov: number;
   comparableCount: number;
 }) {
-  if (state === "baselineThin") {
-    return (
-      <div
-        className="flex items-baseline justify-between gap-6 border-b px-5 py-4"
-        style={{ borderColor: "var(--color-border)" }}
-      >
-        <span
-          className="type-display"
-          style={{ color: "var(--color-text-primary)" }}
-        >
-          {tmpl("attention.baselineThin.headlineTemplate", {
-            n: comparableCount,
-            total: totalSquad,
-          })}
-        </span>
-      </div>
-    );
-  }
 
-  if (state === "covThin") {
-    return (
-      <div
-        className="flex items-baseline justify-between gap-6 border-b px-5 py-4"
-        style={{ borderColor: "var(--color-border)" }}
-      >
-        <span
-          className="type-display"
-          style={{ color: "var(--color-text-primary)" }}
-        >
-          {tmpl("attention.covThin.headlineTemplate", {
-            below: squadLowCov,
-            total: totalSquad,
-          })}
-        </span>
-      </div>
-    );
-  }
 
   if (state === "allClear") {
     return (
