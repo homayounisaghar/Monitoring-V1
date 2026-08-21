@@ -150,10 +150,17 @@ export function SquadCard() {
     () => new Set(activeAthletes.map((a) => a.id)),
     [activeAthletes],
   );
+  // Every row reads the scenario-adjusted athlete, never the raw record —
+  // otherwise a demo overlay (e.g. no HR data) would change the headline
+  // while the table kept printing the old numbers.
+  const effectiveSquad: Athlete[] = useMemo(() => {
+    const byId = new Map(effectiveParticipants.map((a) => [a.id, a]));
+    return squad.map((a) => byId.get(a.id) ?? a);
+  }, [effectiveParticipants]);
   const tableRows: Athlete[] = useMemo(() => {
-    if (filterIsDefault) return squad;
-    return squad.filter((a) => scopedIds.has(a.id));
-  }, [filterIsDefault, scopedIds]);
+    if (filterIsDefault) return effectiveSquad;
+    return effectiveSquad.filter((a) => scopedIds.has(a.id));
+  }, [filterIsDefault, scopedIds, effectiveSquad]);
 
   /* --- flagged identity set --- */
 
@@ -362,7 +369,7 @@ export function SquadCard() {
           metric={METRICS[chartMetric]}
           display={display}
           rows={activeAthletes}
-          allSquadForTray={squad}
+          allSquadForTray={effectiveSquad}
           flagged={flagged}
           onRowClick={(a) => goToAthlete(a.id)}
           onFlagClick={handleFlagClick}
