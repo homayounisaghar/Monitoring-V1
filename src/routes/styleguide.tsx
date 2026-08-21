@@ -388,7 +388,7 @@ function Styleguide() {
         {/* GapPair */}
         <Section
           title="GapPair"
-          desc="External vs internal on one shared % scale. Filled blue = external, open purple = internal, slate connector = gap."
+          desc="External vs internal on one shared % scale. Filled blue = external, open purple = internal, slate connector = gap. Named in plain language everywhere: distance vs cardio gap (pts)."
         >
           <Card eyebrow="basis - stated per surface (demo: % of session-average rate)">
             <div className="space-y-6">
@@ -397,6 +397,59 @@ function Styleguide() {
             </div>
           </Card>
         </Section>
+
+        {/* Chart legibility — ratified rules */}
+        <Section
+          title="Chart legibility"
+          desc="Three ratified rules. They govern every bar, block and track in the system — ValueOnTrack, GapPair, and the Periods blocks matrix."
+        >
+          <Card eyebrow="a - the value label is attached to its mark">
+            <div className="grid grid-cols-2 gap-6">
+              <MiniBars
+                caption="right"
+                labelDetached={false}
+                values={[82, 54, 118]}
+              />
+              <MiniBars
+                caption="wrong - label floats in empty row space"
+                labelDetached
+                values={[82, 54, 118]}
+                wrong
+              />
+            </div>
+          </Card>
+
+          <Card eyebrow="b - on a shared scale, drawn size encodes magnitude">
+            <div className="grid grid-cols-2 gap-6">
+              <MiniBars caption="right - bars grow from a common floor" values={[118, 54, 82]} />
+              <MiniBars
+                caption="wrong - a smaller value drawn as a larger block"
+                values={[118, 54, 82]}
+                invert
+                wrong
+              />
+            </div>
+            <p className="type-section-desc mt-4">
+              Special segments - added time, part-periods - take a narrow, explicitly labelled
+              sub-column on the same scale, or a rate annotation. Never a full-height block.
+            </p>
+          </Card>
+
+          <Card eyebrow="c - row and series names are plain language">
+            <div className="type-num flex flex-col gap-1 text-[12.5px]">
+              <span style={{ color: "var(--color-text-primary)" }}>
+                distance vs cardio gap (pts)
+              </span>
+              <span style={{ color: "var(--color-text-tertiary)", textDecoration: "line-through" }}>
+                gap E-I - pts
+              </span>
+            </div>
+            <p className="type-section-desc mt-3">
+              The name is authored once in the copy deck; styleguide, legends and cards inherit it.
+            </p>
+          </Card>
+        </Section>
+
 
         {/* TrustMark — trust grammar */}
         <Section
