@@ -132,6 +132,16 @@ function SquadLoadPane({
         </span>
       </div>
 
+      {/* Tick label — uttered once per card, above the stack. */}
+      <TrackAxis
+        mode="shared"
+        scaleMin={40}
+        scaleMax={160}
+        reference={100}
+        withValueColumn={false}
+        tickLabel={tickText}
+      />
+
       <div className="space-y-4">
         <GaugeRow
           label={copy("canonical.summary.vsFullMatch.volume")}
@@ -145,39 +155,18 @@ function SquadLoadPane({
         />
       </div>
 
-      <div className="mt-3">
+      {showCoverage && (
         <div
-          className="flex justify-between type-num text-[10.5px]"
+          className="mt-3 text-[11.5px]"
+          style={{ color: "var(--color-text-tertiary)" }}
         >
-          <span style={{ color: "var(--color-text-tertiary)" }}>
-            {copy("longi.gauge.tick40")}
-          </span>
-          <span
-            className={"type-data-label " + (benchmarkIsDefault ? "" : "chip-changed")}
-            style={
-              benchmarkIsDefault
-                ? { color: "var(--color-text-tertiary)" }
-                : undefined
-            }
-          >
-            {tickText}
-          </span>
-          <span style={{ color: "var(--color-text-tertiary)" }}>
-            {copy("longi.gauge.tick160")}
-          </span>
+          {tmpl("longi.gauge.coverageTemplate", {
+            n: g.contributingSessions,
+            m: g.windowSessions,
+          })}
         </div>
-        {showCoverage && (
-          <div
-            className="mt-2 text-[11.5px]"
-            style={{ color: "var(--color-text-tertiary)" }}
-          >
-            {tmpl("longi.gauge.coverageTemplate", {
-              n: g.contributingSessions,
-              m: g.windowSessions,
-            })}
-          </div>
-        )}
-      </div>
+      )}
+
     </div>
   );
 }
