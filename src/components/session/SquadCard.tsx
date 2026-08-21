@@ -691,6 +691,7 @@ function Cell({
   display,
   rowScaled,
   rowBuilding,
+  rowNotComparable,
   buildingIds,
 }: {
   a: Athlete;
@@ -698,12 +699,15 @@ function Cell({
   display: DisplayMode;
   rowScaled: boolean;
   rowBuilding: boolean;
+  rowNotComparable: boolean;
   buildingIds: Set<string>;
 }) {
   const state = cellState(a, m, buildingIds);
 
 
-  // Min column — the single home for row-level "· scaled" (Q2).
+  // Min column — the single home for row-level qualifiers (Q2). A row whose
+  // comparison cells are withheld says why here, so the dashes never stand
+  // unexplained in a static read.
   if (m.id === "min") {
     if (state === "dnp") {
       return (
@@ -724,7 +728,20 @@ function Cell({
           style={{ color: "var(--color-text-primary)" }}
           title={tmpl("squad.row.scaledHoverTemplate", { min: v })}
         >
-          {tmpl("squad.row.scaledTagTemplate", { min: v })}
+          {rowNotComparable
+            ? tmpl("squad.row.scaledNotComparableTagTemplate", { min: v })
+            : tmpl("squad.row.scaledTagTemplate", { min: v })}
+        </span>
+      );
+    }
+    if (rowNotComparable && v != null) {
+      return (
+        <span
+          className="type-num text-[13px]"
+          style={{ color: "var(--color-text-primary)" }}
+          title={tmpl("squad.cell.notComparedHoverTemplate", { min: v })}
+        >
+          {tmpl("squad.row.notComparableTagTemplate", { min: v })}
         </span>
       );
     }
@@ -734,7 +751,7 @@ function Cell({
           className="type-num text-[13px]"
           style={{ color: "var(--color-text-primary)" }}
         >
-          {v}' · {copy("row.baseline")}
+          {tmpl("squad.row.buildingTagTemplate", { min: v })}
         </span>
       );
     }
@@ -749,7 +766,7 @@ function Cell({
   }
 
 
-  if (state === "dnp" || state === "empty") {
+  if (state === "dnp") {
     return (
       <span
         className="type-num text-[13px]"
@@ -759,6 +776,16 @@ function Cell({
       </span>
     );
   }
+  if (state === "empty") {
+    // Cell-level withholding — the reason prints beside the dash.
+    return (
+      <WithheldMark
+        className="text-[13px]"
+        reason={m.id === "srpe" ? "notSubmitted" : "noData"}
+      />
+    );
+  }
+
   if (state === "building") {
     const v = valueFor(a, m);
     const isPercent = display === "percent";
