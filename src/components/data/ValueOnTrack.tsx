@@ -297,7 +297,10 @@ export function ValueOnTrack({
         ? "var(--color-notice-ink)"
         : axisDeltaInk(axis);
 
-  const hoverText = `normal range ${bandLoLabel}–${bandHiLabel} · typical ${fmt(reference)}${unit ? ` ${unit}` : ""}`;
+  const hoverText = referenceUnknown
+    ? `normal range ${bandLoLabel}–${bandHiLabel}`
+    : `normal range ${bandLoLabel}–${bandHiLabel} · typical ${fmt(reference)}${unit ? ` ${unit}` : ""}`;
+
 
   // Endpoint numerals — anatomy of every track.
   const loLabel =
