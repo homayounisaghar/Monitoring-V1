@@ -110,7 +110,7 @@ export const COPY = {
   "menu.titleBenchmark": "Benchmark · squad",
   "attention.allClear": "Nothing needs attention · {n} of {total} clear",
   "chart.axisPercentNote": "Each row re-based to its own typical · ticks align at 100%",
-  "chart.axisAbsoluteNote": "Shared unit axis · 0 — {max}",
+  "chart.axisAbsoluteNote": "Shared unit axis",
   "periods.peakHover": "highest internal-load rate",
   "periods.gapHover": "external minus internal, in per-minute-rate points",
 

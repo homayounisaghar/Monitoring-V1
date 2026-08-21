@@ -1,5 +1,5 @@
 import { copy, tmpl } from "@/lib/copy-deck";
-import { TRACK_GEO } from "@/components/data/ValueOnTrack";
+import { TRACK_GEO, TrackEndpoint } from "@/components/data/ValueOnTrack";
 
 /**
  * GapPair — work (blue) and cost (purple) marks on ONE shared track,
@@ -11,8 +11,8 @@ import { TRACK_GEO } from "@/components/data/ValueOnTrack";
  * down-ticks at both ends and the label "N pts gap" centred above it.
  * Bracket and label are neutral slate — no severity, no third hue.
  *
- * The pair sits under the same <TrackAxis> as its sibling rows; it
- * never prints its own endpoints or scale sentence.
+ * The pair sits under the same <TrackAxis> tick label as its sibling
+ * rows; like every track it prints its own endpoint numerals.
  *
  * Hover reveals only what is not printed: the two component deltas.
  */
@@ -77,8 +77,13 @@ export function GapPair({
   const bracketY = g.y - g.deltaUp; // bracket rail sits where the delta ink rides
   const labelSize = compact ? 10 : 10.5;
 
+  const loLabel = signed ? `${Math.round(min)}` : `${Math.round(min)}`;
+  const hiLabel = `${Math.round(max)}`;
+
   return (
-    <div className="group relative w-full" style={{ height: g.h }}>
+    <div className="flex w-full items-center gap-1">
+      <TrackEndpoint label={loLabel} geo={g} size={size} />
+      <div className="group relative flex-1" style={{ height: g.h }}>
       {/* hairline */}
       <div
         className="absolute left-0 right-0"
@@ -197,6 +202,8 @@ export function GapPair({
       >
         {hoverText}
       </div>
+      </div>
+      <TrackEndpoint label={hiLabel} geo={g} size={size} />
     </div>
   );
 }

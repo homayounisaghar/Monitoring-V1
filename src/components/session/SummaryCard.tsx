@@ -221,7 +221,7 @@ export function SummaryCard() {
                 withValueColumn={false}
                 tickLabel={`100 · ${axisTick}`}
               />
-              <TrackAxis mode="deviation" withValueColumn={false} />
+              <div />
               <WorkMark
                 label={METRIC_LIB.totalDistance.label}
                 value={marks.totalDistanceM}
@@ -412,7 +412,7 @@ export function SummaryCard() {
                 withValueColumn={false}
                 tickLabel={`100 · ${copy("canonical.summary.vsFullMatch.fullMatchScale")}`}
               />
-              <TrackAxis mode="shared" scaleMin={0} scaleMax={150} withValueColumn={false} />
+              <div />
               <FullMatchRead label={copy("canonical.summary.vsFullMatch.volume")} pct={SESSION_VS_FULL.volumePct} />
               <FullMatchRead label={copy("canonical.summary.vsFullMatch.intensity")} pct={SESSION_VS_FULL.intensityPct} />
             </div>

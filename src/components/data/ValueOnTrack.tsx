@@ -3,6 +3,9 @@ import { copy } from "@/lib/copy-deck";
  * ValueOnTrack — canonical comparison object (foundation anatomy).
  *
  * Anatomy (ratified 2026-08-21):
+ *   • endpoints     — the scale's low/high numerals sit OUTSIDE the end caps
+ *                     (4px gap), mono 10px (9px compact), tertiary ink,
+ *                     centred on the hairline. Anatomy of EVERY track.
  *   • hairline      — 1px slate-300 rule, with 1px × 8px end caps at both extremes
  *   • reference band— slate-200 fill, 16px tall, 1px slate-300 left/right edges,
  *                     2px radius. A bounded interval, not a smudge.
@@ -12,13 +15,14 @@ import { copy } from "@/lib/copy-deck";
  *                     the hairline. Never detached in the value column.
  *   • value column  — absolute value + unit only.
  *
- * One-utterance rule: every scale fact (endpoints, the 100 tick label) is
- * printed exactly once, by <TrackAxis> above a stack of tracks sharing one
- * scale. Never per row, never as a sentence.
+ * One-utterance rule: endpoints are anatomy of every track; the tick label
+ * ("100 · typical match") is uttered exactly once per scale group per card,
+ * by <TrackAxis>. Never as a sentence, never per row.
  *
  * Hover on the track reveals only what is not on canvas: the band bounds in
  * scale units and the reference absolute with its unit.
  */
+
 export type Axis = "work" | "cost" | "neutral";
 
 /**
@@ -63,7 +67,44 @@ function fmt(n: number) {
 }
 
 /* ------------------------------------------------------------------ */
-/* TrackAxis — the scale, uttered once above a stack of tracks          */
+/* Endpoints — anatomy of every track                                   */
+/* ------------------------------------------------------------------ */
+export function endpointFontSize(size: "default" | "compact") {
+  return size === "compact" ? 9 : 10;
+}
+
+/** Scale numeral riding just outside an end cap, centred on the hairline. */
+export function TrackEndpoint({
+  label,
+  geo,
+  size = "default",
+  hidden = false,
+}: {
+  label: string;
+  geo: { h: number; y: number };
+  size?: "default" | "compact";
+  hidden?: boolean;
+}) {
+  const fs = endpointFontSize(size);
+  return (
+    <span
+      className="type-num shrink-0 whitespace-nowrap"
+      aria-hidden={hidden || undefined}
+      style={{
+        fontSize: fs,
+        lineHeight: `${fs + 2}px`,
+        color: "var(--color-text-tertiary)",
+        transform: `translateY(${geo.y - geo.h / 2}px)`,
+        visibility: hidden ? "hidden" : undefined,
+      }}
+    >
+      {label}
+    </span>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* TrackAxis — the tick label only, uttered once per scale group        */
 /* ------------------------------------------------------------------ */
 export type TrackAxisProps = {
   mode: "deviation" | "shared";
@@ -94,8 +135,12 @@ export function TrackAxis({
   withValueColumn = true,
   leadingGutter,
 }: TrackAxisProps) {
+  // Endpoints now live on every track; an axis with no tick label has
+  // nothing left to say.
+  if (!tickLabel) return null;
+
   const deviation = mode === "deviation";
-  const fs = size === "compact" ? 9 : 10;
+  const fs = endpointFontSize(size);
   const lo = deviation ? `${Math.round((1 - windowPct) * 100)}` : `${fmt(scaleMin)}`;
   const hi = deviation
     ? `${Math.round((1 + windowPct) * 100)}`
@@ -107,14 +152,16 @@ export function TrackAxis({
   return (
     <div className="flex items-end gap-3">
       {leadingGutter ? <div style={{ width: leadingGutter }} className="shrink-0" /> : null}
-      <div className="relative flex-1" style={{ height: fs + 4 }}>
+      {/* mirror the row's endpoint gutters so the tick label stays over the tick */}
+      <div className="flex flex-1 items-end gap-1">
         <span
-          className="type-num absolute bottom-0 left-0"
-          style={{ fontSize: fs, color: "var(--color-text-tertiary)" }}
+          className="type-num shrink-0 whitespace-nowrap"
+          style={{ fontSize: fs, visibility: "hidden" }}
+          aria-hidden
         >
           {lo}
         </span>
-        {tickLabel ? (
+        <div className="relative flex-1" style={{ height: fs + 4 }}>
           <span
             className="type-num absolute bottom-0 whitespace-nowrap"
             style={{
@@ -126,10 +173,11 @@ export function TrackAxis({
           >
             {tickLabel}
           </span>
-        ) : null}
+        </div>
         <span
-          className="type-num absolute bottom-0 right-0"
-          style={{ fontSize: fs, color: "var(--color-text-tertiary)" }}
+          className="type-num shrink-0 whitespace-nowrap"
+          style={{ fontSize: fs, visibility: "hidden" }}
+          aria-hidden
         >
           {hi}
         </span>
@@ -138,6 +186,7 @@ export function TrackAxis({
     </div>
   );
 }
+
 
 export type ValueOnTrackProps = {
   mode: "deviation" | "shared";
@@ -250,9 +299,22 @@ export function ValueOnTrack({
 
   const hoverText = `normal range ${bandLoLabel}–${bandHiLabel} · typical ${fmt(reference)}${unit ? ` ${unit}` : ""}`;
 
+  // Endpoint numerals — anatomy of every track.
+  const loLabel =
+    mode === "deviation"
+      ? `${Math.round((1 - windowPct) * 100)}`
+      : fmt(scaleMin ?? 0);
+  const hiLabel =
+    mode === "deviation"
+      ? `${Math.round((1 + windowPct) * 100)}`
+      : `${fmt(scaleMax ?? 1)}${unit ? ` ${unit}` : ""}`;
+
   return (
     <div className="flex items-center gap-3">
+      <div className="flex flex-1 items-center gap-1">
+      <TrackEndpoint label={loLabel} geo={g} size={size} />
       <div className="group relative flex-1" style={{ height: g.h }}>
+
         {/* hairline */}
         <div
           className="absolute left-0 right-0"
@@ -385,6 +447,10 @@ export function ValueOnTrack({
           </>
         )}
       </div>
+      <TrackEndpoint label={hiLabel} geo={g} size={size} />
+      </div>
+
+
 
       {withValue && (
         <div className="flex min-w-[130px] items-baseline justify-end gap-2">
