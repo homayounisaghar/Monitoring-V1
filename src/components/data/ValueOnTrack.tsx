@@ -61,10 +61,10 @@ export const TRACK_GEO = {
 const GEO = TRACK_GEO;
 
 function fmt(n: number) {
-  return Math.abs(n) >= 1000 || Number.isInteger(n)
-    ? n.toLocaleString()
-    : n.toFixed(1);
+  if (Math.abs(n) >= 1000) return Math.round(n).toLocaleString();
+  return Number.isInteger(n) ? n.toLocaleString() : n.toFixed(1);
 }
+
 
 /* ------------------------------------------------------------------ */
 /* Endpoints — anatomy of every track                                   */
@@ -210,6 +210,8 @@ export type ValueOnTrackProps = {
   deltaTone?: "default" | "escalate" | "notice";
   /** When false, applies TrustMark treatment to the value (hatch veil + grey ink). */
   qualified?: boolean;
+  /** No absolute reference exists — hover omits the "typical …" segment. */
+  referenceUnknown?: boolean;
 };
 
 export function ValueOnTrack({
@@ -231,6 +233,7 @@ export function ValueOnTrack({
   showDelta = true,
   deltaTone = "default",
   qualified = true,
+  referenceUnknown = false,
 }: ValueOnTrackProps) {
   const compact = size === "compact";
   const g = compact ? GEO.compact : GEO.default;
@@ -297,7 +300,10 @@ export function ValueOnTrack({
         ? "var(--color-notice-ink)"
         : axisDeltaInk(axis);
 
-  const hoverText = `normal range ${bandLoLabel}–${bandHiLabel} · typical ${fmt(reference)}${unit ? ` ${unit}` : ""}`;
+  const hoverText = referenceUnknown
+    ? `normal range ${bandLoLabel}–${bandHiLabel}`
+    : `normal range ${bandLoLabel}–${bandHiLabel} · typical ${fmt(reference)}${unit ? ` ${unit}` : ""}`;
+
 
   // Endpoint numerals — anatomy of every track.
   const loLabel =

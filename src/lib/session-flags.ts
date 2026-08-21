@@ -21,6 +21,9 @@ export type Tier1Read =
       axis: "work" | "cost" | "neutral";
       deltaFrac: number; // 0.34 → +34% vs own typical
       bandFrac: number;
+      /** Which metric the row reads, so the absolute value / reference /
+       *  unit can be resolved from the record instead of normalised 1.0. */
+      metric: "totalDistance" | "hsr" | "cardioLoad" | "srpeAU" | "accDec" | "mMin" | "hrv";
     }
   | {
       kind: "gap";
@@ -28,6 +31,7 @@ export type Tier1Read =
       internalPct: number;
       gapPts: number;
     };
+
 
 export type Tier1Row = {
   id: string;
@@ -42,13 +46,13 @@ export const TIER1_ROWS_DEFAULT: Tier1Row[] = [
     id: "fischer",
     tier: "escalate",
     reason: "Sprint distance · HSR",
-    read: { kind: "vot", axis: "work", deltaFrac: 0.34, bandFrac: 0.1 },
+    read: { kind: "vot", axis: "work", deltaFrac: 0.34, bandFrac: 0.1, metric: "hsr" },
   },
   {
     id: "werner",
     tier: "notice",
     reason: "High-speed running",
-    read: { kind: "vot", axis: "work", deltaFrac: 0.22, bandFrac: 0.1 },
+    read: { kind: "vot", axis: "work", deltaFrac: 0.22, bandFrac: 0.1, metric: "hsr" },
   },
   {
     id: "schaefer",
@@ -60,7 +64,7 @@ export const TIER1_ROWS_DEFAULT: Tier1Row[] = [
     id: "hofmann",
     tier: "notice",
     reason: "Total distance",
-    read: { kind: "vot", axis: "work", deltaFrac: 0.14, bandFrac: 0.14 },
+    read: { kind: "vot", axis: "work", deltaFrac: 0.14, bandFrac: 0.14, metric: "totalDistance" },
   },
   {
     // Chronic HRV suppression through his injury stretch (recovery-data.ts).
@@ -70,7 +74,7 @@ export const TIER1_ROWS_DEFAULT: Tier1Row[] = [
     id: "lange",
     tier: "notice",
     reason: "HRV · own baseline",
-    read: { kind: "vot", axis: "neutral", deltaFrac: -0.27, bandFrac: 0.1 },
+    read: { kind: "vot", axis: "neutral", deltaFrac: -0.27, bandFrac: 0.1, metric: "hrv" },
   },
 ];
 
