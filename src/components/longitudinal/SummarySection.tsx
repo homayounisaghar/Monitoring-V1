@@ -25,7 +25,7 @@ import {
   type LongiWindow,
   type Horizon,
 } from "@/lib/longitudinal-data";
-import { benchLabel, DEFAULT_BENCH, type BenchKind } from "./ScopeLine";
+import { benchLabel, type BenchKind } from "./ScopeLine";
 import {
   demoAthletes,
   demoSessions,
@@ -64,7 +64,6 @@ export function SummarySection({
   benchKind: BenchKind;
 }) {
   const benchmarkLabel = benchLabel(benchKind, horizon);
-  const benchmarkIsDefault = benchKind === DEFAULT_BENCH;
   return (
     <section id="summary" className="scroll-mt-28">
       <h2
@@ -84,7 +83,6 @@ export function SummarySection({
           <SquadLoadPane
             window={w}
             benchmarkLabel={benchmarkLabel}
-            benchmarkIsDefault={benchmarkIsDefault}
           />
           <AvailabilityPane window={w} />
         </div>
@@ -99,11 +97,9 @@ export function SummarySection({
 function SquadLoadPane({
   window: w,
   benchmarkLabel,
-  benchmarkIsDefault,
 }: {
   window: LongiWindow;
   benchmarkLabel: string;
-  benchmarkIsDefault: boolean;
 }) {
   const g = squadLoadGauges(w);
   const tickText = tmpl("longi.basis.tick", { label: benchmarkLabel });
