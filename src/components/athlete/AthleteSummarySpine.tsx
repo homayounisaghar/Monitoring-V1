@@ -308,13 +308,15 @@ function HrvRowView({ read }: { read: HrvReadState & { morningAfterISO?: string 
         <TrackEndpoint label={`${DOMAIN_LO}`} geo={{ h: 34, y: 12 }} side="lo" />
         <TrackEndpoint label={`${DOMAIN_HI}`} geo={{ h: 34, y: 12 }} side="hi" />
         <div
-          className="absolute left-0 right-0 top-1/2 h-[6px] -translate-y-1/2 rounded-full"
-          style={{ backgroundColor: "var(--color-data-band)" }}
+          className="absolute left-0 right-0 h-[6px] -translate-y-1/2 rounded-full"
+          data-track-rail
+          style={{ top: 12, backgroundColor: "var(--color-data-band)" }}
         />
         {/* 100 line — the baseline reference for this row */}
         <div
-          className="absolute top-1/2 h-4 w-[2px] -translate-x-1/2 -translate-y-1/2 rounded-sm"
+          className="absolute h-4 w-[2px] -translate-x-1/2 -translate-y-1/2 rounded-sm"
           style={{
+            top: 12,
             left: `${pctToLeft(100)}%`,
             backgroundColor: "var(--color-data-reference)",
           }}
@@ -322,8 +324,9 @@ function HrvRowView({ read }: { read: HrvReadState & { morningAfterISO?: string 
         />
         {dotVisible && (
           <div
-            className="absolute top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full"
+            className="absolute h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full"
             style={{
+              top: 12,
               left: `${clampedLeft}%`,
               backgroundColor: RECOVERY_INK_VAR,
             }}
