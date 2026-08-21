@@ -39,16 +39,27 @@ import {
 } from "@/components/ui/popover";
 import { SegmentedToggle } from "@/components/data/SegmentedToggle";
 
-/* ---------- Geometry ---------- */
+/* ---------- Geometry ----------
+ * Chart-legibility rules (styleguide · ValueOnTrack/GapPair):
+ *   (a) the value label is attached to the top of its own bar, never
+ *       floating in empty row space;
+ *   (b) on this shared 30–150 scale, bar height encodes magnitude —
+ *       bars grow from a common floor, so a smaller rate can never
+ *       draw a larger block than a bigger one. The 100 line is a
+ *       reference rule crossing the bars, not a baseline.
+ *   Added time is a real 5′ block on the same per-minute scale; it
+ *   gets a narrow, explicitly labelled sub-column, never a full block.
+ */
 
-const PLOT_H = 90;                                      // px
-const PX_PER_PT = PLOT_H / (PERIODS_DOMAIN_MAX - PERIODS_DOMAIN_MIN); // 0.75
-const LINE_Y = (PERIODS_DOMAIN_MAX - 100) * PX_PER_PT;  // 37.5 — the 100 line
-const BELOW_GAP = 2.5;
+const PLOT_H = 56;                                      // px — bar field
+const LABEL_H = 16;                                     // px — attached numeral band
+const PX_PER_PT = PLOT_H / (PERIODS_DOMAIN_MAX - PERIODS_DOMAIN_MIN);
+const LINE_Y = (PERIODS_DOMAIN_MAX - 100) * PX_PER_PT;  // the 100 reference rule
 const MIN_COL_H = 2;
 const COL_MAX_W = 44;
 
 const AXIS_TICKS = [PERIODS_DOMAIN_MAX, 100, PERIODS_DOMAIN_MIN] as const;
+
 
 /* ---------- Metric config ---------- */
 
@@ -222,9 +233,16 @@ export function PeriodsCard() {
 
   const gridTemplate = useMemo(
     () =>
-      `200px ${rows.map((r) => `minmax(0, ${r.weight}fr)`).join(" ")} 40px`,
+      `200px ${rows
+        .map((r) =>
+          isAddedTime(r)
+            ? `minmax(84px, ${r.weight}fr)`
+            : `minmax(0, ${r.weight}fr)`,
+        )
+        .join(" ")} 40px`,
     [rows],
   );
+
 
   // Half-time boundary — cumulative minutes exactly at 45 marks the line.
   const halfBoundaryIdx = useMemo(() => {
@@ -464,12 +482,13 @@ function TimeHeader({
       {rows.map((r) => {
         const isPeak = r.id === peakId;
         const isHovered = hoverCol === r.id;
+        const added = isAddedTime(r);
         return (
           <div
             key={r.id}
-            className="flex items-baseline justify-center gap-1 border-l px-1 py-1"
+            className="flex flex-col items-center justify-end gap-0.5 px-1 py-1"
             style={{
-              borderColor: "var(--color-border)",
+              ...columnSeparator(added),
               backgroundColor: isHovered ? "var(--color-slate-50)" : "transparent",
             }}
             onMouseEnter={() => setHoverCol(r.id)}
@@ -485,6 +504,15 @@ function TimeHeader({
               {r.label}
             </span>
 
+            {added && (
+              <span
+                className="type-data-label text-[11px] whitespace-nowrap"
+                style={{ color: "var(--color-text-tertiary)" }}
+              >
+                {copy("periods.addedTimeSubLabel")}
+              </span>
+            )}
+
             {isPeak && (
               <span
                 className="rounded px-1 py-[1px] type-data-label text-[12px]"
@@ -499,6 +527,7 @@ function TimeHeader({
           </div>
         );
       })}
+
       <span
         className="border-l"
         style={{ borderColor: "var(--color-border)" }}
@@ -579,26 +608,24 @@ function Lane({
                   <div
                     role="button"
                     tabIndex={0}
-                    className="relative flex flex-col items-center border-l pt-1 pb-1 cursor-pointer"
+                    className="relative flex flex-col items-center pt-1 pb-1 cursor-pointer"
                     style={{
-                      borderColor: "var(--color-border)",
+                      ...columnSeparator(isAddedTime(r)),
                       backgroundColor: isHovered || isPinned ? "var(--color-slate-50)" : "transparent",
                     }}
                     onMouseEnter={() => setHoverCol(r.id)}
                     onMouseLeave={() => setHoverCol(null)}
                   >
-                    <NumeralHead
+                    <Column
                       cell={cell}
+                      axis={metric.axis}
                       unit={unit}
                       isCardio={metric.key === "cardioLoad"}
                       partialCoverage={
                         metric.key === "cardioLoad" && r.internalMissingMin > 0
                       }
                     />
-                    <Column
-                      cell={cell}
-                      axis={metric.axis}
-                    />
+
                   </div>
                 </PopoverTrigger>
               </HoverCardTrigger>
@@ -654,13 +681,13 @@ function Lane({
         className="relative border-l"
         style={{
           borderColor: "var(--color-border)",
-          height: PLOT_H + 24, // include head area
+          height: PLOT_H + LABEL_H + 8,
         }}
       >
         {showRightTicks ? (
           <>
             {AXIS_TICKS.map((t) => {
-              const y = 24 + (PERIODS_DOMAIN_MAX - t) * PX_PER_PT;
+              const y = 4 + LABEL_H + (PERIODS_DOMAIN_MAX - t) * PX_PER_PT;
               return (
                 <span
                   key={t}
@@ -679,7 +706,7 @@ function Lane({
           <span
             className="absolute left-1 type-num text-[10.5px]"
             style={{
-              top: 24 + (PERIODS_DOMAIN_MAX - 100) * PX_PER_PT - 6,
+              top: 4 + LABEL_H + (PERIODS_DOMAIN_MAX - 100) * PX_PER_PT - 6,
               color: "var(--color-text-tertiary)",
             }}
           >
@@ -687,11 +714,24 @@ function Lane({
           </span>
         )}
       </div>
+
     </div>
   );
 }
 
-function NumeralHead({
+/** Added time is its own narrow, explicitly labelled sub-column. */
+function isAddedTime(r: { id: string }): boolean {
+  return r.id === "stoppage";
+}
+
+/** Separator between columns; the added-time sub-column reads stronger. */
+function columnSeparator(added: boolean): React.CSSProperties {
+  return added
+    ? { borderLeft: "2px solid var(--color-slate-300)" }
+    : { borderLeft: "1px solid var(--color-border)" };
+}
+
+function ValueLabel({
   cell,
   unit,
   isCardio,
@@ -705,7 +745,7 @@ function NumeralHead({
   if (cell.value === null || cell.rate === null) {
     return (
       <span
-        className="type-num text-[13px]"
+        className="type-num text-[12.5px] whitespace-nowrap"
         style={{ color: "var(--color-text-tertiary)" }}
       >
         —
@@ -718,7 +758,7 @@ function NumeralHead({
   const thinCoverage = isCardio && (thinAthletes || partialCoverage);
   return (
     <span
-      className="type-num inline-flex items-baseline gap-1 text-[13px]"
+      className="type-num inline-flex items-baseline gap-1 whitespace-nowrap text-[12.5px]"
       style={{ color: "var(--color-text-secondary)" }}
     >
       {thinCoverage && (
@@ -728,15 +768,13 @@ function NumeralHead({
           aria-hidden
         />
       )}
-      <span>
-        {formatValue(cell.value)}
-      </span>
+      <span>{formatValue(cell.value)}</span>
       {clamped && (
         <span
-          className="type-num text-[13px]"
+          className="type-num text-[11px]"
           style={{ color: "var(--color-text-tertiary)" }}
         >
-          · {Math.round(cell.rate)}%
+          {Math.round(cell.rate)}%
         </span>
       )}
       <span className="sr-only">{unit}</span>
@@ -751,13 +789,47 @@ function formatValue(v: number): string {
 function Column({
   cell,
   axis,
+  unit,
+  isCardio,
+  partialCoverage = false,
 }: {
   cell: MetricCell;
   axis: Axis;
+  unit: string;
+  isCardio: boolean;
+  partialCoverage?: boolean;
 }) {
+  const label = (
+    <ValueLabel
+      cell={cell}
+      unit={unit}
+      isCardio={isCardio}
+      partialCoverage={partialCoverage}
+    />
+  );
+
   if (cell.value === null || cell.rate === null) {
-    return <div style={{ height: PLOT_H, width: "100%" }} />;
+    return (
+      <div
+        className="relative flex w-full items-end justify-center"
+        style={{ height: PLOT_H + LABEL_H }}
+      >
+        <div
+          aria-hidden
+          className="absolute left-0 right-0"
+          style={{
+            top: LABEL_H + LINE_Y,
+            height: 1,
+            backgroundColor: "var(--color-slate-300)",
+          }}
+        />
+        <span className="absolute" style={{ bottom: 0 }}>
+          {label}
+        </span>
+      </div>
+    );
   }
+
   const color = axis === "work" ? "var(--color-axis-work)" : "var(--color-axis-cost)";
   const rawRate = cell.rate;
   const clampedHigh = rawRate > PERIODS_DOMAIN_MAX;
@@ -767,42 +839,29 @@ function Column({
     Math.min(PERIODS_DOMAIN_MAX, rawRate),
   );
 
-  let top: number;
-  let height: number;
-  const above = drawn >= 100;
-  if (above) {
-    const rise = (drawn - 100) * PX_PER_PT;
-    height = Math.max(MIN_COL_H, rise);
-    top = LINE_Y - height;
-  } else {
-    top = LINE_Y + BELOW_GAP;
-    const fall = (100 - drawn) * PX_PER_PT;
-    height = Math.max(MIN_COL_H, fall);
-  }
-
+  // Bars grow from a common floor: height encodes magnitude on the shared
+  // scale, so a smaller rate can never draw a bigger block.
+  const height = Math.max(MIN_COL_H, (drawn - PERIODS_DOMAIN_MIN) * PX_PER_PT);
   const unconfirmed = !!cell.unconfirmed;
 
   return (
-    <div
-      className="relative w-full"
-      style={{ height: PLOT_H }}
-    >
-      {/* 100 line */}
+    <div className="relative w-full" style={{ height: PLOT_H + LABEL_H }}>
+      {/* 100 reference rule */}
       <div
         aria-hidden
         className="absolute left-0 right-0"
         style={{
-          top: LINE_Y,
+          top: LABEL_H + LINE_Y,
           height: 1,
           backgroundColor: "var(--color-slate-300)",
         }}
       />
 
-      {/* column */}
+      {/* column — anchored to the plot floor */}
       <div
         className="absolute left-1/2"
         style={{
-          top,
+          bottom: 0,
           height,
           width: `min(${COL_MAX_W}px, 80%)`,
           transform: "translateX(-50%)",
@@ -813,7 +872,7 @@ function Column({
           boxShadow: unconfirmed ? `inset 0 0 0 1px ${color}` : undefined,
         }}
       >
-        {/* clamp break slashes */}
+        {/* clamp break slashes at the clamped end */}
         {(clampedHigh || clampedLow) && (
           <>
             <span
@@ -840,12 +899,12 @@ function Column({
         )}
       </div>
 
-      {/* unconfirmed ring cap at the far end */}
+      {/* unconfirmed ring cap at the bar head */}
       {unconfirmed && (
         <div
           className="absolute left-1/2 rounded-full"
           style={{
-            top: above ? top - 3 : top + height - 4,
+            bottom: height - 3,
             transform: "translateX(-50%)",
             width: 7,
             height: 7,
@@ -855,9 +914,18 @@ function Column({
           aria-hidden
         />
       )}
+
+      {/* value label — attached to the head of its own bar */}
+      <span
+        className="absolute left-1/2 -translate-x-1/2"
+        style={{ bottom: height + 1 }}
+      >
+        {label}
+      </span>
     </div>
   );
 }
+
 
 function GapRow({
   rows,
@@ -889,11 +957,12 @@ function GapRow({
         return (
           <div
             key={r.id}
-            className="flex justify-center border-l py-1"
+            className="flex justify-center py-1"
             style={{
-              borderColor: "var(--color-border)",
+              ...columnSeparator(isAddedTime(r)),
               backgroundColor: isHovered ? "var(--color-slate-50)" : "transparent",
             }}
+
             onMouseEnter={() => setHoverCol(r.id)}
             onMouseLeave={() => setHoverCol(null)}
           >

@@ -54,7 +54,7 @@ export const COPY = {
   "legend.dot": "dot — this session",
   "legend.trustDot": "trust dot — coverage under 80%",
   "legend.flagGlyph": "flag glyph — flagged in Attention",
-  "legend.gapPair": "pair — external + internal, gap in pts",
+  "legend.gapPair": "pair — external + internal, distance vs cardio gap (pts)",
 
   // ---------- Legend — Longitudinal (product-wide corrected wording;
   // still needs propagating back to Session's legend at a later pass). ----------
@@ -89,17 +89,19 @@ export const COPY = {
 
   // ---------- Periods (rebuilt lane view) ----------
   "periods.axisNote": "per-min rate · 100 = session avg · chart range 30–150",
-  "periods.gap.label": "gap E−I · pts",
+  "periods.gap.label": "distance vs cardio gap (pts)",
   "periods.peakChip": "peak",
   "periods.unit.m": "m",
   "periods.unit.ct": "ct",
   "periods.unit.cl": "CL",
   "periods.legend.states": "thin coverage · ring + hatch unconfirmed · break = beyond chart range, exact % shown · — no data",
-  "periods.legend.gap": "gap E−I = distance rate − Cardio Load rate · hover a block for detail",
+  "periods.legend.gap": "distance vs cardio gap = distance rate − Cardio Load rate, in points · hover a block for detail",
   "periods.halfLabel.first": "1st half · 0–45′",
   "periods.halfLabel.second": "2nd half · 45–95′",
   "periods.blockLabelTemplate": "{start}–{end}′",
-  "periods.blockLabelTerminalTemplate": "{start}′+ · added time",
+  "periods.blockLabelTerminalTemplate": "{start}′+",
+  "periods.addedTimeSubLabel": "added time",
+  "periods.addedTimeNote": "added time · 5′ · same per-minute scale",
   "periods.internalNotMeasured": "Cardio Load not measured this session",
   "periods.hover.pastScale": "beyond chart range (30–150)",
   "periods.hover.unconfirmed": "unconfirmed",
@@ -112,7 +114,7 @@ export const COPY = {
   "periods.hover.covFootTemplate": "internal session avg over covered {covered}′ of {total}′",
   "periods.hover.includesUnconfirmed": "includes unconfirmed 60–75′",
   "periods.hover.halvesCovTemplate": "covers {covered}′ of {total}′ · none in 90–95′+",
-  "periods.hover.rowLabel.gap": "Gap E−I",
+  "periods.hover.rowLabel.gap": "Distance vs cardio gap",
 
   "vot.bandHover": "reference band — typical variation",
   "vot.baselineHover": "Baseline still building — no reference yet",
@@ -241,7 +243,7 @@ export const COPY = {
   "canonical.periods.subtitle": "— How load was distributed through the match",
   "canonical.periods.tableHead.period": "Period",
   "canonical.periods.tableHead.rate": "per-minute rate — external ● / internal ○",
-  "canonical.periods.tableHead.gap": "GAP E−I · pts",
+  "canonical.periods.tableHead.gap": "DISTANCE VS CARDIO GAP (PTS)",
   "canonical.periods.peak": "peak",
   "canonical.periods.sessionAvgSuffix": " · session avg",
 
