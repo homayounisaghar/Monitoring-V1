@@ -3,6 +3,8 @@ import { ValueOnTrack } from "@/components/data/ValueOnTrack";
 import { GapPair } from "@/components/data/GapPair";
 import { TrustMark } from "@/components/data/TrustMark";
 import { SeverityGlyph } from "@/components/data/SeverityGlyph";
+import { DegradedBanner } from "@/components/data/DegradedBanner";
+
 
 export const Route = createFileRoute("/styleguide")({
   head: () => ({
