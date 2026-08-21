@@ -21,6 +21,9 @@ export type Tier1Read =
       axis: "work" | "cost" | "neutral";
       deltaFrac: number; // 0.34 → +34% vs own typical
       bandFrac: number;
+      /** Which metric the row reads, so the absolute value / reference /
+       *  unit can be resolved from the record instead of normalised 1.0. */
+      metric: "totalDistance" | "hsr" | "cardioLoad" | "srpeAU" | "accDec" | "mMin" | "hrv";
     }
   | {
       kind: "gap";
@@ -28,6 +31,7 @@ export type Tier1Read =
       internalPct: number;
       gapPts: number;
     };
+
 
 export type Tier1Row = {
   id: string;
