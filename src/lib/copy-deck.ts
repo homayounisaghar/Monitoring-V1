@@ -312,6 +312,8 @@ export const COPY = {
   "canonical.squad.chart.scaledSuffix": " · scaled",
 
   "canonical.gap.basisPrefix": "basis · ",
+  // Pair hover — the two component deltas only, no repetition of the gap.
+  "canonical.gap.pairHover": "distance {ext} · cardio {int}",
 
   "canonical.vot.value": "value",
   "canonical.vot.reference": "reference",

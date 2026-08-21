@@ -26,6 +26,7 @@ import {
 import type { Athlete } from "@/lib/session-data";
 import { copy, tmpl, BUILDING_BASELINE_MIN_SESSIONS } from "@/lib/copy-deck";
 import { ValueOnTrack, TrackAxis, dataDotSize, DATA_DOT_KEYLINE } from "@/components/data/ValueOnTrack";
+import { GapPair } from "@/components/data/GapPair";
 import { AthleteAvatar } from "@/components/data/AthleteAvatar";
 import { DegradedBanner } from "@/components/data/DegradedBanner";
 
@@ -383,7 +384,11 @@ function Tier1RowUI({ row }: { row: Tier1Row }) {
               deltaTone="default"
             />
           ) : (
-            <GapMiniTrack
+            /* Gap rows: the pair prints its own bracket label, so the
+               right-hand delta column stays empty (no detached echo). */
+            <GapPair
+              mode="signed"
+              size="compact"
               externalPct={row.read.externalPct}
               internalPct={row.read.internalPct}
             />
