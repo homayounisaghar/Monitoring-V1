@@ -27,6 +27,8 @@ import type { Athlete } from "@/lib/session-data";
 import { copy, tmpl, BUILDING_BASELINE_MIN_SESSIONS } from "@/lib/copy-deck";
 import { ValueOnTrack } from "@/components/data/ValueOnTrack";
 import { AthleteAvatar } from "@/components/data/AthleteAvatar";
+import { DegradedBanner } from "@/components/data/DegradedBanner";
+
 
 /* ---------- Component ---------- */
 
