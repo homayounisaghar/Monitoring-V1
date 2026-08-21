@@ -418,7 +418,7 @@ function Styleguide() {
         {/* ValueOnTrack */}
         <Section
           title="ValueOnTrack"
-          desc="Canonical comparison object. Track band + reference band (typical variation) + reference tick + value in the owning hue + signed % delta. Past the tick = above typical; past the band = beyond normal variation."
+          desc="Canonical comparison object. Track band + reference band (typical variation) + reference tick + value in the owning hue + signed % delta. Past the tick = above typical; past the band = beyond normal variation. One dot style everywhere it is used — filled in its axis hue, one diameter per density, white keyline against the band. No open/filled, dark/light or double-dot variants; hue says which axis, position says how much. Every printed value carries its unit."
         >
           <div className="grid grid-cols-2 gap-4">
             <Card eyebrow="Deviation mode · window ±40%">
@@ -523,7 +523,7 @@ function Styleguide() {
         {/* GapPair */}
         <Section
           title="GapPair"
-          desc="External vs internal on one shared % scale. Filled blue = external, open purple = internal, slate connector = gap. Named in plain language everywhere: distance vs cardio gap (pts)."
+          desc="External vs internal on one shared % scale. Blue = external, purple = internal — both in the one canonical dot style, slate connector = gap. Named in plain language everywhere: distance vs cardio gap (pts), and its delta prints as +22 pts gap so the unit explains itself beside percent deltas."
         >
           <Card eyebrow="basis - stated per surface (demo: % of session-average rate)">
             <div className="space-y-6">
