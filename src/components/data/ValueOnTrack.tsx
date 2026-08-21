@@ -177,7 +177,7 @@ export function ValueOnTrack({
 }: ValueOnTrackProps) {
   const compact = size === "compact";
   const g = compact ? GEO.compact : GEO.default;
-  const withValue = showValue ?? true;
+  const withValue = showValue ?? !compact;
   const color = axisColor(axis);
   const withheld = baselineState === "building";
   const deltaPct = ((value - reference) / reference) * 100;
