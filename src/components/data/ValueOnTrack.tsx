@@ -3,6 +3,9 @@ import { copy } from "@/lib/copy-deck";
  * ValueOnTrack — canonical comparison object (foundation anatomy).
  *
  * Anatomy (ratified 2026-08-21):
+ *   • endpoints     — the scale's low/high numerals sit OUTSIDE the end caps
+ *                     (4px gap), mono 10px (9px compact), tertiary ink,
+ *                     centred on the hairline. Anatomy of EVERY track.
  *   • hairline      — 1px slate-300 rule, with 1px × 8px end caps at both extremes
  *   • reference band— slate-200 fill, 16px tall, 1px slate-300 left/right edges,
  *                     2px radius. A bounded interval, not a smudge.
@@ -12,13 +15,14 @@ import { copy } from "@/lib/copy-deck";
  *                     the hairline. Never detached in the value column.
  *   • value column  — absolute value + unit only.
  *
- * One-utterance rule: every scale fact (endpoints, the 100 tick label) is
- * printed exactly once, by <TrackAxis> above a stack of tracks sharing one
- * scale. Never per row, never as a sentence.
+ * One-utterance rule: endpoints are anatomy of every track; the tick label
+ * ("100 · typical match") is uttered exactly once per scale group per card,
+ * by <TrackAxis>. Never as a sentence, never per row.
  *
  * Hover on the track reveals only what is not on canvas: the band bounds in
  * scale units and the reference absolute with its unit.
  */
+
 export type Axis = "work" | "cost" | "neutral";
 
 /**
