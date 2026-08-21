@@ -59,3 +59,51 @@ export function TrustMark({
     </span>
   );
 }
+
+/* ────────────────────────── withheld cell state ──────────────────────────
+ * Ratified amendment to the trust grammar: hover keeps the detailed coverage
+ * read, but a cell or row whose values are fully withheld states its reason
+ * on the canvas. Generalises the "building baseline" pattern — a static
+ * screenshot must never show an unexplained dash.
+ * ------------------------------------------------------------------------ */
+
+export type WithheldReason =
+  | "notComparable"
+  | "buildingBaseline"
+  | "noData"
+  | "notSubmitted"
+  | "notCollected"
+  | "thinCoverage"
+  | "noTypical"
+  | "noSession";
+
+/** The short visible qualifier for a withheld reason. */
+export function withheldQualifier(reason: WithheldReason): string {
+  return copy(`trust.withheld.${reason}` as Parameters<typeof copy>[0]);
+}
+
+/**
+ * The withheld cell: the em-dash plus its visible reason. `detail` is the
+ * optional richer hover read — it never replaces the inline qualifier.
+ */
+export function WithheldMark({
+  reason,
+  detail,
+  className,
+}: {
+  reason: WithheldReason;
+  detail?: string;
+  className?: string;
+}) {
+  return (
+    <span
+      className={`whitespace-nowrap ${className ?? ""}`}
+      style={{ color: "var(--color-text-tertiary)" }}
+      title={detail}
+    >
+      <span className="type-num">—</span>{" "}
+      <span className="type-label text-[10.5px]">{withheldQualifier(reason)}</span>
+    </span>
+  );
+}
+
