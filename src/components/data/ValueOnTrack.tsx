@@ -447,6 +447,10 @@ export function ValueOnTrack({
           </>
         )}
       </div>
+      <TrackEndpoint label={hiLabel} geo={g} size={size} />
+      </div>
+
+
 
       {withValue && (
         <div className="flex min-w-[130px] items-baseline justify-end gap-2">
