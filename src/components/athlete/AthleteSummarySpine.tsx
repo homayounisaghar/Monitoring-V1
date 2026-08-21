@@ -303,17 +303,20 @@ function HrvRowView({ read }: { read: HrvReadState & { morningAfterISO?: string 
           {copy("metric.hrv.label")}
         </span>
       </div>
-      <div className="flex items-center gap-1">
-      <TrackEndpoint label={`${DOMAIN_LO}`} geo={{ h: 24, y: 12 }} />
-      <div className="relative h-6 flex-1">
+      <div className="flex items-center">
+      <div className="relative h-[34px] flex-1">
+        <TrackEndpoint label={`${DOMAIN_LO}`} geo={{ h: 34, y: 12 }} side="lo" />
+        <TrackEndpoint label={`${DOMAIN_HI}`} geo={{ h: 34, y: 12 }} side="hi" />
         <div
-          className="absolute left-0 right-0 top-1/2 h-[6px] -translate-y-1/2 rounded-full"
-          style={{ backgroundColor: "var(--color-data-band)" }}
+          className="absolute left-0 right-0 h-[6px] -translate-y-1/2 rounded-full"
+          data-track-rail
+          style={{ top: 12, backgroundColor: "var(--color-data-band)" }}
         />
         {/* 100 line — the baseline reference for this row */}
         <div
-          className="absolute top-1/2 h-4 w-[2px] -translate-x-1/2 -translate-y-1/2 rounded-sm"
+          className="absolute h-4 w-[2px] -translate-x-1/2 -translate-y-1/2 rounded-sm"
           style={{
+            top: 12,
             left: `${pctToLeft(100)}%`,
             backgroundColor: "var(--color-data-reference)",
           }}
@@ -321,8 +324,9 @@ function HrvRowView({ read }: { read: HrvReadState & { morningAfterISO?: string 
         />
         {dotVisible && (
           <div
-            className="absolute top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full"
+            className="absolute h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full"
             style={{
+              top: 12,
               left: `${clampedLeft}%`,
               backgroundColor: RECOVERY_INK_VAR,
             }}
@@ -330,7 +334,6 @@ function HrvRowView({ read }: { read: HrvReadState & { morningAfterISO?: string 
           />
         )}
       </div>
-      <TrackEndpoint label={`${DOMAIN_HI}`} geo={{ h: 24, y: 12 }} />
       </div>
       <div className="flex justify-end">{rightSide}</div>
     </div>
@@ -536,9 +539,10 @@ function SpineRowView({
       </div>
 
       {/* The track — new anatomy; endpoints on every track */}
-      <div className="flex items-center gap-1">
-      <TrackEndpoint label={`${ATHLETE_SPINE_DOMAIN[0]}`} geo={g} />
+      <div className="flex items-center">
       <div className="group relative flex-1" style={{ height: g.h }}>
+        <TrackEndpoint label={`${ATHLETE_SPINE_DOMAIN[0]}`} geo={g} side="lo" />
+        <TrackEndpoint label={`${ATHLETE_SPINE_DOMAIN[1]}`} geo={g} side="hi" />
         {/* hairline */}
         <div
           className="absolute left-0 right-0"
@@ -704,7 +708,6 @@ function SpineRowView({
         </div>
 
       </div>
-      <TrackEndpoint label={`${ATHLETE_SPINE_DOMAIN[1]}`} geo={g} />
       </div>
 
       {/* Value edge */}

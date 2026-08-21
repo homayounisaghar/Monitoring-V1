@@ -3,9 +3,11 @@ import { copy } from "@/lib/copy-deck";
  * ValueOnTrack — canonical comparison object (foundation anatomy).
  *
  * Anatomy (ratified 2026-08-21):
- *   • endpoints     — the scale's low/high numerals sit OUTSIDE the end caps
- *                     (4px gap), mono 10px (9px compact), tertiary ink,
- *                     centred on the hairline. Anatomy of EVERY track.
+ *   • endpoints     — the scale's low/high numerals sit BELOW the track, each
+ *                     centred under its end cap (the cap is the tick), 3px
+ *                     under the hairline. Mono 10px (9px compact), tertiary
+ *                     ink. Anatomy of EVERY track. Deltas ride above the
+ *                     axis, the scale reads below it.
  *   • hairline      — 1px slate-300 rule, with 1px × 8px end caps at both extremes
  *   • reference band— slate-200 fill, 16px tall, 1px slate-300 left/right edges,
  *                     2px radius. A bounded interval, not a smudge.
@@ -55,8 +57,8 @@ function axisDeltaInk(axis: Axis) {
 /* Geometry — one table, two densities. Nothing shrinks into illegibility. */
 /* ------------------------------------------------------------------ */
 export const TRACK_GEO = {
-  default: { h: 42, y: 30, band: 16, tick: 22, cap: 8, dot: 8, delta: 11, deltaUp: 21 },
-  compact: { h: 34, y: 25, band: 12, tick: 18, cap: 7, dot: 6, delta: 10, deltaUp: 17 },
+  default: { h: 48, y: 30, band: 16, tick: 22, cap: 8, dot: 8, delta: 11, deltaUp: 21 },
+  compact: { h: 40, y: 25, band: 12, tick: 18, cap: 7, dot: 6, delta: 10, deltaUp: 17 },
 } as const;
 const GEO = TRACK_GEO;
 
@@ -73,28 +75,38 @@ export function endpointFontSize(size: "default" | "compact") {
   return size === "compact" ? 9 : 10;
 }
 
-/** Scale numeral riding just outside an end cap, centred on the hairline. */
+/**
+ * Scale numeral, centred UNDER its end cap (the cap is the tick mark), 3px
+ * below the hairline. Must be rendered inside the track's relative box.
+ */
+export const TRACK_ENDPOINT_GAP = 3;
+
 export function TrackEndpoint({
   label,
   geo,
+  side,
   size = "default",
   hidden = false,
 }: {
   label: string;
   geo: { h: number; y: number };
+  side: "lo" | "hi";
   size?: "default" | "compact";
   hidden?: boolean;
 }) {
   const fs = endpointFontSize(size);
   return (
     <span
-      className="type-num shrink-0 whitespace-nowrap"
+      className="type-num pointer-events-none absolute whitespace-nowrap"
       aria-hidden={hidden || undefined}
       style={{
         fontSize: fs,
         lineHeight: `${fs + 2}px`,
         color: "var(--color-text-tertiary)",
-        transform: `translateY(${geo.y - geo.h / 2}px)`,
+        top: geo.y + TRACK_ENDPOINT_GAP,
+        left: side === "lo" ? 0 : undefined,
+        right: side === "hi" ? 0 : undefined,
+        transform: side === "lo" ? "translateX(-50%)" : "translateX(50%)",
         visibility: hidden ? "hidden" : undefined,
       }}
     >
@@ -141,10 +153,7 @@ export function TrackAxis({
 
   const deviation = mode === "deviation";
   const fs = endpointFontSize(size);
-  const lo = deviation ? `${Math.round((1 - windowPct) * 100)}` : `${fmt(scaleMin)}`;
-  const hi = deviation
-    ? `${Math.round((1 + windowPct) * 100)}`
-    : `${fmt(scaleMax)}${unit ? ` ${unit}` : ""}`;
+  void unit;
   const refPct = deviation
     ? 50
     : Math.max(0, Math.min(100, ((reference - scaleMin) / (scaleMax - scaleMin)) * 100));
@@ -152,15 +161,7 @@ export function TrackAxis({
   return (
     <div className="flex items-end gap-3">
       {leadingGutter ? <div style={{ width: leadingGutter }} className="shrink-0" /> : null}
-      {/* mirror the row's endpoint gutters so the tick label stays over the tick */}
       <div className="flex flex-1 items-end gap-1">
-        <span
-          className="type-num shrink-0 whitespace-nowrap"
-          style={{ fontSize: fs, visibility: "hidden" }}
-          aria-hidden
-        >
-          {lo}
-        </span>
         <div className="relative flex-1" style={{ height: fs + 4 }}>
           <span
             className="type-num absolute bottom-0 whitespace-nowrap"
@@ -174,13 +175,6 @@ export function TrackAxis({
             {tickLabel}
           </span>
         </div>
-        <span
-          className="type-num shrink-0 whitespace-nowrap"
-          style={{ fontSize: fs, visibility: "hidden" }}
-          aria-hidden
-        >
-          {hi}
-        </span>
       </div>
       {withValueColumn ? <div className="min-w-[130px] shrink-0" /> : null}
     </div>
@@ -317,9 +311,10 @@ export function ValueOnTrack({
 
   return (
     <div className="flex items-center gap-3">
-      <div className="flex flex-1 items-center gap-1">
-      <TrackEndpoint label={loLabel} geo={g} size={size} />
+      <div className="flex flex-1 items-center">
       <div className="group relative flex-1" style={{ height: g.h }}>
+        <TrackEndpoint label={loLabel} geo={g} side="lo" size={size} />
+        <TrackEndpoint label={hiLabel} geo={g} side="hi" size={size} />
 
         {/* hairline */}
         <div
@@ -453,7 +448,6 @@ export function ValueOnTrack({
           </>
         )}
       </div>
-      <TrackEndpoint label={hiLabel} geo={g} size={size} />
       </div>
 
 
