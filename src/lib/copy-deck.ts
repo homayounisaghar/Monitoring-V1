@@ -47,6 +47,16 @@ export const COPY = {
   // ---------- Attention · coverage-thin state (headline) ----------
   // DRAFT — {below} = count of athletes under 80% HR coverage, {total} = squad size.
   "attention.covThin.headlineTemplate": "Can't read the squad today — {below} of {total} under 80% HR coverage",
+  // Degraded-state banner form (styleguide · "Degraded-state banner").
+  "attention.covThin.headline": "Can't read the squad today",
+  "attention.covThin.summaryTemplate": "of {total} athletes under 80% HR coverage",
+  "attention.baselineThin.headline": "Baselines are still building",
+  "attention.baselineThin.summaryTemplate": "of {total} athletes comparable",
+
+  // ---------- Degraded-state banner (shared) ----------
+  "degraded.detail.show": "Show detail",
+  "degraded.detail.hide": "Hide detail",
+
 
   // ---------- Legend (the key) ----------
   "legend.band": "band — their normal range",
