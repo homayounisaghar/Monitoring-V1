@@ -7,7 +7,7 @@ import { useMemo, useState } from "react";
 import { Info } from "lucide-react";
 import { useSessionScope, currentSession, COVERAGE_MIN } from "@/lib/session-scope";
 import type { ParticipationTag } from "@/lib/session-data";
-import { ValueOnTrack } from "@/components/data/ValueOnTrack";
+import { ValueOnTrack, TrackAxis } from "@/components/data/ValueOnTrack";
 import { copy, tmpl } from "@/lib/copy-deck";
 import { METRICS as METRIC_LIB } from "@/lib/squad-metrics";
 import { ScopeTag } from "@/components/session/ScopeTag";
@@ -167,6 +167,11 @@ export function SummaryCard() {
 
   const isMatch = !sessionIsTraining;
 
+  // The reference tick's name, printed once per stack on the axis header.
+  const axisTick =
+    benchmark.label.charAt(0).toLowerCase() + benchmark.label.slice(1);
+
+
   return (
     <section id="summary" className="scroll-mt-36">
       <header className="mb-3 flex items-baseline justify-between gap-4">
@@ -209,12 +214,19 @@ export function SummaryCard() {
             style={{ borderColor: "var(--color-border)" }}
           >
             <div className="grid grid-cols-2 gap-x-5 gap-y-4">
+              {/* One axis header per column stack — the scale is uttered once
+                  per stack and never repeated on a row. */}
+              <TrackAxis
+                mode="deviation"
+                withValueColumn={false}
+                tickLabel={`100 · ${axisTick}`}
+              />
+              <TrackAxis mode="deviation" withValueColumn={false} />
               <WorkMark
                 label={METRIC_LIB.totalDistance.label}
                 value={marks.totalDistanceM}
                 reference={refs.refTotalDistanceM}
                 unit="m"
-                basisLabel={`100 · ${benchmark.label.charAt(0).toLowerCase()}${benchmark.label.slice(1)}`}
               />
 
               <WorkMark
@@ -241,6 +253,11 @@ export function SummaryCard() {
           {/* Internal — Cost */}
           <div className="p-5">
             <div className="grid grid-cols-1 gap-x-5 gap-y-4">
+              <TrackAxis
+                mode="deviation"
+                withValueColumn={false}
+                tickLabel={`100 · ${axisTick}`}
+              />
               {/* Cardio Load */}
               {!clQualified && coveredCount === 0 ? (
                 <div className="space-y-1">
@@ -388,6 +405,14 @@ export function SummaryCard() {
               </span>
             </div>
             <div className="grid grid-cols-2 gap-6">
+              <TrackAxis
+                mode="shared"
+                scaleMin={0}
+                scaleMax={150}
+                withValueColumn={false}
+                tickLabel={`100 · ${copy("canonical.summary.vsFullMatch.fullMatchScale")}`}
+              />
+              <TrackAxis mode="shared" scaleMin={0} scaleMax={150} withValueColumn={false} />
               <FullMatchRead label={copy("canonical.summary.vsFullMatch.volume")} pct={SESSION_VS_FULL.volumePct} />
               <FullMatchRead label={copy("canonical.summary.vsFullMatch.intensity")} pct={SESSION_VS_FULL.intensityPct} />
             </div>
@@ -417,13 +442,11 @@ function WorkMark({
   value,
   reference,
   unit,
-  basisLabel,
 }: {
   label: string;
   value: number;
   reference: number;
   unit: string;
-  basisLabel?: string;
 }) {
   return (
     <div className="space-y-1">
@@ -444,16 +467,7 @@ function WorkMark({
         reference={reference}
         size="compact"
         showValue={false}
-        showDelta={false}
       />
-      {basisLabel && (
-        <div
-          className="type-num text-[12px] text-center"
-          style={{ color: "var(--color-text-tertiary)" }}
-        >
-          {basisLabel}
-        </div>
-      )}
     </div>
   );
 }
@@ -495,7 +509,6 @@ function CostMark({
         reference={reference}
         size="compact"
         showValue={false}
-        showDelta={false}
         qualified={qualified}
       />
     </div>
@@ -707,15 +720,6 @@ function FullMatchRead({ label, pct }: { label: string; pct: number }) {
         size="compact"
         showValue={false}
       />
-      {/* End labels — the axis itself draws them */}
-      <div
-        className="flex justify-between type-num text-[10.5px]"
-        style={{ color: "var(--color-text-tertiary)" }}
-      >
-        <span>{copy("canonical.summary.vsFullMatch.tick0")}</span>
-        <span>{copy("canonical.summary.vsFullMatch.tick100")}</span>
-        <span>{copy("canonical.summary.vsFullMatch.tick150")}</span>
-      </div>
     </div>
   );
 }

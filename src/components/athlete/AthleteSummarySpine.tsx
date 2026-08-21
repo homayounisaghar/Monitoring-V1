@@ -39,6 +39,7 @@ import {
   type HrvReadState,
 } from "@/lib/recovery-data";
 import { Flag } from "lucide-react";
+import { TrackAxis, TRACK_GEO } from "@/components/data/ValueOnTrack";
 
 const PINNED_SESSION_ID = "s-2026-07-04-dortmund";
 
@@ -181,7 +182,19 @@ export function AthleteSummarySpine({ athleteId, sessionId, flagActive, peerSpin
 
       {/* Groups */}
       <div className="px-5 py-4">
-        <GroupBlock label={copy("athlete.summary.groupExternal")} rows={external} firstRowShowsAxis peerByMetric={peerByMetric} />
+        {/* The scale, uttered once for every stack on this page — all rows
+            share the same 40–160 % drawn range. Never repeated per row. */}
+        <TrackAxis
+          mode="shared"
+          scaleMin={ATHLETE_SPINE_DOMAIN[0]}
+          scaleMax={ATHLETE_SPINE_DOMAIN[1]}
+          reference={100}
+          tickLabel={copy("athlete.summary.hundred")}
+          leadingGutter={170}
+          withValueColumn={false}
+        />
+        <div className="h-1" />
+        <GroupBlock label={copy("athlete.summary.groupExternal")} rows={external} peerByMetric={peerByMetric} />
         <div className="my-3 h-px" style={{ backgroundColor: "var(--color-border)" }} aria-hidden />
         <GroupBlock label={copy("athlete.summary.groupInternal")} rows={internal} peerByMetric={peerByMetric} />
         <div className="my-3 h-px" style={{ backgroundColor: "var(--color-border)" }} aria-hidden />
@@ -325,12 +338,10 @@ function HrvRowView({ read }: { read: HrvReadState & { morningAfterISO?: string 
 function GroupBlock({
   label,
   rows,
-  firstRowShowsAxis = false,
   peerByMetric,
 }: {
   label: string;
   rows: SpineRow[];
-  firstRowShowsAxis?: boolean;
   peerByMetric?: Map<SpineMetricId, SpineRow>;
 }) {
   return (
@@ -342,11 +353,10 @@ function GroupBlock({
         {label}
       </div>
       <div className="flex flex-col">
-        {rows.map((r, idx) => (
+        {rows.map((r) => (
           <SpineRowView
             key={r.metricId}
             row={r}
-            showAxisLabels={firstRowShowsAxis && idx === 0}
             peerRow={peerByMetric?.get(r.metricId) ?? null}
           />
         ))}
@@ -379,11 +389,9 @@ function formatValue(v: number, unit: string) {
 
 function SpineRowView({
   row,
-  showAxisLabels = false,
   peerRow = null,
 }: {
   row: SpineRow;
-  showAxisLabels?: boolean;
   peerRow?: SpineRow | null;
 }) {
   const color = axisColor(row.axis);

@@ -25,7 +25,7 @@ import {
 } from "@/lib/session-flags";
 import type { Athlete } from "@/lib/session-data";
 import { copy, tmpl, BUILDING_BASELINE_MIN_SESSIONS } from "@/lib/copy-deck";
-import { ValueOnTrack, dataDotSize, DATA_DOT_KEYLINE } from "@/components/data/ValueOnTrack";
+import { ValueOnTrack, TrackAxis, dataDotSize, DATA_DOT_KEYLINE } from "@/components/data/ValueOnTrack";
 import { AthleteAvatar } from "@/components/data/AthleteAvatar";
 import { DegradedBanner } from "@/components/data/DegradedBanner";
 
@@ -133,6 +133,19 @@ export function AttentionCard() {
             ) : (
               <>
                 <ul>
+                  {tier1.length > 1 ? (
+                    <li className="flex items-center gap-3 px-5 pt-3">
+                      {/* mirror the row skeleton: avatar gap, then the track
+                          column + delta slot — so the single axis header lands
+                          over the shared track stack */}
+                      <div className="flex w-[170px] shrink-0 items-center gap-3">
+                        <span className="w-[30px]" />
+                      </div>
+                      <div className="flex w-[34%] shrink-0 items-center gap-3 pr-2">
+                        <TrackAxis mode="deviation" size="compact" withValueColumn={false} />
+                      </div>
+                    </li>
+                  ) : null}
                   {tier1.map((r) => (
                     <Tier1RowUI key={r.id} row={r} />
                   ))}
