@@ -414,7 +414,7 @@ function Tier1RowUI({ row }: { row: Tier1Row }) {
                 className="type-data-label"
                 style={{ color: "var(--color-text-tertiary)" }}
               >
-                {copy("canonical.attention.pts")}
+                {copy("canonical.attention.ptsGap")}
               </span>
             </span>
           )}
