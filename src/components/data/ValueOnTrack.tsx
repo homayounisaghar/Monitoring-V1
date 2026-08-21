@@ -12,6 +12,19 @@ import { copy } from "@/lib/copy-deck";
  * left of the row.
  */
 export type Axis = "work" | "cost" | "neutral";
+
+/**
+ * Canonical data-mark glyph. One dot style across every track in the
+ * system: filled in its axis hue, one diameter per density, separated
+ * from the band by a white keyline. No single/double, dark/light or
+ * open/filled variants — hue says which axis, position says how much.
+ */
+export function dataDotSize(density: "default" | "compact" | "heavy" | "heavyCompact") {
+  if (density === "heavy") return "h-[22px] w-[22px]";
+  if (density === "heavyCompact") return "h-[18px] w-[18px]";
+  return density === "compact" ? "h-3 w-3" : "h-3.5 w-3.5";
+}
+export const DATA_DOT_KEYLINE = "rounded-full ring-2 ring-white";
 export type BaselineState = "mature" | "young" | "building";
 
 function axisColor(axis: Axis) {
