@@ -10,7 +10,7 @@
  * (no toLocaleString anywhere in this file).
  */
 import { copy, tmpl } from "@/lib/copy-deck";
-import { ValueOnTrack } from "@/components/data/ValueOnTrack";
+import { ValueOnTrack, TrackAxis } from "@/components/data/ValueOnTrack";
 import {
   PARTICIPATION_TAGS,
   TAG_STYLE,
