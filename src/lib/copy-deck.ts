@@ -83,7 +83,19 @@ export const COPY = {
   // ---------- Register-class hovers / labels (v2 + v3) ----------
   "flag.hover": "Flagged in Attention — view",
   "trust.hoverGeneric": "coverage under 80%",
+  // Withheld qualifiers — a fully withheld cell or row states its reason on
+  // the canvas. Hover keeps the detailed coverage read; these are the visible
+  // short forms, so a static screenshot never shows an unexplained dash.
+  "trust.withheld.notComparable": "not comparable",
+  "trust.withheld.buildingBaseline": "building baseline",
+  "trust.withheld.noData": "no data",
+  "trust.withheld.notSubmitted": "not submitted",
+  "trust.withheld.notCollected": "not collected",
+  "trust.withheld.thinCoverage": "coverage too thin",
+  "trust.withheld.noTypical": "no typical yet",
+  "trust.withheld.noSession": "no session",
   "columns.capReason": "At the 12-column cap — remove one to add another",
+
   "chart.captionAbsolute": "Ranked by {metric}",
   "chart.captionPercent": "Ranked by delta · {metric}",
 
