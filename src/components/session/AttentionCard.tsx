@@ -27,6 +27,8 @@ import type { Athlete } from "@/lib/session-data";
 import { copy, tmpl, BUILDING_BASELINE_MIN_SESSIONS } from "@/lib/copy-deck";
 import { ValueOnTrack } from "@/components/data/ValueOnTrack";
 import { AthleteAvatar } from "@/components/data/AthleteAvatar";
+import { DegradedBanner } from "@/components/data/DegradedBanner";
+
 
 /* ---------- Component ---------- */
 
@@ -84,49 +86,80 @@ export function AttentionCard() {
       </header>
 
       <div className="surface-card-attention overflow-hidden rounded-lg">
-        {/* Headline slot */}
-        <Headline
-          state={headlineState}
-          manageCount={manageCount}
-          clearCount={clearCount}
-          totalSquad={totalParticipants}
-          squadLowCov={squadLowCov.length}
-          comparableCount={comparableCount}
-        />
-
-        {/* Body by state */}
+        {/* Degraded states use the ratified degraded-state banner:
+            one-line headline, one summary line, collapsed detail. */}
         {headlineState === "covThin" ? (
-          <CovThinBody rows={squadLowCov.map((a) => ({ id: a.id, name: a.name, cov: a.hrCoveragePct ?? 0 }))} />
+          <DegradedBanner
+            headline={copy("attention.covThin.headline")}
+            summaryNumeral={`${squadLowCov.length}`}
+            summaryText={tmpl("attention.covThin.summaryTemplate", {
+              total: totalParticipants,
+            })}
+            detailCount={squadLowCov.length}
+          >
+            <CovThinBody
+              rows={squadLowCov.map((a) => ({
+                id: a.id,
+                name: a.name,
+                cov: a.hrCoveragePct ?? 0,
+              }))}
+            />
+          </DegradedBanner>
         ) : headlineState === "baselineThin" ? (
-          <BaselineThinBody building={building} />
-        ) : headlineState === "allClear" ? (
-          <AllClearBody building={building} />
+          <DegradedBanner
+            headline={copy("attention.baselineThin.headline")}
+            summaryNumeral={`${comparableCount}`}
+            summaryText={tmpl("attention.baselineThin.summaryTemplate", {
+              total: totalParticipants,
+            })}
+            detailCount={building.length}
+          >
+            <BaselineThinBody building={building} />
+          </DegradedBanner>
         ) : (
           <>
-            <ul>
-              {tier1.map((r) => (
-                <Tier1RowUI key={r.id} row={r} />
-              ))}
-            </ul>
-
-            {outsideEscalations.length > 0 && (
-              <OutsideEscalationLine />
-            )}
-
-            {!referenceIsDefault && <BasisNoteLine />}
-
-            <AccountingLine
-              lowCov={squadLowCov.map((a) => ({ name: a.name, cov: a.hrCoveragePct ?? 0 }))}
-              building={building}
-              baselineThin={baselineThin}
-              comparableCount={comparableCount}
+            {/* Headline slot */}
+            <Headline
+              state={headlineState}
+              manageCount={manageCount}
+              clearCount={clearCount}
               totalSquad={totalParticipants}
+              squadLowCov={squadLowCov.length}
+              comparableCount={comparableCount}
             />
 
-            <CloserLine />
+            {headlineState === "allClear" ? (
+              <AllClearBody building={building} />
+            ) : (
+              <>
+                <ul>
+                  {tier1.map((r) => (
+                    <Tier1RowUI key={r.id} row={r} />
+                  ))}
+                </ul>
+
+                {outsideEscalations.length > 0 && <OutsideEscalationLine />}
+
+                {!referenceIsDefault && <BasisNoteLine />}
+
+                <AccountingLine
+                  lowCov={squadLowCov.map((a) => ({
+                    name: a.name,
+                    cov: a.hrCoveragePct ?? 0,
+                  }))}
+                  building={building}
+                  baselineThin={baselineThin}
+                  comparableCount={comparableCount}
+                  totalSquad={totalParticipants}
+                />
+
+                <CloserLine />
+              </>
+            )}
           </>
         )}
       </div>
+
     </section>
   );
 }
@@ -134,13 +167,13 @@ export function AttentionCard() {
 
 /* ---------- Headline ---------- */
 
+/* Degraded states (covThin, baselineThin) never reach here — they are
+   dressed by DegradedBanner above, per the ratified pattern. */
 function Headline({
   state,
   manageCount,
   clearCount,
   totalSquad,
-  squadLowCov,
-  comparableCount,
 }: {
   state: "flags" | "allClear" | "covThin" | "baselineThin";
   manageCount: number;
@@ -149,43 +182,7 @@ function Headline({
   squadLowCov: number;
   comparableCount: number;
 }) {
-  if (state === "baselineThin") {
-    return (
-      <div
-        className="flex items-baseline justify-between gap-6 border-b px-5 py-4"
-        style={{ borderColor: "var(--color-border)" }}
-      >
-        <span
-          className="type-display"
-          style={{ color: "var(--color-text-primary)" }}
-        >
-          {tmpl("attention.baselineThin.headlineTemplate", {
-            n: comparableCount,
-            total: totalSquad,
-          })}
-        </span>
-      </div>
-    );
-  }
 
-  if (state === "covThin") {
-    return (
-      <div
-        className="flex items-baseline justify-between gap-6 border-b px-5 py-4"
-        style={{ borderColor: "var(--color-border)" }}
-      >
-        <span
-          className="type-display"
-          style={{ color: "var(--color-text-primary)" }}
-        >
-          {tmpl("attention.covThin.headlineTemplate", {
-            below: squadLowCov,
-            total: totalSquad,
-          })}
-        </span>
-      </div>
-    );
-  }
 
   if (state === "allClear") {
     return (

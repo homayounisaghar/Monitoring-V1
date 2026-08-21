@@ -3,6 +3,8 @@ import { ValueOnTrack } from "@/components/data/ValueOnTrack";
 import { GapPair } from "@/components/data/GapPair";
 import { TrustMark } from "@/components/data/TrustMark";
 import { SeverityGlyph } from "@/components/data/SeverityGlyph";
+import { DegradedBanner } from "@/components/data/DegradedBanner";
+
 
 export const Route = createFileRoute("/styleguide")({
   head: () => ({
@@ -313,7 +315,65 @@ function Styleguide() {
           </div>
         </Section>
 
+        {/* Degraded-state banner — ratified pattern */}
+        <Section
+          title="Degraded-state banner"
+          desc="When a whole section or screen cannot be read — insufficient HR coverage, baselines still building — it says so once, in the label slot. The display slot stays reserved for the single hero read; a degraded state is never the hero."
+        >
+          <Card eyebrow="the pattern">
+            <ol className="type-label space-y-1.5" style={{ listStyle: "decimal inside" }}>
+              <li>Headline — one line, sentence case, sans. Never the display slot.</li>
+              <li>
+                Summary — one line stating the extent once. Numerals take the key-value
+                slot; the sentence around them stays sans.
+              </li>
+              <li>
+                Detail — collapsed and expandable. Never an enumerated list of every
+                affected athlete on arrival, and never sets the banner's height.
+              </li>
+            </ol>
+          </Card>
+
+          <Card eyebrow="live example · no HR data">
+            <div className="surface-card-attention overflow-hidden rounded-lg">
+              <DegradedBanner
+                headline="Can't read the squad today"
+                summaryNumeral="18"
+                summaryText="of 18 athletes under 80% HR coverage"
+                detailCount={3}
+              >
+                <ul className="px-5 pb-4 pt-3">
+                  {["Lange", "Werner", "Köhler"].map((n) => (
+                    <li
+                      key={n}
+                      className="flex items-center gap-3 py-1 text-[13px]"
+                      style={{ color: "var(--color-text-secondary)" }}
+                    >
+                      <span style={{ color: "var(--color-text-primary)" }}>{n}</span>
+                      <span className="type-num" style={{ color: "var(--color-text-tertiary)" }}>
+                        0% HR cov
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </DegradedBanner>
+            </div>
+          </Card>
+
+          <Card eyebrow="wrong">
+            <div className="type-display" style={{ fontSize: 34 }}>
+              Can't read the squad today
+            </div>
+            <p className="type-label mt-2" style={{ color: "var(--color-escalate-ink)" }}>
+              A sentence in the display slot, followed by one row per athlete. Two rules
+              broken: display is one-per-screen and numerals only, and the list enumerates
+              what the summary already said.
+            </p>
+          </Card>
+        </Section>
+
         {/* Legacy type roles (compat only) */}
+
         <Section
           title="Legacy type roles (compat)"
           desc="Kept while sections are re-clothed. New work uses the five slots above."
