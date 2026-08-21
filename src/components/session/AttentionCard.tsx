@@ -375,14 +375,17 @@ function Tier1RowUI({ row }: { row: Tier1Row }) {
             <ValueOnTrack
               mode="deviation"
               axis={row.read.axis}
-              value={1 + row.read.deltaFrac}
-              reference={1}
+              value={absolutes ? absolutes.value : 1 + row.read.deltaFrac}
+              reference={absolutes ? absolutes.reference : 1}
+              unit={absolutes?.unit}
+              referenceUnknown={!absolutes}
               referenceBandPct={row.read.bandFrac}
               size="compact"
               showValue={false}
               showDelta={false}
               deltaTone="default"
             />
+
           ) : (
             /* Gap rows: the pair prints its own bracket label, so the
                right-hand delta column stays empty (no detached echo). */
