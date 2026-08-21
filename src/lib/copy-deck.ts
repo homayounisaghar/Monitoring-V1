@@ -61,10 +61,13 @@ export const COPY = {
   // ---------- Legend (the key) ----------
   "legend.band": "band — their normal range",
   "legend.tick": "tick — reference",
-  "legend.dot": "dot — this session",
+  "legend.dot": "dot — this session · ±% beside it, vs reference",
   "legend.trustDot": "trust dot — coverage under 80%",
   "legend.flagGlyph": "flag glyph — flagged in Attention",
   "legend.gapPair": "pair — external + internal, distance vs cardio gap (pts)",
+  "legend.unconfirmed": "ring + hatch — unconfirmed",
+  "legend.breakGlyph": "break — beyond chart range, exact % shown",
+  "legend.noData": "no data — reason printed on the row",
 
   // ---------- Legend — Longitudinal (product-wide corrected wording;
   // still needs propagating back to Session's legend at a later pass). ----------
