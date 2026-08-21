@@ -26,6 +26,7 @@ import {
 import type { Athlete } from "@/lib/session-data";
 import { copy, tmpl, BUILDING_BASELINE_MIN_SESSIONS } from "@/lib/copy-deck";
 import { ValueOnTrack, TrackAxis, dataDotSize, DATA_DOT_KEYLINE } from "@/components/data/ValueOnTrack";
+import { tier1Absolutes } from "@/lib/attention-absolutes";
 import { GapPair } from "@/components/data/GapPair";
 import { AthleteAvatar } from "@/components/data/AthleteAvatar";
 import { DegradedBanner } from "@/components/data/DegradedBanner";
@@ -288,6 +289,12 @@ function Tier1RowUI({ row }: { row: Tier1Row }) {
   if (!athlete) return null;
 
   const isEscalate = row.tier === "escalate";
+
+  // Real absolutes for the hover; positions stay ratio-based and unchanged.
+  const absolutes =
+    row.read.kind === "vot"
+      ? tier1Absolutes(row.id, currentSession.id, row.read.metric, row.read.deltaFrac)
+      : null;
 
   // Delta printed once, at the right, sized per tier.
   const deltaText =
