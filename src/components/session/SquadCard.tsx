@@ -25,7 +25,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { useSessionScope, COVERAGE_MIN, currentSession } from "@/lib/session-scope";
 import { squad, type Athlete } from "@/lib/session-data";
 import { ScopeTag } from "@/components/session/ScopeTag";
-import { TrustMark } from "@/components/data/TrustMark";
+import { TrustMark, WithheldMark } from "@/components/data/TrustMark";
 import { copy, tmpl } from "@/lib/copy-deck";
 import {
   METRICS,
@@ -589,6 +589,10 @@ function TableBody({
               a.participation !== null &&
               a.minutes < 60 &&
               !rowBuilding;
+            // Any displayed column whose comparison is withheld for this row.
+            const rowNotComparable = columns.some(
+              (cid) => cellState(a, METRICS[cid], buildingIds) === "not_compared",
+            );
 
             return (
               <tr
@@ -661,6 +665,7 @@ function TableBody({
                           display={display}
                           rowScaled={rowScaled}
                           rowBuilding={rowBuilding}
+                          rowNotComparable={rowNotComparable}
                           buildingIds={buildingIds}
                         />
                         {isLast && (
