@@ -564,7 +564,7 @@ function Styleguide() {
         {/* GapPair */}
         <Section
           title="GapPair"
-          desc="Work vs cost on one shared track, drawn in the ValueOnTrack anatomy (hairline + end caps, bounded reference band, reference tick). Two canonical dots — work blue, cost purple — under the same TrackAxis as sibling rows; the pair never prints its own endpoints. The distance between the marks is a measurement bracket: 1px slate-500 rail with 4px down-ticks, labelled with the gap in neutral slate (e.g. +27 pts gap). Bracket and label stay neutral — no severity, no third hue. Reads as two marks plus a measured distance, not as a range interval. Hover shows the two component deltas only (e.g. distance +14 · cardio −18), never the printed gap."
+          desc="Work vs cost on one shared track, drawn in the ValueOnTrack anatomy (hairline + end caps, bounded reference band, reference tick). Two canonical dots — work blue, cost purple — under the same tick label as sibling rows; like every track it prints its own endpoint numerals. The distance between the marks is a measurement bracket: 1px slate-500 rail with 4px down-ticks, labelled with the gap in neutral slate (e.g. +27 pts gap). Bracket and label stay neutral — no severity, no third hue. Reads as two marks plus a measured distance, not as a range interval. Hover shows the two component deltas only (e.g. distance +14 · cardio −18), never the printed gap."
         >
           <Card eyebrow="distance vs cardio gap (pts) — pair under the shared axis header, bracket = measured distance">
             <div className="space-y-2">
