@@ -1,0 +1,26 @@
+name: Export Pebble Chat v0.17 source
+
+on:
+  push:
+    branches:
+      - build/pebble-chat-bridge-v017
+
+jobs:
+  export:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Reassemble source
+        run: |
+          set -eux
+          cat v017_parts/part00.txt v017_parts/part01.txt v017_parts/part02.txt v017_parts/part03.txt v017_parts/part04.txt v017_parts/part05.txt > PebbleChatBridge-v017-src.tgz.b64
+          test "$(sha256sum PebbleChatBridge-v017-src.tgz.b64 | cut -d' ' -f1)" = "bd33a306c7d4168fed129105d95e520d38eac354f0e866c9811653ebc3f48586"
+          base64 -d PebbleChatBridge-v017-src.tgz.b64 > PebbleChatBridge-v017-src.tgz
+          test "$(sha256sum PebbleChatBridge-v017-src.tgz | cut -d' ' -f1)" = "8de63fcd74f3c1c8b012da0ae7e831dde5895eacc0a3fe7017e4e0eaca7a0fe6"
+          mkdir source
+          tar -xzf PebbleChatBridge-v017-src.tgz -C source
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PebbleChatBridge-v017-source
+          path: source/**
+          retention-days: 2
