@@ -10,6 +10,8 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: 6a5fc5a368aaffa802b13c8e85ca7001f677b9ea
       - name: Reassemble source
         run: |
           set -eux
