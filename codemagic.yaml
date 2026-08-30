@@ -1,0 +1,142 @@
+workflows:
+  pebble-bridge-v019:
+    name: Pebble Chat Bridge v0.19 — Thread Recovery
+    instance_type: linux_x2
+    max_build_duration: 30
+    environment:
+      java: 17
+      android_signing:
+        - pebble_bridge
+      groups:
+        - pebble_bridge_ci
+      vars:
+        GRADLE_VERSION: "8.10.2"
+        ANDROID_PLATFORM: "35"
+        ANDROID_BUILD_TOOLS: "35.0.0"
+        EXPECTED_CERT_SHA256: "931c550b5353a1b39396d57d44451df8a040952e678ffc7739139f5ee4526e58"
+        APK_BASENAME: "PebbleChatBridgePoC-v0.19-thread-recovery-signed.apk"
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: "build/pebble-chat-bridge-v019"
+          include: true
+          source: true
+      cancel_previous_builds: true
+
+    scripts:
+      - name: Reassemble and verify v0.19 source
+        script: |
+          #!/usr/bin/env bash
+          set -euo pipefail
+          mkdir -p ci/src ci/out
+          cat v019_parts/part00.txt v019_parts/part01.txt v019_parts/part02.txt v019_parts/part03.txt > ci/PebbleChatBridge-v019-src.tgz.b64
+          echo "76dfce144dd4e8126fdfb356e6fb3a6627f5bd629cf741798703847ec38d623a  ci/PebbleChatBridge-v019-src.tgz.b64" | sha256sum -c -
+          base64 -d ci/PebbleChatBridge-v019-src.tgz.b64 > ci/PebbleChatBridge-v019-src.tgz
+          echo "c7485116b17dfe4f2aa9f61469ab01e1596efccdf0d43f3d7b560d3c474e6196  ci/PebbleChatBridge-v019-src.tgz" | sha256sum -c -
+          tar -xzf ci/PebbleChatBridge-v019-src.tgz -C ci/src
+          grep -Fq "versionCode 19" ci/src/app/build.gradle
+          grep -Fq "0.19-thread-recovery" ci/src/app/build.gradle
+          grep -Fq "SESSION_RECOVERY_FAILED" ci/src/app/src/main/java/com/pebblebridge/poc/NativeProbeAccessibilityService.java
+          grep -Fq "processSessionRecovery" ci/src/app/src/main/java/com/pebblebridge/poc/NativeProbeAccessibilityService.java
+          grep -Fq "markSessionRecovered" ci/src/app/src/main/java/com/pebblebridge/poc/ProbeState.java
+          printf 'source_sha256=%s\nsource_b64_sha256=%s\n' \
+            "c7485116b17dfe4f2aa9f61469ab01e1596efccdf0d43f3d7b560d3c474e6196" \
+            "76dfce144dd4e8126fdfb356e6fb3a6627f5bd629cf741798703847ec38d623a" \
+            > ci/source-verification.txt
+
+      - name: Build unsigned Android release with full diagnostics
+        script: |
+          #!/usr/bin/env bash
+          set -uo pipefail
+          mkdir -p ci/out
+          : > ci/full-build.log
+          : > ci/diagnostic.txt
+          {
+            set -x
+            echo "sdk.dir=$ANDROID_SDK_ROOT" > ci/src/local.properties
+            yes | sdkmanager "platforms;android-${ANDROID_PLATFORM}" "build-tools;${ANDROID_BUILD_TOOLS}"
+            curl -fsSL "https://services.gradle.org/distributions/gradle-${GRADLE_VERSION}-bin.zip" -o /tmp/gradle.zip
+            rm -rf "/tmp/gradle-${GRADLE_VERSION}"
+            unzip -q -o /tmp/gradle.zip -d /tmp
+            cd ci/src
+            "/tmp/gradle-${GRADLE_VERSION}/bin/gradle" --no-daemon :app:assembleRelease --stacktrace
+          } 2>&1 | tee ci/full-build.log
+          rc=${PIPESTATUS[0]}
+          if [ "$rc" -ne 0 ]; then
+            {
+              echo "Pebble v0.19 build failed (exit=$rc). Extracted diagnostic follows."
+              grep -E -i -C 4 "(^| )error:|FAILURE:|Execution failed for task|What went wrong:|Caused by:|Exception|Could not resolve|Android resource linking failed" ci/full-build.log | tail -n 240 || true
+              echo "--- final 120 log lines ---"
+              tail -n 120 ci/full-build.log
+            } | tee ci/diagnostic.txt
+            exit "$rc"
+          fi
+          unsigned="ci/src/app/build/outputs/apk/release/app-release-unsigned.apk"
+          test -s "$unsigned"
+          cp "$unsigned" ci/out/PebbleChatBridgePoC-v0.19-unsigned.apk
+          echo "BUILD_OK" > ci/diagnostic.txt
+
+      - name: Sign APK with permanent Pebble Bridge identity and verify certificate
+        script: |
+          #!/usr/bin/env bash
+          set -euo pipefail
+          unsigned="ci/out/PebbleChatBridgePoC-v0.19-unsigned.apk"
+          signed="ci/out/${APK_BASENAME}"
+          test -s "$CM_KEYSTORE_PATH"
+          test -n "$CM_KEYSTORE_PASSWORD"
+          test -n "$CM_KEY_ALIAS"
+          test -n "$CM_KEY_PASSWORD"
+          apksigner="$ANDROID_SDK_ROOT/build-tools/${ANDROID_BUILD_TOOLS}/apksigner"
+          test -x "$apksigner"
+          "$apksigner" sign \
+            --ks "$CM_KEYSTORE_PATH" \
+            --ks-pass "env:CM_KEYSTORE_PASSWORD" \
+            --ks-key-alias "$CM_KEY_ALIAS" \
+            --key-pass "env:CM_KEY_PASSWORD" \
+            --out "$signed" \
+            "$unsigned"
+          "$apksigner" verify --verbose --print-certs "$signed" | tee ci/apksigner-verify.txt
+          actual_cert="$(sed -n 's/^Signer #1 certificate SHA-256 digest: //p' ci/apksigner-verify.txt | tr 'A-F' 'a-f' | head -n 1)"
+          test "$actual_cert" = "$EXPECTED_CERT_SHA256"
+          sha256sum "$signed" | tee ci/APK_SHA256.txt
+          printf 'certificate_sha256=%s\n' "$actual_cert" > ci/certificate.txt
+
+      - name: Publish signed APK to GitHub prerelease
+        script: |
+          #!/usr/bin/env bash
+          set -euo pipefail
+          test -n "$PEBBLE_GITHUB_TOKEN"
+          export GH_TOKEN="$PEBBLE_GITHUB_TOKEN"
+          short_commit="$(printf '%s' "$CM_COMMIT" | cut -c1-8)"
+          tag="pebble-v0.19-${short_commit}"
+          apk="ci/out/${APK_BASENAME}"
+          notes="ci/release-notes.txt"
+          {
+            echo "Automated Codemagic build for Pebble Chat Bridge v0.19 Thread Recovery."
+            echo
+            echo "Branch: ${CM_BRANCH}"
+            echo "Commit: ${CM_COMMIT}"
+            echo "Build: ${BUILD_NUMBER}"
+            echo "Certificate SHA-256: ${EXPECTED_CERT_SHA256}"
+            echo "APK SHA-256: $(cut -d' ' -f1 ci/APK_SHA256.txt)"
+          } > "$notes"
+          gh release create "$tag" \
+            --repo homayounisaghar/Monitoring-V1 \
+            --target "$CM_COMMIT" \
+            --prerelease \
+            --title "Pebble Chat Bridge v0.19 (${short_commit})" \
+            --notes-file "$notes" \
+            "$apk#${APK_BASENAME}"
+          gh release view "$tag" --repo homayounisaghar/Monitoring-V1 --json url -q .url | tee ci/release-url.txt
+
+    artifacts:
+      - ci/out/*.apk
+      - ci/full-build.log
+      - ci/diagnostic.txt
+      - ci/source-verification.txt
+      - ci/apksigner-verify.txt
+      - ci/APK_SHA256.txt
+      - ci/certificate.txt
+      - ci/release-notes.txt
+      - ci/release-url.txt
