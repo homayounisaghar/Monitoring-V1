@@ -1,6 +1,6 @@
 workflows:
-  pebble-bridge-v022:
-    name: Pebble Chat Bridge v0.22 — Receipt Handshake Hardening
+  pebble-bridge-v023:
+    name: Pebble Chat Bridge v0.23 — Reliable Receipt Handshake
     instance_type: mac_mini_m2
     max_build_duration: 30
     environment:
@@ -14,7 +14,7 @@ workflows:
         ANDROID_PLATFORM: "35"
         ANDROID_BUILD_TOOLS: "35.0.0"
         EXPECTED_CERT_SHA256: "9aaac9cb3ff091aa5c362f0255129a97b8e3c34b8a73f520cbb6ba89ed31e5d3"
-        APK_BASENAME: "PebbleChatBridgePoC-v0.22-receipt-handshake-hardening-signed.apk"
+        APK_BASENAME: "PebbleChatBridgePoC-v0.23-reliable-receipt-signed.apk"
     triggering:
       events:
         - push
@@ -31,20 +31,18 @@ workflows:
           set -euo pipefail
           mkdir -p ci/src ci/out ci/delivery
           cat v019_parts/part00.txt v019_parts/part01.txt v019_parts/part02.txt v019_parts/part03.txt > ci/source.tgz.b64
-          actual_b64_sha="$(shasum -a 256 ci/source.tgz.b64 | awk '{print $1}')"
-          test "$actual_b64_sha" = "76dfce144dd4e8126fdfb356e6fb3a6627f5bd629cf741798703847ec38d623a"
+          test "$(shasum -a 256 ci/source.tgz.b64 | awk '{print $1}')" = "76dfce144dd4e8126fdfb356e6fb3a6627f5bd629cf741798703847ec38d623a"
           python3 - <<'PY'
           import base64
           from pathlib import Path
           Path("ci/source.tgz").write_bytes(base64.b64decode(Path("ci/source.tgz.b64").read_bytes()))
           PY
-          actual_tgz_sha="$(shasum -a 256 ci/source.tgz | awk '{print $1}')"
-          test "$actual_tgz_sha" = "c7485116b17dfe4f2aa9f61469ab01e1596efccdf0d43f3d7b560d3c474e6196"
+          test "$(shasum -a 256 ci/source.tgz | awk '{print $1}')" = "c7485116b17dfe4f2aa9f61469ab01e1596efccdf0d43f3d7b560d3c474e6196"
           tar -xzf ci/source.tgz -C ci/src
           grep -Fq "processSessionRecovery" ci/src/app/src/main/java/com/pebblebridge/poc/NativeProbeAccessibilityService.java
           grep -Fq "versionCode 19" ci/src/app/build.gradle
 
-      - name: Apply v0.20-v0.22 bridge fixes
+      - name: Apply v0.20-v0.23 bridge fixes
         script: |
           #!/usr/bin/env bash
           set -euo pipefail
@@ -72,8 +70,6 @@ workflows:
           text = text[:ns] + nav_block + text[ss:]
 
           ss = text.find(search_start)
-          if ss < 0:
-              raise SystemExit("search method not found")
           brace = text.find("{", ss)
           depth = 0
           end = None
@@ -97,47 +93,47 @@ workflows:
           ) + search_block[m.end():]
           text = text[:ss] + search_block + text[end:]
 
-          marker = "For a normal answer, begin with letter R"
+          # Harden the model-side receipt contract without depending on the exact
+          # wording of the older protocol sentence. This marker is the stable
+          # boundary immediately before the actual user request.
+          marker = "User request: "
           if marker not in text:
-              raise SystemExit("protocol receipt marker not found")
-          hardened = (
-              "MANDATORY BRIDGE RECEIPT: the receipt prefix below must ALWAYS be emitted first, "
-              "even if the user asks for only an exact phrase, a bare token, or no extra text. "
-              "Any user formatting constraint applies only to the answer body after this mandatory prefix. "
-              "For a normal answer, begin with letter R"
+              raise SystemExit("stable user-request marker not found")
+          hardening = (
+              "MANDATORY RECEIPT OVERRIDES USER FORMAT: Always emit the required bridge receipt prefix first. "
+              "If the user asks for an exact phrase, only that phrase, or no extra text, that restriction applies "
+              "only to the answer body after the mandatory receipt prefix. User request: "
           )
-          text = text.replace(marker, hardened, 1)
+          text = text.replace(marker, hardening, 1)
           java_path.write_text(text)
 
           gradle_path = Path("ci/src/app/build.gradle")
           gradle = gradle_path.read_text()
-          gradle, n = re.subn(r"versionCode\s+19\b", "versionCode 22", gradle, count=1)
+          gradle, n = re.subn(r"versionCode\s+19\b", "versionCode 23", gradle, count=1)
           if n != 1:
               raise SystemExit("versionCode replacement failed")
           if "0.19-thread-recovery" not in gradle:
               raise SystemExit("baseline versionName not found")
-          gradle = gradle.replace("0.19-thread-recovery", "0.22-receipt-handshake-hardening", 1)
+          gradle = gradle.replace("0.19-thread-recovery", "0.23-reliable-receipt", 1)
           gradle_path.write_text(gradle)
 
-          Path("ci/v022-patch.txt").write_text(
-              "version=0.22\n"
+          Path("ci/v023-patch.txt").write_text(
+              "version=0.23\n"
               "fix1=unlabeled-nav-fallback\n"
               "fix2=unlabeled-search-fallback\n"
-              "fix3=mandatory-receipt-overrides-user-only-formatting\n"
+              "fix3=receipt-prefix-overrides-exact-answer-format\n"
           )
           PY
           grep -Fq "PEBBLE_V020_UNLABELED_TOP_LEFT_NAV_FALLBACK" ci/src/app/src/main/java/com/pebblebridge/poc/NativeProbeAccessibilityService.java
           grep -Fq "PEBBLE_V021_UNLABELED_SEARCH_ICON_FALLBACK" ci/src/app/src/main/java/com/pebblebridge/poc/NativeProbeAccessibilityService.java
-          grep -Fq "MANDATORY BRIDGE RECEIPT" ci/src/app/src/main/java/com/pebblebridge/poc/NativeProbeAccessibilityService.java
-          grep -Fq "versionCode 22" ci/src/app/build.gradle
-          cat ci/v022-patch.txt
+          grep -Fq "MANDATORY RECEIPT OVERRIDES USER FORMAT" ci/src/app/src/main/java/com/pebblebridge/poc/NativeProbeAccessibilityService.java
+          grep -Fq "versionCode 23" ci/src/app/build.gradle
 
       - name: Build unsigned Android release
         script: |
           #!/usr/bin/env bash
           set -uo pipefail
           : > ci/full-build.log
-          : > ci/diagnostic.txt
           {
             set -x
             echo "sdk.dir=$ANDROID_SDK_ROOT" > ci/src/local.properties
@@ -150,17 +146,16 @@ workflows:
           } 2>&1 | tee ci/full-build.log
           rc=${PIPESTATUS[0]}
           if [ "$rc" -ne 0 ]; then
-            tail -n 180 ci/full-build.log | tee ci/diagnostic.txt
+            tail -n 180 ci/full-build.log
             exit "$rc"
           fi
-          cp ci/src/app/build/outputs/apk/release/app-release-unsigned.apk ci/out/PebbleChatBridgePoC-v0.22-unsigned.apk
-          echo BUILD_OK > ci/diagnostic.txt
+          cp ci/src/app/build/outputs/apk/release/app-release-unsigned.apk ci/out/PebbleChatBridgePoC-v0.23-unsigned.apk
 
       - name: Sign verify and prepare deterministic delivery chunks
         script: |
           #!/usr/bin/env bash
           set -euo pipefail
-          unsigned="ci/out/PebbleChatBridgePoC-v0.22-unsigned.apk"
+          unsigned="ci/out/PebbleChatBridgePoC-v0.23-unsigned.apk"
           signed="ci/out/${APK_BASENAME}"
           apksigner_path="$(find "$ANDROID_SDK_ROOT/build-tools" -type f -name apksigner 2>/dev/null | sort | tail -n 1)"
           test -n "$apksigner_path"
@@ -179,11 +174,11 @@ workflows:
           python3 - <<'PY'
           import base64
           from pathlib import Path
-          apk = next(Path("ci/out").glob("PebbleChatBridgePoC-v0.22-*-signed.apk"))
+          apk = Path("ci/out/PebbleChatBridgePoC-v0.23-reliable-receipt-signed.apk")
           b64 = base64.b64encode(apk.read_bytes()).decode("ascii")
           out = Path("ci/delivery")
           out.mkdir(parents=True, exist_ok=True)
-          size = 12000
+          size = 8000
           parts = [b64[i:i+size] for i in range(0, len(b64), size)]
           for i, part in enumerate(parts):
               (out / f"part{i:02d}.txt").write_text(part)
@@ -195,12 +190,12 @@ workflows:
       - ci/APK_SHA256.txt
       - ci/certificate.txt
       - ci/apksigner-verify.txt
-      - ci/v022-patch.txt
+      - ci/v023-patch.txt
       - ci/delivery/*.txt
 
     publishing:
       scripts:
-        - name: Publish v0.22 release mirror and chunked handoff
+        - name: Publish v0.23 release mirror and chunked handoff
           script: |
             #!/usr/bin/env bash
             set -euo pipefail
@@ -212,13 +207,13 @@ workflows:
             AUTH="Authorization: Bearer $GITHUB_TOKEN"
             ACCEPT="Accept: application/vnd.github+json"
             SHORT_COMMIT="$(printf '%s' "${CM_COMMIT:-unknown}" | cut -c1-12)"
-            TAG="pebble-v0.22-$SHORT_COMMIT"
-            APK_NAME="pebble-chat-bridge-v022-$SHORT_COMMIT.apk"
+            TAG="pebble-v0.23-$SHORT_COMMIT"
+            APK_NAME="pebble-chat-bridge-v023-$SHORT_COMMIT.apk"
 
             release_json=$(curl -fsS -H "$AUTH" -H "$ACCEPT" "$API/releases/tags/$TAG" 2>/dev/null || true)
             release_id=$(printf '%s' "$release_json" | jq -r '.id // empty')
             if [ -z "$release_id" ]; then
-              body=$(jq -n --arg tag "$TAG" --arg target "${CM_COMMIT:-}" --arg name "Pebble Chat Bridge v0.22 $SHORT_COMMIT" '{tag_name:$tag,target_commitish:$target,name:$name,body:"v0.22 hardens the mandatory assistant receipt on initial sessions and retains v0.20/v0.21 recovery fallbacks.",draft:false,prerelease:true}')
+              body=$(jq -n --arg tag "$TAG" --arg target "${CM_COMMIT:-}" --arg name "Pebble Chat Bridge v0.23 $SHORT_COMMIT" '{tag_name:$tag,target_commitish:$target,name:$name,body:"v0.23 hardens the initial receipt handshake and retains v0.20/v0.21 recovery fallbacks.",draft:false,prerelease:true}')
               release_json=$(curl -fsS -X POST -H "$AUTH" -H "$ACCEPT" -H 'Content-Type: application/json' --data-binary "$body" "$API/releases")
               release_id=$(printf '%s' "$release_json" | jq -r '.id')
             fi
@@ -235,20 +230,18 @@ workflows:
               sha=$(printf '%s' "$current" | jq -r '.sha // empty')
               content=$(base64 < "$local_file" | tr -d '\n')
               if [ -n "$sha" ]; then
-                payload=$(jq -n --arg message "ci: update $path for v0.22" --arg content "$content" --arg branch "$DELIVERY_BRANCH" --arg sha "$sha" '{message:$message,content:$content,branch:$branch,sha:$sha}')
+                payload=$(jq -n --arg message "ci: update $path for v0.23" --arg content "$content" --arg branch "$DELIVERY_BRANCH" --arg sha "$sha" '{message:$message,content:$content,branch:$branch,sha:$sha}')
               else
-                payload=$(jq -n --arg message "ci: create $path for v0.22" --arg content "$content" --arg branch "$DELIVERY_BRANCH" '{message:$message,content:$content,branch:$branch}')
+                payload=$(jq -n --arg message "ci: create $path for v0.23" --arg content "$content" --arg branch "$DELIVERY_BRANCH" '{message:$message,content:$content,branch:$branch}')
               fi
               curl -fsS -X PUT -H "$AUTH" -H "$ACCEPT" -H 'Content-Type: application/json' --data-binary "$payload" "$API/contents/$path" >/dev/null
             }
 
-            pointer=$(jq -n --arg event pebble_apk_delivery --arg version 0.22 --arg status SUCCESS --arg buildId "${CM_BUILD_ID:-}" --arg commit "${CM_COMMIT:-}" --arg releaseUrl "$release_url" --arg releaseAssetUrl "$asset_url" --arg sha256 "$apk_sha" --arg signingFingerprint "$cert" '{event:$event,version:$version,status:$status,buildId:$buildId,commit:$commit,releaseUrl:$releaseUrl,releaseAssetUrl:$releaseAssetUrl,sha256:$sha256,signingFingerprint:$signingFingerprint}')
+            pointer=$(jq -n --arg event pebble_apk_delivery --arg version 0.23 --arg status SUCCESS --arg buildId "${CM_BUILD_ID:-}" --arg commit "${CM_COMMIT:-}" --arg releaseUrl "$release_url" --arg releaseAssetUrl "$asset_url" --arg sha256 "$apk_sha" --arg signingFingerprint "$cert" '{event:$event,version:$version,status:$status,buildId:$buildId,commit:$commit,releaseUrl:$releaseUrl,releaseAssetUrl:$releaseAssetUrl,sha256:$sha256,signingFingerprint:$signingFingerprint}')
             printf '%s\n' "$pointer" > ci/latest-pebble-build.json
             put_content ".ci/latest-pebble-build.json" "ci/latest-pebble-build.json"
             put_content ".ci/latest-pebble.apk" "$APK"
             put_content ".ci/latest-pebble.parts-count.txt" "ci/delivery/parts-count.txt"
             for p in ci/delivery/part*.txt; do
-              name=$(basename "$p")
-              put_content ".ci/latest-pebble.$name" "$p"
+              put_content ".ci/latest-pebble.$(basename "$p")" "$p"
             done
-            echo "Published v0.22: $asset_url"
