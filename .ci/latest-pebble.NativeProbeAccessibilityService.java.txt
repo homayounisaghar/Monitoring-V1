@@ -1,10 +1,12 @@
 package com.pebblebridge.poc;
 
 import android.accessibilityservice.AccessibilityService;
+import android.accessibilityservice.GestureDescription;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Canvas;
 import android.graphics.Paint;
+import android.graphics.Path;
 import android.graphics.PixelFormat;
 import android.graphics.Rect;
 import android.graphics.Typeface;
@@ -84,6 +86,11 @@ public class NativeProbeAccessibilityService extends AccessibilityService {
             String activePkg = packageOf(getRootInActiveWindow());
             if (!activePkg.isEmpty() && !ProbeState.TARGET.equals(activePkg)) {
                 String fingerprint = ProbeState.getString(this, "recoverySearchCandidateFingerprint");
+                if (fingerprint.startsWith("gesture-v030|")) {
+                    ProbeState.markSessionVerificationFailed(this);
+                    fail("V0.30_SEARCH_GESTURE_ESCAPED_CHATGPT: calibrated Search tap opened package=" + activePkg + ". No retry was attempted and the user request was never injected.");
+                    return;
+                }
                 rememberRejectedRecoverySearchFingerprint(fingerprint);
                 ProbeState.setBoolean(this, "recoverySearchRetrying", true);
                 boolean back = performGlobalAction(GLOBAL_ACTION_BACK);
@@ -526,26 +533,28 @@ public class NativeProbeAccessibilityService extends AccessibilityService {
                 return false;
             }
 
-            // PEBBLE_V029_NONCLICKING_SEARCH_TARGET_DIAGNOSTIC
+            // PEBBLE_V030_CALIBRATED_DRAWER_RELATIVE_SEARCH_GESTURE
             Rect target = computeRecoverySearchVisualTarget(nodes);
             if (target != null) {
-                showRecoveryVisualTarget(target, "V0.29 SEARCH TARGET");
-                if (!ProbeState.getBoolean(this, "v029SearchTargetLogged")) {
-                    ProbeState.setBoolean(this, "v029SearchTargetLogged", true);
-                    ProbeState.log(this, "V0.29 SEARCH TARGET DIAGNOSTIC: no candidate was clicked. Computed target=" + target.toShortString() + "; drawerEvidence=" + ProbeState.getString(this, "v029DrawerEvidence") + "; savedHeaderBand=" + ProbeState.getString(this, "recoveryNavHeaderBand") + ". Capture a screenshot showing the overlay and verify whether it sits on the visible Search icon.");
-                }
-                if (now - stateAt > 6500L) {
+                showRecoveryVisualTarget(target, "V0.30 SEARCH TAP");
+                String fingerprint = "gesture-v030|" + target.toShortString();
+                boolean dispatched = dispatchRecoverySearchTap(target);
+                ProbeState.log(this, "V0.30 CALIBRATED SEARCH TAP: target=" + target.toShortString() + "; dispatched=" + dispatched + "; drawerEvidence=" + ProbeState.getString(this, "v029DrawerEvidence") + "; savedHeaderBand=" + ProbeState.getString(this, "recoveryNavHeaderBand") + ". Search EditText verification is mandatory before any query entry.");
+                if (dispatched) {
+                    ProbeState.setString(this, "recoverySearchCandidateFingerprint", fingerprint);
+                    ProbeState.setSessionRecoveryState(this, "VERIFY_SEARCH_LAUNCH");
+                } else {
                     ProbeState.markSessionVerificationFailed(this);
-                    fail("V0.29_DIAGNOSTIC_COMPLETE: Search target was displayed but intentionally not clicked. The user request was never injected.");
+                    fail("V0.30_SEARCH_GESTURE_FAILED: calibrated Search tap could not be dispatched. The user request was never injected.");
                 }
                 return false;
             }
 
             if (now - stateAt > 7000L) {
                 ProbeState.markSessionVerificationFailed(this);
-                fail("V0.29_DIAGNOSTIC_FAILED: drawer was open but a safe relative Search target could not be derived. The user request was never injected.");
+                fail("V0.30_SEARCH_TARGET_FAILED: drawer was open but a safe calibrated Search point could not be derived. The user request was never injected.");
             } else {
-                maybeLogRecovery(nodes, now, "FIND_SEARCH v0.29 diagnostic: deriving drawer-relative Search target; no click is permitted");
+                maybeLogRecovery(nodes, now, "FIND_SEARCH v0.30: deriving calibrated drawer-relative Search point");
             }
             return false;
         }
@@ -559,8 +568,13 @@ public class NativeProbeAccessibilityService extends AccessibilityService {
                 ProbeState.log(this, "RECOVERY SEARCH VERIFIED: editable ChatGPT Search field appeared after candidate click: " + field.describe());
                 return false;
             }
-            if (now - stateAt > 1800L) {
+            if (now - stateAt > 2200L) {
                 String fingerprint = ProbeState.getString(this, "recoverySearchCandidateFingerprint");
+                if (fingerprint.startsWith("gesture-v030|")) {
+                    ProbeState.markSessionVerificationFailed(this);
+                    fail("V0.30_SEARCH_GESTURE_UNVERIFIED: calibrated Search tap did not expose a verified ChatGPT Search field. No retry was attempted and the user request was never injected.");
+                    return false;
+                }
                 rememberRejectedRecoverySearchFingerprint(fingerprint);
                 ProbeState.setBoolean(this, "recoverySearchRetrying", true);
                 boolean back = performGlobalAction(GLOBAL_ACTION_BACK);
@@ -785,12 +799,31 @@ public class NativeProbeAccessibilityService extends AccessibilityService {
         // The target is expressed only in terms of the verified drawer and header geometry.
         // It is intentionally not clicked in v0.29. The real-device screenshot will calibrate
         // this profile once, after which any gesture remains guarded by Search-field verification.
-        int cx = drawerRight - bandHeight;
-        int cy = (bandTop + bandBottom) / 2;
+        // PEBBLE_V030_SCREENSHOT_CALIBRATION
+        // Real-device v0.29 overlay was ~0.19H left and ~0.74H below the
+        // visible magnifier center. Keep the correction proportional to the
+        // proven runtime band rather than hard-coding pixels.
+        int cx = drawerRight - (bandHeight * 4 / 5);
+        int cy = bandTop - (bandHeight / 4);
         int half = Math.max(36, bandHeight * 38 / 100);
         Rect target = new Rect(cx - half, cy - half, cx + half, cy + half);
         ProbeState.setString(this, "v029DrawerEvidence", "left=" + drawerLeft + ",right=" + drawerRight + ",width=" + drawerWidth + ",rows=" + evidence);
         return target;
+    }
+
+    private boolean dispatchRecoverySearchTap(Rect target) {
+        if (target == null || target.isEmpty() || Build.VERSION.SDK_INT < Build.VERSION_CODES.N) return false;
+        try {
+            Path p = new Path();
+            p.moveTo(target.centerX(), target.centerY());
+            GestureDescription.StrokeDescription stroke = new GestureDescription.StrokeDescription(p, 0L, 90L);
+            GestureDescription.Builder builder = new GestureDescription.Builder();
+            builder.addStroke(stroke);
+            return dispatchGesture(builder.build(), null, null);
+        } catch (Exception e) {
+            ProbeState.log(this, "V0.30 SEARCH GESTURE ERROR: " + e.getClass().getSimpleName() + ": " + e.getMessage());
+            return false;
+        }
     }
 
     private void showRecoveryVisualTarget(Rect r, String label) {
