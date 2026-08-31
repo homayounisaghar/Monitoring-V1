@@ -1,0 +1,220 @@
+
+            String cls = n.className.toString().toLowerCase(Locale.US);
+            if (cls.contains("button") || cls.contains("image")) score += 20;
+            if (label.contains("send") || label.contains("submit")) score += 120;
+            if (label.contains("microphone") || label.contains("voice") || label.contains("plus") ||
+                    label.contains("attach") || label.contains("add") || label.contains("camera")) score -= 180;
+
+            if (score > bestScore) {
+                bestScore = score;
+                best = n;
+            }
+        }
+        return bestScore >= 120 ? best : null;
+    }
+
+    private String nearComposerSummary(List<NodeRecord> nodes, NodeRecord composer, int max) {
+        if (composer == null || composer.bounds.isEmpty()) return "<composer bounds unavailable>";
+        Rect c = composer.bounds;
+        int ch = Math.max(1, c.height());
+        StringBuilder b = new StringBuilder();
+        int count = 0;
+        for (NodeRecord n : nodes) {
+            if (!n.clickable || !n.visible || n.bounds.isEmpty()) continue;
+            int cy = n.bounds.centerY();
+            if (cy < c.top - ch || cy > c.bottom + ch) continue;
+            if (count++ > 0) b.append(" | ");
+            b.append(n.shortDescribe());
+            if (count >= max) break;
+        }
+        return b.length() == 0 ? "<none>" : b.toString();
+    }
+
+    private boolean processSessionRecovery(List<NodeRecord> nodes, long now) {
+        String state = ProbeState.sessionRecoveryState(this);
+        long stateAt = ProbeState.sessionRecoveryStateAt(this);
+        if (state == null || state.isEmpty() || "VERIFY_CURRENT".equals(state)) {
+            ProbeState.setSessionRecoveryState(this, "OPEN_NAV");
+            state = "OPEN_NAV";
+            stateAt = now;
+        }
+
+        if ("OPEN_NAV".equals(state)) {
+            NodeRecord searchField = findRecoverySearchField(nodes);
+            if (searchField != null) {
+                ProbeState.setSessionRecoveryState(this, "ENTER_QUERY");
+                return false;
+            }
+            NodeRecord search = findRecoverySearchLauncher(nodes);
+            if (search != null) {
+                boolean clicked = search.node.performAction(AccessibilityNodeInfo.ACTION_CLICK);
+                ProbeState.log(this, "RECOVERY: Search launcher found directly: " + search.describe() + "; click=" + clicked + ".");
+                if (clicked) ProbeState.setSessionRecoveryState(this, "ENTER_QUERY");
+                return false;
+            }
+            NodeRecord nav = findRecoveryNavOpener(nodes);
+            if (nav != null) {
+                boolean clicked = nav.node.performAction(AccessibilityNodeInfo.ACTION_CLICK);
+                ProbeState.log(this, "RECOVERY: navigation/history opener selected: " + nav.describe() + "; click=" + clicked + ".");
+                if (clicked) ProbeState.setSessionRecoveryState(this, "FIND_SEARCH");
+                return false;
+            }
+            if (now - stateAt > 7000L) {
+                ProbeState.markSessionVerificationFailed(this);
+                fail("SESSION_RECOVERY_FAILED: no safe ChatGPT navigation/search control became accessible. The user request was never injected.");
+            } else {
+                maybeLogRecovery(nodes, now, "OPEN_NAV: looking for ChatGPT navigation/search control");
+            }
+            return false;
+        }
+
+        if ("FIND_SEARCH".equals(state)) {
+            NodeRecord field = findRecoverySearchField(nodes);
+            if (field != null) {
+                ProbeState.setSessionRecoveryState(this, "ENTER_QUERY");
+                return false;
+            }
+            NodeRecord search = findRecoverySearchLauncher(nodes);
+            if (search != null) {
+                boolean clicked = search.node.performAction(AccessibilityNodeInfo.ACTION_CLICK);
+                ProbeState.log(this, "RECOVERY: ChatGPT Search control selected: " + search.describe() + "; click=" + clicked + ".");
+                if (clicked) ProbeState.setSessionRecoveryState(this, "ENTER_QUERY");
+                return false;
+            }
+            if (now - stateAt > 7000L) {
+                ProbeState.markSessionVerificationFailed(this);
+                fail("SESSION_RECOVERY_FAILED: ChatGPT navigation opened, but no verified search field/control was exposed. The user request was never injected.");
+            } else {
+                maybeLogRecovery(nodes, now, "FIND_SEARCH: navigation is open; looking for Search chats");
+            }
+            return false;
+        }
+
+        if ("ENTER_QUERY".equals(state)) {
+            NodeRecord field = findRecoverySearchField(nodes);
+            if (field == null) {
+                if (now - stateAt > 6500L) {
+                    ProbeState.markSessionVerificationFailed(this);
+                    fail("SESSION_RECOVERY_FAILED: Search UI did not expose an editable search field. The user request was never injected.");
+                } else {
+                    maybeLogRecovery(nodes, now, "ENTER_QUERY: waiting for editable ChatGPT search field");
+                }
+                return false;
+            }
+            String key = ProbeState.sessionRecoveryQuery(this);
+            Bundle args = new Bundle();
+            args.putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, key);
+            boolean ok = field.node.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args);
+            showNode(field, ok ? "RECOVERY SEARCH ✓" : "RECOVERY SEARCH ✕");
+            ProbeState.log(this, "RECOVERY: typed only the local session token into verified ChatGPT search field; key=" + key + "; result=" + ok + ".");
+            if (!ok) {
+                ProbeState.markSessionVerificationFailed(this);
+                fail("SESSION_RECOVERY_FAILED: ACTION_SET_TEXT failed on verified ChatGPT search field. The user request was never injected.");
+                return false;
+            }
+            ProbeState.setSessionRecoveryState(this, "WAIT_RESULTS");
+            return false;
+        }
+
+        if ("WAIT_RESULTS".equals(state)) {
+            if (now - stateAt < 1000L) return false;
+            NodeRecord result = findRecoveryResult(nodes);
+            if (result != null) {
+                boolean clicked = clickNodeOrAncestor(result.node, 4);
+                ProbeState.setString(this, "sessionRecoveryCandidate", result.shortDescribe());
+                ProbeState.log(this, "RECOVERY: search result candidate selected: " + result.describe() + "; click/ancestor-click=" + clicked + ". Receipt verification is mandatory before any user request can be injected.");
+                if (clicked) ProbeState.setSessionRecoveryState(this, "VERIFY_CANDIDATE");
+                return false;
+            }
+            if (now - stateAt > 10000L) {
+                ProbeState.markSessionVerificationFailed(this);
+                fail("SESSION_RECOVERY_FAILED: no ChatGPT search result candidate appeared for session token " + ProbeState.sessionRecoveryQuery(this) + ". The user request was never injected.");
+            } else {
+                maybeLogRecovery(nodes, now, "WAIT_RESULTS: waiting for a result matching the bridge session token");
+            }
+            return false;
+        }
+
+        if ("VERIFY_CANDIDATE".equals(state)) {
+            if (hasExpectedSessionReceipt(nodes)) return true;
+            if (now - stateAt > 8500L) {
+                ProbeState.markSessionVerificationFailed(this);
+                fail("SESSION_RECOVERY_FAILED: a ChatGPT search result opened, but the saved assistant receipt was not present. Candidate was rejected and the user request was never injected.");
+            } else {
+                maybeLogRecovery(nodes, now, "VERIFY_CANDIDATE: candidate opened; waiting for saved assistant receipt");
+            }
+            return false;
+        }
+
+        return false;
+    }
+
+    private NodeRecord findRecoveryNavOpener(List<NodeRecord> nodes) {
+        NodeRecord best = null;
+        int bestScore = Integer.MIN_VALUE;
+        for (NodeRecord n : nodes) {
+            if (!n.clickable || !n.visible || n.bounds.isEmpty()) continue;
+            String label = n.labelLower();
+            int score = 0;
+            if (label.contains("sidebar") || label.contains("navigation")) score += 220;
+            if (label.contains("menu") || label.contains("history") || label.contains("chats")) score += 150;
+            if (label.contains("new chat") || label.contains("send") || label.contains("voice") || label.contains("attach")) score -= 260;
+            if (n.bounds.centerX() < 220 && n.bounds.centerY() < 340) score += 90;
+            String cls = n.className.toString().toLowerCase(Locale.US);
+            if (cls.contains("button") || cls.contains("image")) score += 20;
+            if (score > bestScore) { bestScore = score; best = n; }
+        }
+        return bestScore >= 120 ? best : null;
+    }
+
+    private NodeRecord findRecoverySearchLauncher(List<NodeRecord> nodes) {
+        NodeRecord best = null;
+        int bestScore = Integer.MIN_VALUE;
+        for (NodeRecord n : nodes) {
+            if (!n.clickable || !n.visible) continue;
+            String label = n.labelLower();
+            int score = 0;
+            if (label.equals("search") || label.contains("search chats") || label.contains("search conversations")) score += 240;
+            else if (label.contains("search")) score += 150;
+            if (label.contains("web") || label.contains("voice")) score -= 150;
+            if (score > bestScore) { bestScore = score; best = n; }
+        }
+        return bestScore >= 140 ? best : null;
+    }
+
+    private NodeRecord findRecoverySearchField(List<NodeRecord> nodes) {
+        NodeRecord best = null;
+        int bestScore = Integer.MIN_VALUE;
+        for (NodeRecord n : nodes) {
+            if (!(n.editable || n.canSetText) || !n.visible) continue;
+            String label = n.labelLower();
+            int score = 0;
+            if (label.contains("search chats") || label.contains("search conversations")) score += 260;
+            if (label.contains("search")) score += 190;
+            String cls = n.className.toString().toLowerCase(Locale.US);
+            if (cls.contains("edittext")) score += 40;
+            if (label.contains("ask chatgpt") || label.contains("message") || label.contains("prompt")) score -= 300;
+            if (score > bestScore) { bestScore = score; best = n; }
+        }
+        return bestScore >= 170 ? best : null;
+    }
+
+    private NodeRecord findRecoveryResult(List<NodeRecord> nodes) {
+        String key = ProbeState.sessionRecoveryQuery(this).toLowerCase(Locale.US);
+        NodeRecord firstPlausible = null;
+        int plausibleScore = Integer.MIN_VALUE;
+        for (NodeRecord n : nodes) {
+            if (!n.visible) continue;
+            String label = n.labelLower();
+            if (!key.isEmpty() && label.contains(key)) return n;
+            if (!n.clickable || n.bounds.isEmpty()) continue;
+            int score = 0;
+            if (n.bounds.centerY() > 180) score += 40;
+            if (label.length() > 3) score += 20;
+            if (label.contains("search") || label.contains("new chat") || label.contains("settings") || label.contains("profile") || label.contains("voice") || label.contains("close") || label.contains("back")) score -= 220;
+            if (score > plausibleScore) { plausibleScore = score; firstPlausible = n; }
+        }
+        return plausibleScore >= 40 ? firstPlausible : null;
+    }
+
+    private boolean cli
