@@ -1,0 +1,11 @@
+{
+  "event": "pebble_apk_delivery",
+  "status": "SUCCESS",
+  "buildId": "6a952138ad20be13e3ff6a43",
+  "commit": "9c5a98916d4067f1027dc3121452f8a617ff7631",
+  "apkPublicUrl": "https://api.codemagic.io/artifacts/.eJwVwclygjAAANB_8d4ZBCFwZAk7CJRohwvDEllDSUSFfH2n7506_Z9B528HAeaTj64-58JbLWi-TCzPh0DQFXVWTKet8USQVry0xBXlC9RkeP7xGY4AE_NR5Ww6CmpCtKZSbd_cuQerN-FLbCOr2QBpjiGPQ2UCBmzxTjv7zoQQQQMG_aOobmf-9t64HVgfQfLg9wxLCaoK6VEmyn3VJICytl6kcHOoCFGl1u6SFO5OX8M4OmSKPmEmD4Bn7KY9BBez3cH2MzJlci_HwM7IfkTpcmuvzcb3gK523bLrlKhEAIJxrvOliUb_NeAKculr9rIE2cqip6Ps54qOQE_KLXTDDse_wbkGmk7bSyYRZW1GxhVfqmh0yKc_t9VwvQ.Mu_DWIGKa4bazO0c0hPU37IjDQw",
+  "releaseUrl": "https://github.com/homayounisaghar/Monitoring-V1/releases/tag/pebble-v0.19-9c5a98916d40",
+  "releaseAssetUrl": "https://github.com/homayounisaghar/Monitoring-V1/releases/download/pebble-v0.19-9c5a98916d40/pebble-chat-bridge-v019-9c5a98916d40-6a952138ad20be13e3ff6a43.apk",
+  "sha256": "efb79af81d7d2a5d988413a5ad17bccc71fefc4a4d107495adf7cfdffd1ac02b",
+  "signingFingerprint": "9aaac9cb3ff091aa5c362f0255129a97b8e3c34b8a73f520cbb6ba89ed31e5d3"
+}
