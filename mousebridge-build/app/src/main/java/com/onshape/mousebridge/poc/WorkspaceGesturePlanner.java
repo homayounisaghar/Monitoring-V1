@@ -11,6 +11,8 @@ import java.util.List;
 
 final class WorkspaceGesturePlanner {
     private static final int GRID = 29;
+    private static WorkspaceMap cachedMap;
+    private static boolean cacheDirty = true;
 
     static final class Plan {
         final boolean valid;
@@ -37,16 +39,41 @@ final class WorkspaceGesturePlanner {
             this.workspaceCenterY = workspaceCenterY;
         }
 
-        float achievedDelta() { return Math.max(0f, outerDistance - innerDistance); }
-        float secondX(float distance) { return anchorX + dirX * distance; }
-        float secondY(float distance) { return anchorY + dirY * distance; }
+        float achievedDelta() {
+            return Math.max(0f, outerDistance - innerDistance);
+        }
+
+        float secondX(float distance) {
+            return anchorX + dirX * distance;
+        }
+
+        float secondY(float distance) {
+            return anchorY + dirY * distance;
+        }
     }
 
     private WorkspaceGesturePlanner() {}
 
+    static void invalidate() {
+        cacheDirty = true;
+    }
+
+    static void clearCache() {
+        cachedMap = null;
+        cacheDirty = true;
+    }
+
+    private static WorkspaceMap currentMap(AccessibilityService service) {
+        if (cachedMap == null || cacheDirty) {
+            cachedMap = WorkspaceMap.capture(service);
+            cacheDirty = false;
+        }
+        return cachedMap;
+    }
+
     static Plan plan(AccessibilityService service, float mouseX, float mouseY,
                      float desiredDeltaPx) {
-        WorkspaceMap map = WorkspaceMap.capture(service);
+        WorkspaceMap map = currentMap(service);
         float touchMargin = dp(service, 5f);
         if (!map.isSafe(mouseX, mouseY, 0f)) return invalid(mouseX, mouseY);
 
@@ -101,7 +128,7 @@ final class WorkspaceGesturePlanner {
 
     static Plan planTwoFingerTap(AccessibilityService service, float mouseX, float mouseY,
                                  float preferredSeparationPx) {
-        WorkspaceMap map = WorkspaceMap.capture(service);
+        WorkspaceMap map = currentMap(service);
         if (!map.isSafe(mouseX, mouseY, 0f)) return invalid(mouseX, mouseY);
 
         Point center = map.findSafestCenter();
@@ -140,14 +167,11 @@ final class WorkspaceGesturePlanner {
         final AccessibilityService service;
         final RectF base;
         final ArrayList<RectF> obstacles;
-        final float screenArea;
 
-        WorkspaceMap(AccessibilityService service, RectF base, ArrayList<RectF> obstacles,
-                     float screenArea) {
+        WorkspaceMap(AccessibilityService service, RectF base, ArrayList<RectF> obstacles) {
             this.service = service;
             this.base = base;
             this.obstacles = obstacles;
-            this.screenArea = screenArea;
         }
 
         static WorkspaceMap capture(AccessibilityService service) {
@@ -185,7 +209,7 @@ final class WorkspaceGesturePlanner {
                             || fraction < 0.82f) collector.addObstacle(rf);
                 }
             }
-            return new WorkspaceMap(service, base, collector.obstacles, screenArea);
+            return new WorkspaceMap(service, base, collector.obstacles);
         }
 
         boolean isSafe(float x, float y, float margin) {
@@ -221,8 +245,7 @@ final class WorkspaceGesturePlanner {
                 for (int gx = 0; gx < GRID; gx++) {
                     float x = base.left + (gx + 0.5f) * base.width() / GRID;
                     float score = clearance(x, y, margin);
-                    if (score <= bestScore) continue;
-                    if (!segmentSafe(fromX, fromY, x, y, margin)) continue;
+                    if (score <= bestScore || !segmentSafe(fromX, fromY, x, y, margin)) continue;
                     bestScore = score;
                     best = new Point(x, y);
                 }
@@ -234,16 +257,13 @@ final class WorkspaceGesturePlanner {
             float bestDistance = -1f;
             float bestX = 1f;
             float bestY = 0f;
-            for (int i = 0; i < 24; i++) {
-                double a = 2.0 * Math.PI * i / 24;
+            final int directions = 24;
+            for (int i = 0; i < directions; i++) {
+                double a = 2.0 * Math.PI * i / directions;
                 float ux = (float) Math.cos(a);
                 float uy = (float) Math.sin(a);
                 float ray = maxSafeRay(x, y, ux, uy, margin);
-                if (ray > bestDistance) {
-                    bestDistance = ray;
-                    bestX = ux;
-                    bestY = uy;
-                }
+                if (ray > bestDistance) { bestDistance = ray; bestX = ux; bestY = uy; }
             }
             return new Point(bestX, bestY);
         }
@@ -273,7 +293,8 @@ final class WorkspaceGesturePlanner {
 
         float clearance(float x, float y, float margin) {
             if (!isSafe(x, y, margin)) return -1f;
-            float best = Math.min(Math.min(x - base.left, base.right - x),
+            float best = Math.min(
+                    Math.min(x - base.left, base.right - x),
                     Math.min(y - base.top, base.bottom - y));
             for (RectF r : obstacles) {
                 float dx = Math.max(Math.max(r.left - x, 0f), x - r.right);
@@ -304,8 +325,8 @@ final class WorkspaceGesturePlanner {
             float fraction = area(bounds) / screenArea;
             String cls = node.getClassName() == null ? "" : node.getClassName().toString();
 
-            boolean surface = cls.contains("SurfaceView") || cls.contains("TextureView")
-                    || cls.contains("GLSurfaceView");
+            boolean surface = cls.contains("SurfaceView")
+                    || cls.contains("TextureView") || cls.contains("GLSurfaceView");
             if (surface && !r.isEmpty()) {
                 if (largestSurface == null || area(bounds) > area(largestSurface))
                     largestSurface = new RectF(bounds);
@@ -329,16 +350,16 @@ final class WorkspaceGesturePlanner {
             boolean knownUiClass = cls.contains("Button") || cls.contains("EditText")
                     || cls.contains("RecyclerView") || cls.contains("ListView")
                     || cls.contains("ScrollView") || cls.contains("Toolbar")
-                    || cls.contains("Menu") || cls.contains("Popup")
-                    || cls.contains("Dialog") || cls.contains("Spinner") || cls.contains("Tab");
+                    || cls.contains("Menu") || cls.contains("Popup") || cls.contains("Dialog")
+                    || cls.contains("Spinner") || cls.contains("Tab");
             boolean hasText = hasValue(node.getText()) || hasValue(node.getContentDescription());
-            boolean interactive = node.isClickable() || node.isLongClickable()
-                    || node.isCheckable() || node.isEditable();
+            boolean interactive = node.isClickable() || node.isLongClickable() || node.isCheckable()
+                    || node.isEditable();
             boolean ownEvidence = scrollable || knownUiClass || hasText || interactive;
-            boolean add = !r.isEmpty() && fraction < 0.90f && (scrollable || knownUiClass
-                    || (hasText && fraction < 0.28f)
-                    || (interactive && fraction < 0.14f)
-                    || (childEvidence >= 3 && fraction < 0.55f));
+            boolean add = !r.isEmpty() && fraction < 0.90f && (
+                    scrollable || knownUiClass || (hasText && fraction < 0.28f)
+                            || (interactive && fraction < 0.14f)
+                            || (childEvidence >= 3 && fraction < 0.55f));
             if (add) addObstacle(bounds);
             return (ownEvidence ? 1 : 0) + Math.min(8, childEvidence);
         }
@@ -353,11 +374,16 @@ final class WorkspaceGesturePlanner {
     private static boolean hasValue(CharSequence value) {
         return value != null && value.length() > 0;
     }
+
     private static float area(RectF r) {
         if (r == null) return 0f;
         return Math.max(0f, r.width()) * Math.max(0f, r.height());
     }
-    private static float hypot(float x, float y) { return (float) Math.hypot(x, y); }
+
+    private static float hypot(float x, float y) {
+        return (float) Math.hypot(x, y);
+    }
+
     private static float dp(AccessibilityService service, float value) {
         return value * service.getResources().getDisplayMetrics().density;
     }
