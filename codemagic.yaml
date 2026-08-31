@@ -131,30 +131,11 @@ workflows:
           test "$actual_cert" = "$EXPECTED_CERT_SHA256"
           shasum -a 256 "$signed" | tee ci/APK_SHA256.txt
 
-      - name: Publish signed APK using any existing GitHub credential
+      - name: Publish signed APK using any writable existing GitHub credential
         script: |
           #!/usr/bin/env bash
-          set -euo pipefail
-          token_source=""
-          if [ -n "${PEBBLE_GITHUB_TOKEN:-}" ]; then
-            export GH_TOKEN="$PEBBLE_GITHUB_TOKEN"
-            token_source="PEBBLE_GITHUB_TOKEN"
-          elif [ -n "${GITHUB_TOKEN:-}" ]; then
-            export GH_TOKEN="$GITHUB_TOKEN"
-            token_source="GITHUB_TOKEN"
-          elif [ -n "${GH_TOKEN:-}" ]; then
-            token_source="GH_TOKEN"
-          elif [ -n "${CM_GITHUB_TOKEN:-}" ]; then
-            export GH_TOKEN="$CM_GITHUB_TOKEN"
-            token_source="CM_GITHUB_TOKEN"
-          else
-            echo "No existing GitHub release credential is available to this Codemagic workflow."
-            exit 19
-          fi
-
+          set -u
           command -v gh >/dev/null || exit 20
-          gh api repos/homayounisaghar/Monitoring-V1 -q .full_name > ci/github-auth-check.txt || exit 21
-          printf 'credential_source=%s\n' "$token_source" >> ci/github-auth-check.txt
 
           short_commit="$(printf '%s' "$CM_COMMIT" | cut -c1-8)"
           tag="pebble-v0.19-${short_commit}"
@@ -170,18 +151,37 @@ workflows:
             echo "APK SHA-256: $(cut -d' ' -f1 ci/APK_SHA256.txt)"
           } > "$notes"
 
-          if gh release view "$tag" --repo homayounisaghar/Monitoring-V1 >/dev/null 2>&1; then
-            gh release upload "$tag" "$apk#${APK_BASENAME}" --repo homayounisaghar/Monitoring-V1 --clobber
-          else
-            gh release create "$tag" \
-              --repo homayounisaghar/Monitoring-V1 \
-              --target "$CM_COMMIT" \
-              --prerelease \
-              --title "Pebble Chat Bridge v0.19 (${short_commit})" \
-              --notes-file "$notes" \
-              "$apk#${APK_BASENAME}"
-          fi
-          gh release view "$tag" --repo homayounisaghar/Monitoring-V1 --json url -q .url | tee ci/release-url.txt
+          try_publish() {
+            source_name="$1"
+            source_value="$2"
+            [ -n "$source_value" ] || return 1
+            export GH_TOKEN="$source_value"
+            if ! gh api repos/homayounisaghar/Monitoring-V1 -q .full_name >/dev/null 2>&1; then
+              return 2
+            fi
+            if gh release view "$tag" --repo homayounisaghar/Monitoring-V1 >/dev/null 2>&1; then
+              gh release upload "$tag" "$apk#${APK_BASENAME}" --repo homayounisaghar/Monitoring-V1 --clobber >/dev/null 2>&1 || return 3
+            else
+              gh release create "$tag" \
+                --repo homayounisaghar/Monitoring-V1 \
+                --target "$CM_COMMIT" \
+                --prerelease \
+                --title "Pebble Chat Bridge v0.19 (${short_commit})" \
+                --notes-file "$notes" \
+                "$apk#${APK_BASENAME}" >/dev/null 2>&1 || return 4
+            fi
+            printf 'credential_source=%s\n' "$source_name" > ci/github-auth-check.txt
+            gh release view "$tag" --repo homayounisaghar/Monitoring-V1 --json url -q .url | tee ci/release-url.txt
+            return 0
+          }
+
+          if try_publish "PEBBLE_GITHUB_TOKEN" "${PEBBLE_GITHUB_TOKEN:-}"; then exit 0; fi
+          if try_publish "GITHUB_TOKEN" "${GITHUB_TOKEN:-}"; then exit 0; fi
+          if try_publish "GH_TOKEN" "${GH_TOKEN:-}"; then exit 0; fi
+          if try_publish "CM_GITHUB_TOKEN" "${CM_GITHUB_TOKEN:-}"; then exit 0; fi
+
+          echo "No existing GitHub credential available to this workflow has release write permission."
+          exit 22
 
     artifacts:
       - ci/out/*.apk
