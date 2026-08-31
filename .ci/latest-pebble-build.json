@@ -1,12 +1,12 @@
 {
   "event": "pebble_apk_delivery",
-  "version": "0.23",
+  "version": "0.24",
   "status": "SUCCESS",
-  "buildId": "6a9561c8fac9a246bec7b709",
-  "commit": "5fce4b7ab26b8aca8c4cb7e83d6876451ff8bd14",
-  "apkPublicUrl": "https://api.codemagic.io/artifacts/.eJwVy9u2QkAAANB_6d1axLg8ImFyJ-Sl1WiakpDBGb7-nLPf947o_4xvW4TIU-Tl7ZbJqEorf-_lamoiwck4elZrVaUovRVgiB0kiwfO3ciluXZIqfuzlGkw6ls6Sh4UVWzZ5epWt0Q4Nj8Q8Ki1lYXFjwkrHSkDAEwgXx0r6o8hhBYDLpdBDXl3X2u_rAx1nrW34dw6LG90ZTJokvrp8_JxD7M40kPXiATlvYaBPJ5OL5KAwyrwRvaKQ7v0DRHujQ1MHFg-noRhUi7pZvv-X3fsBG0ZwoFl0pnMsfiElfxzeU-4GPSHorOlGUHMyKDP7ZV5AcEFCMKyW1DelmateBgN6oppnZ2-o5Q_o6mjZvXeLNoIsa3agrXf_QKCfG88.dotr8fSPp2_lE2AXp77P7Wamuek",
-  "releaseUrl": "https://github.com/homayounisaghar/Monitoring-V1/releases/tag/pebble-v0.23-5fce4b7ab26b",
-  "releaseAssetUrl": "https://github.com/homayounisaghar/Monitoring-V1/releases/download/pebble-v0.23-5fce4b7ab26b/pebble-chat-bridge-v023-5fce4b7ab26b.apk",
-  "sha256": "b91423e84c3d39080eb79e7bb89a284d657336e82ac6d86eb42b3ca1cc4801b6",
+  "buildId": "6a956abd3cf4759eab6be20f",
+  "commit": "fa1084388134fc6a3ccb50fb82ca5824f518d09f",
+  "apkPublicUrl": "https://api.codemagic.io/artifacts/.eJwVwUmSgjAAAMC_eLdKFASOrCEQRDSsFyqAbAmyy4yvn5ruQ638UycWzRlwnJb3LAUrFFunbwhFVVmMy75sVO60SPYlu0hnL4mgdiNjdvFVkc4UWDl74f3zGw4iwOyje41a2TIa-Wiiqe_CSp8xx3FBXyMQw8bPibU0Sscnmd9Bg-z2uBs3W2e4CYb4e7JQpcXSU1szZaLJmF6H9Cf4RIS4htXWMpRRz7ZWiEAunfHRbUs3e3ksOYZ5ic5GNMFrdK_vhonNuFR7ssChrt5QkAQHv7WCreLaNrPyGFPOZlLQbWPAs94qGZ6yAomCzREGpnvKnqY-GA9TWF0Kpp9bQVeyoY5bB-owWZMv4RPYxWl46V7YTCkKDXT4A9Chb_k.5o0l8oJgE18EGKRktXsDgIyQhZ8",
+  "releaseUrl": "https://github.com/homayounisaghar/Monitoring-V1/releases/tag/pebble-v0.24-fa1084388134",
+  "releaseAssetUrl": "https://github.com/homayounisaghar/Monitoring-V1/releases/download/pebble-v0.24-fa1084388134/pebble-chat-bridge-v024-fa1084388134.apk",
+  "sha256": "fdf3309ca110b24d97e00739eed39c463858960dee2e2b44ade542892f4c2c99",
   "signingFingerprint": "9aaac9cb3ff091aa5c362f0255129a97b8e3c34b8a73f520cbb6ba89ed31e5d3"
 }
