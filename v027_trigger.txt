@@ -1,1 +1,2 @@
 Trigger Codemagic after v0.27 workflow update.
+Retry 2.
