@@ -79,15 +79,15 @@ public class NativeProbeAccessibilityService extends AccessibilityService {
             return;
         }
 
-        // PEBBLE_V026_REJECT_EXTERNAL_SEARCH_LAUNCH
+        // PEBBLE_V027_REJECT_EXTERNAL_SEARCH_LAUNCH
         if (ProbeState.isContinueChatRun(this) && "VERIFY_SEARCH_LAUNCH".equals(ProbeState.sessionRecoveryState(this))) {
             String activePkg = packageOf(getRootInActiveWindow());
             if (!activePkg.isEmpty() && !ProbeState.TARGET.equals(activePkg)) {
                 String fingerprint = ProbeState.getString(this, "recoverySearchCandidateFingerprint");
-                if (!fingerprint.isEmpty()) ProbeState.setString(this, "rejectedRecoverySearchFingerprint", fingerprint);
+                rememberRejectedRecoverySearchFingerprint(fingerprint);
                 boolean back = performGlobalAction(GLOBAL_ACTION_BACK);
-                ProbeState.log(this, "RECOVERY SEARCH REJECTED: candidate left ChatGPT and opened package=" + activePkg + "; GLOBAL_BACK=" + back + ". Candidate is blacklisted for this run.");
-                ProbeState.setSessionRecoveryState(this, "OPEN_NAV");
+                ProbeState.log(this, "RECOVERY SEARCH REJECTED: candidate left ChatGPT and opened package=" + activePkg + "; GLOBAL_BACK=" + back + ". Candidate added to the rejected set.");
+                ProbeState.setSessionRecoveryState(this, "FIND_SEARCH");
                 return;
             }
         }
@@ -470,8 +470,10 @@ public class NativeProbeAccessibilityService extends AccessibilityService {
             }
             NodeRecord nav = findRecoveryNavOpener(nodes);
             if (nav != null) {
+                ProbeState.setString(this, "recoveryNavHeaderBand", nav.bounds.top + "," + nav.bounds.bottom + "," + nav.bounds.right);
+                ProbeState.setString(this, "rejectedRecoverySearchFingerprints", "");
                 boolean clicked = nav.node.performAction(AccessibilityNodeInfo.ACTION_CLICK);
-                ProbeState.log(this, "RECOVERY: navigation/history opener selected: " + nav.describe() + "; click=" + clicked + ".");
+                ProbeState.log(this, "RECOVERY: navigation/history opener selected: " + nav.describe() + "; savedHeaderBand=" + ProbeState.getString(this, "recoveryNavHeaderBand") + "; click=" + clicked + ".");
                 if (clicked) ProbeState.setSessionRecoveryState(this, "FIND_SEARCH");
                 return false;
             }
@@ -495,10 +497,12 @@ public class NativeProbeAccessibilityService extends AccessibilityService {
             if (search != null) {
                 String fingerprint = recoverySearchFingerprint(search);
                 boolean clicked = search.node.performAction(AccessibilityNodeInfo.ACTION_CLICK);
-                ProbeState.log(this, "RECOVERY: tentative ChatGPT Search control selected: " + search.describe() + "; fingerprint=" + fingerprint + "; click=" + clicked + ". Search field verification is mandatory before query entry.");
+                ProbeState.log(this, "RECOVERY: tentative ChatGPT Search candidate selected: " + search.describe() + "; fingerprint=" + fingerprint + "; click=" + clicked + ". A verified Search field is mandatory before query entry.");
                 if (clicked) {
                     ProbeState.setString(this, "recoverySearchCandidateFingerprint", fingerprint);
                     ProbeState.setSessionRecoveryState(this, "VERIFY_SEARCH_LAUNCH");
+                } else {
+                    rememberRejectedRecoverySearchFingerprint(fingerprint);
                 }
                 return false;
             }
@@ -516,15 +520,15 @@ public class NativeProbeAccessibilityService extends AccessibilityService {
             if (field != null) {
                 ProbeState.setString(this, "recoverySearchCandidateFingerprint", "");
                 ProbeState.setSessionRecoveryState(this, "ENTER_QUERY");
-                ProbeState.log(this, "RECOVERY SEARCH VERIFIED: editable ChatGPT search field appeared after candidate click.");
+                ProbeState.log(this, "RECOVERY SEARCH VERIFIED: editable ChatGPT Search field appeared after candidate click: " + field.describe());
                 return false;
             }
             if (now - stateAt > 1800L) {
                 String fingerprint = ProbeState.getString(this, "recoverySearchCandidateFingerprint");
-                if (!fingerprint.isEmpty()) ProbeState.setString(this, "rejectedRecoverySearchFingerprint", fingerprint);
+                rememberRejectedRecoverySearchFingerprint(fingerprint);
                 boolean back = performGlobalAction(GLOBAL_ACTION_BACK);
-                ProbeState.log(this, "RECOVERY SEARCH REJECTED: clicked candidate did not produce a verified ChatGPT search field; GLOBAL_BACK=" + back + ". Candidate is blacklisted for this run.");
-                ProbeState.setSessionRecoveryState(this, "OPEN_NAV");
+                ProbeState.log(this, "RECOVERY SEARCH REJECTED: candidate did not expose a verified Search field; GLOBAL_BACK=" + back + ". Candidate added to rejected set; trying the next header candidate.");
+                ProbeState.setSessionRecoveryState(this, "FIND_SEARCH");
             }
             return false;
         }
@@ -622,105 +626,77 @@ public class NativeProbeAccessibilityService extends AccessibilityService {
         return bestScore >= 140 ? best : null;
     }
 
-    // PEBBLE_V026_STRUCTURAL_DRAWER_SEARCH
+    // PEBBLE_V027_HEADER_BAND_CANDIDATE_SEQUENCE
     private NodeRecord findRecoveryDrawerSearchLauncher(List<NodeRecord> nodes) {
-        NodeRecord title = null;
-        NodeRecord firstItem = null;
-        boolean images = false, library = false, projects = false, remote = false;
-        boolean scheduled = false, temporary = false, plugins = false, recents = false;
-
-        for (NodeRecord n : nodes) {
-            if (!n.visible || n.bounds.isEmpty()) continue;
-            String label = n.labelLower();
-            if (label.equals("chatgpt") || label.startsWith("chatgpt ")) {
-                if (title == null || n.bounds.top < title.bounds.top) title = n;
-            }
-            boolean primary = false;
-            if (label.equals("images")) { images = true; primary = true; }
-            else if (label.equals("library")) { library = true; primary = true; }
-            else if (label.equals("projects")) { projects = true; primary = true; }
-            else if (label.equals("remote")) { remote = true; primary = true; }
-            else if (label.equals("scheduled")) { scheduled = true; primary = true; }
-            else if (label.equals("temporary")) { temporary = true; primary = true; }
-            else if (label.equals("plugins")) { plugins = true; primary = true; }
-            else if (label.equals("recents")) { recents = true; }
-            if (primary && (firstItem == null || n.bounds.top < firstItem.bounds.top)) firstItem = n;
+        String band = ProbeState.getString(this, "recoveryNavHeaderBand");
+        String[] parts = band.split(",");
+        if (parts.length != 3) return null;
+        int bandTop, bandBottom, navRight;
+        try {
+            bandTop = Integer.parseInt(parts[0]);
+            bandBottom = Integer.parseInt(parts[1]);
+            navRight = Integer.parseInt(parts[2]);
+        } catch (Exception ignored) {
+            return null;
         }
-
-        int anchorHits = (images ? 1 : 0) + (library ? 1 : 0) + (projects ? 1 : 0) +
-                (remote ? 1 : 0) + (scheduled ? 1 : 0) + (temporary ? 1 : 0) +
-                (plugins ? 1 : 0) + (recents ? 1 : 0);
-        if (anchorHits < 3 || title == null || firstItem == null) return null;
-
-        if (!ProbeState.getBoolean(this, "drawerProfileLogged")) {
-            ProbeState.setBoolean(this, "drawerProfileLogged", true);
-            ProbeState.log(this, "DRAWER PROFILE VERIFIED: anchors=" + anchorHits + "; title=" + title.describe() +
-                    "; firstItem=" + firstItem.describe() + "; headerCandidates=" +
-                    recoveryHeaderCandidateSummary(nodes, title, firstItem, 12));
-        }
-
-        String rejected = ProbeState.getString(this, "rejectedRecoverySearchFingerprint");
-        NodeRecord best = null;
-        int bestScore = Integer.MIN_VALUE;
-        int headerHeight = Math.max(Math.max(title.bounds.height(), firstItem.bounds.height()), 1);
+        int bandHeight = Math.max(1, bandBottom - bandTop);
+        int bandCenter = (bandTop + bandBottom) / 2;
+        NodeRecord semantic = null;
+        NodeRecord leftmost = null;
+        StringBuilder summary = new StringBuilder();
+        int seen = 0;
 
         for (NodeRecord n : nodes) {
             if (!n.clickable || !n.visible || n.bounds.isEmpty()) continue;
             String fingerprint = recoverySearchFingerprint(n);
-            if (!rejected.isEmpty() && rejected.equals(fingerprint)) continue;
+            if (isRejectedRecoverySearchFingerprint(fingerprint)) continue;
             String label = n.labelLower();
             if (label.contains("attach") || label.contains("upload") || label.contains("file") ||
                     label.contains("camera") || label.contains("photo") || label.contains("voice") ||
-                    label.contains("profile") || label.contains("settings") || label.contains("more")) continue;
+                    label.contains("profile") || label.contains("settings")) continue;
             if (!label.trim().isEmpty() && !label.contains("search")) continue;
-            if (n.bounds.centerY() >= firstItem.bounds.top) continue;
-            if (n.bounds.centerX() <= title.bounds.right) continue;
-            if (Math.abs(n.bounds.centerY() - title.bounds.centerY()) > headerHeight * 2) continue;
-            if (n.bounds.width() > headerHeight * 3 || n.bounds.height() > headerHeight * 3) continue;
-            if (!sharesNearAncestor(n.node, title.node, 5)) continue;
 
-            int score = 160;
-            if (label.contains("search")) score += 260;
-            if (label.trim().isEmpty()) score += 45;
-            score += Math.max(0, 70 - Math.abs(n.bounds.centerY() - title.bounds.centerY()));
-            String cls = n.className.toString().toLowerCase(Locale.US);
-            if (cls.contains("button") || cls.contains("image") || cls.contains("view")) score += 25;
-            if (score > bestScore) { bestScore = score; best = n; }
-        }
-        if (best != null) ProbeState.log(this, "DRAWER SEARCH STRUCTURAL CANDIDATE: score=" + bestScore + "; " + best.describe());
-        return bestScore >= 180 ? best : null;
-    }
+            int h = Math.max(1, n.bounds.height());
+            int w = Math.max(1, n.bounds.width());
+            if (Math.abs(n.bounds.centerY() - bandCenter) > bandHeight / 2) continue;
+            if (h < bandHeight / 2 || h > bandHeight * 2) continue;
+            if (w < bandHeight / 3 || w > bandHeight * 2) continue;
+            if (n.bounds.centerX() <= navRight + bandHeight) continue;
 
-    private boolean sharesNearAncestor(AccessibilityNodeInfo a, AccessibilityNodeInfo b, int maxUp) {
-        if (a == null || b == null) return false;
-        AccessibilityNodeInfo pa = a;
-        for (int i = 0; pa != null && i <= maxUp; i++) {
-            AccessibilityNodeInfo pb = b;
-            for (int j = 0; pb != null && j <= maxUp; j++) {
-                if (pa.equals(pb)) return true;
-                pb = pb.getParent();
+            if (seen++ > 0) summary.append(" | ");
+            summary.append(n.describe());
+            if (label.contains("search")) {
+                if (semantic == null || n.bounds.left < semantic.bounds.left) semantic = n;
+            } else if (leftmost == null || n.bounds.left < leftmost.bounds.left) {
+                leftmost = n;
             }
-            pa = pa.getParent();
         }
-        return false;
-    }
 
-    private String recoveryHeaderCandidateSummary(List<NodeRecord> nodes, NodeRecord title, NodeRecord firstItem, int max) {
-        StringBuilder b = new StringBuilder();
-        int count = 0;
-        for (NodeRecord n : nodes) {
-            if (!(n.clickable || n.focusable) || !n.visible || n.bounds.isEmpty()) continue;
-            if (n.bounds.centerY() >= firstItem.bounds.top) continue;
-            if (count++ > 0) b.append(" | ");
-            b.append("depth=").append(n.depth).append(" ").append(n.describe());
-            if (count >= max) break;
+        NodeRecord chosen = semantic != null ? semantic : leftmost;
+        if (chosen != null) {
+            ProbeState.log(this, "DRAWER HEADER-BAND CANDIDATES: savedBand=" + band + "; candidates=" + summary + "; chosen=" + chosen.describe());
+        } else if (!ProbeState.getBoolean(this, "headerBandEmptyLogged")) {
+            ProbeState.setBoolean(this, "headerBandEmptyLogged", true);
+            ProbeState.log(this, "DRAWER HEADER-BAND EMPTY: savedBand=" + band + "; no non-rejected safe candidate matched the navigation header band.");
         }
-        return b.length() == 0 ? "<none>" : b.toString();
+        return chosen;
     }
 
     private String recoverySearchFingerprint(NodeRecord n) {
         if (n == null) return "";
         return n.className + "|" + n.viewId + "|" + n.bounds.toShortString();
+    }
+
+    private boolean isRejectedRecoverySearchFingerprint(String fingerprint) {
+        if (fingerprint == null || fingerprint.isEmpty()) return false;
+        String all = ProbeState.getString(this, "rejectedRecoverySearchFingerprints");
+        return ("\n" + all).contains("\n" + fingerprint + "\n");
+    }
+
+    private void rememberRejectedRecoverySearchFingerprint(String fingerprint) {
+        if (fingerprint == null || fingerprint.isEmpty() || isRejectedRecoverySearchFingerprint(fingerprint)) return;
+        String all = ProbeState.getString(this, "rejectedRecoverySearchFingerprints");
+        ProbeState.setString(this, "rejectedRecoverySearchFingerprints", all + fingerprint + "\n");
     }
 
     private NodeRecord findRecoverySearchField(List<NodeRecord> nodes) {
@@ -737,7 +713,26 @@ public class NativeProbeAccessibilityService extends AccessibilityService {
             if (label.contains("ask chatgpt") || label.contains("message") || label.contains("prompt")) score -= 300;
             if (score > bestScore) { bestScore = score; best = n; }
         }
-        return bestScore >= 170 ? best : null;
+        if (bestScore >= 170) return best;
+
+        String recoveryState = ProbeState.sessionRecoveryState(this);
+        if ("VERIFY_SEARCH_LAUNCH".equals(recoveryState) || "ENTER_QUERY".equals(recoveryState)) {
+            int screenBottom = 0;
+            for (NodeRecord n : nodes) if (n.visible && !n.bounds.isEmpty()) screenBottom = Math.max(screenBottom, n.bounds.bottom);
+            NodeRecord topEdit = null;
+            for (NodeRecord n : nodes) {
+                if (!(n.editable || n.canSetText) || !n.visible || n.bounds.isEmpty()) continue;
+                String cls = n.className.toString().toLowerCase(Locale.US);
+                if (!cls.contains("edittext")) continue;
+                if (screenBottom > 0 && n.bounds.centerY() >= screenBottom / 3) continue;
+                if (topEdit == null || n.bounds.top < topEdit.bounds.top) topEdit = n;
+            }
+            if (topEdit != null) {
+                ProbeState.log(this, "RECOVERY SEARCH FIELD PROFILE FALLBACK: top-region EditText accepted only during Search verification: " + topEdit.describe());
+                return topEdit;
+            }
+        }
+        return null;
     }
 
     private NodeRecord findRecoveryResult(List<NodeRecord> nodes) {
