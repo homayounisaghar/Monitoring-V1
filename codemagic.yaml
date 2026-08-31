@@ -58,26 +58,18 @@ workflows:
         script: |
           #!/usr/bin/env bash
           set -euo pipefail
-          SRC="ci/src/app/src/main/java/com/pebblebridge/poc/NativeProbeAccessibilityService.java"
           python3 - <<'PY'
           from pathlib import Path
           src = Path("ci/src/app/src/main/java/com/pebblebridge/poc/NativeProbeAccessibilityService.java").read_text()
           needle = "findRecoveryNavOpener"
           p = src.find(needle)
-          if p < 0:
-              excerpt = "findRecoveryNavOpener NOT FOUND\n"
-          else:
-              start = max(0, src.rfind("\n", 0, max(0, p - 2500)))
-              end = min(len(src), p + 9000)
-              excerpt = src[start:end]
-          Path("ci/recovery-nav-source.txt").write_text(excerpt)
+          start = max(0, src.rfind("\n", 0, max(0, p - 2500))) if p >= 0 else 0
+          end = min(len(src), p + 9000) if p >= 0 else min(len(src), 9000)
+          Path("ci/recovery-nav-source.txt").write_text(src[start:end])
           PY
           if [ -n "${GITHUB_TOKEN:-}" ]; then
-            OWNER="homayounisaghar"
-            REPO="Monitoring-V1"
-            API="https://api.github.com/repos/$OWNER/$REPO"
-            AUTH_HEADER="Authorization: Bearer $GITHUB_TOKEN"
-            ACCEPT_HEADER="Accept: application/vnd.github+json"
+            OWNER="homayounisaghar"; REPO="Monitoring-V1"; API="https://api.github.com/repos/$OWNER/$REPO"
+            AUTH_HEADER="Authorization: Bearer $GITHUB_TOKEN"; ACCEPT_HEADER="Accept: application/vnd.github+json"
             REMOTE="$API/contents/.ci/recovery-nav-source.txt?ref=ci%2Fpebble-apk-delivery"
             EXISTING=$(curl -fsS -H "$AUTH_HEADER" -H "$ACCEPT_HEADER" "$REMOTE" 2>/dev/null || true)
             EXISTING_SHA=$(printf '%s' "$EXISTING" | jq -r '.sha // empty' 2>/dev/null || true)
@@ -90,201 +82,50 @@ workflows:
             curl -fsS -X PUT -H "$AUTH_HEADER" -H "$ACCEPT_HEADER" -H 'Content-Type: application/json' --data-binary "$BODY" "$API/contents/.ci/recovery-nav-source.txt" >/dev/null
           fi
 
-      - name: Apply v0.20 unlabeled-toolbar recovery patch
+      - name: Apply v0.20 recovery navigation threshold patch
         script: |
           #!/usr/bin/env bash
           set -euo pipefail
           python3 - <<'PY'
           from pathlib import Path
-          import re
-          import traceback
 
           java_path = Path("ci/src/app/src/main/java/com/pebblebridge/poc/NativeProbeAccessibilityService.java")
-          diagnostic_path = Path("ci/v020-patch.txt")
-          try:
-              text = java_path.read_text()
-              marker = "PEBBLE_V020_UNLABELED_TOP_LEFT_NAV_FALLBACK"
-              if marker in text:
-                  raise RuntimeError("v0.20 patch unexpectedly already present in baseline")
+          text = java_path.read_text()
+          old = "        return bestScore >= 120 ? best : null;\n    }\n\n    private NodeRecord findRecoverySearchLauncher"
+          new = "        // PEBBLE_V020_UNLABELED_TOP_LEFT_NAV_FALLBACK\n        // The native ChatGPT toolbar currently exposes its top-left navigation control\n        // as an unlabeled clickable View. The existing spatial score is +90 only for\n        // that tightly constrained top-left candidate, so accept that score while\n        // retaining all higher-confidence semantic scoring above.\n        return bestScore >= 90 ? best : null;\n    }\n\n    private NodeRecord findRecoverySearchLauncher"
+          if old not in text:
+              raise SystemExit("expected v0.19 nav return block not found")
+          text = text.replace(old, new, 1)
+          java_path.write_text(text)
 
-              method_name = "findRecoveryNavOpener"
-              name_pos = text.find(method_name)
-              if name_pos < 0:
-                  raise RuntimeError("findRecoveryNavOpener not found")
-              paren_open = text.find("(", name_pos + len(method_name))
-              if paren_open < 0:
-                  raise RuntimeError("findRecoveryNavOpener opening parenthesis not found")
+          gradle_path = Path("ci/src/app/build.gradle")
+          gradle = gradle_path.read_text()
+          if "versionCode 19" not in gradle:
+              raise SystemExit("versionCode 19 not found")
+          gradle = gradle.replace("versionCode 19", "versionCode 20", 1)
+          gradle = gradle.replace('versionName "0.19-thread-recovery"', 'versionName "0.20-recovery-nav-fallback"', 1)
+          gradle_path.write_text(gradle)
 
-              depth = 0
-              paren_close = -1
-              i = paren_open
-              while i < len(text):
-                  if text[i] == "(":
-                      depth += 1
-                  elif text[i] == ")":
-                      depth -= 1
-                      if depth == 0:
-                          paren_close = i
-                          break
-                  i += 1
-              if paren_close < 0:
-                  raise RuntimeError("findRecoveryNavOpener parameter list not closed")
-
-              params = text[paren_open + 1:paren_close]
-              identifiers = re.findall(r"[A-Za-z_$][A-Za-z0-9_$]*", params)
-              if not identifiers:
-                  raise RuntimeError("could not infer findRecoveryNavOpener parameter name from: " + params)
-              records_name = identifiers[-1]
-
-              open_brace = text.find("{", paren_close)
-              if open_brace < 0:
-                  raise RuntimeError("findRecoveryNavOpener body not found")
-
-              def matching_brace(src, start):
-                  depth = 0
-                  state = "normal"
-                  i = start
-                  while i < len(src):
-                      c = src[i]
-                      n = src[i + 1] if i + 1 < len(src) else ""
-                      if state == "normal":
-                          if c == '"':
-                              state = "string"
-                          elif c == "'":
-                              state = "char"
-                          elif c == "/" and n == "/":
-                              state = "line"
-                              i += 1
-                          elif c == "/" and n == "*":
-                              state = "block"
-                              i += 1
-                          elif c == "{":
-                              depth += 1
-                          elif c == "}":
-                              depth -= 1
-                              if depth == 0:
-                                  return i
-                      elif state == "string":
-                          if c == "\\":
-                              i += 1
-                          elif c == '"':
-                              state = "normal"
-                      elif state == "char":
-                          if c == "\\":
-                              i += 1
-                          elif c == "'":
-                              state = "normal"
-                      elif state == "line":
-                          if c == "\n":
-                              state = "normal"
-                      elif state == "block":
-                          if c == "*" and n == "/":
-                              state = "normal"
-                              i += 1
-                      i += 1
-                  raise RuntimeError("matching method brace not found")
-
-              close_brace = matching_brace(text, open_brace)
-              body = text[open_brace + 1:close_brace]
-              return_matches = list(re.finditer(r"\breturn\s+null\s*;", body))
-              if not return_matches:
-                  raise RuntimeError("return null not found in findRecoveryNavOpener")
-              return_pos = return_matches[-1].start()
-
-              fallback = f'''
-                  // {marker}
-                  // ChatGPT 2026-08 can expose the toolbar buttons as unlabeled
-                  // clickable android.view.View nodes. Preserve all semantic selectors
-                  // above, then use a tightly constrained top-left spatial fallback.
-                  int recoveryScreenRight = 0;
-                  int recoveryScreenBottom = 0;
-                  for (NodeRecord recoveryRecord : {records_name}) {{
-                      if (recoveryRecord == null || recoveryRecord.bounds == null) continue;
-                      recoveryScreenRight = Math.max(recoveryScreenRight, recoveryRecord.bounds.right);
-                      recoveryScreenBottom = Math.max(recoveryScreenBottom, recoveryRecord.bounds.bottom);
-                  }}
-
-                  NodeRecord recoverySpatialFallback = null;
-                  int recoveryBestLeft = Integer.MAX_VALUE;
-                  int recoveryBestTop = Integer.MAX_VALUE;
-                  if (recoveryScreenRight > 0 && recoveryScreenBottom > 0) {{
-                      for (NodeRecord recoveryRecord : {records_name}) {{
-                          if (recoveryRecord == null || recoveryRecord.bounds == null) continue;
-                          if (!recoveryRecord.visible || !recoveryRecord.clickable) continue;
-                          if (recoveryRecord.editable || recoveryRecord.canSetText) continue;
-
-                          android.graphics.Rect recoveryBounds = recoveryRecord.bounds;
-                          int recoveryWidth = recoveryBounds.width();
-                          int recoveryHeight = recoveryBounds.height();
-                          if (recoveryWidth <= 0 || recoveryHeight <= 0) continue;
-
-                          boolean recoveryInTopBand = recoveryBounds.top >= 0
-                                  && recoveryBounds.top <= (recoveryScreenBottom * 20 / 100);
-                          boolean recoveryInLeftBand = recoveryBounds.left >= 0
-                                  && recoveryBounds.left <= (recoveryScreenRight * 18 / 100);
-                          boolean recoveryCompact = recoveryWidth <= (recoveryScreenRight * 20 / 100)
-                                  && recoveryHeight <= (recoveryScreenBottom * 12 / 100);
-                          boolean recoveryNotTiny = recoveryWidth >= Math.max(24, recoveryScreenRight / 80)
-                                  && recoveryHeight >= Math.max(24, recoveryScreenBottom / 80);
-
-                          if (recoveryInTopBand && recoveryInLeftBand && recoveryCompact && recoveryNotTiny) {{
-                              if (recoveryBounds.left < recoveryBestLeft
-                                      || (recoveryBounds.left == recoveryBestLeft && recoveryBounds.top < recoveryBestTop)) {{
-                                  recoverySpatialFallback = recoveryRecord;
-                                  recoveryBestLeft = recoveryBounds.left;
-                                  recoveryBestTop = recoveryBounds.top;
-                              }}
-                          }}
-                      }}
-                  }}
-                  if (recoverySpatialFallback != null) {{
-                      return recoverySpatialFallback;
-                  }}
-          '''
-
-              body = body[:return_pos] + fallback + body[return_pos:]
-              text = text[:open_brace + 1] + body + text[close_brace:]
-              java_path.write_text(text)
-
-              gradle_path = Path("ci/src/app/build.gradle")
-              gradle = gradle_path.read_text()
-              gradle, count_code = re.subn(r"\bversionCode\s+19\b", "versionCode 20", gradle, count=1)
-              gradle, count_name = re.subn(r"\bversionName\s+[\"']0\.19-thread-recovery[\"']", 'versionName "0.20-recovery-nav-fallback"', gradle, count=1)
-              if count_code != 1 or count_name != 1:
-                  raise RuntimeError(f"version patch failed: code={count_code} name={count_name}")
-              gradle_path.write_text(gradle)
-
-              main_path = Path("ci/src/app/src/main/java/com/pebblebridge/poc/MainActivity.java")
-              if main_path.exists():
-                  main = main_path.read_text()
-                  main = main.replace(
-                      "v0.19 adds automatic thread recovery to the proven session semantics.",
-                      "v0.20 adds a constrained spatial fallback for unlabeled ChatGPT navigation controls while preserving the receipt safety gate.",
-                  )
-                  main_path.write_text(main)
-
-              if marker not in java_path.read_text():
-                  raise RuntimeError("v0.20 marker missing after patch")
-              diagnostic_path.write_text(
-                  "version=0.20\n"
-                  "patch=unlabeled-top-left-toolbar-nav-fallback\n"
-                  f"method_parameter={records_name}\n"
-                  f"method_params_raw={params.strip()}\n"
-                  "status=PATCHED\n"
+          main_path = Path("ci/src/app/src/main/java/com/pebblebridge/poc/MainActivity.java")
+          if main_path.exists():
+              main = main_path.read_text()
+              main = main.replace(
+                  "v0.19 adds automatic thread recovery to the proven session semantics.",
+                  "v0.20 accepts the verified top-left native navigation candidate when ChatGPT exposes that toolbar control without an accessibility label.",
               )
-          except Exception as exc:
-              diagnostic_path.write_text(
-                  "version=0.20\n"
-                  "status=PATCH_FAILED\n"
-                  f"error={type(exc).__name__}: {exc}\n"
-                  + traceback.format_exc()
-              )
-              raise
+              main_path.write_text(main)
+
+          Path("ci/v020-patch.txt").write_text(
+              "version=0.20\n"
+              "patch=top-left-navigation-score-threshold-120-to-90\n"
+              "reason=observed unlabeled ChatGPT toolbar node [46,166][226,346]\n"
+              "status=PATCHED\n"
+          )
           PY
           cat ci/v020-patch.txt
           grep -Fq "PEBBLE_V020_UNLABELED_TOP_LEFT_NAV_FALLBACK" ci/src/app/src/main/java/com/pebblebridge/poc/NativeProbeAccessibilityService.java
+          grep -Fq "bestScore >= 90" ci/src/app/src/main/java/com/pebblebridge/poc/NativeProbeAccessibilityService.java
           grep -Fq "versionCode 20" ci/src/app/build.gradle
-          grep -Fq "0.20-recovery-nav-fallback" ci/src/app/build.gradle
 
       - name: Build unsigned Android release with full diagnostics
         script: |
@@ -327,14 +168,9 @@ workflows:
           test -n "${CM_KEY_ALIAS:-}"
           test -n "${CM_KEY_PASSWORD:-}"
           apksigner_path="$(find "$ANDROID_SDK_ROOT/build-tools" -type f -name apksigner 2>/dev/null | sort | tail -n 1)"
-          test -n "$apksigner_path"
-          test -s "$apksigner_path"
+          test -n "$apksigner_path"; test -s "$apksigner_path"
           printf 'apksigner=%s\n' "$apksigner_path" > ci/signing-tool.txt
-          keytool -list -v \
-            -keystore "$CM_KEYSTORE_PATH" \
-            -storepass "$CM_KEYSTORE_PASSWORD" \
-            -alias "$CM_KEY_ALIAS" \
-            > ci/keystore-inspect.txt
+          keytool -list -v -keystore "$CM_KEYSTORE_PATH" -storepass "$CM_KEYSTORE_PASSWORD" -alias "$CM_KEY_ALIAS" > ci/keystore-inspect.txt
 
       - name: Sign Pebble release APK
         script: |
@@ -343,13 +179,7 @@ workflows:
           unsigned="ci/out/PebbleChatBridgePoC-v0.20-unsigned.apk"
           signed="ci/out/${APK_BASENAME}"
           apksigner_path="$(find "$ANDROID_SDK_ROOT/build-tools" -type f -name apksigner 2>/dev/null | sort | tail -n 1)"
-          bash "$apksigner_path" sign \
-            --ks "$CM_KEYSTORE_PATH" \
-            --ks-pass "env:CM_KEYSTORE_PASSWORD" \
-            --ks-key-alias "$CM_KEY_ALIAS" \
-            --key-pass "env:CM_KEY_PASSWORD" \
-            --out "$signed" \
-            "$unsigned"
+          bash "$apksigner_path" sign --ks "$CM_KEYSTORE_PATH" --ks-pass "env:CM_KEYSTORE_PASSWORD" --ks-key-alias "$CM_KEY_ALIAS" --key-pass "env:CM_KEY_PASSWORD" --out "$signed" "$unsigned"
           test -s "$signed"
 
       - name: Verify Pebble signing certificate
@@ -397,15 +227,10 @@ workflows:
               fi
             fi
 
-            OWNER="homayounisaghar"
-            REPO="Monitoring-V1"
-            DELIVERY_BRANCH="ci/pebble-apk-delivery"
+            OWNER="homayounisaghar"; REPO="Monitoring-V1"; DELIVERY_BRANCH="ci/pebble-apk-delivery"
             SHORT_COMMIT=$(printf '%s' "${CM_COMMIT:-unknown}" | cut -c1-12)
-            TAG="pebble-v0.20-$SHORT_COMMIT"
-            RELEASE_NAME="Pebble Chat Bridge v0.20 $SHORT_COMMIT"
-            API="https://api.github.com/repos/$OWNER/$REPO"
-            AUTH_HEADER="Authorization: Bearer $GITHUB_TOKEN"
-            ACCEPT_HEADER="Accept: application/vnd.github+json"
+            TAG="pebble-v0.20-$SHORT_COMMIT"; RELEASE_NAME="Pebble Chat Bridge v0.20 $SHORT_COMMIT"
+            API="https://api.github.com/repos/$OWNER/$REPO"; AUTH_HEADER="Authorization: Bearer $GITHUB_TOKEN"; ACCEPT_HEADER="Accept: application/vnd.github+json"
 
             RELEASE_JSON=$(curl -fsS -H "$AUTH_HEADER" -H "$ACCEPT_HEADER" "$API/releases/tags/$TAG" 2>/dev/null || true)
             RELEASE_ID=$(printf '%s' "$RELEASE_JSON" | jq -r '.id // empty' 2>/dev/null || true)
@@ -418,36 +243,24 @@ workflows:
             APK_NAME="pebble-chat-bridge-v020-$SHORT_COMMIT-${CM_BUILD_ID:-build}.apk"
             EXISTING_ASSETS=$(curl -fsS -H "$AUTH_HEADER" -H "$ACCEPT_HEADER" "$API/releases/$RELEASE_ID/assets")
             EXISTING_ASSET_ID=$(printf '%s' "$EXISTING_ASSETS" | jq -r --arg n "$APK_NAME" '.[] | select(.name == $n) | .id' | head -1)
-            if [ -n "$EXISTING_ASSET_ID" ]; then
-              curl -fsS -X DELETE -H "$AUTH_HEADER" -H "$ACCEPT_HEADER" "$API/releases/assets/$EXISTING_ASSET_ID" >/dev/null
-            fi
+            if [ -n "$EXISTING_ASSET_ID" ]; then curl -fsS -X DELETE -H "$AUTH_HEADER" -H "$ACCEPT_HEADER" "$API/releases/assets/$EXISTING_ASSET_ID" >/dev/null; fi
             ASSET_JSON=$(curl -fsS -X POST -H "$AUTH_HEADER" -H 'Content-Type: application/vnd.android.package-archive' --data-binary "@$APK" "https://uploads.github.com/repos/$OWNER/$REPO/releases/$RELEASE_ID/assets?name=$APK_NAME")
             RELEASE_ASSET_URL=$(printf '%s' "$ASSET_JSON" | jq -r '.browser_download_url // empty')
 
             APK_SHA=$(awk '{print $1}' "$CM_BUILD_DIR/ci/APK_SHA256.txt")
             SIGNING_FINGERPRINT=$(sed -n 's/^certificate_sha256=//p' "$CM_BUILD_DIR/ci/certificate.txt" | head -1)
-            POINTER=$(jq -n --arg event "pebble_apk_delivery" --arg version "0.20" --arg patch "unlabeled-top-left-toolbar-nav-fallback" --arg status "SUCCESS" --arg buildId "${CM_BUILD_ID:-}" --arg commit "${CM_COMMIT:-}" --arg apkPublicUrl "$APK_PUBLIC" --arg releaseUrl "$RELEASE_URL" --arg releaseAssetUrl "$RELEASE_ASSET_URL" --arg sha256 "$APK_SHA" --arg signingFingerprint "$SIGNING_FINGERPRINT" '{event:$event,version:$version,patch:$patch,status:$status,buildId:$buildId,commit:$commit,apkPublicUrl:$apkPublicUrl,releaseUrl:$releaseUrl,releaseAssetUrl:$releaseAssetUrl,sha256:$sha256,signingFingerprint:$signingFingerprint}')
+            POINTER=$(jq -n --arg event "pebble_apk_delivery" --arg version "0.20" --arg patch "top-left-navigation-score-threshold-120-to-90" --arg status "SUCCESS" --arg buildId "${CM_BUILD_ID:-}" --arg commit "${CM_COMMIT:-}" --arg apkPublicUrl "$APK_PUBLIC" --arg releaseUrl "$RELEASE_URL" --arg releaseAssetUrl "$RELEASE_ASSET_URL" --arg sha256 "$APK_SHA" --arg signingFingerprint "$SIGNING_FINGERPRINT" '{event:$event,version:$version,patch:$patch,status:$status,buildId:$buildId,commit:$commit,apkPublicUrl:$apkPublicUrl,releaseUrl:$releaseUrl,releaseAssetUrl:$releaseAssetUrl,sha256:$sha256,signingFingerprint:$signingFingerprint}')
 
             META_URL="$API/contents/.ci/latest-pebble-build.json?ref=ci%2Fpebble-apk-delivery"
-            META_JSON=$(curl -fsS -H "$AUTH_HEADER" -H "$ACCEPT_HEADER" "$META_URL" 2>/dev/null || true)
-            META_SHA=$(printf '%s' "$META_JSON" | jq -r '.sha // empty' 2>/dev/null || true)
+            META_JSON=$(curl -fsS -H "$AUTH_HEADER" -H "$ACCEPT_HEADER" "$META_URL" 2>/dev/null || true); META_SHA=$(printf '%s' "$META_JSON" | jq -r '.sha // empty' 2>/dev/null || true)
             POINTER_B64=$(printf '%s\n' "$POINTER" | base64 | tr -d '\n')
-            if [ -n "$META_SHA" ]; then
-              PUT_BODY=$(jq -n --arg message "ci: update latest Pebble v0.20 delivery" --arg content "$POINTER_B64" --arg branch "$DELIVERY_BRANCH" --arg sha "$META_SHA" '{message:$message,content:$content,branch:$branch,sha:$sha}')
-            else
-              PUT_BODY=$(jq -n --arg message "ci: publish latest Pebble v0.20 delivery" --arg content "$POINTER_B64" --arg branch "$DELIVERY_BRANCH" '{message:$message,content:$content,branch:$branch}')
-            fi
+            if [ -n "$META_SHA" ]; then PUT_BODY=$(jq -n --arg message "ci: update latest Pebble v0.20 delivery" --arg content "$POINTER_B64" --arg branch "$DELIVERY_BRANCH" --arg sha "$META_SHA" '{message:$message,content:$content,branch:$branch,sha:$sha}'); else PUT_BODY=$(jq -n --arg message "ci: publish latest Pebble v0.20 delivery" --arg content "$POINTER_B64" --arg branch "$DELIVERY_BRANCH" '{message:$message,content:$content,branch:$branch}'); fi
             curl -fsS -X PUT -H "$AUTH_HEADER" -H "$ACCEPT_HEADER" -H 'Content-Type: application/json' --data-binary "$PUT_BODY" "$API/contents/.ci/latest-pebble-build.json" >/dev/null
 
             APK_MIRROR_URL="$API/contents/.ci/latest-pebble.apk?ref=ci%2Fpebble-apk-delivery"
-            APK_MIRROR_JSON=$(curl -fsS -H "$AUTH_HEADER" -H "$ACCEPT_HEADER" "$APK_MIRROR_URL" 2>/dev/null || true)
-            APK_MIRROR_SHA=$(printf '%s' "$APK_MIRROR_JSON" | jq -r '.sha // empty' 2>/dev/null || true)
+            APK_MIRROR_JSON=$(curl -fsS -H "$AUTH_HEADER" -H "$ACCEPT_HEADER" "$APK_MIRROR_URL" 2>/dev/null || true); APK_MIRROR_SHA=$(printf '%s' "$APK_MIRROR_JSON" | jq -r '.sha // empty' 2>/dev/null || true)
             APK_B64=$(base64 < "$APK" | tr -d '\n')
-            if [ -n "$APK_MIRROR_SHA" ]; then
-              APK_PUT_BODY=$(jq -n --arg message "ci: update latest Pebble v0.20 APK binary" --arg content "$APK_B64" --arg branch "$DELIVERY_BRANCH" --arg sha "$APK_MIRROR_SHA" '{message:$message,content:$content,branch:$branch,sha:$sha}')
-            else
-              APK_PUT_BODY=$(jq -n --arg message "ci: publish latest Pebble v0.20 APK binary" --arg content "$APK_B64" --arg branch "$DELIVERY_BRANCH" '{message:$message,content:$content,branch:$branch}')
-            fi
+            if [ -n "$APK_MIRROR_SHA" ]; then APK_PUT_BODY=$(jq -n --arg message "ci: update latest Pebble v0.20 APK binary" --arg content "$APK_B64" --arg branch "$DELIVERY_BRANCH" --arg sha "$APK_MIRROR_SHA" '{message:$message,content:$content,branch:$branch,sha:$sha}'); else APK_PUT_BODY=$(jq -n --arg message "ci: publish latest Pebble v0.20 APK binary" --arg content "$APK_B64" --arg branch "$DELIVERY_BRANCH" '{message:$message,content:$content,branch:$branch}'); fi
             curl -fsS -X PUT -H "$AUTH_HEADER" -H "$ACCEPT_HEADER" -H 'Content-Type: application/json' --data-binary "$APK_PUT_BODY" "$API/contents/.ci/latest-pebble.apk" >/dev/null
 
             printf '%s\n' "$POINTER" > "$CM_BUILD_DIR/ci/latest-pebble-build.json"
