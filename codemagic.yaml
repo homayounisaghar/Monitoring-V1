@@ -92,8 +92,8 @@ workflows:
           [ -n "${CM_KEYSTORE_PASSWORD:-}" ] || exit 13
           [ -n "${CM_KEY_ALIAS:-}" ] || exit 14
           [ -n "${CM_KEY_PASSWORD:-}" ] || exit 15
-          apksigner="$ANDROID_SDK_ROOT/build-tools/${ANDROID_BUILD_TOOLS}/apksigner"
-          [ -x "$apksigner" ] || exit 16
+          apksigner_jar="$ANDROID_SDK_ROOT/build-tools/${ANDROID_BUILD_TOOLS}/lib/apksigner.jar"
+          [ -s "$apksigner_jar" ] || exit 16
           keytool -list -v \
             -keystore "$CM_KEYSTORE_PATH" \
             -storepass "$CM_KEYSTORE_PASSWORD" \
@@ -106,8 +106,8 @@ workflows:
           set -euo pipefail
           unsigned="ci/out/PebbleChatBridgePoC-v0.19-unsigned.apk"
           signed="ci/out/${APK_BASENAME}"
-          apksigner="$ANDROID_SDK_ROOT/build-tools/${ANDROID_BUILD_TOOLS}/apksigner"
-          "$apksigner" sign \
+          apksigner_jar="$ANDROID_SDK_ROOT/build-tools/${ANDROID_BUILD_TOOLS}/lib/apksigner.jar"
+          java -jar "$apksigner_jar" sign \
             --ks "$CM_KEYSTORE_PATH" \
             --ks-pass "env:CM_KEYSTORE_PASSWORD" \
             --ks-key-alias "$CM_KEY_ALIAS" \
@@ -121,8 +121,8 @@ workflows:
           #!/usr/bin/env bash
           set -euo pipefail
           signed="ci/out/${APK_BASENAME}"
-          apksigner="$ANDROID_SDK_ROOT/build-tools/${ANDROID_BUILD_TOOLS}/apksigner"
-          "$apksigner" verify --verbose --print-certs "$signed" | tee ci/apksigner-verify.txt
+          apksigner_jar="$ANDROID_SDK_ROOT/build-tools/${ANDROID_BUILD_TOOLS}/lib/apksigner.jar"
+          java -jar "$apksigner_jar" verify --verbose --print-certs "$signed" | tee ci/apksigner-verify.txt
           actual_cert="$(sed -n 's/^Signer #1 certificate SHA-256 digest: //p' ci/apksigner-verify.txt | tr 'A-F' 'a-f' | head -n 1)"
           printf 'certificate_sha256=%s\n' "$actual_cert" > ci/certificate.txt
           test "$actual_cert" = "$EXPECTED_CERT_SHA256"
