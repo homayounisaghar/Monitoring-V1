@@ -1,0 +1,3 @@
+https://jitpack.io/com/github/homayounisaghar/Monitoring-V1/1763e53735/Monitoring-V1-1763e53735.pom
+https://jitpack.io/com/github/homayounisaghar/Monitoring-V1/1763e53735/Monitoring-V1-1763e53735.apk
+https://jitpack.io/com/github/homayounisaghar/Monitoring-V1/1763e53735/build.log
