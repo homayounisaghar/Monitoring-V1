@@ -15,7 +15,6 @@ workflows:
         ANDROID_BUILD_TOOLS: "35.0.0"
         EXPECTED_CERT_SHA256: "9aaac9cb3ff091aa5c362f0255129a97b8e3c34b8a73f520cbb6ba89ed31e5d3"
         APK_BASENAME: "PebbleChatBridgePoC-v0.20-recovery-nav-fallback-signed.apk"
-        CI_REPORT_TOPIC: "pebble-v019-a9f2c7e61b4d8c30e5f7a921"
     triggering:
       events:
         - push
@@ -26,106 +25,76 @@ workflows:
       cancel_previous_builds: true
 
     scripts:
-      - name: Reassemble and verify v0.19 baseline source
+      - name: Reassemble v0.19 baseline source
         script: |
           #!/usr/bin/env bash
           set -euo pipefail
           mkdir -p ci/src ci/out
-          cat v019_parts/part00.txt v019_parts/part01.txt v019_parts/part02.txt v019_parts/part03.txt > ci/PebbleChatBridge-v019-src.tgz.b64
-          actual_b64_sha="$(shasum -a 256 ci/PebbleChatBridge-v019-src.tgz.b64 | awk '{print $1}')"
+          cat v019_parts/part00.txt v019_parts/part01.txt v019_parts/part02.txt v019_parts/part03.txt > ci/source.tgz.b64
+          actual_b64_sha="$(shasum -a 256 ci/source.tgz.b64 | awk '{print $1}')"
           test "$actual_b64_sha" = "76dfce144dd4e8126fdfb356e6fb3a6627f5bd629cf741798703847ec38d623a"
           python3 - <<'PY'
           import base64
           from pathlib import Path
-          src = Path("ci/PebbleChatBridge-v019-src.tgz.b64")
-          dst = Path("ci/PebbleChatBridge-v019-src.tgz")
-          dst.write_bytes(base64.b64decode(src.read_bytes()))
+          Path("ci/source.tgz").write_bytes(base64.b64decode(Path("ci/source.tgz.b64").read_bytes()))
           PY
-          actual_tgz_sha="$(shasum -a 256 ci/PebbleChatBridge-v019-src.tgz | awk '{print $1}')"
+          actual_tgz_sha="$(shasum -a 256 ci/source.tgz | awk '{print $1}')"
           test "$actual_tgz_sha" = "c7485116b17dfe4f2aa9f61469ab01e1596efccdf0d43f3d7b560d3c474e6196"
-          tar -xzf ci/PebbleChatBridge-v019-src.tgz -C ci/src
-          grep -Fq "versionCode 19" ci/src/app/build.gradle
-          grep -Fq "0.19-thread-recovery" ci/src/app/build.gradle
-          grep -Fq "SESSION_RECOVERY_FAILED" ci/src/app/src/main/java/com/pebblebridge/poc/NativeProbeAccessibilityService.java
+          tar -xzf ci/source.tgz -C ci/src
           grep -Fq "processSessionRecovery" ci/src/app/src/main/java/com/pebblebridge/poc/NativeProbeAccessibilityService.java
-          grep -Fq "markSessionRecovered" ci/src/app/src/main/java/com/pebblebridge/poc/ProbeState.java
-          printf 'baseline_source_sha256=%s\nbaseline_source_b64_sha256=%s\n' \
-            "c7485116b17dfe4f2aa9f61469ab01e1596efccdf0d43f3d7b560d3c474e6196" \
-            "76dfce144dd4e8126fdfb356e6fb3a6627f5bd629cf741798703847ec38d623a" \
-            > ci/source-verification.txt
+          grep -Fq "versionCode 19" ci/src/app/build.gradle
 
-      - name: Export recovery method source for autonomous diagnostics
+      - name: Apply robust v0.20 recovery navigation fix
         script: |
           #!/usr/bin/env bash
           set -euo pipefail
           python3 - <<'PY'
-          from pathlib import Path
-          src = Path("ci/src/app/src/main/java/com/pebblebridge/poc/NativeProbeAccessibilityService.java").read_text()
-          needle = "findRecoveryNavOpener"
-          p = src.find(needle)
-          start = max(0, src.rfind("\n", 0, max(0, p - 2500))) if p >= 0 else 0
-          end = min(len(src), p + 9000) if p >= 0 else min(len(src), 9000)
-          Path("ci/recovery-nav-source.txt").write_text(src[start:end])
-          PY
-          if [ -n "${GITHUB_TOKEN:-}" ]; then
-            OWNER="homayounisaghar"; REPO="Monitoring-V1"; API="https://api.github.com/repos/$OWNER/$REPO"
-            AUTH_HEADER="Authorization: Bearer $GITHUB_TOKEN"; ACCEPT_HEADER="Accept: application/vnd.github+json"
-            REMOTE="$API/contents/.ci/recovery-nav-source.txt?ref=ci%2Fpebble-apk-delivery"
-            EXISTING=$(curl -fsS -H "$AUTH_HEADER" -H "$ACCEPT_HEADER" "$REMOTE" 2>/dev/null || true)
-            EXISTING_SHA=$(printf '%s' "$EXISTING" | jq -r '.sha // empty' 2>/dev/null || true)
-            PAYLOAD_B64=$(base64 < ci/recovery-nav-source.txt | tr -d '\n')
-            if [ -n "$EXISTING_SHA" ]; then
-              BODY=$(jq -n --arg message "ci: update Pebble recovery source diagnostic" --arg content "$PAYLOAD_B64" --arg branch "ci/pebble-apk-delivery" --arg sha "$EXISTING_SHA" '{message:$message,content:$content,branch:$branch,sha:$sha}')
-            else
-              BODY=$(jq -n --arg message "ci: publish Pebble recovery source diagnostic" --arg content "$PAYLOAD_B64" --arg branch "ci/pebble-apk-delivery" '{message:$message,content:$content,branch:$branch}')
-            fi
-            curl -fsS -X PUT -H "$AUTH_HEADER" -H "$ACCEPT_HEADER" -H 'Content-Type: application/json' --data-binary "$BODY" "$API/contents/.ci/recovery-nav-source.txt" >/dev/null
-          fi
-
-      - name: Apply v0.20 recovery navigation threshold patch
-        script: |
-          #!/usr/bin/env bash
-          set -euo pipefail
-          python3 - <<'PY'
+          import re
           from pathlib import Path
 
           java_path = Path("ci/src/app/src/main/java/com/pebblebridge/poc/NativeProbeAccessibilityService.java")
           text = java_path.read_text()
-          old = "        return bestScore >= 120 ? best : null;\n    }\n\n    private NodeRecord findRecoverySearchLauncher"
-          new = "        // PEBBLE_V020_UNLABELED_TOP_LEFT_NAV_FALLBACK\n        // The native ChatGPT toolbar currently exposes its top-left navigation control\n        // as an unlabeled clickable View. The existing spatial score is +90 only for\n        // that tightly constrained top-left candidate, so accept that score while\n        // retaining all higher-confidence semantic scoring above.\n        return bestScore >= 90 ? best : null;\n    }\n\n    private NodeRecord findRecoverySearchLauncher"
-          if old not in text:
-              raise SystemExit("expected v0.19 nav return block not found")
-          text = text.replace(old, new, 1)
+          start_marker = "    private NodeRecord findRecoveryNavOpener(List<NodeRecord> nodes) {"
+          end_marker = "    private NodeRecord findRecoverySearchLauncher(List<NodeRecord> nodes) {"
+          start = text.find(start_marker)
+          end = text.find(end_marker, start + 1)
+          if start < 0 or end < 0:
+              raise SystemExit("recovery nav method boundaries not found")
+          block = text[start:end]
+          old_return = "return bestScore >= 120 ? best : null;"
+          if old_return not in block:
+              raise SystemExit("v0.19 navigation threshold not found inside findRecoveryNavOpener")
+          new_return = (
+              "// PEBBLE_V020_UNLABELED_TOP_LEFT_NAV_FALLBACK\n"
+              "        // ChatGPT can expose the top-left navigation button as an unlabeled clickable View.\n"
+              "        // The geometry scorer awards that tightly constrained candidate 90 points, so accept it.\n"
+              "        return bestScore >= 90 ? best : null;"
+          )
+          block = block.replace(old_return, new_return, 1)
+          text = text[:start] + block + text[end:]
           java_path.write_text(text)
 
           gradle_path = Path("ci/src/app/build.gradle")
           gradle = gradle_path.read_text()
-          if "versionCode 19" not in gradle:
-              raise SystemExit("versionCode 19 not found")
-          gradle = gradle.replace("versionCode 19", "versionCode 20", 1)
-          gradle = gradle.replace('versionName "0.19-thread-recovery"', 'versionName "0.20-recovery-nav-fallback"', 1)
+          gradle, n = re.subn(r"versionCode\s+19\b", "versionCode 20", gradle, count=1)
+          if n != 1:
+              raise SystemExit("versionCode 19 replacement failed")
+          if "0.19-thread-recovery" not in gradle:
+              raise SystemExit("v0.19 versionName token not found")
+          gradle = gradle.replace("0.19-thread-recovery", "0.20-recovery-nav-fallback", 1)
           gradle_path.write_text(gradle)
-
-          main_path = Path("ci/src/app/src/main/java/com/pebblebridge/poc/MainActivity.java")
-          if main_path.exists():
-              main = main_path.read_text()
-              main = main.replace(
-                  "v0.19 adds automatic thread recovery to the proven session semantics.",
-                  "v0.20 accepts the verified top-left native navigation candidate when ChatGPT exposes that toolbar control without an accessibility label.",
-              )
-              main_path.write_text(main)
 
           Path("ci/v020-patch.txt").write_text(
               "version=0.20\n"
-              "patch=top-left-navigation-score-threshold-120-to-90\n"
-              "reason=observed unlabeled ChatGPT toolbar node [46,166][226,346]\n"
-              "status=PATCHED\n"
+              "fix=accept-unlabeled-top-left-navigation-view\n"
+              "observed_candidate=[46,166][226,346]\n"
+              "threshold=90\n"
           )
           PY
-          cat ci/v020-patch.txt
           grep -Fq "PEBBLE_V020_UNLABELED_TOP_LEFT_NAV_FALLBACK" ci/src/app/src/main/java/com/pebblebridge/poc/NativeProbeAccessibilityService.java
           grep -Fq "bestScore >= 90" ci/src/app/src/main/java/com/pebblebridge/poc/NativeProbeAccessibilityService.java
           grep -Fq "versionCode 20" ci/src/app/build.gradle
+          cat ci/v020-patch.txt
 
       - name: Build unsigned Android release with full diagnostics
         script: |
@@ -147,7 +116,7 @@ workflows:
           rc=${PIPESTATUS[0]}
           if [ "$rc" -ne 0 ]; then
             {
-              echo "Pebble v0.20 build failed (exit=$rc). Extracted diagnostic follows."
+              echo "Pebble v0.20 build failed (exit=$rc)."
               grep -E -i -C 4 "(^| )error:|FAILURE:|Execution failed for task|What went wrong:|Caused by:|Exception|Could not resolve|Android resource linking failed" ci/full-build.log | tail -n 240 || true
               echo "--- final 120 log lines ---"
               tail -n 120 ci/full-build.log
@@ -159,35 +128,26 @@ workflows:
           cp "$unsigned" ci/out/PebbleChatBridgePoC-v0.20-unsigned.apk
           echo "BUILD_OK" > ci/diagnostic.txt
 
-      - name: Validate injected Pebble keystore and signing tool
+      - name: Sign and verify Pebble release APK
         script: |
           #!/usr/bin/env bash
-          set -eo pipefail
+          set -euo pipefail
           test -s "${CM_KEYSTORE_PATH:-}"
           test -n "${CM_KEYSTORE_PASSWORD:-}"
           test -n "${CM_KEY_ALIAS:-}"
           test -n "${CM_KEY_PASSWORD:-}"
-          apksigner_path="$(find "$ANDROID_SDK_ROOT/build-tools" -type f -name apksigner 2>/dev/null | sort | tail -n 1)"
-          test -n "$apksigner_path"; test -s "$apksigner_path"
-          printf 'apksigner=%s\n' "$apksigner_path" > ci/signing-tool.txt
-          keytool -list -v -keystore "$CM_KEYSTORE_PATH" -storepass "$CM_KEYSTORE_PASSWORD" -alias "$CM_KEY_ALIAS" > ci/keystore-inspect.txt
-
-      - name: Sign Pebble release APK
-        script: |
-          #!/usr/bin/env bash
-          set -euo pipefail
           unsigned="ci/out/PebbleChatBridgePoC-v0.20-unsigned.apk"
           signed="ci/out/${APK_BASENAME}"
           apksigner_path="$(find "$ANDROID_SDK_ROOT/build-tools" -type f -name apksigner 2>/dev/null | sort | tail -n 1)"
-          bash "$apksigner_path" sign --ks "$CM_KEYSTORE_PATH" --ks-pass "env:CM_KEYSTORE_PASSWORD" --ks-key-alias "$CM_KEY_ALIAS" --key-pass "env:CM_KEY_PASSWORD" --out "$signed" "$unsigned"
+          test -n "$apksigner_path"
+          bash "$apksigner_path" sign \
+            --ks "$CM_KEYSTORE_PATH" \
+            --ks-pass "env:CM_KEYSTORE_PASSWORD" \
+            --ks-key-alias "$CM_KEY_ALIAS" \
+            --key-pass "env:CM_KEY_PASSWORD" \
+            --out "$signed" \
+            "$unsigned"
           test -s "$signed"
-
-      - name: Verify Pebble signing certificate
-        script: |
-          #!/usr/bin/env bash
-          set -euo pipefail
-          signed="ci/out/${APK_BASENAME}"
-          apksigner_path="$(find "$ANDROID_SDK_ROOT/build-tools" -type f -name apksigner 2>/dev/null | sort | tail -n 1)"
           bash "$apksigner_path" verify --verbose --print-certs "$signed" | tee ci/apksigner-verify.txt
           actual_cert="$(sed -n 's/^Signer #1 certificate SHA-256 digest: //p' ci/apksigner-verify.txt | tr 'A-F' 'a-f' | head -n 1)"
           printf 'certificate_sha256=%s\n' "$actual_cert" > ci/certificate.txt
@@ -198,18 +158,14 @@ workflows:
       - ci/out/*.apk
       - ci/full-build.log
       - ci/diagnostic.txt
-      - ci/source-verification.txt
-      - ci/recovery-nav-source.txt
       - ci/v020-patch.txt
-      - ci/signing-tool.txt
-      - ci/keystore-inspect.txt
       - ci/apksigner-verify.txt
       - ci/APK_SHA256.txt
       - ci/certificate.txt
 
     publishing:
       scripts:
-        - name: Publish Pebble v0.20 delivery to GitHub
+        - name: Publish Pebble v0.20 APK to GitHub delivery
           script: |
             #!/usr/bin/env bash
             set -euo pipefail
@@ -217,54 +173,79 @@ workflows:
             test -s "$APK"
             test -n "${GITHUB_TOKEN:-}"
 
-            APK_PUBLIC=""
-            if [ -n "${CM_API_TOKEN:-}" ]; then
-              EXPIRES_AT=$(python3 -c 'import time; print(int(time.time()) + 86400)')
-              APK_AUTH=$(printf '%s' "${CM_ARTIFACT_LINKS:-[]}" | jq -r --arg n "$APK_BASENAME" '.[] | select(.name == $n) | .url' | head -1)
-              if [ -n "$APK_AUTH" ] && [ "$APK_AUTH" != "null" ]; then
-                RESPONSE=$(curl -fsS -H 'Content-Type: application/json' -H "x-auth-token: $CM_API_TOKEN" -d "{\"expiresAt\":$EXPIRES_AT}" "${APK_AUTH}/public-url" 2>/dev/null || true)
-                APK_PUBLIC=$(printf '%s' "$RESPONSE" | jq -r '.url // empty' 2>/dev/null || true)
-              fi
-            fi
-
-            OWNER="homayounisaghar"; REPO="Monitoring-V1"; DELIVERY_BRANCH="ci/pebble-apk-delivery"
-            SHORT_COMMIT=$(printf '%s' "${CM_COMMIT:-unknown}" | cut -c1-12)
-            TAG="pebble-v0.20-$SHORT_COMMIT"; RELEASE_NAME="Pebble Chat Bridge v0.20 $SHORT_COMMIT"
-            API="https://api.github.com/repos/$OWNER/$REPO"; AUTH_HEADER="Authorization: Bearer $GITHUB_TOKEN"; ACCEPT_HEADER="Accept: application/vnd.github+json"
+            OWNER="homayounisaghar"
+            REPO="Monitoring-V1"
+            DELIVERY_BRANCH="ci/pebble-apk-delivery"
+            API="https://api.github.com/repos/$OWNER/$REPO"
+            AUTH_HEADER="Authorization: Bearer $GITHUB_TOKEN"
+            ACCEPT_HEADER="Accept: application/vnd.github+json"
+            SHORT_COMMIT="$(printf '%s' "${CM_COMMIT:-unknown}" | cut -c1-12)"
+            TAG="pebble-v0.20-$SHORT_COMMIT"
+            RELEASE_NAME="Pebble Chat Bridge v0.20 $SHORT_COMMIT"
+            APK_NAME="pebble-chat-bridge-v020-$SHORT_COMMIT.apk"
 
             RELEASE_JSON=$(curl -fsS -H "$AUTH_HEADER" -H "$ACCEPT_HEADER" "$API/releases/tags/$TAG" 2>/dev/null || true)
             RELEASE_ID=$(printf '%s' "$RELEASE_JSON" | jq -r '.id // empty' 2>/dev/null || true)
             if [ -z "$RELEASE_ID" ]; then
-              RELEASE_BODY=$(jq -n --arg tag "$TAG" --arg target "${CM_COMMIT:-}" --arg name "$RELEASE_NAME" --arg build "${CM_BUILD_ID:-}" --arg public "$APK_PUBLIC" '{tag_name:$tag,target_commitish:$target,name:$name,body:("v0.20 recovery navigation fallback. Codemagic build: "+$build+"\nTemporary Codemagic APK URL: "+$public),draft:false,prerelease:true}')
-              RELEASE_JSON=$(curl -fsS -X POST -H "$AUTH_HEADER" -H "$ACCEPT_HEADER" -H 'Content-Type: application/json' --data-binary "$RELEASE_BODY" "$API/releases")
+              RELEASE_BODY=$(jq -n \
+                --arg tag "$TAG" \
+                --arg target "${CM_COMMIT:-}" \
+                --arg name "$RELEASE_NAME" \
+                --arg build "${CM_BUILD_ID:-}" \
+                '{tag_name:$tag,target_commitish:$target,name:$name,body:("v0.20: recovery navigation fallback for unlabeled ChatGPT top-left toolbar control. Codemagic build: "+$build),draft:false,prerelease:true}')
+              RELEASE_JSON=$(curl -fsS -X POST \
+                -H "$AUTH_HEADER" -H "$ACCEPT_HEADER" \
+                -H 'Content-Type: application/json' \
+                --data-binary "$RELEASE_BODY" \
+                "$API/releases")
               RELEASE_ID=$(printf '%s' "$RELEASE_JSON" | jq -r '.id')
             fi
             RELEASE_URL=$(printf '%s' "$RELEASE_JSON" | jq -r '.html_url // empty')
-            APK_NAME="pebble-chat-bridge-v020-$SHORT_COMMIT-${CM_BUILD_ID:-build}.apk"
-            EXISTING_ASSETS=$(curl -fsS -H "$AUTH_HEADER" -H "$ACCEPT_HEADER" "$API/releases/$RELEASE_ID/assets")
-            EXISTING_ASSET_ID=$(printf '%s' "$EXISTING_ASSETS" | jq -r --arg n "$APK_NAME" '.[] | select(.name == $n) | .id' | head -1)
-            if [ -n "$EXISTING_ASSET_ID" ]; then curl -fsS -X DELETE -H "$AUTH_HEADER" -H "$ACCEPT_HEADER" "$API/releases/assets/$EXISTING_ASSET_ID" >/dev/null; fi
-            ASSET_JSON=$(curl -fsS -X POST -H "$AUTH_HEADER" -H 'Content-Type: application/vnd.android.package-archive' --data-binary "@$APK" "https://uploads.github.com/repos/$OWNER/$REPO/releases/$RELEASE_ID/assets?name=$APK_NAME")
+
+            ASSET_JSON=$(curl -fsS -X POST \
+              -H "$AUTH_HEADER" \
+              -H 'Content-Type: application/vnd.android.package-archive' \
+              --data-binary "@$APK" \
+              "https://uploads.github.com/repos/$OWNER/$REPO/releases/$RELEASE_ID/assets?name=$APK_NAME")
             RELEASE_ASSET_URL=$(printf '%s' "$ASSET_JSON" | jq -r '.browser_download_url // empty')
 
             APK_SHA=$(awk '{print $1}' "$CM_BUILD_DIR/ci/APK_SHA256.txt")
             SIGNING_FINGERPRINT=$(sed -n 's/^certificate_sha256=//p' "$CM_BUILD_DIR/ci/certificate.txt" | head -1)
-            POINTER=$(jq -n --arg event "pebble_apk_delivery" --arg version "0.20" --arg patch "top-left-navigation-score-threshold-120-to-90" --arg status "SUCCESS" --arg buildId "${CM_BUILD_ID:-}" --arg commit "${CM_COMMIT:-}" --arg apkPublicUrl "$APK_PUBLIC" --arg releaseUrl "$RELEASE_URL" --arg releaseAssetUrl "$RELEASE_ASSET_URL" --arg sha256 "$APK_SHA" --arg signingFingerprint "$SIGNING_FINGERPRINT" '{event:$event,version:$version,patch:$patch,status:$status,buildId:$buildId,commit:$commit,apkPublicUrl:$apkPublicUrl,releaseUrl:$releaseUrl,releaseAssetUrl:$releaseAssetUrl,sha256:$sha256,signingFingerprint:$signingFingerprint}')
+            POINTER=$(jq -n \
+              --arg event "pebble_apk_delivery" \
+              --arg version "0.20" \
+              --arg status "SUCCESS" \
+              --arg buildId "${CM_BUILD_ID:-}" \
+              --arg commit "${CM_COMMIT:-}" \
+              --arg releaseUrl "$RELEASE_URL" \
+              --arg releaseAssetUrl "$RELEASE_ASSET_URL" \
+              --arg sha256 "$APK_SHA" \
+              --arg signingFingerprint "$SIGNING_FINGERPRINT" \
+              '{event:$event,version:$version,status:$status,buildId:$buildId,commit:$commit,releaseUrl:$releaseUrl,releaseAssetUrl:$releaseAssetUrl,sha256:$sha256,signingFingerprint:$signingFingerprint}')
 
             META_URL="$API/contents/.ci/latest-pebble-build.json?ref=ci%2Fpebble-apk-delivery"
-            META_JSON=$(curl -fsS -H "$AUTH_HEADER" -H "$ACCEPT_HEADER" "$META_URL" 2>/dev/null || true); META_SHA=$(printf '%s' "$META_JSON" | jq -r '.sha // empty' 2>/dev/null || true)
+            META_JSON=$(curl -fsS -H "$AUTH_HEADER" -H "$ACCEPT_HEADER" "$META_URL" 2>/dev/null || true)
+            META_SHA=$(printf '%s' "$META_JSON" | jq -r '.sha // empty' 2>/dev/null || true)
             POINTER_B64=$(printf '%s\n' "$POINTER" | base64 | tr -d '\n')
-            if [ -n "$META_SHA" ]; then PUT_BODY=$(jq -n --arg message "ci: update latest Pebble v0.20 delivery" --arg content "$POINTER_B64" --arg branch "$DELIVERY_BRANCH" --arg sha "$META_SHA" '{message:$message,content:$content,branch:$branch,sha:$sha}'); else PUT_BODY=$(jq -n --arg message "ci: publish latest Pebble v0.20 delivery" --arg content "$POINTER_B64" --arg branch "$DELIVERY_BRANCH" '{message:$message,content:$content,branch:$branch}'); fi
-            curl -fsS -X PUT -H "$AUTH_HEADER" -H "$ACCEPT_HEADER" -H 'Content-Type: application/json' --data-binary "$PUT_BODY" "$API/contents/.ci/latest-pebble-build.json" >/dev/null
+            if [ -n "$META_SHA" ]; then
+              META_BODY=$(jq -n --arg message "ci: update latest Pebble v0.20 delivery" --arg content "$POINTER_B64" --arg branch "$DELIVERY_BRANCH" --arg sha "$META_SHA" '{message:$message,content:$content,branch:$branch,sha:$sha}')
+            else
+              META_BODY=$(jq -n --arg message "ci: publish latest Pebble v0.20 delivery" --arg content "$POINTER_B64" --arg branch "$DELIVERY_BRANCH" '{message:$message,content:$content,branch:$branch}')
+            fi
+            curl -fsS -X PUT -H "$AUTH_HEADER" -H "$ACCEPT_HEADER" -H 'Content-Type: application/json' --data-binary "$META_BODY" "$API/contents/.ci/latest-pebble-build.json" >/dev/null
 
-            APK_MIRROR_URL="$API/contents/.ci/latest-pebble.apk?ref=ci%2Fpebble-apk-delivery"
-            APK_MIRROR_JSON=$(curl -fsS -H "$AUTH_HEADER" -H "$ACCEPT_HEADER" "$APK_MIRROR_URL" 2>/dev/null || true); APK_MIRROR_SHA=$(printf '%s' "$APK_MIRROR_JSON" | jq -r '.sha // empty' 2>/dev/null || true)
+            MIRROR_URL="$API/contents/.ci/latest-pebble.apk?ref=ci%2Fpebble-apk-delivery"
+            MIRROR_JSON=$(curl -fsS -H "$AUTH_HEADER" -H "$ACCEPT_HEADER" "$MIRROR_URL" 2>/dev/null || true)
+            MIRROR_SHA=$(printf '%s' "$MIRROR_JSON" | jq -r '.sha // empty' 2>/dev/null || true)
             APK_B64=$(base64 < "$APK" | tr -d '\n')
-            if [ -n "$APK_MIRROR_SHA" ]; then APK_PUT_BODY=$(jq -n --arg message "ci: update latest Pebble v0.20 APK binary" --arg content "$APK_B64" --arg branch "$DELIVERY_BRANCH" --arg sha "$APK_MIRROR_SHA" '{message:$message,content:$content,branch:$branch,sha:$sha}'); else APK_PUT_BODY=$(jq -n --arg message "ci: publish latest Pebble v0.20 APK binary" --arg content "$APK_B64" --arg branch "$DELIVERY_BRANCH" '{message:$message,content:$content,branch:$branch}'); fi
-            curl -fsS -X PUT -H "$AUTH_HEADER" -H "$ACCEPT_HEADER" -H 'Content-Type: application/json' --data-binary "$APK_PUT_BODY" "$API/contents/.ci/latest-pebble.apk" >/dev/null
+            if [ -n "$MIRROR_SHA" ]; then
+              APK_BODY=$(jq -n --arg message "ci: update latest Pebble v0.20 APK" --arg content "$APK_B64" --arg branch "$DELIVERY_BRANCH" --arg sha "$MIRROR_SHA" '{message:$message,content:$content,branch:$branch,sha:$sha}')
+            else
+              APK_BODY=$(jq -n --arg message "ci: publish latest Pebble v0.20 APK" --arg content "$APK_B64" --arg branch "$DELIVERY_BRANCH" '{message:$message,content:$content,branch:$branch}')
+            fi
+            curl -fsS -X PUT -H "$AUTH_HEADER" -H "$ACCEPT_HEADER" -H 'Content-Type: application/json' --data-binary "$APK_BODY" "$API/contents/.ci/latest-pebble.apk" >/dev/null
 
             printf '%s\n' "$POINTER" > "$CM_BUILD_DIR/ci/latest-pebble-build.json"
             printf '%s\n' "$RELEASE_URL" > "$CM_BUILD_DIR/ci/release-url.txt"
             printf '%s\n' "$RELEASE_ASSET_URL" > "$CM_BUILD_DIR/ci/release-asset-url.txt"
-            curl -fsS -H "Title: Pebble Chat Bridge v0.20 delivery" -H "Tags: package" --data-binary "$POINTER" "https://ntfy.sh/$CI_REPORT_TOPIC" >/dev/null || true
             echo "GitHub prerelease delivery published: $RELEASE_URL"
