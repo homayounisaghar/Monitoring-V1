@@ -29,9 +29,17 @@ workflows:
           set -euo pipefail
           mkdir -p ci/src ci/out
           cat v019_parts/part00.txt v019_parts/part01.txt v019_parts/part02.txt v019_parts/part03.txt > ci/PebbleChatBridge-v019-src.tgz.b64
-          echo "76dfce144dd4e8126fdfb356e6fb3a6627f5bd629cf741798703847ec38d623a  ci/PebbleChatBridge-v019-src.tgz.b64" | sha256sum -c -
-          base64 -d ci/PebbleChatBridge-v019-src.tgz.b64 > ci/PebbleChatBridge-v019-src.tgz
-          echo "c7485116b17dfe4f2aa9f61469ab01e1596efccdf0d43f3d7b560d3c474e6196  ci/PebbleChatBridge-v019-src.tgz" | sha256sum -c -
+          actual_b64_sha="$(shasum -a 256 ci/PebbleChatBridge-v019-src.tgz.b64 | awk '{print $1}')"
+          test "$actual_b64_sha" = "76dfce144dd4e8126fdfb356e6fb3a6627f5bd629cf741798703847ec38d623a"
+          python3 - <<'PY'
+          import base64
+          from pathlib import Path
+          src = Path("ci/PebbleChatBridge-v019-src.tgz.b64")
+          dst = Path("ci/PebbleChatBridge-v019-src.tgz")
+          dst.write_bytes(base64.b64decode(src.read_bytes()))
+          PY
+          actual_tgz_sha="$(shasum -a 256 ci/PebbleChatBridge-v019-src.tgz | awk '{print $1}')"
+          test "$actual_tgz_sha" = "c7485116b17dfe4f2aa9f61469ab01e1596efccdf0d43f3d7b560d3c474e6196"
           tar -xzf ci/PebbleChatBridge-v019-src.tgz -C ci/src
           grep -Fq "versionCode 19" ci/src/app/build.gradle
           grep -Fq "0.19-thread-recovery" ci/src/app/build.gradle
@@ -97,7 +105,7 @@ workflows:
           "$apksigner" verify --verbose --print-certs "$signed" | tee ci/apksigner-verify.txt
           actual_cert="$(sed -n 's/^Signer #1 certificate SHA-256 digest: //p' ci/apksigner-verify.txt | tr 'A-F' 'a-f' | head -n 1)"
           test "$actual_cert" = "$EXPECTED_CERT_SHA256"
-          sha256sum "$signed" | tee ci/APK_SHA256.txt
+          shasum -a 256 "$signed" | tee ci/APK_SHA256.txt
           printf 'certificate_sha256=%s\n' "$actual_cert" > ci/certificate.txt
 
       - name: Publish signed APK to GitHub prerelease when token is available
@@ -152,7 +160,7 @@ workflows:
             {
               echo "commit=${CM_COMMIT}"
               echo "build=${BUILD_NUMBER}"
-              echo "artifacts=${CM_ARTIFACT_LINKS}"
+              echo "artifacts=${CM_ARTIFACT_LINKS:-[]}"
             } > "$report"
             curl -fsS \
               -H "Title: Pebble Chat Bridge v0.19 artifacts" \
