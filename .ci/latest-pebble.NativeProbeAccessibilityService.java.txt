@@ -673,8 +673,6 @@ public class NativeProbeAccessibilityService extends AccessibilityService {
                     label.contains("camera") || label.contains("photo") || label.contains("voice") ||
                     label.contains("profile") || label.contains("settings") || label.contains("more")) continue;
             if (!label.trim().isEmpty() && !label.contains("search")) continue;
-
-            // Structural identity: same header region as ChatGPT title, above first drawer row.
             if (n.bounds.centerY() >= firstItem.bounds.top) continue;
             if (n.bounds.centerX() <= title.bounds.right) continue;
             if (Math.abs(n.bounds.centerY() - title.bounds.centerY()) > headerHeight * 2) continue;
