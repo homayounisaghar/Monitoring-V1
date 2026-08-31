@@ -1,11 +1,13 @@
 {
   "event": "pebble_apk_delivery",
+  "version": "0.20",
+  "patch": "top-left-navigation-score-threshold-120-to-90",
   "status": "SUCCESS",
-  "buildId": "6a9524b6fac9a246bec70c53",
-  "commit": "62b95362222ba4a8b2a7091b429d7abfd9a54fb9",
-  "apkPublicUrl": "https://api.codemagic.io/artifacts/.eJwVwUmSgjAAAMC_eKcKRIUcQQKyo-xcKNYoIKuRxNdPTfcBSf_kZfDDXII4-UySysSn9tzMtKTX0QzWQlfTqJ7HudlugB3AnjNscuXSrrV5KIijxZvdrLlULC9cUhGux9RHFccV2f5tV6Th1QZgcW4CMO90dx2CN3tB3zUk3umN84xKWRaioFICcau4nmWIA0D3-p1Gh6y1u991tRfUJsSmrFnTJ9RrPQ8f37tSF0_nMTgsMp01n_zqaeyB5VG6LpLLHGPcQjc3h-I3lVGaQx0LrQxRpqexrLjBoBiXxSgNFbb45y_E48UptA3SQhueoRNxnoDeaDsC0ev8iREZpQgsl3klhece8SPkqaIJUUN6MQWv9NLGxDj8ARjecHE.222pVZSdrPOccgM387pRqRwPa0Q",
-  "releaseUrl": "https://github.com/homayounisaghar/Monitoring-V1/releases/tag/pebble-v0.19-62b95362222b",
-  "releaseAssetUrl": "https://github.com/homayounisaghar/Monitoring-V1/releases/download/pebble-v0.19-62b95362222b/pebble-chat-bridge-v019-62b95362222b-6a9524b6fac9a246bec70c53.apk",
-  "sha256": "efb79af81d7d2a5d988413a5ad17bccc71fefc4a4d107495adf7cfdffd1ac02b",
+  "buildId": "6a953162ad20be13e3ff91c1",
+  "commit": "114f9ab2ca50c2c8a59e32139ff3d2ea34ba0a61",
+  "apkPublicUrl": "https://api.codemagic.io/artifacts/.eJwVwdu2QkAAANB_6d1aSTQ99GCIkWFccsmLVU3GLQxK9fVnnb1XTP0HeXvG6h7IqeyBaxjiVOkrvzjaSgA_utYstLT16GTJ23CD8xi7TXPqkizvdyPjH8TQY-_DtchDisr5O7qhC3s4hp4Q2IudCfOkZXTpmmR2W7EqhhrsPbgYdER4KzdCEgZVnLxUdDdrCRiFQQoyRiDJW9Ng2PlJhXTysQ_NbMJT4BgN_2xurlId4SXO9NID6Rz_BoSmxmdDf8wKG-ZMGfB10mukcWKYxtr7sosWwhfk7LnxR_DhRqWpu87sg-qdSMC5ElxO4mLfUyLc2jfQrUauLo97XS8OiUg9Pa1Uu1mbSNudaV6OVJdda3KTgTMHOcU9PXdZq8oPsvzGb5HRKBXfb07Jcjis_gDo5XhX.zVVkoESD8tx0mR0oHlRSyuuSTcU",
+  "releaseUrl": "https://github.com/homayounisaghar/Monitoring-V1/releases/tag/pebble-v0.20-114f9ab2ca50",
+  "releaseAssetUrl": "https://github.com/homayounisaghar/Monitoring-V1/releases/download/pebble-v0.20-114f9ab2ca50/pebble-chat-bridge-v020-114f9ab2ca50-6a953162ad20be13e3ff91c1.apk",
+  "sha256": "56bc8d1ce490d504fa1ce85ba5f8a0a9ac5822f847980273c3877f2599add819",
   "signingFingerprint": "9aaac9cb3ff091aa5c362f0255129a97b8e3c34b8a73f520cbb6ba89ed31e5d3"
 }
