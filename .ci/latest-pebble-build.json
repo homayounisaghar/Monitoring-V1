@@ -1,13 +1,11 @@
 {
   "event": "pebble_apk_delivery",
   "version": "0.20",
-  "patch": "top-left-navigation-score-threshold-120-to-90",
   "status": "SUCCESS",
-  "buildId": "6a953162ad20be13e3ff91c1",
-  "commit": "114f9ab2ca50c2c8a59e32139ff3d2ea34ba0a61",
-  "apkPublicUrl": "https://api.codemagic.io/artifacts/.eJwVwdu2QkAAANB_6d1aSTQ99GCIkWFccsmLVU3GLQxK9fVnnb1XTP0HeXvG6h7IqeyBaxjiVOkrvzjaSgA_utYstLT16GTJ23CD8xi7TXPqkizvdyPjH8TQY-_DtchDisr5O7qhC3s4hp4Q2IudCfOkZXTpmmR2W7EqhhrsPbgYdER4KzdCEgZVnLxUdDdrCRiFQQoyRiDJW9Ng2PlJhXTysQ_NbMJT4BgN_2xurlId4SXO9NID6Rz_BoSmxmdDf8wKG-ZMGfB10mukcWKYxtr7sosWwhfk7LnxR_DhRqWpu87sg-qdSMC5ElxO4mLfUyLc2jfQrUauLo97XS8OiUg9Pa1Uu1mbSNudaV6OVJdda3KTgTMHOcU9PXdZq8oPsvzGb5HRKBXfb07Jcjis_gDo5XhX.zVVkoESD8tx0mR0oHlRSyuuSTcU",
-  "releaseUrl": "https://github.com/homayounisaghar/Monitoring-V1/releases/tag/pebble-v0.20-114f9ab2ca50",
-  "releaseAssetUrl": "https://github.com/homayounisaghar/Monitoring-V1/releases/download/pebble-v0.20-114f9ab2ca50/pebble-chat-bridge-v020-114f9ab2ca50-6a953162ad20be13e3ff91c1.apk",
-  "sha256": "56bc8d1ce490d504fa1ce85ba5f8a0a9ac5822f847980273c3877f2599add819",
+  "buildId": "6a953fadfac9a246bec7511c",
+  "commit": "0b5dfdb61aed0cc664211924ca341308ba8914d6",
+  "releaseUrl": "https://github.com/homayounisaghar/Monitoring-V1/releases/tag/pebble-v0.20-0b5dfdb61aed",
+  "releaseAssetUrl": "https://github.com/homayounisaghar/Monitoring-V1/releases/download/pebble-v0.20-0b5dfdb61aed/pebble-chat-bridge-v020-0b5dfdb61aed.apk",
+  "sha256": "d3a870eb2a4ad12112ed9d588f18061aa3f943b390950022748b6110db683e65",
   "signingFingerprint": "9aaac9cb3ff091aa5c362f0255129a97b8e3c34b8a73f520cbb6ba89ed31e5d3"
 }
