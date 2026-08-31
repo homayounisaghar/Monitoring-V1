@@ -1,12 +1,12 @@
 {
   "event": "pebble_apk_delivery",
-  "version": "0.24",
+  "version": "0.25",
   "status": "SUCCESS",
-  "buildId": "6a956abd3cf4759eab6be20f",
-  "commit": "fa1084388134fc6a3ccb50fb82ca5824f518d09f",
-  "apkPublicUrl": "https://api.codemagic.io/artifacts/.eJwVwUmSgjAAAMC_eLdKFASOrCEQRDSsFyqAbAmyy4yvn5ruQ638UycWzRlwnJb3LAUrFFunbwhFVVmMy75sVO60SPYlu0hnL4mgdiNjdvFVkc4UWDl74f3zGw4iwOyje41a2TIa-Wiiqe_CSp8xx3FBXyMQw8bPibU0Sscnmd9Bg-z2uBs3W2e4CYb4e7JQpcXSU1szZaLJmF6H9Cf4RIS4htXWMpRRz7ZWiEAunfHRbUs3e3ksOYZ5ic5GNMFrdK_vhonNuFR7ssChrt5QkAQHv7WCreLaNrPyGFPOZlLQbWPAs94qGZ6yAomCzREGpnvKnqY-GA9TWF0Kpp9bQVeyoY5bB-owWZMv4RPYxWl46V7YTCkKDXT4A9Chb_k.5o0l8oJgE18EGKRktXsDgIyQhZ8",
-  "releaseUrl": "https://github.com/homayounisaghar/Monitoring-V1/releases/tag/pebble-v0.24-fa1084388134",
-  "releaseAssetUrl": "https://github.com/homayounisaghar/Monitoring-V1/releases/download/pebble-v0.24-fa1084388134/pebble-chat-bridge-v024-fa1084388134.apk",
-  "sha256": "fdf3309ca110b24d97e00739eed39c463858960dee2e2b44ade542892f4c2c99",
+  "buildId": "6a95cfbafac9a246bec912ad",
+  "commit": "6d0f057c6bd7ccabfff86db3f5b381c2fa781557",
+  "apkPublicUrl": "https://api.codemagic.io/artifacts/.eJwVwcmSQ0AAANB_yV0VsTSHHCxtCBEdI5aLsrYtEtHWr5-a905Y_qeMfSEHM29ni8lZHmnRYIAo5_D823yjTfd9W93t2n2csefWqrL7bNzDhEl98ICRNFLB5rLLQHKDIKxJgkGjPAwrrTRHRM-9ymBxvhv9OES6KhI4XZO5NKmDQznYQiMKy6tUvGFnle-EIlPWPP0OWPFPruau4t80j6tM3qFXk_f29ye6P4pU6JMYf4gd2A5PLHXWed08hzfCfRMNHTDsnA9k7LCIXd6bcA3K-DnEmZdpPCfB_eiqwwB-6dCKtGob9YRLYEkmFroGCeP02EGr8Euz1o4OU7IKKzirOLBEonDMXgzWs5U_ohRWPb2ldHqXXw3qXuya6F6r3AHL1uNknOesbDsKXS6nP3akduo.EG5HEtjY4ujMVeZOcQWIInTNVdA",
+  "releaseUrl": "https://github.com/homayounisaghar/Monitoring-V1/releases/tag/pebble-v0.25-6d0f057c6bd7",
+  "releaseAssetUrl": "https://github.com/homayounisaghar/Monitoring-V1/releases/download/pebble-v0.25-6d0f057c6bd7/pebble-chat-bridge-v025-6d0f057c6bd7.apk",
+  "sha256": "99ac06af90286c678df77c3041b80e9a7ed93bed637239d85f674df0f64fa386",
   "signingFingerprint": "9aaac9cb3ff091aa5c362f0255129a97b8e3c34b8a73f520cbb6ba89ed31e5d3"
 }
