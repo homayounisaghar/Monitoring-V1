@@ -1,7 +1,7 @@
 workflows:
   pebble-bridge-v019:
     name: Pebble Chat Bridge v0.19 — Thread Recovery
-    instance_type: linux_x2
+    instance_type: mac_mini_m2
     max_build_duration: 30
     environment:
       java: 17
