@@ -133,7 +133,7 @@ workflows:
             asset_url=$(printf '%s' "$asset_json" | jq -r '.browser_download_url // empty')
             apk_sha=$(awk '{print $1}' "$CM_BUILD_DIR/ci/APK_SHA256.txt")
             cert=$(sed -n 's/^certificate_sha256=//p' "$CM_BUILD_DIR/ci/certificate.txt" | head -1)
-            pointer=$(jq -n --arg event pebble_apk_delivery --arg version 0.29 --arg status SUCCESS --arg buildId "${CM_BUILD_ID:-}" --arg commit "${CM_COMMIT:-}" --arg releaseUrl "$release_url" --arg releaseAssetUrl "$asset_url" --arg sha256 "$apk_sha" --arg signingFingerprint "$cert" '{event:$event,version:$version,status:$status,buildId:$buildId,commit:$commit,releaseUrl:$releaseUrl,releaseAssetUrl:$assetUrl,sha256:$sha256,signingFingerprint:$signingFingerprint}')
+            pointer=$(jq -n --arg event pebble_apk_delivery --arg version 0.29 --arg status SUCCESS --arg buildId "${CM_BUILD_ID:-}" --arg commit "${CM_COMMIT:-}" --arg releaseUrl "$release_url" --arg releaseAssetUrl "$asset_url" --arg sha256 "$apk_sha" --arg signingFingerprint "$cert" '{event:$event,version:$version,status:$status,buildId:$buildId,commit:$commit,releaseUrl:$releaseUrl,releaseAssetUrl:$releaseAssetUrl,sha256:$sha256,signingFingerprint:$signingFingerprint}')
             printf '%s\n' "$pointer" > ci/latest-pebble-build.json
 
             put_content() {
