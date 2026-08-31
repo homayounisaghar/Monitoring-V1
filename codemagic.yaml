@@ -61,7 +61,7 @@ workflows:
           {
             set -x
             echo "sdk.dir=$ANDROID_SDK_ROOT" > ci/src/local.properties
-            yes | sdkmanager "platforms;android-${ANDROID_PLATFORM}" "build-tools;${ANDROID_BUILD_TOOLS}"
+            yes | sdkmanager --sdk_root="$ANDROID_SDK_ROOT" "platforms;android-${ANDROID_PLATFORM}" "build-tools;${ANDROID_BUILD_TOOLS}"
             curl -fsSL "https://services.gradle.org/distributions/gradle-${GRADLE_VERSION}-bin.zip" -o /tmp/gradle.zip
             rm -rf "/tmp/gradle-${GRADLE_VERSION}"
             unzip -q -o /tmp/gradle.zip -d /tmp
@@ -92,8 +92,9 @@ workflows:
           [ -n "${CM_KEYSTORE_PASSWORD:-}" ] || exit 13
           [ -n "${CM_KEY_ALIAS:-}" ] || exit 14
           [ -n "${CM_KEY_PASSWORD:-}" ] || exit 15
-          apksigner_jar="$ANDROID_SDK_ROOT/build-tools/${ANDROID_BUILD_TOOLS}/lib/apksigner.jar"
-          [ -s "$apksigner_jar" ] || exit 16
+          apksigner_path="$(find "$ANDROID_SDK_ROOT/build-tools" -type f -name apksigner 2>/dev/null | sort | tail -n 1)"
+          [ -n "$apksigner_path" ] && [ -s "$apksigner_path" ] || exit 16
+          printf 'apksigner=%s\n' "$apksigner_path" > ci/signing-tool.txt
           keytool -list -v \
             -keystore "$CM_KEYSTORE_PATH" \
             -storepass "$CM_KEYSTORE_PASSWORD" \
@@ -106,8 +107,8 @@ workflows:
           set -euo pipefail
           unsigned="ci/out/PebbleChatBridgePoC-v0.19-unsigned.apk"
           signed="ci/out/${APK_BASENAME}"
-          apksigner_jar="$ANDROID_SDK_ROOT/build-tools/${ANDROID_BUILD_TOOLS}/lib/apksigner.jar"
-          java -jar "$apksigner_jar" sign \
+          apksigner_path="$(find "$ANDROID_SDK_ROOT/build-tools" -type f -name apksigner 2>/dev/null | sort | tail -n 1)"
+          bash "$apksigner_path" sign \
             --ks "$CM_KEYSTORE_PATH" \
             --ks-pass "env:CM_KEYSTORE_PASSWORD" \
             --ks-key-alias "$CM_KEY_ALIAS" \
@@ -121,8 +122,8 @@ workflows:
           #!/usr/bin/env bash
           set -euo pipefail
           signed="ci/out/${APK_BASENAME}"
-          apksigner_jar="$ANDROID_SDK_ROOT/build-tools/${ANDROID_BUILD_TOOLS}/lib/apksigner.jar"
-          java -jar "$apksigner_jar" verify --verbose --print-certs "$signed" | tee ci/apksigner-verify.txt
+          apksigner_path="$(find "$ANDROID_SDK_ROOT/build-tools" -type f -name apksigner 2>/dev/null | sort | tail -n 1)"
+          bash "$apksigner_path" verify --verbose --print-certs "$signed" | tee ci/apksigner-verify.txt
           actual_cert="$(sed -n 's/^Signer #1 certificate SHA-256 digest: //p' ci/apksigner-verify.txt | tr 'A-F' 'a-f' | head -n 1)"
           printf 'certificate_sha256=%s\n' "$actual_cert" > ci/certificate.txt
           test "$actual_cert" = "$EXPECTED_CERT_SHA256"
@@ -164,6 +165,7 @@ workflows:
       - ci/full-build.log
       - ci/diagnostic.txt
       - ci/source-verification.txt
+      - ci/signing-tool.txt
       - ci/keystore-inspect.txt
       - ci/apksigner-verify.txt
       - ci/APK_SHA256.txt
