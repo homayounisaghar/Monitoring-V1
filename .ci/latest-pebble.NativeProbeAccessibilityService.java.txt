@@ -478,6 +478,7 @@ public class NativeProbeAccessibilityService extends AccessibilityService {
                 return false;
             }
             NodeRecord search = findRecoverySearchLauncher(nodes);
+            if (search == null) search = findRecoveryDrawerSearchLauncher(nodes);
             if (search != null) {
                 boolean clicked = search.node.performAction(AccessibilityNodeInfo.ACTION_CLICK);
                 ProbeState.log(this, "RECOVERY: ChatGPT Search control selected: " + search.describe() + "; click=" + clicked + ".");
@@ -583,8 +584,40 @@ public class NativeProbeAccessibilityService extends AccessibilityService {
             if (label.contains("web") || label.contains("voice")) score -= 150;
             if (score > bestScore) { bestScore = score; best = n; }
         }
-        // PEBBLE_V021_UNLABELED_SEARCH_ICON_FALLBACK
-        return bestScore >= 70 ? best : null;
+        return bestScore >= 140 ? best : null;
+    }
+
+    // PEBBLE_V024_DRAWER_SEARCH_GEOMETRY_FALLBACK
+    private NodeRecord findRecoveryDrawerSearchLauncher(List<NodeRecord> nodes) {
+        int screenRight = 0;
+        int screenBottom = 0;
+        for (NodeRecord n : nodes) {
+            if (n.bounds.isEmpty()) continue;
+            screenRight = Math.max(screenRight, n.bounds.right);
+            screenBottom = Math.max(screenBottom, n.bounds.bottom);
+        }
+        if (screenRight <= 0 || screenBottom <= 0) return null;
+        NodeRecord best = null;
+        int bestScore = Integer.MIN_VALUE;
+        for (NodeRecord n : nodes) {
+            if (!n.clickable || !n.visible || n.bounds.isEmpty()) continue;
+            String label = n.labelLower();
+            if (label.contains("phone") || label.contains("call") || label.contains("voice") ||
+                    label.contains("new chat") || label.contains("profile") || label.contains("settings")) continue;
+            int cx = n.bounds.centerX();
+            int cy = n.bounds.centerY();
+            boolean topBand = cy < (screenBottom * 18 / 100);
+            boolean drawerSearchBand = cx > (screenRight * 45 / 100) && cx < (screenRight * 82 / 100);
+            if (!topBand || !drawerSearchBand) continue;
+            int score = 100;
+            if (label.trim().isEmpty()) score += 45;
+            if (label.contains("search")) score += 180;
+            String cls = n.className.toString().toLowerCase(Locale.US);
+            if (cls.contains("button") || cls.contains("image") || cls.contains("view")) score += 20;
+            if (n.bounds.width() < screenRight * 35 / 100) score += 15;
+            if (score > bestScore) { bestScore = score; best = n; }
+        }
+        return bestScore >= 100 ? best : null;
     }
 
     private NodeRecord findRecoverySearchField(List<NodeRecord> nodes) {
@@ -864,7 +897,7 @@ public class NativeProbeAccessibilityService extends AccessibilityService {
         ProbeState.commitSessionTurn(this, completedReceipt);
         ProbeState.log(this, "SESSION CHECKPOINT COMMITTED: session=" + ProbeState.sessionId(this) + "; completedTurn=" + ProbeState.sessionTurn(this) + "; receipt=" + completedReceipt + ".");
         ProbeState.status(this, ProbeState.COMPLETE);
-        handler.postDelayed(this::bringUiForward, 900);
+        scheduleReturnToBridge(900L);
     }
 
     private void completeContinuationTurn(String raw) {
@@ -903,7 +936,7 @@ public class NativeProbeAccessibilityService extends AccessibilityService {
             ProbeState.log(this, "SUCCESS: SAME_THREAD_CONFIRMED. Turn 2 recovered the secret codeword even though turn 2 never contained that codeword and no ACTION_SEND/new chat was launched between turns.");
             showBanner("SAME THREAD CONFIRMED");
             ProbeState.status(this, ProbeState.COMPLETE);
-            handler.postDelayed(this::bringUiForward, 900);
+            scheduleReturnToBridge(900L);
         } else {
             ProbeState.setString(this, "continuationVerdict", "SAME_THREAD_NOT_CONFIRMED");
             fail("Turn 2 completed but did not recover the expected secret. expected=" + expected + "; observed=" + abbreviate(body, 140));
@@ -923,7 +956,30 @@ public class NativeProbeAccessibilityService extends AccessibilityService {
         ProbeState.status(this, ProbeState.FAILED);
         ProbeState.log(this, "BRIDGE STOPPED: " + reason);
         showBanner("BRIDGE STOPPED");
-        handler.postDelayed(this::bringUiForward, 700);
+        scheduleReturnToBridge(700L);
+    }
+
+    // PEBBLE_V024_DETERMINISTIC_RETURN
+    private void scheduleReturnToBridge(long delayMs) {
+        handler.postDelayed(() -> {
+            bringUiForward();
+            handler.postDelayed(() -> ensureReturnFromChatGpt(0), 350L);
+        }, delayMs);
+    }
+
+    private void ensureReturnFromChatGpt(int attempt) {
+        AccessibilityNodeInfo active = getRootInActiveWindow();
+        if (!ProbeState.TARGET.equals(packageOf(active))) return;
+        if (attempt >= 3) {
+            bringUiForward();
+            return;
+        }
+        boolean back = performGlobalAction(GLOBAL_ACTION_BACK);
+        ProbeState.log(this, "RETURN FALLBACK: ChatGPT still active after bring-to-front; GLOBAL_BACK attempt=" + (attempt + 1) + "; result=" + back + ".");
+        handler.postDelayed(() -> {
+            bringUiForward();
+            handler.postDelayed(() -> ensureReturnFromChatGpt(attempt + 1), 300L);
+        }, 300L);
     }
 
     private void bringUiForward() {
