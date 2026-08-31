@@ -525,25 +525,27 @@ public class NativeProbeAccessibilityService extends AccessibilityService {
                 ProbeState.setSessionRecoveryState(this, "ENTER_QUERY");
                 return false;
             }
-            NodeRecord search = findRecoverySearchLauncher(nodes);
-            if (search == null) search = findRecoveryDrawerSearchLauncher(nodes);
-            if (search != null) {
-                String fingerprint = recoverySearchFingerprint(search);
-                boolean clicked = search.node.performAction(AccessibilityNodeInfo.ACTION_CLICK);
-                ProbeState.log(this, "RECOVERY: tentative ChatGPT Search candidate selected: " + search.describe() + "; fingerprint=" + fingerprint + "; click=" + clicked + ". A verified Search field is mandatory before query entry.");
-                if (clicked) {
-                    ProbeState.setString(this, "recoverySearchCandidateFingerprint", fingerprint);
-                    ProbeState.setSessionRecoveryState(this, "VERIFY_SEARCH_LAUNCH");
-                } else {
-                    rememberRejectedRecoverySearchFingerprint(fingerprint);
+
+            // PEBBLE_V029_NONCLICKING_SEARCH_TARGET_DIAGNOSTIC
+            Rect target = computeRecoverySearchVisualTarget(nodes);
+            if (target != null) {
+                showRecoveryVisualTarget(target, "V0.29 SEARCH TARGET");
+                if (!ProbeState.getBoolean(this, "v029SearchTargetLogged")) {
+                    ProbeState.setBoolean(this, "v029SearchTargetLogged", true);
+                    ProbeState.log(this, "V0.29 SEARCH TARGET DIAGNOSTIC: no candidate was clicked. Computed target=" + target.toShortString() + "; drawerEvidence=" + ProbeState.getString(this, "v029DrawerEvidence") + "; savedHeaderBand=" + ProbeState.getString(this, "recoveryNavHeaderBand") + ". Capture a screenshot showing the overlay and verify whether it sits on the visible Search icon.");
+                }
+                if (now - stateAt > 6500L) {
+                    ProbeState.markSessionVerificationFailed(this);
+                    fail("V0.29_DIAGNOSTIC_COMPLETE: Search target was displayed but intentionally not clicked. The user request was never injected.");
                 }
                 return false;
             }
+
             if (now - stateAt > 7000L) {
                 ProbeState.markSessionVerificationFailed(this);
-                fail("SESSION_RECOVERY_FAILED: ChatGPT navigation opened, but no verified search field/control was exposed. The user request was never injected.");
+                fail("V0.29_DIAGNOSTIC_FAILED: drawer was open but a safe relative Search target could not be derived. The user request was never injected.");
             } else {
-                maybeLogRecovery(nodes, now, "FIND_SEARCH: navigation is open; looking for Search chats");
+                maybeLogRecovery(nodes, now, "FIND_SEARCH v0.29 diagnostic: deriving drawer-relative Search target; no click is permitted");
             }
             return false;
         }
@@ -732,6 +734,68 @@ public class NativeProbeAccessibilityService extends AccessibilityService {
         if (fingerprint == null || fingerprint.isEmpty() || isRejectedRecoverySearchFingerprint(fingerprint)) return;
         String all = ProbeState.getString(this, "rejectedRecoverySearchFingerprints");
         ProbeState.setString(this, "rejectedRecoverySearchFingerprints", all + fingerprint + "\n");
+    }
+
+    // PEBBLE_V029_DRAWER_RELATIVE_VISUAL_TARGET
+    private Rect computeRecoverySearchVisualTarget(List<NodeRecord> nodes) {
+        String band = ProbeState.getString(this, "recoveryNavHeaderBand");
+        String[] parts = band.split(",");
+        if (parts.length != 3) return null;
+        int bandTop, bandBottom;
+        try {
+            bandTop = Integer.parseInt(parts[0]);
+            bandBottom = Integer.parseInt(parts[1]);
+        } catch (Exception ignored) {
+            return null;
+        }
+        int bandHeight = Math.max(1, bandBottom - bandTop);
+        int drawerLeft = Integer.MAX_VALUE;
+        int drawerRight = -1;
+        int evidenceCount = 0;
+        StringBuilder evidence = new StringBuilder();
+
+        for (NodeRecord n : nodes) {
+            String label = n.labelLower();
+            if (!(label.equals("images") || label.equals("library") || label.equals("projects") ||
+                    label.equals("remote") || label.equals("scheduled") || label.equals("temporary") ||
+                    label.equals("plugins") || label.equals("recents"))) continue;
+
+            AccessibilityNodeInfo cur = n.node;
+            for (int depth = 0; cur != null && depth <= 4; depth++) {
+                if (cur.isVisibleToUser() && cur.isClickable()) {
+                    Rect b = new Rect();
+                    cur.getBoundsInScreen(b);
+                    if (!b.isEmpty() && b.width() > bandHeight * 2) {
+                        drawerLeft = Math.min(drawerLeft, b.left);
+                        if (drawerRight < 0) drawerRight = b.right;
+                        else drawerRight = Math.min(drawerRight, b.right);
+                        if (evidenceCount++ > 0) evidence.append(" | ");
+                        evidence.append(label).append("->").append(b.toShortString());
+                        break;
+                    }
+                }
+                cur = cur.getParent();
+            }
+        }
+
+        if (evidenceCount < 2 || drawerRight <= 0 || drawerLeft == Integer.MAX_VALUE) return null;
+        int drawerWidth = drawerRight - drawerLeft;
+        if (drawerWidth < bandHeight * 3) return null;
+
+        // The target is expressed only in terms of the verified drawer and header geometry.
+        // It is intentionally not clicked in v0.29. The real-device screenshot will calibrate
+        // this profile once, after which any gesture remains guarded by Search-field verification.
+        int cx = drawerRight - bandHeight;
+        int cy = (bandTop + bandBottom) / 2;
+        int half = Math.max(36, bandHeight * 38 / 100);
+        Rect target = new Rect(cx - half, cy - half, cx + half, cy + half);
+        ProbeState.setString(this, "v029DrawerEvidence", "left=" + drawerLeft + ",right=" + drawerRight + ",width=" + drawerWidth + ",rows=" + evidence);
+        return target;
+    }
+
+    private void showRecoveryVisualTarget(Rect r, String label) {
+        ensureOverlay();
+        if (overlay != null && r != null && !r.isEmpty()) overlay.show(r, label);
     }
 
     private NodeRecord findRecoverySearchField(List<NodeRecord> nodes) {
