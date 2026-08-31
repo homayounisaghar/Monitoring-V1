@@ -79,6 +79,19 @@ public class NativeProbeAccessibilityService extends AccessibilityService {
             return;
         }
 
+        // PEBBLE_V025_REJECT_EXTERNAL_SEARCH_LAUNCH
+        if (ProbeState.isContinueChatRun(this) && "VERIFY_SEARCH_LAUNCH".equals(ProbeState.sessionRecoveryState(this))) {
+            String activePkg = packageOf(getRootInActiveWindow());
+            if (!activePkg.isEmpty() && !ProbeState.TARGET.equals(activePkg)) {
+                String fingerprint = ProbeState.getString(this, "recoverySearchCandidateFingerprint");
+                if (!fingerprint.isEmpty()) ProbeState.setString(this, "rejectedRecoverySearchFingerprint", fingerprint);
+                boolean back = performGlobalAction(GLOBAL_ACTION_BACK);
+                ProbeState.log(this, "RECOVERY SEARCH REJECTED: candidate left ChatGPT and opened package=" + activePkg + "; GLOBAL_BACK=" + back + ". Candidate is blacklisted for this run.");
+                ProbeState.setSessionRecoveryState(this, "OPEN_NAV");
+                return;
+            }
+        }
+
         AccessibilityNodeInfo root = findTargetRoot();
         if (root == null) {
             maybeLogMissingTarget(now);
@@ -480,9 +493,13 @@ public class NativeProbeAccessibilityService extends AccessibilityService {
             NodeRecord search = findRecoverySearchLauncher(nodes);
             if (search == null) search = findRecoveryDrawerSearchLauncher(nodes);
             if (search != null) {
+                String fingerprint = recoverySearchFingerprint(search);
                 boolean clicked = search.node.performAction(AccessibilityNodeInfo.ACTION_CLICK);
-                ProbeState.log(this, "RECOVERY: ChatGPT Search control selected: " + search.describe() + "; click=" + clicked + ".");
-                if (clicked) ProbeState.setSessionRecoveryState(this, "ENTER_QUERY");
+                ProbeState.log(this, "RECOVERY: tentative ChatGPT Search control selected: " + search.describe() + "; fingerprint=" + fingerprint + "; click=" + clicked + ". Search field verification is mandatory before query entry.");
+                if (clicked) {
+                    ProbeState.setString(this, "recoverySearchCandidateFingerprint", fingerprint);
+                    ProbeState.setSessionRecoveryState(this, "VERIFY_SEARCH_LAUNCH");
+                }
                 return false;
             }
             if (now - stateAt > 7000L) {
@@ -490,6 +507,24 @@ public class NativeProbeAccessibilityService extends AccessibilityService {
                 fail("SESSION_RECOVERY_FAILED: ChatGPT navigation opened, but no verified search field/control was exposed. The user request was never injected.");
             } else {
                 maybeLogRecovery(nodes, now, "FIND_SEARCH: navigation is open; looking for Search chats");
+            }
+            return false;
+        }
+
+        if ("VERIFY_SEARCH_LAUNCH".equals(state)) {
+            NodeRecord field = findRecoverySearchField(nodes);
+            if (field != null) {
+                ProbeState.setString(this, "recoverySearchCandidateFingerprint", "");
+                ProbeState.setSessionRecoveryState(this, "ENTER_QUERY");
+                ProbeState.log(this, "RECOVERY SEARCH VERIFIED: editable ChatGPT search field appeared after candidate click.");
+                return false;
+            }
+            if (now - stateAt > 1800L) {
+                String fingerprint = ProbeState.getString(this, "recoverySearchCandidateFingerprint");
+                if (!fingerprint.isEmpty()) ProbeState.setString(this, "rejectedRecoverySearchFingerprint", fingerprint);
+                boolean back = performGlobalAction(GLOBAL_ACTION_BACK);
+                ProbeState.log(this, "RECOVERY SEARCH REJECTED: clicked candidate did not produce a verified ChatGPT search field; GLOBAL_BACK=" + back + ". Candidate is blacklisted for this run.");
+                ProbeState.setSessionRecoveryState(this, "OPEN_NAV");
             }
             return false;
         }
@@ -587,37 +622,57 @@ public class NativeProbeAccessibilityService extends AccessibilityService {
         return bestScore >= 140 ? best : null;
     }
 
-    // PEBBLE_V024_DRAWER_SEARCH_GEOMETRY_FALLBACK
+    // PEBBLE_V025_DRAWER_SEARCH_ANCHORED_FALLBACK
     private NodeRecord findRecoveryDrawerSearchLauncher(List<NodeRecord> nodes) {
+        NodeRecord anchor = null;
         int screenRight = 0;
-        int screenBottom = 0;
         for (NodeRecord n : nodes) {
-            if (n.bounds.isEmpty()) continue;
+            if (!n.visible || n.bounds.isEmpty()) continue;
             screenRight = Math.max(screenRight, n.bounds.right);
-            screenBottom = Math.max(screenBottom, n.bounds.bottom);
+            String label = n.labelLower();
+            if (label.contains("new chat")) {
+                if (anchor == null || n.bounds.top < anchor.bounds.top) anchor = n;
+            }
         }
-        if (screenRight <= 0 || screenBottom <= 0) return null;
+        if (anchor == null || screenRight <= 0) return null;
+
+        String rejected = ProbeState.getString(this, "rejectedRecoverySearchFingerprint");
+        int rowTolerance = Math.max(180, Math.max(anchor.bounds.height() * 2, screenRight * 6 / 100));
+        int xTolerance = Math.max(420, screenRight * 35 / 100);
         NodeRecord best = null;
         int bestScore = Integer.MIN_VALUE;
         for (NodeRecord n : nodes) {
             if (!n.clickable || !n.visible || n.bounds.isEmpty()) continue;
+            if (Rect.intersects(n.bounds, anchor.bounds)) continue;
+            String fingerprint = recoverySearchFingerprint(n);
+            if (!rejected.isEmpty() && rejected.equals(fingerprint)) continue;
             String label = n.labelLower();
             if (label.contains("phone") || label.contains("call") || label.contains("voice") ||
-                    label.contains("new chat") || label.contains("profile") || label.contains("settings")) continue;
-            int cx = n.bounds.centerX();
-            int cy = n.bounds.centerY();
-            boolean topBand = cy < (screenBottom * 18 / 100);
-            boolean drawerSearchBand = cx > (screenRight * 45 / 100) && cx < (screenRight * 82 / 100);
-            if (!topBand || !drawerSearchBand) continue;
-            int score = 100;
-            if (label.trim().isEmpty()) score += 45;
-            if (label.contains("search")) score += 180;
+                    label.contains("attach") || label.contains("upload") || label.contains("file") ||
+                    label.contains("camera") || label.contains("photo") || label.contains("new chat") ||
+                    label.contains("profile") || label.contains("settings")) continue;
+            if (!label.trim().isEmpty() && !label.contains("search")) continue;
+            int dx = Math.abs(n.bounds.centerX() - anchor.bounds.centerX());
+            int dy = Math.abs(n.bounds.centerY() - anchor.bounds.centerY());
+            if (dx > xTolerance || dy > rowTolerance) continue;
+            if (n.bounds.width() > screenRight * 25 / 100) continue;
+            if (n.bounds.height() > rowTolerance * 2) continue;
+            if (Math.abs(n.depth - anchor.depth) > 3) continue;
+            int score = 120;
+            if (label.trim().isEmpty()) score += 35;
+            if (label.contains("search")) score += 220;
+            score += Math.max(0, 80 - (dy * 80 / Math.max(1, rowTolerance)));
+            score += Math.max(0, 50 - (dx * 50 / Math.max(1, xTolerance)));
             String cls = n.className.toString().toLowerCase(Locale.US);
             if (cls.contains("button") || cls.contains("image") || cls.contains("view")) score += 20;
-            if (n.bounds.width() < screenRight * 35 / 100) score += 15;
             if (score > bestScore) { bestScore = score; best = n; }
         }
-        return bestScore >= 100 ? best : null;
+        return bestScore >= 140 ? best : null;
+    }
+
+    private String recoverySearchFingerprint(NodeRecord n) {
+        if (n == null) return "";
+        return n.className + "|" + n.viewId + "|" + n.bounds.toShortString();
     }
 
     private NodeRecord findRecoverySearchField(List<NodeRecord> nodes) {
