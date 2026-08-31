@@ -1,0 +1,1073 @@
+package com.pebblebridge.poc;
+
+import android.accessibilityservice.AccessibilityService;
+import android.content.Context;
+import android.content.Intent;
+import android.graphics.Canvas;
+import android.graphics.Paint;
+import android.graphics.PixelFormat;
+import android.graphics.Rect;
+import android.graphics.Typeface;
+import android.os.Build;
+import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
+import android.view.Gravity;
+import android.view.View;
+import android.view.WindowManager;
+import android.view.accessibility.AccessibilityEvent;
+import android.view.accessibility.AccessibilityNodeInfo;
+import android.view.accessibility.AccessibilityWindowInfo;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
+
+import org.json.JSONException;
+import org.json.JSONObject;
+
+public class NativeProbeAccessibilityService extends AccessibilityService {
+    private final Handler handler = new Handler(Looper.getMainLooper());
+    private WindowManager windowManager;
+    private ProbeOverlay overlay;
+
+    private final Runnable watchdog = new Runnable() {
+        @Override public void run() {
+            if (isActiveProbe()) processTargetWindow("watchdog");
+            handler.postDelayed(this, isActiveProbe() ? 300 : 900);
+        }
+    };
+
+    @Override protected void onServiceConnected() {
+        super.onServiceConnected();
+        ensureOverlay();
+        handler.removeCallbacks(watchdog);
+        handler.post(watchdog);
+    }
+
+    @Override public void onAccessibilityEvent(AccessibilityEvent event) {
+        if (!isActiveProbe()) return;
+        CharSequence pkg = event == null ? null : event.getPackageName();
+        String sourcePkg = pkg == null ? "" : pkg.toString();
+        // Events are only wake-ups. All actual actions are gated again on an
+        // Accessibility root whose package is exactly com.openai.chatgpt.
+        if (ProbeState.TARGET.equals(sourcePkg)) handler.post(() -> processTargetWindow("event"));
+    }
+
+    @Override public void onInterrupt() {
+        ProbeState.log(this, "Accessibility service interrupted by Android.");
+    }
+
+    @Override public void onDestroy() {
+        handler.removeCallbacks(watchdog);
+        removeOverlay();
+        super.onDestroy();
+    }
+
+    private boolean isActiveProbe() {
+        String s = ProbeState.status(this);
+        return !(ProbeState.IDLE.equals(s) || ProbeState.COMPLETE.equals(s) || ProbeState.FAILED.equals(s));
+    }
+
+    private void processTargetWindow(String trigger) {
+        if (!isActiveProbe()) return;
+        long now = System.currentTimeMillis();
+        long started = ProbeState.startedAt(this);
+        long timeoutMs = ProbeState.isContinuation(this) ? 120000L : (ProbeState.isContinueChatRun(this) ? 110000L : 70000L);
+        if (started > 0 && now - started > timeoutMs) {
+            fail("Native bridge run timed out after " + (timeoutMs / 1000) + " seconds. See the diagnostics above.");
+            return;
+        }
+
+        AccessibilityNodeInfo root = findTargetRoot();
+        if (root == null) {
+            maybeLogMissingTarget(now);
+            return;
+        }
+
+        if (!ProbeState.getBoolean(this, "nativeRootSeen")) {
+            ProbeState.setBoolean(this, "nativeRootSeen", true);
+            ProbeState.status(this, ProbeState.WAITING_COMPOSER);
+            ProbeState.log(this, "Native ChatGPT Accessibility root acquired. trigger=" + trigger + ". Bridge is package-locked to the native app.");
+        }
+
+        List<NodeRecord> nodes = flatten(root, 260);
+        maybeLogInitialSnapshot(nodes, now);
+
+        // v0.19 continuation gate + automatic recovery. The actual user request is never
+        // injected until the previous assistant receipt proves that the visible conversation
+        // is the bridge-owned thread. Recovery is allowed to manipulate only ChatGPT's own
+        // navigation/search UI and to type only the local PBS-* session token into a verified
+        // search field.
+        if (ProbeState.isContinueChatRun(this) && !ProbeState.getBoolean(this, "sessionVerified")) {
+            if (hasExpectedSessionReceipt(nodes)) {
+                if (ProbeState.sessionRecoveryAttempted(this)) {
+                    ProbeState.markSessionRecovered(this);
+                    ProbeState.log(this, "SESSION RECOVERY VERIFIED: previous assistant receipt found after reopening a search/history candidate. User request is now unblocked for turn " + ProbeState.currentTurn(this) + ".");
+                    showBanner("SESSION RECOVERED");
+                } else {
+                    ProbeState.markSessionVerified(this);
+                    ProbeState.log(this, "SESSION CONTINUITY VERIFIED before input: previous assistant receipt found in non-editable native conversation content. CONTINUE may now use the composer for turn " + ProbeState.currentTurn(this) + ".");
+                    showBanner("SESSION VERIFIED");
+                }
+            } else {
+                maybeLogSessionVerification(nodes, now);
+                if (!ProbeState.sessionRecoveryAttempted(this) && started > 0 && now - started >= 3200L) {
+                    ProbeState.beginSessionRecovery(this);
+                    ProbeState.log(this, "SESSION MISMATCH CONFIRMED. Starting automatic ChatGPT thread recovery. Search key=" + ProbeState.sessionRecoveryQuery(this) + ". Actual user request remains blocked.");
+                    showBanner("RECOVERING THREAD");
+                }
+                if (ProbeState.sessionRecoveryAttempted(this)) {
+                    if (!processSessionRecovery(nodes, now)) return;
+                } else {
+                    return;
+                }
+            }
+        }
+
+        String status = ProbeState.status(this);
+        if (ProbeState.WAITING_RESPONSE.equals(status)) {
+            String marked = findMarkedResult(nodes);
+            String previous = ProbeState.getString(this, "responseCandidate");
+            long stableSince = ProbeState.getLong(this, "responseCandidateSince");
+            if (marked != null) {
+                if (!marked.equals(previous)) {
+                    ProbeState.setString(this, "responseCandidate", marked);
+                    ProbeState.setLong(this, "responseCandidateSince", now);
+                    ProbeState.log(this, "Marked bridge result observed; waiting for streaming text to stabilize: " + abbreviate(marked, 180));
+                    return;
+                }
+                if (stableSince > 0 && now - stableSince >= 1600) {
+                    complete(marked);
+                    return;
+                }
+            } else if (!previous.isEmpty()) {
+                ProbeState.setString(this, "responseCandidate", "");
+                ProbeState.setLong(this, "responseCandidateSince", 0L);
+            }
+            maybeLogResponseSnapshot(nodes, now);
+            return;
+        }
+
+        NodeRecord composer = findComposer(nodes);
+        if (composer == null) {
+            maybeLogComposerMiss(nodes, now);
+            return;
+        }
+
+        if (!ProbeState.getBoolean(this, "composerFoundLogged")) {
+            ProbeState.setBoolean(this, "composerFoundLogged", true);
+            ProbeState.log(this, "Native composer candidate VERIFIED: " + composer.describe() + ".");
+            showNode(composer, "NATIVE COMPOSER");
+        }
+
+        String composerText = composer.text.toString();
+        String transportPrompt = ProbeState.transportPrompt(this);
+        String nonce = ProbeState.getString(this, "nonce");
+        boolean prefilled = !nonce.isEmpty() && composerText.contains(nonce);
+        if (prefilled && !ProbeState.getBoolean(this, "actionSendPrefillLogged")) {
+            ProbeState.setBoolean(this, "actionSendPrefillLogged", true);
+            ProbeState.log(this, "ACTION_SEND result: bridge transport prompt is already present in the native composer.");
+        }
+
+        if (ProbeState.WAITING_NATIVE.equals(status) || ProbeState.WAITING_COMPOSER.equals(status)) {
+            if (!prefilled) {
+                if (!composer.canSetText) {
+                    fail("Native composer is visible, but it does not expose ACTION_SET_TEXT. Native path would require a more fragile input mechanism.");
+                    return;
+                }
+                Bundle args = new Bundle();
+                args.putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, transportPrompt);
+                boolean ok = composer.node.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args);
+                showNode(composer, ok ? "SET_TEXT ✓" : "SET_TEXT ✕");
+                ProbeState.log(this, "Native ACTION_SET_TEXT fallback attempted for the bridge transport prompt; result=" + ok + ".");
+                if (!ok) {
+                    fail("Native composer was visible but ACTION_SET_TEXT failed.");
+                    return;
+                }
+            }
+            ProbeState.status(this, ProbeState.WAITING_SEND);
+            ProbeState.setLong(this, "readyToSendAt", now + 650);
+            return;
+        }
+
+        if (ProbeState.WAITING_SEND.equals(status)) {
+            long ready = ProbeState.getLong(this, "readyToSendAt");
+            if (ready > now) return;
+
+            // A platform action returning true only means Android accepted the action. It does NOT
+            // prove that ChatGPT submitted the message. v0.14 therefore verifies a UI state change
+            // after every send attempt before entering WAITING_FOR_RESPONSE.
+            long attemptedAt = ProbeState.getLong(this, "sendAttemptedAt");
+            if (attemptedAt > 0) {
+                if (hasVerifiedSendEvidence(nodes)) {
+                    String kind = ProbeState.getString(this, "sendAttemptKind");
+                    ProbeState.log(this, "VERIFIED SEND after " + kind + ": the prompt moved out of the editable composer into native conversation content.");
+                    ProbeState.setLong(this, "sentAt", now);
+                    ProbeState.status(this, ProbeState.WAITING_RESPONSE);
+                    return;
+                }
+                if (now - attemptedAt < 1200) return;
+                String kind = ProbeState.getString(this, "sendAttemptKind");
+                ProbeState.log(this, "Send attempt was accepted but NOT verified after " + kind + ". Composer still contains the draft / no static user-message copy appeared. Trying the next safe mechanism.");
+                ProbeState.setLong(this, "sendAttemptedAt", 0L);
+                ProbeState.setString(this, "sendAttemptKind", "");
+            }
+
+            // Re-flatten after text injection because the native UI replaces voice/send controls.
+            nodes = flatten(root, 260);
+            NodeRecord refreshedComposer = findComposer(nodes);
+            if (refreshedComposer == null) {
+                maybeLogComposerMiss(nodes, now);
+                return;
+            }
+
+            if (!ProbeState.getBoolean(this, "explicitSendTried")) {
+                ProbeState.setBoolean(this, "explicitSendTried", true);
+                NodeRecord send = findSend(nodes);
+                if (send != null) {
+                    showNode(send, "NATIVE SEND");
+                    boolean clicked = send.node.performAction(AccessibilityNodeInfo.ACTION_CLICK);
+                    ProbeState.log(this, "Explicit semantic Send control found: " + send.describe() + "; ACTION_CLICK=" + clicked + ". Verification will follow before counting this as sent.");
+                    if (clicked) {
+                        markSendAttempt("semantic Send ACTION_CLICK", now);
+                        return;
+                    }
+                } else {
+                    ProbeState.log(this, "No labeled/semantic Send control exposed. Near-composer clickables: " + nearComposerSummary(nodes, refreshedComposer, 10));
+                }
+            }
+
+            // Native ChatGPT currently exposes an unlabeled blue arrow on some builds. Instead of
+            // blind screen coordinates, identify the right-most clickable control spatially relative
+            // to the already-verified composer bounds. This remains package- and composer-gated.
+            if (!ProbeState.getBoolean(this, "spatialSendTried")) {
+                ProbeState.setBoolean(this, "spatialSendTried", true);
+                NodeRecord spatial = findSpatialSend(nodes, refreshedComposer);
+                if (spatial != null) {
+                    showNode(spatial, "SPATIAL SEND");
+                    boolean clicked = spatial.node.performAction(AccessibilityNodeInfo.ACTION_CLICK);
+                    ProbeState.log(this, "Unlabeled native Send candidate selected by composer-relative geometry: " + spatial.describe() + "; ACTION_CLICK=" + clicked + ". Verification will follow.");
+                    if (clicked) {
+                        markSendAttempt("composer-relative Send ACTION_CLICK", now);
+                        return;
+                    }
+                } else {
+                    ProbeState.log(this, "No safe composer-relative clickable Send candidate found. Near-composer clickables: " + nearComposerSummary(nodes, refreshedComposer, 12));
+                }
+            }
+
+            // IME Enter is retained only as a last probe. v0.13 showed that Android may return true
+            // while ChatGPT keeps the draft untouched, so this result is verified rather than trusted.
+            if (Build.VERSION.SDK_INT >= 30 && !ProbeState.getBoolean(this, "imeEnterTried")) {
+                ProbeState.setBoolean(this, "imeEnterTried", true);
+                boolean entered = refreshedComposer.node.performAction(AccessibilityNodeInfo.AccessibilityAction.ACTION_IME_ENTER.getId());
+                showNode(refreshedComposer, entered ? "IME ENTER accepted" : "IME ENTER rejected");
+                ProbeState.log(this, "Verified composer ACTION_IME_ENTER returned=" + entered + "; this is only an accepted-action signal, not send evidence.");
+                if (entered) {
+                    markSendAttempt("composer IME_ENTER", now);
+                    return;
+                }
+            }
+
+            long firstReady = ready == 0 ? now : ready;
+            if (now - firstReady > 5000 && !ProbeState.getBoolean(this, "sendBoundaryLogged")) {
+                ProbeState.setBoolean(this, "sendBoundaryLogged", true);
+                ProbeState.log(this, "Native input/prefill is controllable, but no safe send mechanism has yet produced VERIFIED submission evidence. This is now the remaining native-architecture boundary.");
+            }
+        }
+    }
+
+    private AccessibilityNodeInfo findTargetRoot() {
+        AccessibilityNodeInfo active = getRootInActiveWindow();
+        if (ProbeState.TARGET.equals(packageOf(active))) return active;
+        List<AccessibilityWindowInfo> windows = getWindows();
+        if (windows == null) return null;
+        AccessibilityNodeInfo fallback = null;
+        for (AccessibilityWindowInfo w : windows) {
+            if (w == null) continue;
+            AccessibilityNodeInfo candidate = w.getRoot();
+            if (!ProbeState.TARGET.equals(packageOf(candidate))) continue;
+            if (w.isActive() || w.isFocused()) return candidate;
+            if (fallback == null) fallback = candidate;
+        }
+        return fallback;
+    }
+
+    private String packageOf(AccessibilityNodeInfo node) {
+        if (node == null || node.getPackageName() == null) return "";
+        return node.getPackageName().toString();
+    }
+
+    private List<NodeRecord> flatten(AccessibilityNodeInfo root, int limit) {
+        List<NodeRecord> out = new ArrayList<>();
+        walk(root, out, 0, limit);
+        return out;
+    }
+
+    private void walk(AccessibilityNodeInfo node, List<NodeRecord> out, int depth, int limit) {
+        if (node == null || out.size() >= limit) return;
+        if (ProbeState.TARGET.equals(packageOf(node))) out.add(new NodeRecord(node, depth));
+        for (int i = 0; i < node.getChildCount() && out.size() < limit; i++) {
+            AccessibilityNodeInfo child = node.getChild(i);
+            if (child != null) walk(child, out, depth + 1, limit);
+        }
+    }
+
+    private NodeRecord findComposer(List<NodeRecord> nodes) {
+        NodeRecord best = null;
+        int bestScore = Integer.MIN_VALUE;
+        for (NodeRecord n : nodes) {
+            int score = 0;
+            String label = n.labelLower();
+            String cls = n.className.toString().toLowerCase(Locale.US);
+            if (n.editable) score += 120;
+            if (n.canSetText) score += 95;
+            if (cls.contains("edittext")) score += 55;
+            if (label.contains("ask chatgpt") || label.contains("message") || label.contains("prompt") || label.contains("chatgpt")) score += 65;
+            if (n.focused) score += 30;
+            if (n.visible) score += 20;
+            if (label.startsWith("http://") || label.startsWith("https://")) score -= 400;
+            if (!n.editable && !n.canSetText) score -= 110;
+            if (score > bestScore) {
+                bestScore = score;
+                best = n;
+            }
+        }
+        return bestScore >= 120 ? best : null;
+    }
+
+    private NodeRecord findSend(List<NodeRecord> nodes) {
+        NodeRecord best = null;
+        int bestScore = Integer.MIN_VALUE;
+        for (NodeRecord n : nodes) {
+            if (!n.clickable || !n.visible) continue;
+            String label = n.labelLower();
+            int score = 0;
+            if (label.contains("send message")) score += 180;
+            else if (label.equals("send") || label.contains("send")) score += 130;
+            if (label.contains("submit")) score += 100;
+            if (label.contains("voice") || label.contains("microphone") || label.contains("stop")) score -= 140;
+            if (n.className.toString().toLowerCase(Locale.US).contains("button")) score += 30;
+            if (score > bestScore) {
+                bestScore = score;
+                best = n;
+            }
+        }
+        return bestScore >= 100 ? best : null;
+    }
+
+    private void markSendAttempt(String kind, long now) {
+        ProbeState.setString(this, "sendAttemptKind", kind);
+        ProbeState.setLong(this, "sendAttemptedAt", now);
+    }
+
+    private boolean hasVerifiedSendEvidence(List<NodeRecord> nodes) {
+        String nonce = ProbeState.getString(this, "nonce");
+        if (nonce.isEmpty()) return false;
+        boolean staticPrompt = false;
+        boolean draftStillPresent = false;
+        for (NodeRecord n : nodes) {
+            String t = n.text.toString();
+            if (!t.contains(nonce)) continue;
+            if (n.editable || n.canSetText) draftStillPresent = true;
+            else staticPrompt = true;
+        }
+        return staticPrompt && !draftStillPresent;
+    }
+
+    private NodeRecord findSpatialSend(List<NodeRecord> nodes, NodeRecord composer) {
+        if (composer == null || composer.bounds.isEmpty()) return null;
+        Rect c = composer.bounds;
+        int cw = Math.max(1, c.width());
+        int ch = Math.max(1, c.height());
+        NodeRecord best = null;
+        int bestScore = Integer.MIN_VALUE;
+        for (NodeRecord n : nodes) {
+            if (!n.clickable || !n.visible || n == composer || n.bounds.isEmpty()) continue;
+            Rect b = n.bounds;
+            int cx = b.centerX();
+            int cy = b.centerY();
+            String label = n.labelLower();
+
+            // Candidate must live around the verified composer row, strongly preferring its right edge.
+            if (cy < c.top - ch / 2 || cy > c.bottom + ch / 2) continue;
+            if (cx < c.left + (cw * 58 / 100) || cx > c.right + cw / 5) continue;
+            if (b.width() > cw / 2 || b.height() > ch * 2) continue;
+
+            int score = 0;
+            int rightness = (cx - c.left) * 100 / cw;
+            score += Math.min(140, Math.max(0, rightness));
+            int verticalDistance = Math.abs(cy - c.centerY());
+            score += Math.max(0, 70 - (verticalDistance * 70 / Math.max(1, ch)));
+            if (cx >= c.left + (cw * 82 / 100)) score += 90;
+            if (b.left >= c.left && b.right <= c.right + cw / 8) score += 30;
+            String cls = n.className.toString().toLowerCase(Locale.US);
+            if (cls.contains("button") || cls.contains("image")) score += 20;
+            if (label.contains("send") || label.contains("submit")) score += 120;
+            if (label.contains("microphone") || label.contains("voice") || label.contains("plus") ||
+                    label.contains("attach") || label.contains("add") || label.contains("camera")) score -= 180;
+
+            if (score > bestScore) {
+                bestScore = score;
+                best = n;
+            }
+        }
+        return bestScore >= 120 ? best : null;
+    }
+
+    private String nearComposerSummary(List<NodeRecord> nodes, NodeRecord composer, int max) {
+        if (composer == null || composer.bounds.isEmpty()) return "<composer bounds unavailable>";
+        Rect c = composer.bounds;
+        int ch = Math.max(1, c.height());
+        StringBuilder b = new StringBuilder();
+        int count = 0;
+        for (NodeRecord n : nodes) {
+            if (!n.clickable || !n.visible || n.bounds.isEmpty()) continue;
+            int cy = n.bounds.centerY();
+            if (cy < c.top - ch || cy > c.bottom + ch) continue;
+            if (count++ > 0) b.append(" | ");
+            b.append(n.shortDescribe());
+            if (count >= max) break;
+        }
+        return b.length() == 0 ? "<none>" : b.toString();
+    }
+
+    private boolean processSessionRecovery(List<NodeRecord> nodes, long now) {
+        String state = ProbeState.sessionRecoveryState(this);
+        long stateAt = ProbeState.sessionRecoveryStateAt(this);
+        if (state == null || state.isEmpty() || "VERIFY_CURRENT".equals(state)) {
+            ProbeState.setSessionRecoveryState(this, "OPEN_NAV");
+            state = "OPEN_NAV";
+            stateAt = now;
+        }
+
+        if ("OPEN_NAV".equals(state)) {
+            NodeRecord searchField = findRecoverySearchField(nodes);
+            if (searchField != null) {
+                ProbeState.setSessionRecoveryState(this, "ENTER_QUERY");
+                return false;
+            }
+            NodeRecord search = findRecoverySearchLauncher(nodes);
+            if (search != null) {
+                boolean clicked = search.node.performAction(AccessibilityNodeInfo.ACTION_CLICK);
+                ProbeState.log(this, "RECOVERY: Search launcher found directly: " + search.describe() + "; click=" + clicked + ".");
+                if (clicked) ProbeState.setSessionRecoveryState(this, "ENTER_QUERY");
+                return false;
+            }
+            NodeRecord nav = findRecoveryNavOpener(nodes);
+            if (nav != null) {
+                boolean clicked = nav.node.performAction(AccessibilityNodeInfo.ACTION_CLICK);
+                ProbeState.log(this, "RECOVERY: navigation/history opener selected: " + nav.describe() + "; click=" + clicked + ".");
+                if (clicked) ProbeState.setSessionRecoveryState(this, "FIND_SEARCH");
+                return false;
+            }
+            if (now - stateAt > 7000L) {
+                ProbeState.markSessionVerificationFailed(this);
+                fail("SESSION_RECOVERY_FAILED: no safe ChatGPT navigation/search control became accessible. The user request was never injected.");
+            } else {
+                maybeLogRecovery(nodes, now, "OPEN_NAV: looking for ChatGPT navigation/search control");
+            }
+            return false;
+        }
+
+        if ("FIND_SEARCH".equals(state)) {
+            NodeRecord field = findRecoverySearchField(nodes);
+            if (field != null) {
+                ProbeState.setSessionRecoveryState(this, "ENTER_QUERY");
+                return false;
+            }
+            NodeRecord search = findRecoverySearchLauncher(nodes);
+            if (search != null) {
+                boolean clicked = search.node.performAction(AccessibilityNodeInfo.ACTION_CLICK);
+                ProbeState.log(this, "RECOVERY: ChatGPT Search control selected: " + search.describe() + "; click=" + clicked + ".");
+                if (clicked) ProbeState.setSessionRecoveryState(this, "ENTER_QUERY");
+                return false;
+            }
+            if (now - stateAt > 7000L) {
+                ProbeState.markSessionVerificationFailed(this);
+                fail("SESSION_RECOVERY_FAILED: ChatGPT navigation opened, but no verified search field/control was exposed. The user request was never injected.");
+            } else {
+                maybeLogRecovery(nodes, now, "FIND_SEARCH: navigation is open; looking for Search chats");
+            }
+            return false;
+        }
+
+        if ("ENTER_QUERY".equals(state)) {
+            NodeRecord field = findRecoverySearchField(nodes);
+            if (field == null) {
+                if (now - stateAt > 6500L) {
+                    ProbeState.markSessionVerificationFailed(this);
+                    fail("SESSION_RECOVERY_FAILED: Search UI did not expose an editable search field. The user request was never injected.");
+                } else {
+                    maybeLogRecovery(nodes, now, "ENTER_QUERY: waiting for editable ChatGPT search field");
+                }
+                return false;
+            }
+            String key = ProbeState.sessionRecoveryQuery(this);
+            Bundle args = new Bundle();
+            args.putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, key);
+            boolean ok = field.node.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args);
+            showNode(field, ok ? "RECOVERY SEARCH ✓" : "RECOVERY SEARCH ✕");
+            ProbeState.log(this, "RECOVERY: typed only the local session token into verified ChatGPT search field; key=" + key + "; result=" + ok + ".");
+            if (!ok) {
+                ProbeState.markSessionVerificationFailed(this);
+                fail("SESSION_RECOVERY_FAILED: ACTION_SET_TEXT failed on verified ChatGPT search field. The user request was never injected.");
+                return false;
+            }
+            ProbeState.setSessionRecoveryState(this, "WAIT_RESULTS");
+            return false;
+        }
+
+        if ("WAIT_RESULTS".equals(state)) {
+            if (now - stateAt < 1000L) return false;
+            NodeRecord result = findRecoveryResult(nodes);
+            if (result != null) {
+                boolean clicked = clickNodeOrAncestor(result.node, 4);
+                ProbeState.setString(this, "sessionRecoveryCandidate", result.shortDescribe());
+                ProbeState.log(this, "RECOVERY: search result candidate selected: " + result.describe() + "; click/ancestor-click=" + clicked + ". Receipt verification is mandatory before any user request can be injected.");
+                if (clicked) ProbeState.setSessionRecoveryState(this, "VERIFY_CANDIDATE");
+                return false;
+            }
+            if (now - stateAt > 10000L) {
+                ProbeState.markSessionVerificationFailed(this);
+                fail("SESSION_RECOVERY_FAILED: no ChatGPT search result candidate appeared for session token " + ProbeState.sessionRecoveryQuery(this) + ". The user request was never injected.");
+            } else {
+                maybeLogRecovery(nodes, now, "WAIT_RESULTS: waiting for a result matching the bridge session token");
+            }
+            return false;
+        }
+
+        if ("VERIFY_CANDIDATE".equals(state)) {
+            if (hasExpectedSessionReceipt(nodes)) return true;
+            if (now - stateAt > 8500L) {
+                ProbeState.markSessionVerificationFailed(this);
+                fail("SESSION_RECOVERY_FAILED: a ChatGPT search result opened, but the saved assistant receipt was not present. Candidate was rejected and the user request was never injected.");
+            } else {
+                maybeLogRecovery(nodes, now, "VERIFY_CANDIDATE: candidate opened; waiting for saved assistant receipt");
+            }
+            return false;
+        }
+
+        return false;
+    }
+
+    private NodeRecord findRecoveryNavOpener(List<NodeRecord> nodes) {
+        NodeRecord best = null;
+        int bestScore = Integer.MIN_VALUE;
+        for (NodeRecord n : nodes) {
+            if (!n.clickable || !n.visible || n.bounds.isEmpty()) continue;
+            String label = n.labelLower();
+            int score = 0;
+            if (label.contains("sidebar") || label.contains("navigation")) score += 220;
+            if (label.contains("menu") || label.contains("history") || label.contains("chats")) score += 150;
+            if (label.contains("new chat") || label.contains("send") || label.contains("voice") || label.contains("attach")) score -= 260;
+            if (n.bounds.centerX() < 220 && n.bounds.centerY() < 340) score += 90;
+            String cls = n.className.toString().toLowerCase(Locale.US);
+            if (cls.contains("button") || cls.contains("image")) score += 20;
+            if (score > bestScore) { bestScore = score; best = n; }
+        }
+        // PEBBLE_V020_UNLABELED_TOP_LEFT_NAV_FALLBACK
+        return bestScore >= 90 ? best : null;
+    }
+
+    private NodeRecord findRecoverySearchLauncher(List<NodeRecord> nodes) {
+        NodeRecord best = null;
+        int bestScore = Integer.MIN_VALUE;
+        for (NodeRecord n : nodes) {
+            if (!n.clickable || !n.visible) continue;
+            String label = n.labelLower();
+            int score = 0;
+            if (label.equals("search") || label.contains("search chats") || label.contains("search conversations")) score += 240;
+            else if (label.contains("search")) score += 150;
+            if (label.contains("web") || label.contains("voice")) score -= 150;
+            if (score > bestScore) { bestScore = score; best = n; }
+        }
+        // PEBBLE_V021_UNLABELED_SEARCH_ICON_FALLBACK
+        return bestScore >= 70 ? best : null;
+    }
+
+    private NodeRecord findRecoverySearchField(List<NodeRecord> nodes) {
+        NodeRecord best = null;
+        int bestScore = Integer.MIN_VALUE;
+        for (NodeRecord n : nodes) {
+            if (!(n.editable || n.canSetText) || !n.visible) continue;
+            String label = n.labelLower();
+            int score = 0;
+            if (label.contains("search chats") || label.contains("search conversations")) score += 260;
+            if (label.contains("search")) score += 190;
+            String cls = n.className.toString().toLowerCase(Locale.US);
+            if (cls.contains("edittext")) score += 40;
+            if (label.contains("ask chatgpt") || label.contains("message") || label.contains("prompt")) score -= 300;
+            if (score > bestScore) { bestScore = score; best = n; }
+        }
+        return bestScore >= 170 ? best : null;
+    }
+
+    private NodeRecord findRecoveryResult(List<NodeRecord> nodes) {
+        String key = ProbeState.sessionRecoveryQuery(this).toLowerCase(Locale.US);
+        NodeRecord firstPlausible = null;
+        int plausibleScore = Integer.MIN_VALUE;
+        for (NodeRecord n : nodes) {
+            if (!n.visible) continue;
+            String label = n.labelLower();
+            if (!key.isEmpty() && label.contains(key)) return n;
+            if (!n.clickable || n.bounds.isEmpty()) continue;
+            int score = 0;
+            if (n.bounds.centerY() > 180) score += 40;
+            if (label.length() > 3) score += 20;
+            if (label.contains("search") || label.contains("new chat") || label.contains("settings") || label.contains("profile") || label.contains("voice") || label.contains("close") || label.contains("back")) score -= 220;
+            if (score > plausibleScore) { plausibleScore = score; firstPlausible = n; }
+        }
+        return plausibleScore >= 40 ? firstPlausible : null;
+    }
+
+    private boolean clickNodeOrAncestor(AccessibilityNodeInfo node, int maxParents) {
+        AccessibilityNodeInfo cur = node;
+        for (int i = 0; cur != null && i <= maxParents; i++) {
+            if (cur.isClickable() && cur.isVisibleToUser()) return cur.performAction(AccessibilityNodeInfo.ACTION_CLICK);
+            cur = cur.getParent();
+        }
+        return node != null && node.performAction(AccessibilityNodeInfo.ACTION_CLICK);
+    }
+
+    private void maybeLogRecovery(List<NodeRecord> nodes, long now, String phase) {
+        long last = ProbeState.getLong(this, "lastRecoveryLog");
+        if (last != 0 && now - last < 1800L) return;
+        ProbeState.setLong(this, "lastRecoveryLog", now);
+        ProbeState.log(this, "RECOVERY " + phase + ". Relevant controls: " + candidateSummary(nodes, 14) + ". Text: " + textSummary(nodes, 12));
+    }
+
+    private boolean hasExpectedSessionReceipt(List<NodeRecord> nodes) {
+        String receipt = ProbeState.getString(this, "expectedSessionReceipt");
+        if (receipt.isEmpty()) return false;
+        for (NodeRecord n : nodes) {
+            if (n.editable || n.canSetText) continue;
+            String t = n.text.toString();
+            if (t.contains(receipt)) return true;
+        }
+        // Some native accessibility trees split one semantic text block over siblings.
+        // A joined static-text scan is safe because the receipt never occurs in the
+        // transport prompt itself; it is produced only by ChatGPT's previous reply.
+        StringBuilder joined = new StringBuilder();
+        for (NodeRecord n : nodes) {
+            if (n.editable || n.canSetText) continue;
+            String t = n.text.toString().trim();
+            if (t.isEmpty()) continue;
+            if (joined.length() > 0) joined.append(' ');
+            joined.append(t);
+            if (joined.length() > 18000) break;
+        }
+        return joined.indexOf(receipt) >= 0;
+    }
+
+    private void maybeLogSessionVerification(List<NodeRecord> nodes, long now) {
+        long last = ProbeState.getLong(this, "lastSessionVerifyLog");
+        if (last != 0 && now - last < 2200) return;
+        ProbeState.setLong(this, "lastSessionVerifyLog", now);
+        String expected = ProbeState.getString(this, "expectedSessionReceipt");
+        ProbeState.log(this, "CONTINUE safety gate: native ChatGPT is visible but the previous assistant receipt has not yet been found. expectedReceipt=" + expected + ". No SET_TEXT/send action is allowed. Text snapshot: " + textSummary(nodes, 10));
+    }
+
+    private String findMarkedResult(List<NodeRecord> nodes) {
+        if (ProbeState.isContinuation(this)) {
+            String marker = ProbeState.currentReplyMarker(this);
+            for (NodeRecord n : nodes) {
+                if (n.editable || n.canSetText) continue;
+                String t = n.text.toString().trim();
+                int at = t.indexOf(marker);
+                if (at < 0) continue;
+                String candidate = t.substring(at).trim();
+                if (candidate.length() <= marker.length()) continue;
+                return candidate;
+            }
+            return null;
+        }
+
+        String reply = ProbeState.replyMarker(this);
+        String action = ProbeState.actionMarker(this);
+        for (NodeRecord n : nodes) {
+            if (n.editable || n.canSetText) continue;
+            String t = n.text.toString().trim();
+            int r = t.indexOf(reply);
+            int a = t.indexOf(action);
+            int at = -1;
+            if (r >= 0 && a >= 0) at = Math.min(r, a);
+            else if (r >= 0) at = r;
+            else if (a >= 0) at = a;
+            if (at < 0) continue;
+            String candidate = t.substring(at).trim();
+            if (candidate.length() < Math.min(reply.length(), action.length()) + 2) continue;
+            return candidate;
+        }
+        return null;
+    }
+
+    private String abbreviate(String value, int max) {
+        if (value == null) return "";
+        String clean = value.replace('\n', ' ').trim();
+        return clean.length() <= max ? clean : clean.substring(0, max) + "…";
+    }
+
+    private String normalizeActionJson(String payload) throws JSONException {
+        String p = payload == null ? "" : payload.trim();
+        if (p.startsWith("```")) {
+            int firstNewline = p.indexOf('\n');
+            if (firstNewline >= 0) p = p.substring(firstNewline + 1);
+            int fence = p.lastIndexOf("```");
+            if (fence >= 0) p = p.substring(0, fence);
+            p = p.trim();
+        }
+        int start = p.indexOf('{');
+        int end = p.lastIndexOf('}');
+        if (start < 0 || end <= start) throw new JSONException("No JSON object in action result");
+        JSONObject obj = new JSONObject(p.substring(start, end + 1));
+        if (obj.optInt("v", -1) != 1) throw new JSONException("Unsupported action protocol version");
+        String tool = obj.optString("tool", "").trim();
+        if (tool.isEmpty()) throw new JSONException("Missing tool");
+        if (!isAllowedPrototypeTool(tool)) throw new JSONException("Unknown prototype tool: " + tool);
+        if (!obj.has("args") || !(obj.opt("args") instanceof JSONObject)) throw new JSONException("args must be an object");
+        if (!obj.has("confirm")) obj.put("confirm", true);
+        return obj.toString();
+    }
+
+    private boolean isAllowedPrototypeTool(String tool) {
+        return "calendar.create".equals(tool) || "reminder.create".equals(tool) ||
+                "phone.call".equals(tool) || "message.compose".equals(tool) ||
+                "navigation.start".equals(tool) || "media.control".equals(tool) ||
+                "camera.capture".equals(tool) || "unsupported".equals(tool);
+    }
+
+    private void maybeLogMissingTarget(long now) {
+        long last = ProbeState.getLong(this, "lastMissingRootLog");
+        if (last != 0 && now - last < 2200) return;
+        ProbeState.setLong(this, "lastMissingRootLog", now);
+        StringBuilder packages = new StringBuilder();
+        List<AccessibilityWindowInfo> windows = getWindows();
+        if (windows != null) {
+            for (AccessibilityWindowInfo w : windows) {
+                if (w == null) continue;
+                String pkg = packageOf(w.getRoot());
+                if (pkg.isEmpty()) continue;
+                if (packages.length() > 0) packages.append(", ");
+                packages.append(pkg);
+                if (w.isActive()) packages.append("[active]");
+                else if (w.isFocused()) packages.append("[focused]");
+            }
+        }
+        ProbeState.log(this, "Waiting for native ChatGPT Accessibility window. visiblePackages=[" + packages + "]. No action is performed outside " + ProbeState.TARGET + ".");
+    }
+
+    private void maybeLogInitialSnapshot(List<NodeRecord> nodes, long now) {
+        if (ProbeState.getBoolean(this, "initialSnapshotLogged")) return;
+        ProbeState.setBoolean(this, "initialSnapshotLogged", true);
+        int editable = 0, setText = 0, clickable = 0;
+        for (NodeRecord n : nodes) {
+            if (n.editable) editable++;
+            if (n.canSetText) setText++;
+            if (n.clickable) clickable++;
+        }
+        boolean loginVisible = false;
+        for (NodeRecord n : nodes) {
+            String label = n.labelLower();
+            if (label.equals("log in") || label.contains("log in") || label.contains("sign in")) {
+                loginVisible = true;
+                break;
+            }
+        }
+        ProbeState.log(this, "Native tree snapshot: nodes=" + nodes.size() + "; editable=" + editable + "; ACTION_SET_TEXT=" + setText + "; clickable=" + clickable + "; loginVisible=" + loginVisible + ". Candidates: " + candidateSummary(nodes, 8));
+        if (loginVisible) ProbeState.log(this, "Architecture note: native ChatGPT currently appears SIGNED OUT. Mechanics can still be probed, but same-account daily use will require a one-time native-app login.");
+    }
+
+    private void maybeLogComposerMiss(List<NodeRecord> nodes, long now) {
+        long last = ProbeState.getLong(this, "lastComposerMissLog");
+        if (last != 0 && now - last < 2500) return;
+        ProbeState.setLong(this, "lastComposerMissLog", now);
+        ProbeState.log(this, "Native ChatGPT is visible, but no verified composer candidate yet. Relevant nodes: " + candidateSummary(nodes, 10));
+    }
+
+    private void maybeLogResponseSnapshot(List<NodeRecord> nodes, long now) {
+        long last = ProbeState.getLong(this, "lastResponseLog");
+        if (last != 0 && now - last < 3000) return;
+        ProbeState.setLong(this, "lastResponseLog", now);
+        if (ProbeState.isContinuation(this)) {
+            ProbeState.log(this, "Waiting for same-thread turn " + ProbeState.phase(this) + " marker=" + ProbeState.currentReplyMarker(this) + ". Text snapshot: " + textSummary(nodes, 12));
+        } else {
+            ProbeState.log(this, "Waiting for marked bridge result. replyMarker=" + ProbeState.replyMarker(this) + "; actionMarker=" + ProbeState.actionMarker(this) + ". Text snapshot: " + textSummary(nodes, 12));
+        }
+    }
+
+    private String candidateSummary(List<NodeRecord> nodes, int max) {
+        StringBuilder b = new StringBuilder();
+        int count = 0;
+        for (NodeRecord n : nodes) {
+            if (!(n.editable || n.canSetText || n.focusable || n.clickable)) continue;
+            if (count++ > 0) b.append(" | ");
+            b.append(n.shortDescribe());
+            if (count >= max) break;
+        }
+        return b.length() == 0 ? "<none>" : b.toString();
+    }
+
+    private String textSummary(List<NodeRecord> nodes, int max) {
+        StringBuilder b = new StringBuilder();
+        int count = 0;
+        for (NodeRecord n : nodes) {
+            String t = n.text.toString().trim();
+            if (t.isEmpty()) continue;
+            if (count++ > 0) b.append(" | ");
+            b.append(t.length() > 70 ? t.substring(0, 70) + "…" : t);
+            if (count >= max) break;
+        }
+        return b.length() == 0 ? "<no text exposed>" : b.toString();
+    }
+
+    private void complete(String raw) {
+        ProbeState.setString(this, "capturedRaw", raw);
+
+        if (ProbeState.isContinuation(this)) {
+            completeContinuationTurn(raw);
+            return;
+        }
+
+        String replyMarker = ProbeState.replyMarker(this);
+        String actionMarker = ProbeState.actionMarker(this);
+        String completedReceipt = "";
+        if (raw.startsWith(replyMarker)) {
+            completedReceipt = replyMarker;
+            String response = raw.substring(replyMarker.length()).trim();
+            if (response.isEmpty()) {
+                fail("A reply marker was captured but the reply body was empty.");
+                return;
+            }
+            ProbeState.setString(this, "capturedResponse", response);
+            ProbeState.setString(this, "resultKind", "reply");
+            ProbeState.log(this, "SUCCESS: stable arbitrary ChatGPT reply captured through the native bridge.");
+            showBanner("BRIDGE REPLY CAPTURED");
+        } else if (raw.startsWith(actionMarker)) {
+            completedReceipt = actionMarker;
+            String payload = raw.substring(actionMarker.length()).trim();
+            try {
+                String normalized = normalizeActionJson(payload);
+                ProbeState.setString(this, "actionCandidate", normalized);
+                ProbeState.setString(this, "resultKind", "action");
+                ProbeState.log(this, "SUCCESS: validated PB Action Protocol v1 candidate captured. It has NOT been executed: " + normalized);
+                showBanner("ACTION CANDIDATE CAPTURED");
+            } catch (JSONException e) {
+                fail("ChatGPT returned an action marker but the action envelope was invalid: " + e.getMessage());
+                return;
+            }
+        } else {
+            fail("Captured text did not begin with the expected bridge marker.");
+            return;
+        }
+        ProbeState.commitSessionTurn(this, completedReceipt);
+        ProbeState.log(this, "SESSION CHECKPOINT COMMITTED: session=" + ProbeState.sessionId(this) + "; completedTurn=" + ProbeState.sessionTurn(this) + "; receipt=" + completedReceipt + ".");
+        ProbeState.status(this, ProbeState.COMPLETE);
+        handler.postDelayed(this::bringUiForward, 900);
+    }
+
+    private void completeContinuationTurn(String raw) {
+        int phase = ProbeState.phase(this);
+        String marker = ProbeState.currentReplyMarker(this);
+        if (!raw.startsWith(marker)) {
+            fail("Continuation turn " + phase + " did not begin with its expected marker.");
+            return;
+        }
+        String body = raw.substring(marker.length()).trim();
+        if (body.isEmpty()) {
+            fail("Continuation turn " + phase + " marker was captured but its body was empty.");
+            return;
+        }
+
+        if (phase == 1) {
+            ProbeState.setString(this, "continuationFirstReply", body);
+            if (!body.toUpperCase(Locale.US).startsWith("ACK")) {
+                fail("Turn 1 was captured, but ChatGPT did not acknowledge the memory instruction as requested: " + abbreviate(body, 120));
+                return;
+            }
+            ProbeState.log(this, "TURN 1 COMPLETE: ChatGPT acknowledged the secret without the bridge creating another chat. Preparing turn 2 IN PLACE. No ACTION_SEND/new-chat launch will be used for turn 2.");
+            showBanner("TURN 1 CAPTURED");
+            ProbeState.prepareContinuationPhase2(this);
+            handler.postDelayed(() -> processTargetWindow("same-thread-turn-2"), 850);
+            return;
+        }
+
+        ProbeState.setString(this, "continuationSecondReply", body);
+        String expected = ProbeState.getString(this, "expectedCodeword");
+        String normalized = normalizeCodewordAnswer(body);
+        if (expected.equalsIgnoreCase(normalized)) {
+            ProbeState.setString(this, "continuationVerdict", "SAME_THREAD_CONFIRMED");
+            ProbeState.setString(this, "resultKind", "continuation");
+            ProbeState.setString(this, "capturedResponse", body);
+            ProbeState.log(this, "SUCCESS: SAME_THREAD_CONFIRMED. Turn 2 recovered the secret codeword even though turn 2 never contained that codeword and no ACTION_SEND/new chat was launched between turns.");
+            showBanner("SAME THREAD CONFIRMED");
+            ProbeState.status(this, ProbeState.COMPLETE);
+            handler.postDelayed(this::bringUiForward, 900);
+        } else {
+            ProbeState.setString(this, "continuationVerdict", "SAME_THREAD_NOT_CONFIRMED");
+            fail("Turn 2 completed but did not recover the expected secret. expected=" + expected + "; observed=" + abbreviate(body, 140));
+        }
+    }
+
+    private String normalizeCodewordAnswer(String value) {
+        if (value == null) return "";
+        String s = value.trim();
+        if (s.startsWith("```") && s.endsWith("```") && s.length() > 6) s = s.substring(3, s.length() - 3).trim();
+        while (s.length() > 1 && (s.startsWith("\"") || s.startsWith("'") || s.startsWith("`") || s.startsWith("*"))) s = s.substring(1).trim();
+        while (s.length() > 1 && (s.endsWith("\"") || s.endsWith("'") || s.endsWith("`") || s.endsWith("*") || s.endsWith(".") || s.endsWith(",") || s.endsWith(";"))) s = s.substring(0, s.length() - 1).trim();
+        return s;
+    }
+
+    private void fail(String reason) {
+        ProbeState.status(this, ProbeState.FAILED);
+        ProbeState.log(this, "BRIDGE STOPPED: " + reason);
+        showBanner("BRIDGE STOPPED");
+        handler.postDelayed(this::bringUiForward, 700);
+    }
+
+    private void bringUiForward() {
+        Intent i = new Intent(this, MainActivity.class);
+        i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        startActivity(i);
+    }
+
+    private void ensureOverlay() {
+        if (overlay != null) return;
+        windowManager = (WindowManager) getSystemService(Context.WINDOW_SERVICE);
+        overlay = new ProbeOverlay(this);
+        WindowManager.LayoutParams lp = new WindowManager.LayoutParams(
+                WindowManager.LayoutParams.MATCH_PARENT,
+                WindowManager.LayoutParams.MATCH_PARENT,
+                WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
+                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE |
+                        WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE |
+                        WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+                PixelFormat.TRANSLUCENT);
+        lp.gravity = Gravity.TOP | Gravity.START;
+        windowManager.addView(overlay, lp);
+    }
+
+    private void removeOverlay() {
+        if (overlay != null && windowManager != null) {
+            try { windowManager.removeView(overlay); } catch (Exception ignored) {}
+        }
+        overlay = null;
+    }
+
+    private void showNode(NodeRecord n, String label) {
+        ensureOverlay();
+        if (overlay != null) overlay.show(n.bounds, label);
+    }
+
+    private void showBanner(String label) {
+        ensureOverlay();
+        if (overlay != null) overlay.show(new Rect(24, 80, 720, 180), label);
+    }
+
+    private static final class NodeRecord {
+        final AccessibilityNodeInfo node;
+        final int depth;
+        final CharSequence text;
+        final CharSequence hint;
+        final CharSequence desc;
+        final CharSequence className;
+        final String viewId;
+        final boolean editable;
+        final boolean clickable;
+        final boolean focusable;
+        final boolean focused;
+        final boolean visible;
+        final boolean canSetText;
+        final Rect bounds = new Rect();
+
+        NodeRecord(AccessibilityNodeInfo node, int depth) {
+            this.node = node;
+            this.depth = depth;
+            this.text = safe(node.getText());
+            this.hint = Build.VERSION.SDK_INT >= 26 ? safe(node.getHintText()) : "";
+            this.desc = safe(node.getContentDescription());
+            this.className = safe(node.getClassName());
+            String id = node.getViewIdResourceName();
+            this.viewId = id == null ? "" : id;
+            this.editable = node.isEditable();
+            this.clickable = node.isClickable();
+            this.focusable = node.isFocusable();
+            this.focused = node.isFocused();
+            this.visible = node.isVisibleToUser();
+            this.canSetText = supportsAction(node, AccessibilityNodeInfo.ACTION_SET_TEXT);
+            node.getBoundsInScreen(bounds);
+        }
+
+        String labelLower() {
+            return (text + " " + hint + " " + desc + " " + viewId).toLowerCase(Locale.US).trim();
+        }
+
+        String describe() {
+            return shortDescribe() + "; hint=" + q(hint) + "; desc=" + q(desc) + "; id=" + q(viewId) + "; focused=" + focused + "; visible=" + visible + "; bounds=" + bounds.toShortString();
+        }
+
+        String shortDescribe() {
+            return "[" + className + "] text=" + q(text) + " edit=" + editable + " setText=" + canSetText + " click=" + clickable + " focus=" + focusable + " @" + bounds.toShortString();
+        }
+
+        private static CharSequence safe(CharSequence c) { return c == null ? "" : c; }
+        private static String q(CharSequence c) {
+            String s = c == null ? "" : c.toString().replace('\n', ' ');
+            if (s.length() > 90) s = s.substring(0, 90) + "…";
+            return "\"" + s + "\"";
+        }
+        private static String q(String s) { return q((CharSequence) s); }
+        private static boolean supportsAction(AccessibilityNodeInfo n, int actionId) {
+            for (AccessibilityNodeInfo.AccessibilityAction a : n.getActionList()) {
+                if (a.getId() == actionId) return true;
+            }
+            return false;
+        }
+    }
+
+    private static final class ProbeOverlay extends View {
+        private final Paint stroke = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final Paint fill = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final Paint textPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final Rect rect = new Rect();
+        private String label = "";
+        private long visibleUntil = 0L;
+        private final Handler handler = new Handler(Looper.getMainLooper());
+
+        ProbeOverlay(Context c) {
+            super(c);
+            stroke.setStyle(Paint.Style.STROKE);
+            stroke.setStrokeWidth(6f);
+            stroke.setColor(0xff1a73e8);
+            fill.setStyle(Paint.Style.FILL);
+            fill.setColor(0x331a73e8);
+            textPaint.setColor(0xffffffff);
+            textPaint.setTextSize(34f);
+            textPaint.setTypeface(Typeface.DEFAULT_BOLD);
+            setWillNotDraw(false);
+        }
+
+        void show(Rect r, String label) {
+            this.rect.set(r);
+            this.label = label == null ? "" : label;
+            this.visibleUntil = System.currentTimeMillis() + 1400;
+            invalidate();
+            handler.postDelayed(this::invalidate, 1450);
+        }
+
+        @Override protected void onDraw(Canvas canvas) {
+            super.onDraw(canvas);
+            if (System.currentTimeMillis() > visibleUntil || rect.isEmpty()) return;
+            canvas.drawRect(rect, fill);
+            canvas.drawRect(rect, stroke);
+            float x = Math.max(10, rect.left);
+            float y = Math.max(42, rect.top - 12);
+            Paint bg = new Paint(Paint.ANTI_ALIAS_FLAG);
+            bg.setColor(0xdd202124);
+            float width = Math.min(getWidth() - x - 10, textPaint.measureText(label) + 28);
+            canvas.drawRoundRect(x, y - 38, x + width, y + 10, 12, 12, bg);
+            canvas.drawText(label, x + 14, y, textPaint);
+        }
+    }
+}
