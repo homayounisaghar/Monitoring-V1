@@ -86,9 +86,9 @@ public class NativeProbeAccessibilityService extends AccessibilityService {
             String activePkg = packageOf(getRootInActiveWindow());
             if (!activePkg.isEmpty() && !ProbeState.TARGET.equals(activePkg)) {
                 String fingerprint = ProbeState.getString(this, "recoverySearchCandidateFingerprint");
-                if (fingerprint.startsWith("gesture-v030|")) {
+                if (fingerprint.startsWith("gesture-v031|")) {
                     ProbeState.markSessionVerificationFailed(this);
-                    fail("V0.30_SEARCH_GESTURE_ESCAPED_CHATGPT: calibrated Search tap opened package=" + activePkg + ". No retry was attempted and the user request was never injected.");
+                    fail("V0.31_SEARCH_GESTURE_ESCAPED_CHATGPT: calibrated Search tap opened package=" + activePkg + ". No retry was attempted and the user request was never injected.");
                     return;
                 }
                 rememberRejectedRecoverySearchFingerprint(fingerprint);
@@ -533,28 +533,27 @@ public class NativeProbeAccessibilityService extends AccessibilityService {
                 return false;
             }
 
-            // PEBBLE_V030_CALIBRATED_DRAWER_RELATIVE_SEARCH_GESTURE
+            // PEBBLE_V031_OVERLAY_FREE_CENTERED_SEARCH_GESTURE
             Rect target = computeRecoverySearchVisualTarget(nodes);
             if (target != null) {
-                showRecoveryVisualTarget(target, "V0.30 SEARCH TAP");
-                String fingerprint = "gesture-v030|" + target.toShortString();
+                String fingerprint = "gesture-v031|" + target.toShortString();
                 boolean dispatched = dispatchRecoverySearchTap(target);
-                ProbeState.log(this, "V0.30 CALIBRATED SEARCH TAP: target=" + target.toShortString() + "; dispatched=" + dispatched + "; drawerEvidence=" + ProbeState.getString(this, "v029DrawerEvidence") + "; savedHeaderBand=" + ProbeState.getString(this, "recoveryNavHeaderBand") + ". Search EditText verification is mandatory before any query entry.");
+                ProbeState.log(this, "V0.31 CENTERED SEARCH TAP: target=" + target.toShortString() + "; dispatched=" + dispatched + "; overlay=off; drawerEvidence=" + ProbeState.getString(this, "v029DrawerEvidence") + "; savedHeaderBand=" + ProbeState.getString(this, "recoveryNavHeaderBand") + ". Search EditText verification is mandatory before any query entry.");
                 if (dispatched) {
                     ProbeState.setString(this, "recoverySearchCandidateFingerprint", fingerprint);
                     ProbeState.setSessionRecoveryState(this, "VERIFY_SEARCH_LAUNCH");
                 } else {
                     ProbeState.markSessionVerificationFailed(this);
-                    fail("V0.30_SEARCH_GESTURE_FAILED: calibrated Search tap could not be dispatched. The user request was never injected.");
+                    fail("V0.31_SEARCH_GESTURE_FAILED: centered Search tap could not be dispatched. The user request was never injected.");
                 }
                 return false;
             }
 
             if (now - stateAt > 7000L) {
                 ProbeState.markSessionVerificationFailed(this);
-                fail("V0.30_SEARCH_TARGET_FAILED: drawer was open but a safe calibrated Search point could not be derived. The user request was never injected.");
+                fail("V0.31_SEARCH_TARGET_FAILED: drawer was open but a safe calibrated Search point could not be derived. The user request was never injected.");
             } else {
-                maybeLogRecovery(nodes, now, "FIND_SEARCH v0.30: deriving calibrated drawer-relative Search point");
+                maybeLogRecovery(nodes, now, "FIND_SEARCH v0.31: deriving centered drawer-relative Search point");
             }
             return false;
         }
@@ -570,9 +569,9 @@ public class NativeProbeAccessibilityService extends AccessibilityService {
             }
             if (now - stateAt > 2200L) {
                 String fingerprint = ProbeState.getString(this, "recoverySearchCandidateFingerprint");
-                if (fingerprint.startsWith("gesture-v030|")) {
+                if (fingerprint.startsWith("gesture-v031|")) {
                     ProbeState.markSessionVerificationFailed(this);
-                    fail("V0.30_SEARCH_GESTURE_UNVERIFIED: calibrated Search tap did not expose a verified ChatGPT Search field. No retry was attempted and the user request was never injected.");
+                    fail("V0.31_SEARCH_GESTURE_UNVERIFIED: calibrated Search tap did not expose a verified ChatGPT Search field. No retry was attempted and the user request was never injected.");
                     return false;
                 }
                 rememberRejectedRecoverySearchFingerprint(fingerprint);
@@ -799,12 +798,12 @@ public class NativeProbeAccessibilityService extends AccessibilityService {
         // The target is expressed only in terms of the verified drawer and header geometry.
         // It is intentionally not clicked in v0.29. The real-device screenshot will calibrate
         // this profile once, after which any gesture remains guarded by Search-field verification.
-        // PEBBLE_V030_SCREENSHOT_CALIBRATION
-        // Real-device v0.29 overlay was ~0.19H left and ~0.74H below the
-        // visible magnifier center. Keep the correction proportional to the
-        // proven runtime band rather than hard-coding pixels.
-        int cx = drawerRight - (bandHeight * 4 / 5);
-        int cy = bandTop - (bandHeight / 4);
+        // PEBBLE_V031_SCREENSHOT_RECALIBRATION
+        // v0.30 landed about 0.24H left of the visible magnifier center and
+        // was vertically within a few pixels. Shift only by proportional
+        // runtime geometry; no absolute screen coordinates are stored.
+        int cx = drawerRight - (bandHeight * 14 / 25);
+        int cy = bandTop - (bandHeight * 2 / 9);
         int half = Math.max(36, bandHeight * 38 / 100);
         Rect target = new Rect(cx - half, cy - half, cx + half, cy + half);
         ProbeState.setString(this, "v029DrawerEvidence", "left=" + drawerLeft + ",right=" + drawerRight + ",width=" + drawerWidth + ",rows=" + evidence);
