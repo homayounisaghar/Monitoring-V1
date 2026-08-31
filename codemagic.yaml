@@ -1,6 +1,6 @@
 workflows:
-  pebble-bridge-v024:
-    name: Pebble Chat Bridge v0.24 — Recovery Search + Return
+  pebble-bridge-v025:
+    name: Pebble Chat Bridge v0.25 — Anchored Search Verification
     instance_type: mac_mini_m2
     max_build_duration: 30
     environment:
@@ -14,7 +14,7 @@ workflows:
         ANDROID_PLATFORM: "35"
         ANDROID_BUILD_TOOLS: "35.0.0"
         EXPECTED_CERT_SHA256: "9aaac9cb3ff091aa5c362f0255129a97b8e3c34b8a73f520cbb6ba89ed31e5d3"
-        APK_BASENAME: "PebbleChatBridgePoC-v0.24-recovery-search-return.apk"
+        APK_BASENAME: "PebbleChatBridgePoC-v0.25-anchored-search-verification.apk"
     triggering:
       events:
         - push
@@ -42,7 +42,7 @@ workflows:
           grep -Fq "processSessionRecovery" ci/src/app/src/main/java/com/pebblebridge/poc/NativeProbeAccessibilityService.java
           grep -Fq "versionCode 19" ci/src/app/build.gradle
 
-      - name: Apply v0.24 recovery and return fixes
+      - name: Apply v0.25 recovery and return fixes
         script: |
           #!/usr/bin/env bash
           set -euo pipefail
@@ -69,22 +69,36 @@ workflows:
           )
           text = text[:ns] + nav_block + text[ss:]
 
+          process_anchor = "        AccessibilityNodeInfo root = findTargetRoot();"
+          process_at = text.find(process_anchor)
+          if process_at < 0:
+              raise SystemExit("processTargetWindow root anchor not found")
+          process_guard = '''        // PEBBLE_V025_REJECT_EXTERNAL_SEARCH_LAUNCH\n        if (ProbeState.isContinueChatRun(this) && "VERIFY_SEARCH_LAUNCH".equals(ProbeState.sessionRecoveryState(this))) {\n            String activePkg = packageOf(getRootInActiveWindow());\n            if (!activePkg.isEmpty() && !ProbeState.TARGET.equals(activePkg)) {\n                String fingerprint = ProbeState.getString(this, "recoverySearchCandidateFingerprint");\n                if (!fingerprint.isEmpty()) ProbeState.setString(this, "rejectedRecoverySearchFingerprint", fingerprint);\n                boolean back = performGlobalAction(GLOBAL_ACTION_BACK);\n                ProbeState.log(this, "RECOVERY SEARCH REJECTED: candidate left ChatGPT and opened package=" + activePkg + "; GLOBAL_BACK=" + back + ". Candidate is blacklisted for this run.");\n                ProbeState.setSessionRecoveryState(this, "OPEN_NAV");\n                return;\n            }\n        }\n\n'''
+          text = text[:process_at] + process_guard + text[process_at:]
+
           fs_anchor = '        if ("FIND_SEARCH".equals(state)) {'
           fs_at = text.find(fs_anchor)
           if fs_at < 0:
               raise SystemExit("FIND_SEARCH state not found")
           old = '''            NodeRecord search = findRecoverySearchLauncher(nodes);\n            if (search != null) {\n                boolean clicked = search.node.performAction(AccessibilityNodeInfo.ACTION_CLICK);\n                ProbeState.log(this, "RECOVERY: ChatGPT Search control selected: " + search.describe() + "; click=" + clicked + ".");\n                if (clicked) ProbeState.setSessionRecoveryState(this, "ENTER_QUERY");\n                return false;\n            }'''
-          new = '''            NodeRecord search = findRecoverySearchLauncher(nodes);\n            if (search == null) search = findRecoveryDrawerSearchLauncher(nodes);\n            if (search != null) {\n                boolean clicked = search.node.performAction(AccessibilityNodeInfo.ACTION_CLICK);\n                ProbeState.log(this, "RECOVERY: ChatGPT Search control selected: " + search.describe() + "; click=" + clicked + ".");\n                if (clicked) ProbeState.setSessionRecoveryState(this, "ENTER_QUERY");\n                return false;\n            }'''
+          new = '''            NodeRecord search = findRecoverySearchLauncher(nodes);\n            if (search == null) search = findRecoveryDrawerSearchLauncher(nodes);\n            if (search != null) {\n                String fingerprint = recoverySearchFingerprint(search);\n                boolean clicked = search.node.performAction(AccessibilityNodeInfo.ACTION_CLICK);\n                ProbeState.log(this, "RECOVERY: tentative ChatGPT Search control selected: " + search.describe() + "; fingerprint=" + fingerprint + "; click=" + clicked + ". Search field verification is mandatory before query entry.");\n                if (clicked) {\n                    ProbeState.setString(this, "recoverySearchCandidateFingerprint", fingerprint);\n                    ProbeState.setSessionRecoveryState(this, "VERIFY_SEARCH_LAUNCH");\n                }\n                return false;\n            }'''
           at = text.find(old, fs_at)
           if at < 0:
               raise SystemExit("FIND_SEARCH block not found")
           text = text[:at] + new + text[at + len(old):]
 
+          enter_anchor = '        if ("ENTER_QUERY".equals(state)) {'
+          enter_at = text.find(enter_anchor, fs_at)
+          if enter_at < 0:
+              raise SystemExit("ENTER_QUERY state not found")
+          verify_block = '''        if ("VERIFY_SEARCH_LAUNCH".equals(state)) {\n            NodeRecord field = findRecoverySearchField(nodes);\n            if (field != null) {\n                ProbeState.setString(this, "recoverySearchCandidateFingerprint", "");\n                ProbeState.setSessionRecoveryState(this, "ENTER_QUERY");\n                ProbeState.log(this, "RECOVERY SEARCH VERIFIED: editable ChatGPT search field appeared after candidate click.");\n                return false;\n            }\n            if (now - stateAt > 1800L) {\n                String fingerprint = ProbeState.getString(this, "recoverySearchCandidateFingerprint");\n                if (!fingerprint.isEmpty()) ProbeState.setString(this, "rejectedRecoverySearchFingerprint", fingerprint);\n                boolean back = performGlobalAction(GLOBAL_ACTION_BACK);\n                ProbeState.log(this, "RECOVERY SEARCH REJECTED: clicked candidate did not produce a verified ChatGPT search field; GLOBAL_BACK=" + back + ". Candidate is blacklisted for this run.");\n                ProbeState.setSessionRecoveryState(this, "OPEN_NAV");\n            }\n            return false;\n        }\n\n'''
+          text = text[:enter_at] + verify_block + text[enter_at:]
+
           marker = "    private NodeRecord findRecoverySearchField(List<NodeRecord> nodes) {"
           at = text.find(marker)
           if at < 0:
               raise SystemExit("search field method not found")
-          helper = '''    // PEBBLE_V024_DRAWER_SEARCH_GEOMETRY_FALLBACK\n    private NodeRecord findRecoveryDrawerSearchLauncher(List<NodeRecord> nodes) {\n        int screenRight = 0;\n        int screenBottom = 0;\n        for (NodeRecord n : nodes) {\n            if (n.bounds.isEmpty()) continue;\n            screenRight = Math.max(screenRight, n.bounds.right);\n            screenBottom = Math.max(screenBottom, n.bounds.bottom);\n        }\n        if (screenRight <= 0 || screenBottom <= 0) return null;\n        NodeRecord best = null;\n        int bestScore = Integer.MIN_VALUE;\n        for (NodeRecord n : nodes) {\n            if (!n.clickable || !n.visible || n.bounds.isEmpty()) continue;\n            String label = n.labelLower();\n            if (label.contains("phone") || label.contains("call") || label.contains("voice") ||\n                    label.contains("new chat") || label.contains("profile") || label.contains("settings")) continue;\n            int cx = n.bounds.centerX();\n            int cy = n.bounds.centerY();\n            boolean topBand = cy < (screenBottom * 18 / 100);\n            boolean drawerSearchBand = cx > (screenRight * 45 / 100) && cx < (screenRight * 82 / 100);\n            if (!topBand || !drawerSearchBand) continue;\n            int score = 100;\n            if (label.trim().isEmpty()) score += 45;\n            if (label.contains("search")) score += 180;\n            String cls = n.className.toString().toLowerCase(Locale.US);\n            if (cls.contains("button") || cls.contains("image") || cls.contains("view")) score += 20;\n            if (n.bounds.width() < screenRight * 35 / 100) score += 15;\n            if (score > bestScore) { bestScore = score; best = n; }\n        }\n        return bestScore >= 100 ? best : null;\n    }\n\n'''
+          helper = '''    // PEBBLE_V025_DRAWER_SEARCH_ANCHORED_FALLBACK\n    private NodeRecord findRecoveryDrawerSearchLauncher(List<NodeRecord> nodes) {\n        NodeRecord anchor = null;\n        int screenRight = 0;\n        for (NodeRecord n : nodes) {\n            if (!n.visible || n.bounds.isEmpty()) continue;\n            screenRight = Math.max(screenRight, n.bounds.right);\n            String label = n.labelLower();\n            if (label.contains("new chat")) {\n                if (anchor == null || n.bounds.top < anchor.bounds.top) anchor = n;\n            }\n        }\n        if (anchor == null || screenRight <= 0) return null;\n\n        String rejected = ProbeState.getString(this, "rejectedRecoverySearchFingerprint");\n        int rowTolerance = Math.max(180, Math.max(anchor.bounds.height() * 2, screenRight * 6 / 100));\n        int xTolerance = Math.max(420, screenRight * 35 / 100);\n        NodeRecord best = null;\n        int bestScore = Integer.MIN_VALUE;\n        for (NodeRecord n : nodes) {\n            if (!n.clickable || !n.visible || n.bounds.isEmpty()) continue;\n            if (Rect.intersects(n.bounds, anchor.bounds)) continue;\n            String fingerprint = recoverySearchFingerprint(n);\n            if (!rejected.isEmpty() && rejected.equals(fingerprint)) continue;\n            String label = n.labelLower();\n            if (label.contains("phone") || label.contains("call") || label.contains("voice") ||\n                    label.contains("attach") || label.contains("upload") || label.contains("file") ||\n                    label.contains("camera") || label.contains("photo") || label.contains("new chat") ||\n                    label.contains("profile") || label.contains("settings")) continue;\n            if (!label.trim().isEmpty() && !label.contains("search")) continue;\n            int dx = Math.abs(n.bounds.centerX() - anchor.bounds.centerX());\n            int dy = Math.abs(n.bounds.centerY() - anchor.bounds.centerY());\n            if (dx > xTolerance || dy > rowTolerance) continue;\n            if (n.bounds.width() > screenRight * 25 / 100) continue;\n            if (n.bounds.height() > rowTolerance * 2) continue;\n            if (Math.abs(n.depth - anchor.depth) > 3) continue;\n            int score = 120;\n            if (label.trim().isEmpty()) score += 35;\n            if (label.contains("search")) score += 220;\n            score += Math.max(0, 80 - (dy * 80 / Math.max(1, rowTolerance)));\n            score += Math.max(0, 50 - (dx * 50 / Math.max(1, xTolerance)));\n            String cls = n.className.toString().toLowerCase(Locale.US);\n            if (cls.contains("button") || cls.contains("image") || cls.contains("view")) score += 20;\n            if (score > bestScore) { bestScore = score; best = n; }\n        }\n        return bestScore >= 140 ? best : null;\n    }\n\n    private String recoverySearchFingerprint(NodeRecord n) {\n        if (n == null) return "";\n        return n.className + "|" + n.viewId + "|" + n.bounds.toShortString();\n    }\n\n'''
           text = text[:at] + helper + text[at:]
 
           text = re.sub(
@@ -102,18 +116,19 @@ workflows:
 
           gradle_path = Path("ci/src/app/build.gradle")
           gradle = gradle_path.read_text()
-          gradle, n = re.subn(r"versionCode\s+19\b", "versionCode 24", gradle, count=1)
+          gradle, n = re.subn(r"versionCode\s+19\b", "versionCode 25", gradle, count=1)
           if n != 1:
               raise SystemExit("versionCode replacement failed")
           if "0.19-thread-recovery" not in gradle:
               raise SystemExit("baseline versionName not found")
-          gradle = gradle.replace("0.19-thread-recovery", "0.24-recovery-search-return", 1)
+          gradle = gradle.replace("0.19-thread-recovery", "0.25-anchored-search-verification", 1)
           gradle_path.write_text(gradle)
           PY
           grep -Fq "PEBBLE_V020_UNLABELED_TOP_LEFT_NAV_FALLBACK" ci/src/app/src/main/java/com/pebblebridge/poc/NativeProbeAccessibilityService.java
-          grep -Fq "PEBBLE_V024_DRAWER_SEARCH_GEOMETRY_FALLBACK" ci/src/app/src/main/java/com/pebblebridge/poc/NativeProbeAccessibilityService.java
+          grep -Fq "PEBBLE_V025_DRAWER_SEARCH_ANCHORED_FALLBACK" ci/src/app/src/main/java/com/pebblebridge/poc/NativeProbeAccessibilityService.java
+          grep -Fq "PEBBLE_V025_REJECT_EXTERNAL_SEARCH_LAUNCH" ci/src/app/src/main/java/com/pebblebridge/poc/NativeProbeAccessibilityService.java
           grep -Fq "PEBBLE_V024_DETERMINISTIC_RETURN" ci/src/app/src/main/java/com/pebblebridge/poc/NativeProbeAccessibilityService.java
-          grep -Fq "versionCode 24" ci/src/app/build.gradle
+          grep -Fq "versionCode 25" ci/src/app/build.gradle
 
       - name: Build unsigned Android release
         script: |
@@ -132,13 +147,13 @@ workflows:
           } 2>&1 | tee ci/full-build.log
           rc=${PIPESTATUS[0]}
           if [ "$rc" -ne 0 ]; then tail -n 180 ci/full-build.log; exit "$rc"; fi
-          cp ci/src/app/build/outputs/apk/release/app-release-unsigned.apk ci/out/PebbleChatBridgePoC-v0.24-unsigned.apk
+          cp ci/src/app/build/outputs/apk/release/app-release-unsigned.apk ci/out/PebbleChatBridgePoC-v0.25-unsigned.apk
 
       - name: Sign verify and prepare deterministic handoff
         script: |
           #!/usr/bin/env bash
           set -euo pipefail
-          unsigned="ci/out/PebbleChatBridgePoC-v0.24-unsigned.apk"
+          unsigned="ci/out/PebbleChatBridgePoC-v0.25-unsigned.apk"
           signed="ci/out/${APK_BASENAME}"
           apksigner_path="$(find "$ANDROID_SDK_ROOT/build-tools" -type f -name apksigner 2>/dev/null | sort | tail -n 1)"
           test -n "$apksigner_path"
@@ -157,7 +172,7 @@ workflows:
           python3 - <<'PY'
           import base64
           from pathlib import Path
-          apk = Path("ci/out/PebbleChatBridgePoC-v0.24-recovery-search-return.apk")
+          apk = Path("ci/out/PebbleChatBridgePoC-v0.25-anchored-search-verification.apk")
           b64 = base64.b64encode(apk.read_bytes()).decode("ascii")
           out = Path("ci/delivery")
           size = 8000
@@ -198,12 +213,12 @@ workflows:
             AUTH="Authorization: Bearer $GITHUB_TOKEN"
             ACCEPT="Accept: application/vnd.github+json"
             SHORT_COMMIT="$(printf '%s' "${CM_COMMIT:-unknown}" | cut -c1-12)"
-            TAG="pebble-v0.24-$SHORT_COMMIT"
-            APK_NAME="pebble-chat-bridge-v024-$SHORT_COMMIT.apk"
+            TAG="pebble-v0.25-$SHORT_COMMIT"
+            APK_NAME="pebble-chat-bridge-v025-$SHORT_COMMIT.apk"
             release_json=$(curl -fsS -H "$AUTH" -H "$ACCEPT" "$API/releases/tags/$TAG" 2>/dev/null || true)
             release_id=$(printf '%s' "$release_json" | jq -r '.id // empty')
             if [ -z "$release_id" ]; then
-              body=$(jq -n --arg tag "$TAG" --arg target "${CM_COMMIT:-}" --arg name "Pebble Chat Bridge v0.24 $SHORT_COMMIT" --arg public "$APK_PUBLIC" '{tag_name:$tag,target_commitish:$target,name:$name,body:("v0.24 recovery-search and return fix. Temporary Codemagic APK URL: "+$public),draft:false,prerelease:true}')
+              body=$(jq -n --arg tag "$TAG" --arg target "${CM_COMMIT:-}" --arg name "Pebble Chat Bridge v0.25 $SHORT_COMMIT" --arg public "$APK_PUBLIC" '{tag_name:$tag,target_commitish:$target,name:$name,body:("v0.25 anchored drawer-search candidate plus verified post-click recovery. Temporary Codemagic APK URL: "+$public),draft:false,prerelease:true}')
               release_json=$(curl -fsS -X POST -H "$AUTH" -H "$ACCEPT" -H 'Content-Type: application/json' --data-binary "$body" "$API/releases")
               release_id=$(printf '%s' "$release_json" | jq -r '.id')
             fi
@@ -212,7 +227,7 @@ workflows:
             asset_url=$(printf '%s' "$asset_json" | jq -r '.browser_download_url // empty')
             apk_sha=$(awk '{print $1}' "$CM_BUILD_DIR/ci/APK_SHA256.txt")
             cert=$(sed -n 's/^certificate_sha256=//p' "$CM_BUILD_DIR/ci/certificate.txt" | head -1)
-            pointer=$(jq -n --arg event pebble_apk_delivery --arg version 0.24 --arg status SUCCESS --arg buildId "${CM_BUILD_ID:-}" --arg commit "${CM_COMMIT:-}" --arg apkPublicUrl "$APK_PUBLIC" --arg releaseUrl "$release_url" --arg releaseAssetUrl "$asset_url" --arg sha256 "$apk_sha" --arg signingFingerprint "$cert" '{event:$event,version:$version,status:$status,buildId:$buildId,commit:$commit,apkPublicUrl:$apkPublicUrl,releaseUrl:$releaseUrl,releaseAssetUrl:$releaseAssetUrl,sha256:$sha256,signingFingerprint:$signingFingerprint}')
+            pointer=$(jq -n --arg event pebble_apk_delivery --arg version 0.25 --arg status SUCCESS --arg buildId "${CM_BUILD_ID:-}" --arg commit "${CM_COMMIT:-}" --arg apkPublicUrl "$APK_PUBLIC" --arg releaseUrl "$release_url" --arg releaseAssetUrl "$asset_url" --arg sha256 "$apk_sha" --arg signingFingerprint "$cert" '{event:$event,version:$version,status:$status,buildId:$buildId,commit:$commit,apkPublicUrl:$apkPublicUrl,releaseUrl:$releaseUrl,releaseAssetUrl:$releaseAssetUrl,sha256:$sha256,signingFingerprint:$signingFingerprint}')
             printf '%s\n' "$pointer" > ci/latest-pebble-build.json
 
             put_content() {
@@ -220,8 +235,8 @@ workflows:
               current=$(curl -fsS -H "$AUTH" -H "$ACCEPT" "$API/contents/$path?ref=ci%2Fpebble-apk-delivery" 2>/dev/null || true)
               sha=$(printf '%s' "$current" | jq -r '.sha // empty')
               content=$(base64 < "$local_file" | tr -d '\n')
-              if [ -n "$sha" ]; then payload=$(jq -n --arg message "ci: update $path for v0.24" --arg content "$content" --arg branch "$DELIVERY_BRANCH" --arg sha "$sha" '{message:$message,content:$content,branch:$branch,sha:$sha}');
-              else payload=$(jq -n --arg message "ci: create $path for v0.24" --arg content "$content" --arg branch "$DELIVERY_BRANCH" '{message:$message,content:$content,branch:$branch}'); fi
+              if [ -n "$sha" ]; then payload=$(jq -n --arg message "ci: update $path for v0.25" --arg content "$content" --arg branch "$DELIVERY_BRANCH" --arg sha "$sha" '{message:$message,content:$content,branch:$branch,sha:$sha}');
+              else payload=$(jq -n --arg message "ci: create $path for v0.25" --arg content "$content" --arg branch "$DELIVERY_BRANCH" '{message:$message,content:$content,branch:$branch}'); fi
               curl -fsS -X PUT -H "$AUTH" -H "$ACCEPT" -H 'Content-Type: application/json' --data-binary "$payload" "$API/contents/$path" >/dev/null
             }
             put_content ".ci/latest-pebble-build.json" "ci/latest-pebble-build.json"
