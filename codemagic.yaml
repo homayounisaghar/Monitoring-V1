@@ -15,6 +15,7 @@ workflows:
         ANDROID_BUILD_TOOLS: "35.0.0"
         EXPECTED_CERT_SHA256: "9aaac9cb3ff091aa5c362f0255129a97b8e3c34b8a73f520cbb6ba89ed31e5d3"
         APK_BASENAME: "PebbleChatBridgePoC-v0.19-thread-recovery-signed.apk"
+        CI_REPORT_TOPIC: "pebble-v019-a9f2c7e61b4d8c30e5f7a921"
     triggering:
       events:
         - push
@@ -89,19 +90,19 @@ workflows:
         script: |
           #!/usr/bin/env bash
           set -eo pipefail
-          [ -n "${CM_KEYSTORE_PATH:-}" ] || exit 11
-          [ -s "$CM_KEYSTORE_PATH" ] || exit 12
-          [ -n "${CM_KEYSTORE_PASSWORD:-}" ] || exit 13
-          [ -n "${CM_KEY_ALIAS:-}" ] || exit 14
-          [ -n "${CM_KEY_PASSWORD:-}" ] || exit 15
+          test -s "${CM_KEYSTORE_PATH:-}"
+          test -n "${CM_KEYSTORE_PASSWORD:-}"
+          test -n "${CM_KEY_ALIAS:-}"
+          test -n "${CM_KEY_PASSWORD:-}"
           apksigner_path="$(find "$ANDROID_SDK_ROOT/build-tools" -type f -name apksigner 2>/dev/null | sort | tail -n 1)"
-          [ -n "$apksigner_path" ] && [ -s "$apksigner_path" ] || exit 16
+          test -n "$apksigner_path"
+          test -s "$apksigner_path"
           printf 'apksigner=%s\n' "$apksigner_path" > ci/signing-tool.txt
           keytool -list -v \
             -keystore "$CM_KEYSTORE_PATH" \
             -storepass "$CM_KEYSTORE_PASSWORD" \
             -alias "$CM_KEY_ALIAS" \
-            > ci/keystore-inspect.txt || exit 17
+            > ci/keystore-inspect.txt
 
       - name: Sign Pebble release APK
         script: |
@@ -131,57 +132,6 @@ workflows:
           test "$actual_cert" = "$EXPECTED_CERT_SHA256"
           shasum -a 256 "$signed" | tee ci/APK_SHA256.txt
 
-      - name: Try GitHub prerelease with existing writable credential
-        script: |
-          #!/usr/bin/env bash
-          set -u
-          command -v gh >/dev/null || exit 20
-
-          short_commit="$(printf '%s' "$CM_COMMIT" | cut -c1-8)"
-          tag="pebble-v0.19-${short_commit}"
-          apk="ci/out/${APK_BASENAME}"
-          notes="ci/release-notes.txt"
-          {
-            echo "Automated Codemagic build for Pebble Chat Bridge v0.19 Thread Recovery."
-            echo
-            echo "Branch: ${CM_BRANCH}"
-            echo "Commit: ${CM_COMMIT}"
-            echo "Build: ${BUILD_NUMBER}"
-            echo "Certificate SHA-256: ${EXPECTED_CERT_SHA256}"
-            echo "APK SHA-256: $(cut -d' ' -f1 ci/APK_SHA256.txt)"
-          } > "$notes"
-
-          try_publish() {
-            source_name="$1"
-            source_value="$2"
-            [ -n "$source_value" ] || return 1
-            export GH_TOKEN="$source_value"
-            gh api repos/homayounisaghar/Monitoring-V1 -q .full_name >/dev/null 2>&1 || return 2
-            if gh release view "$tag" --repo homayounisaghar/Monitoring-V1 >/dev/null 2>&1; then
-              gh release upload "$tag" "$apk#${APK_BASENAME}" --repo homayounisaghar/Monitoring-V1 --clobber >/dev/null 2>&1 || return 3
-            else
-              gh release create "$tag" \
-                --repo homayounisaghar/Monitoring-V1 \
-                --target "$CM_COMMIT" \
-                --prerelease \
-                --title "Pebble Chat Bridge v0.19 (${short_commit})" \
-                --notes-file "$notes" \
-                "$apk#${APK_BASENAME}" >/dev/null 2>&1 || return 4
-            fi
-            printf 'credential_source=%s\n' "$source_name" > ci/github-auth-check.txt
-            gh release view "$tag" --repo homayounisaghar/Monitoring-V1 --json url -q .url | tee ci/release-url.txt
-            return 0
-          }
-
-          if try_publish "PEBBLE_GITHUB_TOKEN" "${PEBBLE_GITHUB_TOKEN:-}"; then exit 0; fi
-          if try_publish "GITHUB_TOKEN" "${GITHUB_TOKEN:-}"; then exit 0; fi
-          if try_publish "GH_TOKEN" "${GH_TOKEN:-}"; then exit 0; fi
-          if try_publish "CM_GITHUB_TOKEN" "${CM_GITHUB_TOKEN:-}"; then exit 0; fi
-
-          echo "No existing GitHub credential with release-write permission; continuing with status relay."
-          printf 'release_write=unavailable\n' > ci/github-auth-check.txt
-          exit 0
-
     artifacts:
       - ci/out/*.apk
       - ci/full-build.log
@@ -192,71 +142,134 @@ workflows:
       - ci/apksigner-verify.txt
       - ci/APK_SHA256.txt
       - ci/certificate.txt
-      - ci/github-auth-check.txt
-      - ci/release-notes.txt
-      - ci/release-url.txt
 
     publishing:
       scripts:
-        - name: Create temporary public signed-APK URL
+        - name: Publish Pebble APK delivery metadata and GitHub mirror
           script: |
             #!/usr/bin/env bash
             set -euo pipefail
+
+            APK="$CM_BUILD_DIR/ci/out/${APK_BASENAME}"
+            test -s "$APK"
             test -n "${CM_API_TOKEN:-}"
-            artifact_url="$(printf '%s' "$CM_ARTIFACT_LINKS" | jq -r --arg n "$APK_BASENAME" '.[] | select(.name == $n) | .url' | head -n 1)"
-            test -n "$artifact_url"
-            expires_at="$(( $(date +%s) + 86400 ))"
-            response="$(curl -fsS \
+            test -n "${GITHUB_TOKEN:-}"
+
+            EXPIRES_AT=$(python3 -c 'import time; print(int(time.time()) + 86400)')
+            APK_AUTH=$(printf '%s' "${CM_ARTIFACT_LINKS:-[]}" | jq -r --arg n "$APK_BASENAME" '.[] | select(.name == $n) | .url' | head -1)
+            APK_PUBLIC=""
+            if [ -n "$APK_AUTH" ] && [ "$APK_AUTH" != "null" ]; then
+              RESPONSE=$(curl -fsS \
+                -H 'Content-Type: application/json' \
+                -H "x-auth-token: $CM_API_TOKEN" \
+                -d "{\"expiresAt\":$EXPIRES_AT}" \
+                "${APK_AUTH}/public-url" 2>/dev/null || true)
+              APK_PUBLIC=$(printf '%s' "$RESPONSE" | jq -r '.url // empty' 2>/dev/null || true)
+            fi
+
+            OWNER="homayounisaghar"
+            REPO="Monitoring-V1"
+            DELIVERY_BRANCH="ci/pebble-apk-delivery"
+            SHORT_COMMIT=$(printf '%s' "${CM_COMMIT:-unknown}" | cut -c1-12)
+            TAG="pebble-v0.19-$SHORT_COMMIT"
+            RELEASE_NAME="Pebble Chat Bridge v0.19 $SHORT_COMMIT"
+            API="https://api.github.com/repos/$OWNER/$REPO"
+            AUTH_HEADER="Authorization: Bearer $GITHUB_TOKEN"
+            ACCEPT_HEADER="Accept: application/vnd.github+json"
+
+            RELEASE_JSON=$(curl -fsS \
+              -H "$AUTH_HEADER" -H "$ACCEPT_HEADER" \
+              "$API/releases/tags/$TAG" 2>/dev/null || true)
+            RELEASE_ID=$(printf '%s' "$RELEASE_JSON" | jq -r '.id // empty' 2>/dev/null || true)
+
+            if [ -z "$RELEASE_ID" ]; then
+              RELEASE_BODY=$(jq -n \
+                --arg tag "$TAG" \
+                --arg target "${CM_COMMIT:-}" \
+                --arg name "$RELEASE_NAME" \
+                --arg build "${CM_BUILD_ID:-}" \
+                --arg public "$APK_PUBLIC" \
+                '{tag_name:$tag,target_commitish:$target,name:$name,body:("Codemagic build: "+$build+"\nTemporary Codemagic APK URL: "+$public),draft:false,prerelease:true}')
+              RELEASE_JSON=$(curl -fsS -X POST \
+                -H "$AUTH_HEADER" -H "$ACCEPT_HEADER" \
+                -H 'Content-Type: application/json' \
+                --data-binary "$RELEASE_BODY" \
+                "$API/releases")
+              RELEASE_ID=$(printf '%s' "$RELEASE_JSON" | jq -r '.id')
+            fi
+
+            RELEASE_URL=$(printf '%s' "$RELEASE_JSON" | jq -r '.html_url // empty')
+            APK_NAME="pebble-chat-bridge-v019-$SHORT_COMMIT-${CM_BUILD_ID:-build}.apk"
+
+            EXISTING_ASSETS=$(curl -fsS \
+              -H "$AUTH_HEADER" -H "$ACCEPT_HEADER" \
+              "$API/releases/$RELEASE_ID/assets")
+            EXISTING_ASSET_ID=$(printf '%s' "$EXISTING_ASSETS" | jq -r --arg n "$APK_NAME" '.[] | select(.name == $n) | .id' | head -1)
+            if [ -n "$EXISTING_ASSET_ID" ]; then
+              curl -fsS -X DELETE \
+                -H "$AUTH_HEADER" -H "$ACCEPT_HEADER" \
+                "$API/releases/assets/$EXISTING_ASSET_ID" >/dev/null
+            fi
+
+            ASSET_JSON=$(curl -fsS -X POST \
+              -H "$AUTH_HEADER" \
+              -H 'Content-Type: application/vnd.android.package-archive' \
+              --data-binary "@$APK" \
+              "https://uploads.github.com/repos/$OWNER/$REPO/releases/$RELEASE_ID/assets?name=$APK_NAME")
+            RELEASE_ASSET_URL=$(printf '%s' "$ASSET_JSON" | jq -r '.browser_download_url // empty')
+
+            APK_SHA=$(awk '{print $1}' "$CM_BUILD_DIR/ci/APK_SHA256.txt" 2>/dev/null || true)
+            SIGNING_FINGERPRINT=$(sed -n 's/^certificate_sha256=//p' "$CM_BUILD_DIR/ci/certificate.txt" | head -1)
+            POINTER=$(jq -n \
+              --arg event "pebble_apk_delivery" \
+              --arg status "SUCCESS" \
+              --arg buildId "${CM_BUILD_ID:-}" \
+              --arg commit "${CM_COMMIT:-}" \
+              --arg apkPublicUrl "$APK_PUBLIC" \
+              --arg releaseUrl "$RELEASE_URL" \
+              --arg releaseAssetUrl "$RELEASE_ASSET_URL" \
+              --arg sha256 "$APK_SHA" \
+              --arg signingFingerprint "$SIGNING_FINGERPRINT" \
+              '{event:$event,status:$status,buildId:$buildId,commit:$commit,apkPublicUrl:$apkPublicUrl,releaseUrl:$releaseUrl,releaseAssetUrl:$releaseAssetUrl,sha256:$sha256,signingFingerprint:$signingFingerprint}')
+
+            META_URL="$API/contents/.ci/latest-pebble-build.json?ref=ci%2Fpebble-apk-delivery"
+            META_JSON=$(curl -fsS -H "$AUTH_HEADER" -H "$ACCEPT_HEADER" "$META_URL" 2>/dev/null || true)
+            META_SHA=$(printf '%s' "$META_JSON" | jq -r '.sha // empty' 2>/dev/null || true)
+            POINTER_B64=$(printf '%s\n' "$POINTER" | base64 | tr -d '\n')
+            if [ -n "$META_SHA" ]; then
+              PUT_BODY=$(jq -n --arg message "ci: update latest Pebble APK delivery" --arg content "$POINTER_B64" --arg branch "$DELIVERY_BRANCH" --arg sha "$META_SHA" '{message:$message,content:$content,branch:$branch,sha:$sha}')
+            else
+              PUT_BODY=$(jq -n --arg message "ci: publish latest Pebble APK delivery" --arg content "$POINTER_B64" --arg branch "$DELIVERY_BRANCH" '{message:$message,content:$content,branch:$branch}')
+            fi
+            curl -fsS -X PUT \
+              -H "$AUTH_HEADER" -H "$ACCEPT_HEADER" \
               -H 'Content-Type: application/json' \
-              -H "x-auth-token: $CM_API_TOKEN" \
-              -d "{\"expiresAt\": ${expires_at}}" \
-              -X POST "${artifact_url}/public-url")"
-            public_url="$(printf '%s' "$response" | jq -r '.url')"
-            test -n "$public_url"
-            printf '%s' "$public_url" > /tmp/pebble-public-url.txt
+              --data-binary "$PUT_BODY" \
+              "$API/contents/.ci/latest-pebble-build.json" >/dev/null
 
-        - name: Relay signed APK URL through GitHub commit status
-          script: |
-            #!/usr/bin/env bash
-            set -u
-            target_url="$(cat /tmp/pebble-public-url.txt)"
-            post_status() {
-              source_name="$1"
-              source_value="$2"
-              [ -n "$source_value" ] || return 1
-              export GH_TOKEN="$source_value"
-              gh api --method POST \
-                "repos/homayounisaghar/Monitoring-V1/statuses/${CM_COMMIT}" \
-                -f state=success \
-                -f context="pebble-signed-apk" \
-                -f description="Signed Pebble v0.19 APK ready" \
-                -f target_url="$target_url" >/dev/null 2>&1 || return 2
-              echo "Relayed APK URL via commit status using ${source_name}."
-              return 0
-            }
+            APK_MIRROR_URL="$API/contents/.ci/latest-pebble.apk?ref=ci%2Fpebble-apk-delivery"
+            APK_MIRROR_JSON=$(curl -fsS -H "$AUTH_HEADER" -H "$ACCEPT_HEADER" "$APK_MIRROR_URL" 2>/dev/null || true)
+            APK_MIRROR_SHA=$(printf '%s' "$APK_MIRROR_JSON" | jq -r '.sha // empty' 2>/dev/null || true)
+            APK_B64=$(base64 < "$APK" | tr -d '\n')
+            if [ -n "$APK_MIRROR_SHA" ]; then
+              APK_PUT_BODY=$(jq -n --arg message "ci: update latest Pebble APK binary" --arg content "$APK_B64" --arg branch "$DELIVERY_BRANCH" --arg sha "$APK_MIRROR_SHA" '{message:$message,content:$content,branch:$branch,sha:$sha}')
+            else
+              APK_PUT_BODY=$(jq -n --arg message "ci: publish latest Pebble APK binary" --arg content "$APK_B64" --arg branch "$DELIVERY_BRANCH" '{message:$message,content:$content,branch:$branch}')
+            fi
+            curl -fsS -X PUT \
+              -H "$AUTH_HEADER" -H "$ACCEPT_HEADER" \
+              -H 'Content-Type: application/json' \
+              --data-binary "$APK_PUT_BODY" \
+              "$API/contents/.ci/latest-pebble.apk" >/dev/null
 
-            if post_status "PEBBLE_GITHUB_TOKEN" "${PEBBLE_GITHUB_TOKEN:-}"; then exit 0; fi
-            if post_status "GITHUB_TOKEN" "${GITHUB_TOKEN:-}"; then exit 0; fi
-            if post_status "GH_TOKEN" "${GH_TOKEN:-}"; then exit 0; fi
-            if post_status "CM_GITHUB_TOKEN" "${CM_GITHUB_TOKEN:-}"; then exit 0; fi
-            echo "No existing credential could write a commit status."
-            exit 23
+            printf '%s\n' "$POINTER" > "$CM_BUILD_DIR/ci/latest-pebble-build.json"
+            printf '%s\n' "$RELEASE_URL" > "$CM_BUILD_DIR/ci/release-url.txt"
+            printf '%s\n' "$RELEASE_ASSET_URL" > "$CM_BUILD_DIR/ci/release-asset-url.txt"
 
-        - name: Report Codemagic artifact links for assistant pickup
-          script: |
-            #!/usr/bin/env bash
-            set -euo pipefail
-            report="/tmp/pebble-artifacts.txt"
-            {
-              echo "commit=${CM_COMMIT}"
-              echo "build=${BUILD_NUMBER}"
-              echo "artifacts=${CM_ARTIFACT_LINKS:-[]}"
-              if [ -s /tmp/pebble-public-url.txt ]; then
-                echo "public_url=$(cat /tmp/pebble-public-url.txt)"
-              fi
-            } > "$report"
             curl -fsS \
-              -H "Title: Pebble Chat Bridge v0.19 artifacts" \
+              -H "Title: Pebble Chat Bridge v0.19 delivery" \
               -H "Tags: package" \
-              --data-binary @"$report" \
-              "https://ntfy.sh/pebble-v019-a9f2c7e61b4d8c30e5f7a921"
+              --data-binary "$POINTER" \
+              "https://ntfy.sh/$CI_REPORT_TOPIC" >/dev/null || true
+
+            echo "GitHub prerelease delivery published: $RELEASE_URL"
