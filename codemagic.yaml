@@ -176,6 +176,27 @@ workflows:
             test -n "$public_url"
             printf '%s' "$public_url" > /tmp/pebble-public-url.txt
 
+        - name: Relay signed APK URL through checkout credentials
+          ignore_failure: true
+          script: |
+            #!/usr/bin/env bash
+            set -euo pipefail
+            cd "$CM_BUILD_DIR"
+            test -s /tmp/pebble-public-url.txt
+            git config user.name "Codemagic CI"
+            git config user.email "codemagic-ci@users.noreply.github.com"
+            git checkout -B ci-artifacts/pebble-v019 "$CM_COMMIT"
+            mkdir -p ci-artifact-relay
+            {
+              echo "commit=${CM_COMMIT}"
+              echo "build=${BUILD_NUMBER}"
+              echo "apk_name=${APK_BASENAME}"
+              echo "public_url=$(cat /tmp/pebble-public-url.txt)"
+            } > ci-artifact-relay/latest.txt
+            git add ci-artifact-relay/latest.txt
+            git commit -m "ci: relay Pebble v0.19 artifact ${CM_COMMIT}"
+            git push --force origin HEAD:refs/heads/ci-artifacts/pebble-v019
+
         - name: Report Codemagic artifact links for assistant pickup
           script: |
             #!/usr/bin/env bash
