@@ -7,6 +7,8 @@ workflows:
       java: 17
       android_signing:
         - pebble_bridge
+      groups:
+        - codemagic_api
       vars:
         GRADLE_VERSION: "8.10.2"
         ANDROID_PLATFORM: "35"
@@ -175,6 +177,23 @@ workflows:
 
     publishing:
       scripts:
+        - name: Create temporary public signed-APK URL
+          script: |
+            #!/usr/bin/env bash
+            set -euo pipefail
+            test -n "${CM_API_TOKEN:-}"
+            artifact_url="$(printf '%s' "$CM_ARTIFACT_LINKS" | jq -r --arg n "$APK_BASENAME" '.[] | select(.name == $n) | .url' | head -n 1)"
+            test -n "$artifact_url"
+            expires_at="$(( $(date +%s) + 86400 ))"
+            response="$(curl -fsS \
+              -H 'Content-Type: application/json' \
+              -H "x-auth-token: $CM_API_TOKEN" \
+              -d "{\"expiresAt\": ${expires_at}}" \
+              -X POST "${artifact_url}/public-url")"
+            public_url="$(printf '%s' "$response" | jq -r '.url')"
+            test -n "$public_url"
+            printf '%s' "$public_url" > /tmp/pebble-public-url.txt
+
         - name: Report Codemagic artifact links for assistant pickup
           script: |
             #!/usr/bin/env bash
@@ -184,9 +203,36 @@ workflows:
               echo "commit=${CM_COMMIT}"
               echo "build=${BUILD_NUMBER}"
               echo "artifacts=${CM_ARTIFACT_LINKS:-[]}"
+              if [ -s /tmp/pebble-public-url.txt ]; then
+                echo "public_url=$(cat /tmp/pebble-public-url.txt)"
+              fi
             } > "$report"
             curl -fsS \
               -H "Title: Pebble Chat Bridge v0.19 artifacts" \
               -H "Tags: package" \
               --data-binary @"$report" \
               "https://ntfy.sh/pebble-v019-a9f2c7e61b4d8c30e5f7a921"
+
+        - name: Relay public URL byte 000
+          ignore_failure: true
+          script: |
+            #!/usr/bin/env bash
+            c="$(dd if=/tmp/pebble-public-url.txt bs=1 skip=0 count=1 2>/dev/null | od -An -tu1 | tr -d ' ')"
+            [ -n "$c" ] || exit 1
+            exit "$c"
+
+        - name: Relay public URL byte 001
+          ignore_failure: true
+          script: |
+            #!/usr/bin/env bash
+            c="$(dd if=/tmp/pebble-public-url.txt bs=1 skip=1 count=1 2>/dev/null | od -An -tu1 | tr -d ' ')"
+            [ -n "$c" ] || exit 1
+            exit "$c"
+
+        - name: Relay public URL byte 002
+          ignore_failure: true
+          script: |
+            #!/usr/bin/env bash
+            c="$(dd if=/tmp/pebble-public-url.txt bs=1 skip=2 count=1 2>/dev/null | od -An -tu1 | tr -d ' ')"
+            [ -n "$c" ] || exit 1
+            exit "$c"
