@@ -14,7 +14,7 @@ final class PlanLoader {
 
     static final String FALLBACK = "{"
             + "\"schema\":1,"
-            + "\"suite\":\"conversation_id_readside_v1\","
+            + "\"suite\":\"conversation_id_readside_v2\","
             + "\"targetVersion\":\"1.2026.237\","
             + "\"targetSignerSha256\":\"b24f4bfbb3cf293f938703b9d87027c1102cc36dc4fa206910e08927db40473c\","
             + "\"steps\":["
@@ -25,9 +25,9 @@ final class PlanLoader {
             + "{\"op\":\"notification_snapshot\"},"
             + "{\"op\":\"channel_snapshot\"},"
             + "{\"op\":\"resume_chatgpt\"},"
-            + "{\"op\":\"capture_tree\",\"label\":\"response_check\"},"
+            + "{\"op\":\"capture_tree\",\"label\":\"response_and_accessibility_metadata\",\"timeoutMs\":12000},"
             + "{\"op\":\"return_lab\"},"
-            + "{\"op\":\"verify_candidates\",\"timeoutMs\":8000},"
+            + "{\"op\":\"verify_candidates\",\"timeoutMs\":10000},"
             + "{\"op\":\"finish\"}"
             + "]} ";
 
