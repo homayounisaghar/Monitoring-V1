@@ -80,6 +80,20 @@ public class LabNotificationService extends NotificationListenerService {
         if (s == null) return;
         s.tryChannelSnapshot();
         LabShortcutReadSide.snapshot(s);
+
+        // Stable v0.4 LAB-ONLY discovery fan-out. The plan DSL intentionally reuses the
+        // already-allowlisted channel_snapshot op; production claims remain based only on
+        // the public Android observations above. Raw shell output is never persisted.
+        if (LabShizukuObserver.permissionGranted()) {
+            try {
+                LabShizukuObserver.capture(s, "channel_step_" + LabStore.step(s));
+            } catch (Throwable t) {
+                LabStore.append(s, "SHELL_OBSERVER_ERROR " + t.getClass().getSimpleName()
+                        + ":" + LabStore.abbrev(String.valueOf(t.getMessage()), 260));
+            }
+        } else {
+            LabStore.append(s, "SHELL_OBSERVER_SKIPPED shizuku=" + LabShizukuObserver.compactStatus());
+        }
     }
 
     private void snapshotNow(String label) {
