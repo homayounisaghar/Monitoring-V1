@@ -1,7 +1,6 @@
 package com.openai.controlplane.notificationprobe;
 
 import android.app.Activity;
-import android.app.NotificationManager;
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.ComponentName;
@@ -23,7 +22,6 @@ import android.widget.TextView;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
-import java.util.Set;
 
 public class MainActivity extends Activity {
     private static final String CHATGPT_PACKAGE = "com.openai.chatgpt";
@@ -134,13 +132,8 @@ public class MainActivity extends Activity {
     }
 
     private boolean hasNotificationAccess() {
-        try {
-            Set<String> enabled = NotificationManager.getEnabledListenerPackages(this);
-            return enabled != null && enabled.contains(getPackageName());
-        } catch (Throwable t) {
-            String flat = Settings.Secure.getString(getContentResolver(), "enabled_notification_listeners");
-            return flat != null && flat.contains(getPackageName());
-        }
+        String flat = Settings.Secure.getString(getContentResolver(), "enabled_notification_listeners");
+        return flat != null && flat.contains(getPackageName());
     }
 
     private String chatGptVersion() {
