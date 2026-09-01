@@ -1,0 +1,122 @@
+name: Native Adapter P1 Companion APK
+
+on:
+  push:
+    branches:
+      - build/pebble-chat-bridge-v019
+    paths:
+      - '.github/workflows/native-adapter-p1.yml'
+      - 'build_tools/apply_v032_native_adapter_p1.py'
+      - 'build_tools/NATIVE_ADAPTER_P1_GHA_TRIGGER.txt'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Reassemble baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p ci/src ci/out
+          cat v019_parts/part00.txt v019_parts/part01.txt v019_parts/part02.txt v019_parts/part03.txt > ci/source.tgz.b64
+          test "$(sha256sum ci/source.tgz.b64 | awk '{print $1}')" = "76dfce144dd4e8126fdfb356e6fb3a6627f5bd629cf741798703847ec38d623a"
+          python3 - <<'PY'
+          import base64
+          from pathlib import Path
+          Path('ci/source.tgz').write_bytes(base64.b64decode(Path('ci/source.tgz.b64').read_bytes()))
+          PY
+          test "$(sha256sum ci/source.tgz | awk '{print $1}')" = "c7485116b17dfe4f2aa9f61469ab01e1596efccdf0d43f3d7b560d3c474e6196"
+          tar -xzf ci/source.tgz -C ci/src
+
+      - name: Apply native adapter P1
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 build_tools/apply_v027.py ci/src
+          python3 build_tools/apply_v028_incremental.py ci/src
+          python3 build_tools/apply_v029_diagnostic.py ci/src
+          python3 build_tools/apply_v030_calibrated_gesture.py ci/src
+          python3 build_tools/apply_v031_centered_gesture.py ci/src
+          python3 build_tools/apply_v032_native_adapter_p1.py ci/src
+          python3 - <<'PY'
+          import re
+          from pathlib import Path
+          p = Path('ci/src/app/build.gradle')
+          s = p.read_text()
+          s, n = re.subn(r'applicationId\s+["\']com\.pebblebridge\.poc["\']', 'applicationId "com.pebblebridge.poc.nativep1"', s, count=1)
+          if n != 1:
+              raise SystemExit('Could not retarget applicationId for side-by-side companion proof')
+          p.write_text(s)
+          PY
+          grep -Fq 'applicationId "com.pebblebridge.poc.nativep1"' ci/src/app/build.gradle
+          grep -Fq 'versionCode 32' ci/src/app/build.gradle
+          grep -Fq 'ChatGptDeeplinkActivity' ci/src/app/src/main/java/com/pebblebridge/poc/NativeAdapterProofActivity.java
+          grep -Fq 'StatusBarNotification' ci/src/app/src/main/java/com/pebblebridge/poc/NativeAdapterNotificationListenerService.java
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android platform
+        shell: bash
+        run: |
+          set -euo pipefail
+          yes | sdkmanager "platforms;android-35" "build-tools;35.0.0"
+          echo "sdk.dir=$ANDROID_SDK_ROOT" > ci/src/local.properties
+
+      - name: Build debug APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsSL https://services.gradle.org/distributions/gradle-8.10.2-bin.zip -o /tmp/gradle.zip
+          unzip -q /tmp/gradle.zip -d /tmp
+          cd ci/src
+          /tmp/gradle-8.10.2/bin/gradle --no-daemon :app:assembleDebug --stacktrace
+          cp app/build/outputs/apk/debug/app-debug.apk ../out/native-adapter-p1-companion.apk
+
+      - name: Verify and checksum
+        shell: bash
+        run: |
+          set -euo pipefail
+          APKSIGNER=$(find "$ANDROID_SDK_ROOT/build-tools" -type f -name apksigner | sort | tail -n 1)
+          "$APKSIGNER" verify --verbose --print-certs ci/out/native-adapter-p1-companion.apk | tee ci/out/apksigner.txt
+          sha256sum ci/out/native-adapter-p1-companion.apk | tee ci/out/SHA256.txt
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-adapter-p1-companion
+          path: |
+            ci/out/native-adapter-p1-companion.apk
+            ci/out/SHA256.txt
+            ci/out/apksigner.txt
+
+      - name: Publish prerelease
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          SHORT=$(printf '%s' "$GITHUB_SHA" | cut -c1-12)
+          TAG="native-adapter-p1-gha-$SHORT"
+          gh release create "$TAG" \
+            ci/out/native-adapter-p1-companion.apk#native-adapter-p1-companion.apk \
+            ci/out/SHA256.txt#SHA256.txt \
+            --target "$GITHUB_SHA" \
+            --title "Native Adapter P1 Companion $SHORT" \
+            --notes "Side-by-side runtime proof for the APK-derived ChatGPT adapter. Uses explicit ChatGptDeeplinkActivity routes, prompt+autosend, notification-tag conversationId capture, and read-only Accessibility receipt verification. Does not replace the existing signed Bridge app." \
+            --prerelease
