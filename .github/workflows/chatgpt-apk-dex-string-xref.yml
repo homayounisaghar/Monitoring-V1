@@ -54,8 +54,10 @@ jobs:
           from pathlib import Path
           from zipfile import ZipFile
           from androguard.core.dex import DEX
-          import re, traceback
+          from loguru import logger
+          import re
 
+          logger.remove()
           exact = [
               'attachmentUri','attachmentAssetPointer','hasAttachedRouteAttachments',
               'Share attachment wait timed out after','focusKeyboard',
@@ -74,34 +76,35 @@ jobs:
                   rows += [f'## `{dn}`','']
                   d=DEX(z.read(dn))
                   dex_hits=0
-                  for m in d.get_methods():
-                      code=m.get_code()
-                      if code is None: continue
-                      try: insns=list(code.get_bc().get_instructions())
-                      except Exception: continue
-                      hitidx=[]
-                      for i,ins in enumerate(insns):
-                          try: out=ins.get_output()
-                          except Exception: out=''
-                          low=(out or '').lower()
-                          if any(n in low for n in needles): hitidx.append(i)
-                      if not hitidx: continue
-                      used=[]
-                      for i in hitidx:
-                          if any(abs(i-u)<8 for u in used): continue
-                          used.append(i); dex_hits+=1; matches+=1
-                          rows += [
-                              f'### `{m.get_class_name()}->{m.get_name()}{m.get_descriptor()}`',
-                              f'- match instruction index: `{i}`',
-                              '```smali-ish'
-                          ]
-                          lo=max(0,i-10); hi=min(len(insns),i+11)
-                          for j in range(lo,hi):
-                              ins=insns[j]
+                  for c in d.get_classes():
+                      for m in c.get_methods():
+                          code=m.get_code()
+                          if code is None: continue
+                          try: insns=list(code.get_bc().get_instructions())
+                          except Exception: continue
+                          hitidx=[]
+                          for i,ins in enumerate(insns):
                               try: out=ins.get_output()
                               except Exception: out=''
-                              rows.append(f'{j:04d}: {ins.get_name()} {out}')
-                          rows += ['```','']
+                              low=(out or '').lower()
+                              if any(n in low for n in needles): hitidx.append(i)
+                          if not hitidx: continue
+                          used=[]
+                          for i in hitidx:
+                              if any(abs(i-u)<8 for u in used): continue
+                              used.append(i); dex_hits+=1; matches+=1
+                              rows += [
+                                  f'### `{m.get_class_name()}->{m.get_name()}{m.get_descriptor()}`',
+                                  f'- match instruction index: `{i}`',
+                                  '```smali-ish'
+                              ]
+                              lo=max(0,i-10); hi=min(len(insns),i+11)
+                              for j in range(lo,hi):
+                                  ins=insns[j]
+                                  try: out=ins.get_output()
+                                  except Exception: out=''
+                                  rows.append(f'{j:04d}: {ins.get_name()} {out}')
+                              rows += ['```','']
                   rows += [f'_method neighborhoods captured: {dex_hits}_','']
           rows += [f'## Total neighborhoods: {matches}','']
           Path('output/analysis/chatgpt-1.2026.237/dex-string-xref/DEX_STRING_XREF.md').write_text('\n'.join(rows),encoding='utf-8')
