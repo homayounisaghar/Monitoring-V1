@@ -8,11 +8,13 @@ android {
         applicationId 'com.openai.controlplane.capabilitylab.stable'
         minSdk 32
         targetSdk 35
-        versionCode 3
-        versionName '0.3-native-capability-lab-stable'
+        versionCode 4
+        versionName '0.4-native-capability-lab-stable-observer'
     }
 }
 
 dependencies {
     implementation 'androidx.core:core:1.15.0'
+    implementation 'dev.rikka.shizuku:api:13.1.5'
+    implementation 'dev.rikka.shizuku:provider:13.1.5'
 }
