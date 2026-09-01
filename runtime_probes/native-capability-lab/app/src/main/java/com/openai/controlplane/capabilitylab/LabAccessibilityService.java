@@ -5,6 +5,7 @@ import android.content.ClipData;
 import android.content.ComponentName;
 import android.content.Intent;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -24,16 +25,24 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class LabAccessibilityService extends AccessibilityService {
     private static volatile LabAccessibilityService INSTANCE;
     private static final Pattern UUID_PATTERN = Pattern.compile("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$");
     private static final Pattern HEX32_PATTERN = Pattern.compile("^[0-9a-fA-F]{32}$");
+    private static final Pattern UUID_FIND = Pattern.compile("(?i)(?<![0-9a-f])[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(?![0-9a-f])");
+    private static final Pattern HEX32_FIND = Pattern.compile("(?i)(?<![0-9a-f])[0-9a-f]{32}(?![0-9a-f])");
     private static final int MAX_VERIFY_CANDIDATES = 8;
+    private static final int MAX_METADATA_NODES = 1400;
 
     private final Handler handler = new Handler(Looper.getMainLooper());
+    private final Runnable runCurrentStepRunnable = new Runnable() {
+        @Override public void run() { executeCurrentStep(); }
+    };
     private Runnable timeoutRunnable;
+    private int timeoutStep = -1;
     private String verifyingCandidate = "";
     private String neutralMarker = "";
 
@@ -43,8 +52,8 @@ public class LabAccessibilityService extends AccessibilityService {
         INSTANCE = this;
         LabStore.markAccessibilityConnected(this, true);
         LabStore.append(this, "ACCESSIBILITY_CONNECTED");
-        if ("RUNNING".equals(LabStore.status(this))) {
-            handler.postDelayed(this::executeCurrentStep, 250L);
+        if ("RUNNING".equals(LabStore.status(this)) && "RUNNING".equals(LabStore.state(this))) {
+            scheduleCurrentStep(250L);
         }
     }
 
@@ -52,15 +61,16 @@ public class LabAccessibilityService extends AccessibilityService {
     public void onAccessibilityEvent(AccessibilityEvent event) {
         if (!ProfileGuard.CHATGPT_PACKAGE.equals(String.valueOf(event == null ? null : event.getPackageName()))) return;
         if (!"RUNNING".equals(LabStore.status(this))) return;
+        int expectedStep = LabStore.step(this);
         String state = LabStore.state(this);
         if ("WAITING_SEMANTIC_SEND".equals(state) || "SEND_CLAIMED".equals(state)) {
-            trySemanticSendOrReceipt();
+            trySemanticSendOrReceipt(expectedStep);
         } else if ("WAITING_TREE_CAPTURE".equals(state)) {
-            tryCaptureTreeAndAdvance();
+            tryCaptureTreeAndAdvance(expectedStep);
         } else if ("WAITING_VERIFY_NEUTRAL".equals(state)) {
-            tryVerifyNeutralThenCandidate();
+            tryVerifyNeutralThenCandidate(expectedStep);
         } else if ("WAITING_VERIFY_CANDIDATE".equals(state)) {
-            tryVerifyCandidate();
+            tryVerifyCandidate(expectedStep);
         }
     }
 
@@ -74,6 +84,7 @@ public class LabAccessibilityService extends AccessibilityService {
         if (INSTANCE == this) INSTANCE = null;
         LabStore.markAccessibilityConnected(this, false);
         cancelTimeout();
+        handler.removeCallbacks(runCurrentStepRunnable);
         super.onDestroy();
     }
 
@@ -82,7 +93,7 @@ public class LabAccessibilityService extends AccessibilityService {
     static void startCurrentPlan() {
         LabAccessibilityService s = INSTANCE;
         if (s == null) throw new IllegalStateException("Accessibility service is not connected");
-        s.handler.post(s::executeCurrentStep);
+        s.scheduleCurrentStep(0L);
     }
 
     private JSONObject planRoot() throws Exception {
@@ -95,8 +106,18 @@ public class LabAccessibilityService extends AccessibilityService {
         return a;
     }
 
+    private void scheduleCurrentStep(long delayMs) {
+        handler.removeCallbacks(runCurrentStepRunnable);
+        handler.postDelayed(runCurrentStepRunnable, Math.max(0L, delayMs));
+    }
+
+    private boolean isCurrentStep(int expectedStep) {
+        return "RUNNING".equals(LabStore.status(this)) && LabStore.step(this) == expectedStep;
+    }
+
     private void executeCurrentStep() {
         if (!"RUNNING".equals(LabStore.status(this))) return;
+        if (!"RUNNING".equals(LabStore.state(this))) return;
         try {
             ProfileGuard.assertExact(this);
             JSONArray steps = steps();
@@ -112,47 +133,47 @@ public class LabAccessibilityService extends AccessibilityService {
             switch (op) {
                 case "launch_prompt":
                     opLaunchPrompt(step);
-                    completeStep();
+                    completeStep(i);
                     break;
                 case "semantic_send":
-                    opSemanticSend(step);
+                    opSemanticSend(step, i);
                     break;
                 case "return_lab":
                     launchLabForeground();
-                    completeStep();
+                    completeStep(i);
                     break;
                 case "wait":
-                    opWait(step);
+                    opWait(step, i);
                     break;
                 case "notification_snapshot":
                     LabNotificationService.snapshotFromRunner("plan_step_" + i);
-                    completeStep();
+                    completeStep(i);
                     break;
                 case "channel_snapshot":
                     LabNotificationService.tryChannelSnapshotFromRunner();
-                    completeStep();
+                    completeStep(i);
                     break;
                 case "resume_chatgpt":
                     resumeChatGpt();
-                    completeStep();
+                    completeStep(i);
                     break;
                 case "capture_tree":
-                    opCaptureTree(step);
+                    opCaptureTree(step, i);
                     break;
                 case "verify_candidates":
-                    opVerifyCandidates(step);
+                    opVerifyCandidates(step, i);
                     break;
                 case "share_files":
                     opShareFiles(step);
-                    completeStep();
+                    completeStep(i);
                     break;
                 case "open_voice":
                     openVoice();
-                    completeStep();
+                    completeStep(i);
                     break;
                 case "process_text":
                     processText();
-                    completeStep();
+                    completeStep(i);
                     break;
                 case "finish":
                     if (!LabStore.verifiedConversationId(this).isEmpty()) {
@@ -185,14 +206,17 @@ public class LabAccessibilityService extends AccessibilityService {
         startActivity(i);
     }
 
-    private void opSemanticSend(JSONObject step) {
+    private void opSemanticSend(JSONObject step, int stepIndex) {
+        if (!isCurrentStep(stepIndex)) return;
         LabStore.setState(this, "WAITING_SEMANTIC_SEND");
-        armTimeout(step.optLong("timeoutMs", 15000L), "SEMANTIC_SEND_TIMEOUT");
-        handler.postDelayed(this::trySemanticSendOrReceipt, 250L);
+        armTimeout(step.optLong("timeoutMs", 15000L), "SEMANTIC_SEND_TIMEOUT", stepIndex);
+        handler.postDelayed(() -> trySemanticSendOrReceipt(stepIndex), 250L);
     }
 
-    private void trySemanticSendOrReceipt() {
-        if (!"RUNNING".equals(LabStore.status(this))) return;
+    private void trySemanticSendOrReceipt(int expectedStep) {
+        if (!isCurrentStep(expectedStep)) return;
+        String state = LabStore.state(this);
+        if (!("WAITING_SEMANTIC_SEND".equals(state) || "SEND_CLAIMED".equals(state))) return;
         AccessibilityNodeInfo root = getRootInActiveWindow();
         if (root == null || !isChatGptRoot(root)) return;
         String marker = LabStore.marker(this);
@@ -201,10 +225,8 @@ public class LabAccessibilityService extends AccessibilityService {
         MarkerCounts counts = countMarkerNodes(root, marker);
         if (LabStore.writeClaimed(this)) {
             if (counts.editable == 0 && counts.nonEditable >= 1) {
-                cancelTimeout();
                 LabStore.markSendConfirmed(this);
-                LabStore.setState(this, "RUNNING");
-                completeStep();
+                completeStep(expectedStep);
             }
             return;
         }
@@ -238,70 +260,76 @@ public class LabAccessibilityService extends AccessibilityService {
             failUncertain("SEMANTIC_SEND_CLAIMED_BUT_CLICK_FALSE");
             return;
         }
-        handler.postDelayed(this::trySemanticSendOrReceipt, 180L);
+        handler.postDelayed(() -> trySemanticSendOrReceipt(expectedStep), 180L);
     }
 
-    private void opWait(JSONObject step) {
+    private void opWait(JSONObject step, int stepIndex) {
+        if (!isCurrentStep(stepIndex)) return;
         long ms = Math.max(0L, Math.min(step.optLong("ms", 1000L), 180_000L));
         LabStore.setState(this, "WAITING_TIMER");
         LabStore.setWaitUntil(this, System.currentTimeMillis() + ms);
         cancelTimeout();
         handler.postDelayed(() -> {
-            if (!"RUNNING".equals(LabStore.status(this))) return;
+            if (!isCurrentStep(stepIndex)) return;
+            if (!"WAITING_TIMER".equals(LabStore.state(this))) return;
             LabStore.append(this, "WAIT_COMPLETE ms=" + ms);
-            LabStore.setState(this, "RUNNING");
-            completeStep();
+            completeStep(stepIndex);
         }, ms);
     }
 
-    private void opCaptureTree(JSONObject step) {
+    private void opCaptureTree(JSONObject step, int stepIndex) {
+        if (!isCurrentStep(stepIndex)) return;
         LabStore.setState(this, "WAITING_TREE_CAPTURE");
         String label = step.optString("label", "tree");
         LabStore.append(this, "TREE_CAPTURE_ARMED label=" + label);
-        armTimeout(step.optLong("timeoutMs", 8000L), "TREE_CAPTURE_TIMEOUT label=" + label);
-        handler.postDelayed(this::tryCaptureTreeAndAdvance, 250L);
+        armTimeout(step.optLong("timeoutMs", 8000L), "TREE_CAPTURE_TIMEOUT label=" + label, stepIndex);
+        handler.postDelayed(() -> tryCaptureTreeAndAdvance(stepIndex), 250L);
     }
 
-    private void tryCaptureTreeAndAdvance() {
+    private void tryCaptureTreeAndAdvance(int expectedStep) {
+        if (!isCurrentStep(expectedStep)) return;
         if (!"WAITING_TREE_CAPTURE".equals(LabStore.state(this))) return;
         AccessibilityNodeInfo root = getRootInActiveWindow();
         if (root == null || !isChatGptRoot(root)) return;
         String marker = LabStore.marker(this);
         MarkerCounts counts = countMarkerNodes(root, marker);
-        String snapshot = normalizedTree(root, marker, 300, 7);
+        MetadataStats metadata = harvestAccessibilityMetadata(root);
+        String snapshot = normalizedTree(root, marker, 650, 14);
+        LabStore.append(this, "ACCESSIBILITY_METADATA nodes=" + metadata.nodes
+                + " extras=" + metadata.extras
+                + " candidateMatches=" + metadata.candidateMatches);
         LabStore.append(this, "TREE_CAPTURE markerEditable=" + counts.editable + " markerNonEditable=" + counts.nonEditable + " snapshot=" + LabStore.abbrev(snapshot, 28000));
-        cancelTimeout();
-        LabStore.setState(this, "RUNNING");
-        completeStep();
+        completeStep(expectedStep);
     }
 
-    private void opVerifyCandidates(JSONObject step) {
+    private void opVerifyCandidates(JSONObject step, int stepIndex) {
+        if (!isCurrentStep(stepIndex)) return;
         List<String> plausible = plausibleCandidates();
         LabStore.append(this, "VERIFY_CANDIDATES plausibleCount=" + plausible.size() + " rawCount=" + LabStore.candidates(this).size());
         if (plausible.isEmpty()) {
-            completeStep();
+            completeStep(stepIndex);
             return;
         }
         int index = LabStore.candidateIndex(this);
         if (index >= plausible.size() || index >= MAX_VERIFY_CANDIDATES) {
-            completeStep();
+            completeStep(stepIndex);
             return;
         }
         verifyingCandidate = plausible.get(index);
         neutralMarker = "LAB_NEUTRAL_" + UUID.randomUUID().toString().replace("-", "").substring(0, 12).toUpperCase(Locale.US);
-        String prompt = neutralMarker;
-        Uri uri = Uri.parse("https://chatgpt.com/c").buildUpon().appendQueryParameter("prompt", prompt).build();
+        Uri uri = Uri.parse("https://chatgpt.com/c").buildUpon().appendQueryParameter("prompt", neutralMarker).build();
         Intent neutral = new Intent(Intent.ACTION_VIEW, uri);
         neutral.setComponent(new ComponentName(ProfileGuard.CHATGPT_PACKAGE, ProfileGuard.CHATGPT_DEEPLINK));
         neutral.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         LabStore.setState(this, "WAITING_VERIFY_NEUTRAL");
         LabStore.append(this, "VERIFY_NEUTRAL launch candidateIndex=" + index + " candidate=" + verifyingCandidate + " neutralMarker=" + neutralMarker);
         startActivity(neutral);
-        armTimeout(step.optLong("timeoutMs", 8000L), "VERIFY_NEUTRAL_TIMEOUT");
-        handler.postDelayed(this::tryVerifyNeutralThenCandidate, 250L);
+        armTimeout(step.optLong("timeoutMs", 8000L), "VERIFY_NEUTRAL_TIMEOUT", stepIndex);
+        handler.postDelayed(() -> tryVerifyNeutralThenCandidate(stepIndex), 250L);
     }
 
-    private void tryVerifyNeutralThenCandidate() {
+    private void tryVerifyNeutralThenCandidate(int expectedStep) {
+        if (!isCurrentStep(expectedStep)) return;
         if (!"WAITING_VERIFY_NEUTRAL".equals(LabStore.state(this))) return;
         AccessibilityNodeInfo root = getRootInActiveWindow();
         if (root == null || !isChatGptRoot(root)) return;
@@ -317,8 +345,8 @@ public class LabAccessibilityService extends AccessibilityService {
         LabStore.setState(this, "WAITING_VERIFY_CANDIDATE");
         LabStore.append(this, "VERIFY_CANDIDATE launch /c/<candidate> candidate=" + verifyingCandidate);
         startActivity(candidate);
-        armTimeout(currentVerifyTimeout(), "VERIFY_CANDIDATE_TIMEOUT candidate=" + verifyingCandidate);
-        handler.postDelayed(this::tryVerifyCandidate, 250L);
+        armTimeout(currentVerifyTimeout(), "VERIFY_CANDIDATE_TIMEOUT candidate=" + verifyingCandidate, expectedStep);
+        handler.postDelayed(() -> tryVerifyCandidate(expectedStep), 250L);
     }
 
     private long currentVerifyTimeout() {
@@ -330,7 +358,8 @@ public class LabAccessibilityService extends AccessibilityService {
         }
     }
 
-    private void tryVerifyCandidate() {
+    private void tryVerifyCandidate(int expectedStep) {
+        if (!isCurrentStep(expectedStep)) return;
         if (!"WAITING_VERIFY_CANDIDATE".equals(LabStore.state(this))) return;
         AccessibilityNodeInfo root = getRootInActiveWindow();
         if (root == null || !isChatGptRoot(root)) return;
@@ -342,12 +371,12 @@ public class LabAccessibilityService extends AccessibilityService {
         }
     }
 
-    private void onVerifyTimeout(String reason) {
-        if (!"RUNNING".equals(LabStore.status(this))) return;
+    private void onVerifyTimeout(int expectedStep, String reason) {
+        if (!isCurrentStep(expectedStep)) return;
         LabStore.append(this, reason);
         LabStore.setCandidateIndex(this, LabStore.candidateIndex(this) + 1);
         LabStore.setState(this, "RUNNING");
-        handler.post(this::executeCurrentStep);
+        scheduleCurrentStep(0L);
     }
 
     private void opShareFiles(JSONObject step) throws Exception {
@@ -414,21 +443,24 @@ public class LabAccessibilityService extends AccessibilityService {
         startActivity(i);
     }
 
-    private void completeStep() {
+    private void completeStep(int expectedStep) {
+        if (!LabStore.advanceStepIfCurrent(this, expectedStep)) return;
         cancelTimeout();
-        LabStore.setState(this, "RUNNING");
-        LabStore.setStep(this, LabStore.step(this) + 1);
-        handler.postDelayed(this::executeCurrentStep, 120L);
+        scheduleCurrentStep(120L);
     }
 
-    private void armTimeout(long requestedMs, String reason) {
+    private void armTimeout(long requestedMs, String reason, int expectedStep) {
         cancelTimeout();
         long ms = Math.max(1000L, Math.min(requestedMs, 180_000L));
+        timeoutStep = expectedStep;
         timeoutRunnable = () -> {
             timeoutRunnable = null;
+            int armedStep = timeoutStep;
+            timeoutStep = -1;
+            if (armedStep != expectedStep || !isCurrentStep(expectedStep)) return;
             String state = LabStore.state(this);
             if ("WAITING_VERIFY_NEUTRAL".equals(state) || "WAITING_VERIFY_CANDIDATE".equals(state)) {
-                onVerifyTimeout(reason);
+                onVerifyTimeout(expectedStep, reason);
             } else if ("SEND_CLAIMED".equals(state) && LabStore.writeClaimed(this)) {
                 failUncertain(reason + " after durable claim");
             } else {
@@ -441,6 +473,7 @@ public class LabAccessibilityService extends AccessibilityService {
     private void cancelTimeout() {
         if (timeoutRunnable != null) handler.removeCallbacks(timeoutRunnable);
         timeoutRunnable = null;
+        timeoutStep = -1;
     }
 
     private void failRun(String reason) {
@@ -471,6 +504,65 @@ public class LabAccessibilityService extends AccessibilityService {
             }
         }
         return out;
+    }
+
+    private MetadataStats harvestAccessibilityMetadata(AccessibilityNodeInfo root) {
+        MetadataStats stats = new MetadataStats();
+        harvestAccessibilityMetadata0(root, stats, 0);
+        return stats;
+    }
+
+    private void harvestAccessibilityMetadata0(AccessibilityNodeInfo n, MetadataStats stats, int depth) {
+        if (n == null || depth > 40 || stats.nodes >= MAX_METADATA_NODES) return;
+        stats.nodes++;
+        stats.candidateMatches += addEmbeddedCandidates("a11y.viewId", n.getViewIdResourceName());
+        if (Build.VERSION.SDK_INT >= 33) {
+            try { stats.candidateMatches += addEmbeddedCandidates("a11y.uniqueId", n.getUniqueId()); }
+            catch (Throwable ignored) {}
+        }
+        try { stats.candidateMatches += addEmbeddedCandidates("a11y.paneTitle", String.valueOf(n.getPaneTitle())); }
+        catch (Throwable ignored) {}
+        try { stats.candidateMatches += addEmbeddedCandidates("a11y.stateDescription", String.valueOf(n.getStateDescription())); }
+        catch (Throwable ignored) {}
+        try { stats.candidateMatches += addEmbeddedCandidates("a11y.tooltipText", String.valueOf(n.getTooltipText())); }
+        catch (Throwable ignored) {}
+
+        try {
+            Bundle extras = n.getExtras();
+            if (extras != null && !extras.isEmpty()) {
+                for (String key : extras.keySet()) {
+                    if (key == null) continue;
+                    stats.extras++;
+                    stats.candidateMatches += addEmbeddedCandidates("a11y.extraKey", key);
+                    Object value;
+                    try { value = extras.get(key); }
+                    catch (Throwable t) { value = null; }
+                    if (value != null) {
+                        stats.candidateMatches += addEmbeddedCandidates("a11y.extra." + key, String.valueOf(value));
+                    }
+                }
+            }
+        } catch (Throwable ignored) {}
+
+        for (int i = 0; i < n.getChildCount(); i++) {
+            harvestAccessibilityMetadata0(n.getChild(i), stats, depth + 1);
+        }
+    }
+
+    private int addEmbeddedCandidates(String source, String raw) {
+        if (raw == null || raw.isEmpty()) return 0;
+        int count = 0;
+        Matcher uuid = UUID_FIND.matcher(raw);
+        while (uuid.find() && count < 16) {
+            LabStore.addCandidate(this, source, uuid.group());
+            count++;
+        }
+        Matcher hex = HEX32_FIND.matcher(raw);
+        while (hex.find() && count < 16) {
+            LabStore.addCandidate(this, source, hex.group());
+            count++;
+        }
+        return count;
     }
 
     private boolean isChatGptRoot(AccessibilityNodeInfo root) {
@@ -589,5 +681,11 @@ public class LabAccessibilityService extends AccessibilityService {
     private static final class MarkerCounts {
         int editable;
         int nonEditable;
+    }
+
+    private static final class MetadataStats {
+        int nodes;
+        int extras;
+        int candidateMatches;
     }
 }
