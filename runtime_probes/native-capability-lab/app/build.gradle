@@ -5,11 +5,11 @@ android {
     compileSdk 35
 
     defaultConfig {
-        applicationId 'com.openai.controlplane.capabilitylab'
+        applicationId 'com.openai.controlplane.capabilitylab.stable'
         minSdk 32
         targetSdk 35
-        versionCode 2
-        versionName '0.2-native-capability-lab'
+        versionCode 3
+        versionName '0.3-native-capability-lab-stable'
     }
 }
 
