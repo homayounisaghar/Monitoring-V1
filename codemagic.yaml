@@ -1,6 +1,6 @@
 workflows:
-  pebble-bridge-v031:
-    name: Pebble Chat Bridge v0.31 — Centered Overlay-Free Search Gesture
+  pebble-native-adapter-p1:
+    name: Pebble Native Chat Adapter P1 — APK-derived Deep Link + Conversation ID Binding
     instance_type: mac_mini_m2
     max_build_duration: 30
     environment:
@@ -14,7 +14,7 @@ workflows:
         ANDROID_PLATFORM: "35"
         ANDROID_BUILD_TOOLS: "35.0.0"
         EXPECTED_CERT_SHA256: "9aaac9cb3ff091aa5c362f0255129a97b8e3c34b8a73f520cbb6ba89ed31e5d3"
-        APK_BASENAME: "PebbleChatBridgePoC-v0.31-centered-overlay-free-search-gesture.apk"
+        APK_BASENAME: "PebbleChatBridgePoC-native-adapter-p1.apk"
     triggering:
       events:
         - push
@@ -42,7 +42,7 @@ workflows:
           grep -Fq "processSessionRecovery" ci/src/app/src/main/java/com/pebblebridge/poc/NativeProbeAccessibilityService.java
           grep -Fq "versionCode 19" ci/src/app/build.gradle
 
-      - name: Apply v0.31 centered Search gesture patch
+      - name: Apply legacy safety lineage then native-adapter P1
         script: |
           #!/usr/bin/env bash
           set -euo pipefail
@@ -51,15 +51,19 @@ workflows:
           python3 build_tools/apply_v029_diagnostic.py ci/src
           python3 build_tools/apply_v030_calibrated_gesture.py ci/src
           python3 build_tools/apply_v031_centered_gesture.py ci/src
+          python3 build_tools/apply_v032_native_adapter_p1.py ci/src
           JAVA=ci/src/app/src/main/java/com/pebblebridge/poc/NativeProbeAccessibilityService.java
-          grep -Fq "PEBBLE_V020_UNLABELED_TOP_LEFT_NAV_FALLBACK" "$JAVA"
-          grep -Fq "PEBBLE_V028_RESTORE_AFTER_EXTERNAL_SEARCH_LAUNCH" "$JAVA"
-          grep -Fq "PEBBLE_V031_OVERLAY_FREE_CENTERED_SEARCH_GESTURE" "$JAVA"
-          grep -Fq "PEBBLE_V031_SCREENSHOT_RECALIBRATION" "$JAVA"
-          grep -Fq "dispatchRecoverySearchTap" "$JAVA"
-          grep -Fq "gesture-v031" "$JAVA"
-          grep -Fq "PEBBLE_V024_DETERMINISTIC_RETURN" "$JAVA"
-          grep -Fq "versionCode 31" ci/src/app/build.gradle
+          ACT=ci/src/app/src/main/java/com/pebblebridge/poc/NativeAdapterProofActivity.java
+          LIS=ci/src/app/src/main/java/com/pebblebridge/poc/NativeAdapterNotificationListenerService.java
+          MAN=ci/src/app/src/main/AndroidManifest.xml
+          grep -Fq "NATIVE_ADAPTER_P1_READ_ONLY_RECEIPT_OBSERVER" "$JAVA"
+          grep -Fq "ChatGptDeeplinkActivity" "$ACT"
+          grep -Fq "autosend" "$ACT"
+          grep -Fq "StatusBarNotification" "$LIS"
+          grep -Fq "getTag()" "$LIS"
+          grep -Fq "NativeAdapterNotificationListenerService" "$MAN"
+          grep -Fq "versionCode 32" ci/src/app/build.gradle
+          grep -Fq "0.32-native-adapter-p1" ci/src/app/build.gradle
 
       - name: Build unsigned Android release
         script: |
@@ -77,14 +81,14 @@ workflows:
             "/tmp/gradle-${GRADLE_VERSION}/bin/gradle" --no-daemon :app:assembleRelease --stacktrace
           } 2>&1 | tee ci/full-build.log
           rc=${PIPESTATUS[0]}
-          if [ "$rc" -ne 0 ]; then tail -n 180 ci/full-build.log; exit "$rc"; fi
-          cp ci/src/app/build/outputs/apk/release/app-release-unsigned.apk ci/out/PebbleChatBridgePoC-v0.31-unsigned.apk
+          if [ "$rc" -ne 0 ]; then tail -n 220 ci/full-build.log; exit "$rc"; fi
+          cp ci/src/app/build/outputs/apk/release/app-release-unsigned.apk ci/out/PebbleChatBridgePoC-native-adapter-p1-unsigned.apk
 
       - name: Sign verify and prepare handoff
         script: |
           #!/usr/bin/env bash
           set -euo pipefail
-          unsigned="ci/out/PebbleChatBridgePoC-v0.31-unsigned.apk"
+          unsigned="ci/out/PebbleChatBridgePoC-native-adapter-p1-unsigned.apk"
           signed="ci/out/${APK_BASENAME}"
           apksigner_path="$(find "$ANDROID_SDK_ROOT/build-tools" -type f -name apksigner 2>/dev/null | sort | tail -n 1)"
           test -n "$apksigner_path"
@@ -99,6 +103,9 @@ workflows:
           test "$actual_cert" = "$EXPECTED_CERT_SHA256"
           printf 'certificate_sha256=%s\n' "$actual_cert" > ci/certificate.txt
           shasum -a 256 "$signed" | tee ci/APK_SHA256.txt
+          cp ci/src/app/src/main/AndroidManifest.xml ci/delivery/AndroidManifest.xml.txt
+          cp ci/src/app/src/main/java/com/pebblebridge/poc/NativeAdapterProofActivity.java ci/delivery/NativeAdapterProofActivity.java.txt
+          cp ci/src/app/src/main/java/com/pebblebridge/poc/NativeAdapterNotificationListenerService.java ci/delivery/NativeAdapterNotificationListenerService.java.txt
           cp ci/src/app/src/main/java/com/pebblebridge/poc/NativeProbeAccessibilityService.java ci/delivery/NativeProbeAccessibilityService.java.txt
 
     artifacts:
@@ -106,11 +113,14 @@ workflows:
       - ci/APK_SHA256.txt
       - ci/certificate.txt
       - ci/apksigner-verify.txt
+      - ci/delivery/AndroidManifest.xml.txt
+      - ci/delivery/NativeAdapterProofActivity.java.txt
+      - ci/delivery/NativeAdapterNotificationListenerService.java.txt
       - ci/delivery/NativeProbeAccessibilityService.java.txt
 
     publishing:
       scripts:
-        - name: Publish v0.31 release and latest pointer
+        - name: Publish native-adapter P1 release and latest pointer
           script: |
             #!/usr/bin/env bash
             set -euo pipefail
@@ -122,12 +132,12 @@ workflows:
             AUTH="Authorization: Bearer $GITHUB_TOKEN"
             ACCEPT="Accept: application/vnd.github+json"
             SHORT_COMMIT="$(printf '%s' "${CM_COMMIT:-unknown}" | cut -c1-12)"
-            TAG="pebble-v0.31-$SHORT_COMMIT"
-            APK_NAME="pebble-chat-bridge-v031-$SHORT_COMMIT.apk"
+            TAG="pebble-native-p1-$SHORT_COMMIT"
+            APK_NAME="pebble-chat-bridge-native-p1-$SHORT_COMMIT.apk"
             release_json=$(curl -fsS -H "$AUTH" -H "$ACCEPT" "$API/releases/tags/$TAG" 2>/dev/null || true)
             release_id=$(printf '%s' "$release_json" | jq -r '.id // empty')
             if [ -z "$release_id" ]; then
-              body=$(jq -n --arg tag "$TAG" --arg target "${CM_COMMIT:-}" --arg name "Pebble Chat Bridge v0.31 $SHORT_COMMIT" '{tag_name:$tag,target_commitish:$target,name:$name,body:"v0.31 applies the second real-device Search calibration from the v0.30 screenshot. The tap remains drawer/header-relative, shifts only the measured horizontal residual, suppresses the diagnostic overlay during the gesture, and still requires a verified ChatGPT Search EditText before any query or continuation can proceed.",draft:false,prerelease:true}')
+              body=$(jq -n --arg tag "$TAG" --arg target "${CM_COMMIT:-}" --arg name "Pebble Native Chat Adapter P1 $SHORT_COMMIT" '{tag_name:$tag,target_commitish:$target,name:$name,body:"First APK-derived native-adapter runtime proof. Uses the official ChatGPT exported deeplink activity for new-chat autosend and exact /c/<conversationId> reopening, captures the candidate conversationId read-only from ChatGPT StatusBarNotification.tag, and uses the existing Accessibility service only as a read-only unique-marker verifier. No Search drawer, coordinate tap, or write-side Accessibility action is part of this proof path.",draft:false,prerelease:true}')
               release_json=$(curl -fsS -X POST -H "$AUTH" -H "$ACCEPT" -H 'Content-Type: application/json' --data-binary "$body" "$API/releases")
               release_id=$(printf '%s' "$release_json" | jq -r '.id')
             fi
@@ -136,7 +146,7 @@ workflows:
             asset_url=$(printf '%s' "$asset_json" | jq -r '.browser_download_url // empty')
             apk_sha=$(awk '{print $1}' "$CM_BUILD_DIR/ci/APK_SHA256.txt")
             cert=$(sed -n 's/^certificate_sha256=//p' "$CM_BUILD_DIR/ci/certificate.txt" | head -1)
-            pointer=$(jq -n --arg event pebble_apk_delivery --arg version 0.31 --arg status SUCCESS --arg buildId "${CM_BUILD_ID:-}" --arg commit "${CM_COMMIT:-}" --arg releaseUrl "$release_url" --arg releaseAssetUrl "$asset_url" --arg sha256 "$apk_sha" --arg signingFingerprint "$cert" '{event:$event,version:$version,status:$status,buildId:$buildId,commit:$commit,releaseUrl:$releaseUrl,releaseAssetUrl:$releaseAssetUrl,sha256:$sha256,signingFingerprint:$signingFingerprint}')
+            pointer=$(jq -n --arg event pebble_apk_delivery --arg version native-adapter-p1 --arg status SUCCESS --arg buildId "${CM_BUILD_ID:-}" --arg commit "${CM_COMMIT:-}" --arg releaseUrl "$release_url" --arg releaseAssetUrl "$asset_url" --arg sha256 "$apk_sha" --arg signingFingerprint "$cert" '{event:$event,version:$version,status:$status,buildId:$buildId,commit:$commit,releaseUrl:$releaseUrl,releaseAssetUrl:$releaseAssetUrl,sha256:$sha256,signingFingerprint:$signingFingerprint}')
             printf '%s\n' "$pointer" > ci/latest-pebble-build.json
 
             put_content() {
@@ -145,11 +155,14 @@ workflows:
               sha=$(printf '%s' "$current" | jq -r '.sha // empty')
               content=$(base64 < "$local_file" | tr -d '\n')
               if [ -n "$sha" ]; then
-                payload=$(jq -n --arg message "ci: update $path for v0.31" --arg content "$content" --arg branch "$DELIVERY_BRANCH" --arg sha "$sha" '{message:$message,content:$content,branch:$branch,sha:$sha}')
+                payload=$(jq -n --arg message "ci: update $path for native-adapter-p1" --arg content "$content" --arg branch "$DELIVERY_BRANCH" --arg sha "$sha" '{message:$message,content:$content,branch:$branch,sha:$sha}')
               else
-                payload=$(jq -n --arg message "ci: create $path for v0.31" --arg content "$content" --arg branch "$DELIVERY_BRANCH" '{message:$message,content:$content,branch:$branch}')
+                payload=$(jq -n --arg message "ci: create $path for native-adapter-p1" --arg content "$content" --arg branch "$DELIVERY_BRANCH" '{message:$message,content:$content,branch:$branch}')
               fi
               curl -fsS -X PUT -H "$AUTH" -H "$ACCEPT" -H 'Content-Type: application/json' --data-binary "$payload" "$API/contents/$path" >/dev/null
             }
             put_content ".ci/latest-pebble-build.json" "ci/latest-pebble-build.json"
+            put_content ".ci/latest-native-adapter.AndroidManifest.xml.txt" "ci/delivery/AndroidManifest.xml.txt"
+            put_content ".ci/latest-native-adapter.NativeAdapterProofActivity.java.txt" "ci/delivery/NativeAdapterProofActivity.java.txt"
+            put_content ".ci/latest-native-adapter.NativeAdapterNotificationListenerService.java.txt" "ci/delivery/NativeAdapterNotificationListenerService.java.txt"
             put_content ".ci/latest-pebble.NativeProbeAccessibilityService.java.txt" "ci/delivery/NativeProbeAccessibilityService.java.txt"
