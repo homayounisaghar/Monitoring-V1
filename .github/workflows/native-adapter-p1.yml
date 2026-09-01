@@ -8,6 +8,7 @@ on:
       - '.github/workflows/native-adapter-p1.yml'
       - 'build_tools/apply_v032_native_adapter_p1.py'
       - 'build_tools/apply_v032a_notification_access_fix.py'
+      - 'build_tools/apply_v032b_side_by_side_permission_fix.py'
       - 'build_tools/NATIVE_ADAPTER_P1_GHA_TRIGGER.txt'
   workflow_dispatch:
 
@@ -48,6 +49,7 @@ jobs:
           python3 build_tools/apply_v031_centered_gesture.py ci/src
           python3 build_tools/apply_v032_native_adapter_p1.py ci/src
           python3 build_tools/apply_v032a_notification_access_fix.py ci/src
+          python3 build_tools/apply_v032b_side_by_side_permission_fix.py ci/src
           python3 - <<'PY'
           import re
           from pathlib import Path
@@ -61,7 +63,8 @@ jobs:
           grep -Fq 'applicationId "com.pebblebridge.poc.nativep1"' ci/src/app/build.gradle
           grep -Fq 'versionCode 32' ci/src/app/build.gradle
           grep -Fq 'ChatGptDeeplinkActivity' ci/src/app/src/main/java/com/pebblebridge/poc/NativeAdapterProofActivity.java
-          grep -Fq 'ENABLED_NOTIFICATION_LISTENERS' ci/src/app/src/main/java/com/pebblebridge/poc/NativeAdapterProofActivity.java
+          grep -Fq '"enabled_notification_listeners"' ci/src/app/src/main/java/com/pebblebridge/poc/NativeAdapterProofActivity.java
+          grep -Fq 'flattenToString()' ci/src/app/src/main/java/com/pebblebridge/poc/NativeAdapterProofActivity.java
           grep -Fq 'StatusBarNotification' ci/src/app/src/main/java/com/pebblebridge/poc/NativeAdapterNotificationListenerService.java
 
       - name: Set up Java
