@@ -79,6 +79,7 @@ public class LabNotificationService extends NotificationListenerService {
         LabNotificationService s = INSTANCE;
         if (s == null) return;
         s.tryChannelSnapshot();
+        LabShortcutReadSide.snapshot(s);
     }
 
     private void snapshotNow(String label) {
