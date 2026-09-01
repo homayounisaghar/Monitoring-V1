@@ -74,7 +74,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          yes | sdkmanager "platforms;android-35" "build-tools;35.0.0"
+          sdkmanager "platforms;android-35" "build-tools;35.0.0"
           echo "sdk.dir=$ANDROID_SDK_ROOT" > ci/src/local.properties
 
       - name: Build debug APK
