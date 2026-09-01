@@ -8,6 +8,7 @@ on:
       - '.github/workflows/native-adapter-p1h.yml'
       - 'build_tools/apply_v041_native_adapter_p1h_notification_binding.py'
       - 'build_tools/apply_v041a_p1h_remove_legacy_autosend.py'
+      - 'build_tools/apply_v041b_p1h_dedupe_semantic_confirm.py'
   workflow_dispatch:
 
 permissions:
@@ -60,6 +61,7 @@ jobs:
           python3 build_tools/apply_v040_native_adapter_p1g_semantic_parent_send.py ci/src
           python3 build_tools/apply_v041_native_adapter_p1h_notification_binding.py ci/src
           python3 build_tools/apply_v041a_p1h_remove_legacy_autosend.py ci/src
+          python3 build_tools/apply_v041b_p1h_dedupe_semantic_confirm.py ci/src
 
           python3 - <<'PY'
           import re
@@ -90,7 +92,8 @@ jobs:
           ! grep -Fq 'appendQueryParameter("autosend"' "$ACT"
           grep -Fq 'appendQueryParameter("prompt", prompt)' "$ACT"
           grep -Fq '.putString("state", WAITING_NOTIFICATION)' "$STORE"
-          grep -Fq 'semanticSendConfirmed' "$STORE"
+          test "$(grep -Fc 'public static boolean semanticSendConfirmed(Context c)' "$STORE")" = "1"
+          grep -Fq '.putBoolean("semanticSendConfirmed", true)' "$STORE"
           grep -Fq 'StatusBarNotification' "$LIS"
           grep -Fq 'getTag()' "$LIS"
           grep -Fq 'captureCandidate' "$LIS"
