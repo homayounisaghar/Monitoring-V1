@@ -21,9 +21,11 @@ import org.json.JSONObject;
 
 public class MainActivity extends Activity {
     private final Handler handler = new Handler(Looper.getMainLooper());
+    private TextView runBanner;
     private TextView status;
     private TextView report;
     private Button runButton;
+    private Button copyButton;
     private volatile boolean starting;
 
     private final Runnable refresh = new Runnable() {
@@ -69,8 +71,14 @@ public class MainActivity extends Activity {
         TextView desc = new TextView(this);
         desc.setText("Unified on-device capability test harness. It replaces the old one-hypothesis/one-APK loop. The Lab fails closed on the exact official ChatGPT build, downloads only an allowlisted test plan from the project repo, executes bounded Android/Accessibility/Notification primitives, branches locally, and emits one final report.\n\nThe current default suite creates and sends ONE synthetic disposable ChatGPT test message while proving the remaining conversationId read side. No ChatGPT credentials/private APIs and no coordinate writes are used.");
         desc.setTextSize(15f);
-        desc.setPadding(0, dp(10), 0, dp(14));
+        desc.setPadding(0, dp(10), 0, dp(12));
         root.addView(desc);
+
+        runBanner = new TextView(this);
+        runBanner.setTextSize(20f);
+        runBanner.setTypeface(Typeface.DEFAULT_BOLD);
+        runBanner.setPadding(dp(12), dp(14), dp(12), dp(14));
+        root.addView(runBanner);
 
         root.addView(button("Open Accessibility settings", v -> startActivity(new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))));
         root.addView(button("Open Notification Access settings", v -> {
@@ -85,7 +93,8 @@ public class MainActivity extends Activity {
             LabStore.resetRun(this);
             refreshUi();
         }));
-        root.addView(button("Copy final/current report", v -> copyReport()));
+        copyButton = button("COPY FINAL REPORT", v -> copyReport());
+        root.addView(copyButton);
 
         status = new TextView(this);
         status.setTextSize(13.5f);
@@ -124,6 +133,11 @@ public class MainActivity extends Activity {
 
     private void startSuite() {
         if (starting || "RUNNING".equals(LabStore.status(this))) return;
+        if (!"IDLE".equals(LabStore.status(this))) {
+            LabStore.append(this, "PRECONDITION_FAIL reset finished run before starting a new run");
+            refreshUi();
+            return;
+        }
         if (!ProfileGuard.isExact(this)) {
             LabStore.append(this, "PRECONDITION_FAIL exact ChatGPT profile mismatch");
             refreshUi();
@@ -184,7 +198,31 @@ public class MainActivity extends Activity {
         boolean nGrant = settingContains("enabled_notification_listeners", getPackageName());
         boolean aLive = LabAccessibilityService.isLive() && LabStore.accessibilityConnected(this);
         boolean nLive = LabNotificationService.isLive() && LabStore.notificationConnected(this);
-        boolean running = "RUNNING".equals(LabStore.status(this));
+        String runState = LabStore.state(this);
+        String runStatus = LabStore.status(this);
+        boolean running = "RUNNING".equals(runStatus);
+        boolean finished = "FINISHED".equals(runState);
+        boolean idle = "IDLE".equals(runStatus);
+
+        if (runBanner != null) {
+            if (!exact) {
+                runBanner.setText("BLOCKED — ChatGPT build mismatch");
+            } else if (!aLive || !nLive) {
+                runBanner.setText("SETUP REQUIRED — enable both Lab services");
+            } else if (starting) {
+                runBanner.setText("STARTING TEST…");
+            } else if (running) {
+                runBanner.setText("TEST RUNNING — step " + LabStore.step(this) + "\nDo not operate ChatGPT until this changes.");
+            } else if (finished && runStatus.startsWith("PASS")) {
+                runBanner.setText("✓ TEST COMPLETE — PASS\nTap COPY FINAL REPORT.");
+            } else if (finished && runStatus.startsWith("INCONCLUSIVE")) {
+                runBanner.setText("TEST COMPLETE — INCONCLUSIVE\nTap COPY FINAL REPORT.");
+            } else if (finished) {
+                runBanner.setText("TEST COMPLETE — " + runStatus + "\nTap COPY FINAL REPORT.");
+            } else {
+                runBanner.setText("READY TO RUN");
+            }
+        }
 
         StringBuilder b = new StringBuilder();
         b.append("Expected ChatGPT: ").append(ProfileGuard.EXPECTED_VERSION).append('\n');
@@ -196,13 +234,15 @@ public class MainActivity extends Activity {
         b.append("Run: ").append(LabStore.compactSummary(this)).append('\n');
         if (!exact) b.append("\nBLOCKED: exact official ChatGPT profile is required.\n");
         else if (!aLive || !nLive) b.append("\nSETUP: grant both services and return here. The RUN button stays fail-closed until both callbacks are live.\n");
-        else if (!running && !starting) b.append("\nREADY: one tap runs the current suite autonomously. Do not manually operate ChatGPT while a run is active.\n");
-        else b.append("\nRUNNING: allow the Lab to navigate ChatGPT and return itself here. No intermediate screenshots are required.\n");
+        else if (running || starting) b.append("\nRUNNING: allow the Lab to navigate ChatGPT and return itself here. No intermediate screenshots are required.\n");
+        else if (finished) b.append("\nFINISHED: use the large completion banner above and tap COPY FINAL REPORT. Reset only before a deliberate new run.\n");
+        else b.append("\nREADY: one tap runs the current suite autonomously. Do not manually operate ChatGPT while a run is active.\n");
         status.setText(b.toString());
 
         String r = LabStore.report(this);
         report.setText(tail(r, 50000));
-        if (runButton != null) runButton.setEnabled(exact && aLive && nLive && !running && !starting);
+        if (runButton != null) runButton.setEnabled(exact && aLive && nLive && idle && !starting);
+        if (copyButton != null) copyButton.setEnabled(finished);
     }
 
     private boolean settingContains(String key, String token) {
