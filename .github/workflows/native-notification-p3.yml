@@ -1,0 +1,107 @@
+name: Notification Read-Side Probe P3
+
+on:
+  push:
+    branches:
+      - build/pebble-chat-bridge-v019
+    paths:
+      - '.github/workflows/native-notification-p3.yml'
+      - 'runtime_probes/native-notification-p3/**'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: build/pebble-chat-bridge-v019
+
+      - name: P3 read-only safety and metadata prechecks
+        run: |
+          set -euo pipefail
+          ROOT=runtime_probes/native-notification-p3
+          ACT="$ROOT/app/src/main/java/com/openai/controlplane/notificationprobe/MainActivity.java"
+          SVC="$ROOT/app/src/main/java/com/openai/controlplane/notificationprobe/NotificationProbeService.java"
+          MAN="$ROOT/app/src/main/AndroidManifest.xml"
+          GRADLE="$ROOT/app/build.gradle"
+
+          grep -Fq 'EXPECTED_VERSION = "1.2026.237"' "$ACT"
+          grep -Fq 'EXPECTED_VERSION = "1.2026.237"' "$SVC"
+          grep -Fq 'NotificationListenerService.requestRebind' "$ACT"
+          grep -Fq 'onListenerConnected' "$SVC"
+          grep -Fq 'getActiveNotifications()' "$SVC"
+          grep -Fq 'getCurrentRanking()' "$SVC"
+          grep -Fq 'getConversationShortcutInfo()' "$SVC"
+          grep -Fq 'getConversationId()' "$SVC"
+          grep -Fq 'getLocusId()' "$SVC"
+          grep -Fq 'interestingExtras' "$SVC"
+          grep -Fq 'tagPrefixBeforeDot' "$SVC"
+          grep -Fq 'android.permission.BIND_NOTIFICATION_LISTENER_SERVICE' "$MAN"
+          grep -Fq 'android.service.notification.NotificationListenerService' "$MAN"
+          grep -Fq "applicationId 'com.openai.controlplane.notificationprobe'" "$GRADLE"
+          grep -Fq "versionName '0.1-native-notification-p3'" "$GRADLE"
+
+          ! grep -Fq 'android.permission.INTERNET' "$MAN"
+          ! grep -Fq 'android.permission.BIND_ACCESSIBILITY_SERVICE' "$MAN"
+          ! grep -Eqi 'backend-api|Authorization:|access[_-]?token|refresh[_-]?token|performAction|dispatchGesture|AccessibilityService|ACTION_SEND|ACTION_SEND_MULTIPLE|autosend' "$ACT" "$SVC" "$MAN"
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK
+        run: |
+          set -euo pipefail
+          sdkmanager "platforms;android-35" "build-tools;35.0.0"
+          echo "sdk.dir=$ANDROID_SDK_ROOT" > runtime_probes/native-notification-p3/local.properties
+
+      - name: Build P3 APK
+        run: |
+          set -euo pipefail
+          curl -fsSL https://services.gradle.org/distributions/gradle-8.10.2-bin.zip -o /tmp/gradle.zip
+          unzip -q /tmp/gradle.zip -d /tmp
+          cd runtime_probes/native-notification-p3
+          /tmp/gradle-8.10.2/bin/gradle --no-daemon :app:assembleDebug --stacktrace
+          mkdir -p ../../ci/out
+          cp app/build/outputs/apk/debug/app-debug.apk ../../ci/out/native-notification-p3.apk
+
+      - name: Verify APK and checksum
+        run: |
+          set -euo pipefail
+          APKSIGNER=$(find "$ANDROID_SDK_ROOT/build-tools" -type f -name apksigner | sort | tail -n 1)
+          "$APKSIGNER" verify --verbose --print-certs ci/out/native-notification-p3.apk | tee ci/out/native-notification-p3-apksigner.txt
+          sha256sum ci/out/native-notification-p3.apk | tee ci/out/native-notification-p3-SHA256.txt
+          "$ANDROID_SDK_ROOT/build-tools/35.0.0/aapt" dump badging ci/out/native-notification-p3.apk | head -n 20 | tee ci/out/native-notification-p3-badging.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: native-notification-p3
+          path: |
+            ci/out/native-notification-p3.apk
+            ci/out/native-notification-p3-SHA256.txt
+            ci/out/native-notification-p3-apksigner.txt
+            ci/out/native-notification-p3-badging.txt
+
+      - name: Publish prerelease
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          SHORT=$(printf '%s' "$GITHUB_SHA" | cut -c1-12)
+          TAG="native-notification-p3-gha-$SHORT"
+          gh release create "$TAG" \
+            ci/out/native-notification-p3.apk#native-notification-p3.apk \
+            ci/out/native-notification-p3-SHA256.txt#SHA256.txt \
+            --target "$GITHUB_SHA" \
+            --title "Notification Read-Side Probe P3 $SHORT" \
+            --notes "Passive read-only diagnostic for exact ChatGPT 1.2026.237. It verifies the Android NotificationListenerService connection callback and records ChatGPT notification tag/key/channel/shortcut/locus/ranking/conversation-channel metadata plus selected ID-like extras. It has no INTERNET permission, no Accessibility service, performs no ChatGPT Send and no private backend request." \
+            --prerelease
