@@ -1,4 +1,4 @@
-name: Native Adapter P1b Semantic Send APK
+name: Native Adapter P1c Accessibility Diagnostic APK
 
 on:
   push:
@@ -12,6 +12,7 @@ on:
       - 'build_tools/apply_v033_native_adapter_p1a_autosend.py'
       - 'build_tools/apply_v034_native_adapter_p1b_semantic_send.py'
       - 'build_tools/apply_v034b_native_adapter_p1b_pending_safety.py'
+      - 'build_tools/apply_v035_native_adapter_p1c_accessibility_dump.py'
       - 'build_tools/NATIVE_ADAPTER_P1_GHA_TRIGGER.txt'
   workflow_dispatch:
 
@@ -41,7 +42,7 @@ jobs:
           test "$(sha256sum ci/source.tgz | awk '{print $1}')" = "c7485116b17dfe4f2aa9f61469ab01e1596efccdf0d43f3d7b560d3c474e6196"
           tar -xzf ci/source.tgz -C ci/src
 
-      - name: Apply Native Adapter P1b
+      - name: Apply Native Adapter P1c
         shell: bash
         run: |
           set -euo pipefail
@@ -56,34 +57,40 @@ jobs:
           python3 build_tools/apply_v033_native_adapter_p1a_autosend.py ci/src
           python3 build_tools/apply_v034_native_adapter_p1b_semantic_send.py ci/src
           python3 build_tools/apply_v034b_native_adapter_p1b_pending_safety.py ci/src
+          python3 build_tools/apply_v035_native_adapter_p1c_accessibility_dump.py ci/src
           python3 - <<'PY'
           import re
           from pathlib import Path
           p = Path('ci/src/app/build.gradle')
           s = p.read_text()
-          s, n = re.subn(r'applicationId\s+["\']com\.pebblebridge\.poc["\']', 'applicationId "com.pebblebridge.poc.nativep1b"', s, count=1)
+          s, n = re.subn(r'applicationId\s+["\']com\.pebblebridge\.poc["\']', 'applicationId "com.pebblebridge.poc.nativep1c"', s, count=1)
           if n != 1:
-              raise SystemExit('Could not retarget applicationId for P1b side-by-side proof')
+              raise SystemExit('Could not retarget applicationId for P1c side-by-side diagnostic')
           p.write_text(s)
           PY
           ACT=ci/src/app/src/main/java/com/pebblebridge/poc/NativeAdapterProofActivity.java
           SVC=ci/src/app/src/main/java/com/pebblebridge/poc/NativeProbeAccessibilityService.java
           STORE=ci/src/app/src/main/java/com/pebblebridge/poc/NativeAdapterProofStore.java
-          grep -Fq 'applicationId "com.pebblebridge.poc.nativep1b"' ci/src/app/build.gradle
-          grep -Fq 'versionCode 34' ci/src/app/build.gradle
-          grep -Fq 'versionName "0.34-native-adapter-p1b"' ci/src/app/build.gradle
-          grep -Fq 'Native Chat Adapter P1b' "$ACT"
-          grep -Fq 'Start P1b semantic Send proof' "$ACT"
-          grep -Fq 'ChatGptDeeplinkActivity' "$ACT"
-          if grep -Fq 'appendQueryParameter("autosend"' "$ACT"; then
-            echo 'P1b must not use external autosend' >&2
-            exit 1
-          fi
-          grep -Fq 'NATIVE_ADAPTER_P1B_STRICT_SEMANTIC_SEND' "$SVC"
-          grep -Fq '"send message".equals' "$SVC"
-          grep -Fq 'exactSend.performAction(AccessibilityNodeInfo.ACTION_CLICK)' "$SVC"
-          grep -Fq 'WAITING_SEMANTIC_SEND.equals(s)' "$STORE"
-          grep -Fq 'SEND_DISPATCHED.equals(s)' "$STORE"
+          grep -Fq 'applicationId "com.pebblebridge.poc.nativep1c"' ci/src/app/build.gradle
+          grep -Fq 'versionCode 35' ci/src/app/build.gradle
+          grep -Fq 'versionName "0.35-native-adapter-p1c"' ci/src/app/build.gradle
+          grep -Fq 'Native Chat Adapter P1c' "$ACT"
+          grep -Fq 'Start P1c read-only diagnostic' "$ACT"
+          grep -Fq 'markWaitingAccessibilityDump' "$ACT"
+          grep -Fq 'NATIVE_ADAPTER_P1C_READ_ONLY_ACCESSIBILITY_DUMP' "$SVC"
+          grep -Fq 'observeNativeAdapterP1cAccessibilityDump' "$SVC"
+          grep -Fq 'ACCESSIBILITY_DUMP_CAPTURED' "$STORE"
+          grep -Fq 'WAITING_ACCESSIBILITY_DUMP.equals(s)' "$STORE"
+          python3 - <<'PY'
+          from pathlib import Path
+          s = Path('ci/src/app/src/main/java/com/pebblebridge/poc/NativeProbeAccessibilityService.java').read_text()
+          a = s.index('    private void observeNativeAdapterP1cAccessibilityDump(')
+          b = s.index('    private void observeNativeAdapterSemanticSend(', a)
+          diag = s[a:b]
+          for forbidden in ('performAction', 'dispatchGesture', 'GLOBAL_ACTION'):
+              if forbidden in diag:
+                  raise SystemExit('P1c diagnostic contains forbidden write action: ' + forbidden)
+          PY
 
       - name: Set up Java
         uses: actions/setup-java@v4
@@ -109,22 +116,22 @@ jobs:
           unzip -q /tmp/gradle.zip -d /tmp
           cd ci/src
           /tmp/gradle-8.10.2/bin/gradle --no-daemon :app:assembleDebug --stacktrace
-          cp app/build/outputs/apk/debug/app-debug.apk ../out/native-adapter-p1b-semantic-send.apk
+          cp app/build/outputs/apk/debug/app-debug.apk ../out/native-adapter-p1c-accessibility-dump.apk
 
       - name: Verify and checksum
         shell: bash
         run: |
           set -euo pipefail
           APKSIGNER=$(find "$ANDROID_SDK_ROOT/build-tools" -type f -name apksigner | sort | tail -n 1)
-          "$APKSIGNER" verify --verbose --print-certs ci/out/native-adapter-p1b-semantic-send.apk | tee ci/out/apksigner.txt
-          sha256sum ci/out/native-adapter-p1b-semantic-send.apk | tee ci/out/SHA256.txt
+          "$APKSIGNER" verify --verbose --print-certs ci/out/native-adapter-p1c-accessibility-dump.apk | tee ci/out/apksigner.txt
+          sha256sum ci/out/native-adapter-p1c-accessibility-dump.apk | tee ci/out/SHA256.txt
 
       - name: Upload workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: native-adapter-p1b-semantic-send
+          name: native-adapter-p1c-accessibility-dump
           path: |
-            ci/out/native-adapter-p1b-semantic-send.apk
+            ci/out/native-adapter-p1c-accessibility-dump.apk
             ci/out/SHA256.txt
             ci/out/apksigner.txt
 
@@ -136,11 +143,11 @@ jobs:
         run: |
           set -euo pipefail
           SHORT=$(printf '%s' "$GITHUB_SHA" | cut -c1-12)
-          TAG="native-adapter-p1b-gha-$SHORT"
+          TAG="native-adapter-p1c-gha-$SHORT"
           gh release create "$TAG" \
-            ci/out/native-adapter-p1b-semantic-send.apk#native-adapter-p1b-semantic-send.apk \
+            ci/out/native-adapter-p1c-accessibility-dump.apk#native-adapter-p1c-accessibility-dump.apk \
             ci/out/SHA256.txt#SHA256.txt \
             --target "$GITHUB_SHA" \
-            --title "Native Adapter P1b Semantic Send $SHORT" \
-            --notes "Strict semantic-submit proof for ChatGPT Android 1.2026.237. Deep link opens the official app and injects the unique draft marker. The Accessibility service may invoke ACTION_CLICK only on the exact APK-derived semantic Send message node after the marker is observed in the editable composer. There is no coordinate tap, gesture dispatch, Search recovery, ancestor guessing, or external autosend dependency in the P1b submit path. Return to the companion manually to inspect PASS/FAIL." \
+            --title "Native Adapter P1c Accessibility Diagnostic $SHORT" \
+            --notes "Read-only diagnostic for ChatGPT Android 1.2026.237. The proven deep link opens a new chat and injects a unique draft marker. Once the marker is visible in an editable node, P1c snapshots the composer Accessibility subtree including labels, IDs, actions, structure and diagnostic bounds, persists the snapshot, and returns to the companion. P1c performs no Send/click/gesture/global action on any ChatGPT node." \
             --prerelease
