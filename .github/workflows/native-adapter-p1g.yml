@@ -1,0 +1,167 @@
+name: Native Adapter P1g Semantic Parent Send APK
+
+on:
+  push:
+    branches:
+      - build/pebble-chat-bridge-v019
+    paths:
+      - '.github/workflows/native-adapter-p1g.yml'
+      - 'build_tools/apply_v040_native_adapter_p1g_semantic_parent_send.py'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Reassemble baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p ci/src ci/out
+          cat v019_parts/part00.txt v019_parts/part01.txt v019_parts/part02.txt v019_parts/part03.txt > ci/source.tgz.b64
+          test "$(sha256sum ci/source.tgz.b64 | awk '{print $1}')" = "76dfce144dd4e8126fdfb356e6fb3a6627f5bd629cf741798703847ec38d623a"
+          python3 - <<'PY'
+          import base64
+          from pathlib import Path
+          Path('ci/source.tgz').write_bytes(base64.b64decode(Path('ci/source.tgz.b64').read_bytes()))
+          PY
+          test "$(sha256sum ci/source.tgz | awk '{print $1}')" = "c7485116b17dfe4f2aa9f61469ab01e1596efccdf0d43f3d7b560d3c474e6196"
+          tar -xzf ci/source.tgz -C ci/src
+
+      - name: Apply P1g bounded semantic-parent proof
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 build_tools/apply_v027.py ci/src
+          python3 build_tools/apply_v028_incremental.py ci/src
+          python3 build_tools/apply_v029_diagnostic.py ci/src
+          python3 build_tools/apply_v030_calibrated_gesture.py ci/src
+          python3 build_tools/apply_v031_centered_gesture.py ci/src
+          python3 build_tools/apply_v032_native_adapter_p1.py ci/src
+          python3 build_tools/apply_v032a_notification_access_fix.py ci/src
+          python3 build_tools/apply_v032b_side_by_side_permission_fix.py ci/src
+          python3 build_tools/apply_v033_native_adapter_p1a_autosend.py ci/src
+          python3 build_tools/apply_v034_native_adapter_p1b_semantic_send.py ci/src
+          python3 build_tools/apply_v034b_native_adapter_p1b_pending_safety.py ci/src
+          python3 build_tools/apply_v035_native_adapter_p1c_accessibility_dump.py ci/src
+          python3 build_tools/apply_v036_native_adapter_p1c2_stabilized_dump.py ci/src
+          python3 build_tools/apply_v037_native_adapter_p1d_ime_submit.py ci/src
+          python3 build_tools/apply_v037b_native_adapter_p1d_status_cleanup.py ci/src
+          python3 build_tools/apply_v038_native_adapter_p1e_manual_send_trace.py ci/src
+          python3 build_tools/apply_v039_native_adapter_p1f_export_trace.py ci/src
+          python3 build_tools/apply_v040_native_adapter_p1g_semantic_parent_send.py ci/src
+          python3 - <<'PY'
+          import re
+          from pathlib import Path
+          p = Path('ci/src/app/build.gradle')
+          s = p.read_text()
+          s, n = re.subn(r'applicationId\s+["\']com\.pebblebridge\.poc["\']', 'applicationId "com.pebblebridge.poc.nativep1c"', s, count=1)
+          if n != 1:
+              raise SystemExit('Could not retarget applicationId for P1g proof package')
+          p.write_text(s)
+          PY
+          ACT=ci/src/app/src/main/java/com/pebblebridge/poc/NativeAdapterProofActivity.java
+          SVC=ci/src/app/src/main/java/com/pebblebridge/poc/NativeProbeAccessibilityService.java
+          STORE=ci/src/app/src/main/java/com/pebblebridge/poc/NativeAdapterProofStore.java
+          MAN=ci/src/app/src/main/AndroidManifest.xml
+          grep -Fq 'applicationId "com.pebblebridge.poc.nativep1c"' ci/src/app/build.gradle
+          grep -Fq 'versionCode 40' ci/src/app/build.gradle
+          grep -Fq 'versionName "0.40-native-adapter-p1g-semantic-parent-send"' ci/src/app/build.gradle
+          grep -Fq 'Native Chat Adapter P1g' "$ACT"
+          grep -Fq 'Start P1g semantic-parent Send proof' "$ACT"
+          grep -Fq 'EXPORT TRACE TXT' "$ACT"
+          grep -Fq 'WAITING_SEMANTIC_PARENT_SEND' "$STORE"
+          grep -Fq 'SEMANTIC_PARENT_SEND_CLAIMED' "$STORE"
+          grep -Fq 'NATIVE_ADAPTER_P1G_BOUNDED_SEMANTIC_PARENT_SEND' "$SVC"
+          grep -Fq 'android:label="Native Chat Adapter P1g"' "$MAN"
+          python3 - <<'PY'
+          from pathlib import Path
+          svc = Path('ci/src/app/src/main/java/com/pebblebridge/poc/NativeProbeAccessibilityService.java').read_text()
+          a = svc.index('    private void observeNativeAdapterP1gSemanticParentSend')
+          b = svc.index('    private void observeNativeAdapterP1eManualSendTrace', a)
+          proof = svc[a:b]
+          required = (
+              '"Send Message".equalsIgnoreCase',
+              'scope1 = editable.getParent()',
+              'scope1 == null ? null : scope1.getParent()',
+              'matches != 1',
+              'directParent.isClickable()',
+              'hasActionP1g(directParent, AccessibilityNodeInfo.ACTION_CLICK)',
+              'markSemanticParentSendClaimed',
+          )
+          for token in required:
+              if token not in proof:
+                  raise SystemExit('P1g missing bounded target primitive: ' + token)
+          if proof.count('performAction(AccessibilityNodeInfo.ACTION_CLICK)') != 1:
+              raise SystemExit('P1g must contain exactly one allowed ACTION_CLICK call')
+          for forbidden in ('dispatchGesture', 'performGlobalAction', 'GLOBAL_ACTION_', 'getBoundsInScreen'):
+              if forbidden in proof:
+                  raise SystemExit('P1g contains forbidden fallback primitive: ' + forbidden)
+          PY
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android platform
+        shell: bash
+        run: |
+          set -euo pipefail
+          sdkmanager "platforms;android-35" "build-tools;35.0.0"
+          echo "sdk.dir=$ANDROID_SDK_ROOT" > ci/src/local.properties
+
+      - name: Build debug APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsSL https://services.gradle.org/distributions/gradle-8.10.2-bin.zip -o /tmp/gradle.zip
+          unzip -q /tmp/gradle.zip -d /tmp
+          cd ci/src
+          /tmp/gradle-8.10.2/bin/gradle --no-daemon :app:assembleDebug --stacktrace
+          cp app/build/outputs/apk/debug/app-debug.apk ../out/native-adapter-p1g-semantic-parent-send.apk
+
+      - name: Verify and checksum
+        shell: bash
+        run: |
+          set -euo pipefail
+          APKSIGNER=$(find "$ANDROID_SDK_ROOT/build-tools" -type f -name apksigner | sort | tail -n 1)
+          "$APKSIGNER" verify --verbose --print-certs ci/out/native-adapter-p1g-semantic-parent-send.apk | tee ci/out/apksigner.txt
+          sha256sum ci/out/native-adapter-p1g-semantic-parent-send.apk | tee ci/out/SHA256.txt
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-adapter-p1g-semantic-parent-send
+          path: |
+            ci/out/native-adapter-p1g-semantic-parent-send.apk
+            ci/out/SHA256.txt
+            ci/out/apksigner.txt
+
+      - name: Publish prerelease
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          SHORT=$(printf '%s' "$GITHUB_SHA" | cut -c1-12)
+          TAG="native-adapter-p1g-gha-$SHORT"
+          gh release create "$TAG" \
+            ci/out/native-adapter-p1g-semantic-parent-send.apk#native-adapter-p1g-semantic-parent-send.apk \
+            ci/out/SHA256.txt#SHA256.txt \
+            --target "$GITHUB_SHA" \
+            --title "Native Adapter P1g Semantic Parent Send $SHORT" \
+            --notes "First automated Send proof selected directly from the P1f real-device TXT. Inside the exact marker composer's up+2 subtree, P1g requires exactly one enabled/visible Send Message semantic leaf whose DIRECT parent is enabled/visible/clickable and exposes ACTION_CLICK. It durably claims before one ACTION_CLICK, never retries a claimed write, and confirms only via the editable-marker to non-editable sent-message transition. No coordinates, gestures, Search, global actions, or fallback writes. TXT export remains available for reconciliation." \
+            --prerelease
