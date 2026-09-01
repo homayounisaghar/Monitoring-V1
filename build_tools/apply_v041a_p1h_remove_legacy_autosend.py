@@ -6,11 +6,11 @@ p = root / "app/src/main/java/com/pebblebridge/poc/NativeAdapterProofActivity.ja
 s = p.read_text()
 
 old = '                .appendQueryParameter("autosend", "true")\n'
-if old not in s:
-    raise SystemExit("P1h expected legacy autosend query line was not found")
-s = s.replace(old, "", 1)
-p.write_text(s)
+if old in s:
+    s = s.replace(old, "", 1)
+    p.write_text(s)
 
+# P1h must never depend on the rejected logged-in autosend contract.
 assert 'appendQueryParameter("autosend"' not in s
 assert 'appendQueryParameter("prompt", prompt)' in s
 assert 'Start P1h conversationId binding proof' in s
