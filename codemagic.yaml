@@ -1,5 +1,5 @@
 workflows:
-  pebble-native-adapter-p1:
+  pebble-bridge-v031:
     name: Pebble Native Chat Adapter P1 — APK-derived Deep Link + Conversation ID Binding
     instance_type: mac_mini_m2
     max_build_duration: 30
