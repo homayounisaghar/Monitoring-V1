@@ -100,6 +100,15 @@ final class LabStore {
     static void setWaitUntil(Context c, long value) { p(c).edit().putLong("waitUntil", value).apply(); }
     static void setCandidateIndex(Context c, int value) { p(c).edit().putInt("candidateIndex", value).apply(); }
 
+    static synchronized boolean advanceStepIfCurrent(Context c, int expectedStep) {
+        if (!"RUNNING".equals(status(c)) || step(c) != expectedStep) return false;
+        p(c).edit()
+                .putString("state", "RUNNING")
+                .putInt("step", expectedStep + 1)
+                .apply();
+        return true;
+    }
+
     static synchronized boolean claimWrite(Context c) {
         if (writeClaimed(c)) return false;
         p(c).edit().putBoolean("writeClaimed", true).apply();
@@ -107,12 +116,14 @@ final class LabStore {
         return true;
     }
 
-    static void markSendConfirmed(Context c) {
+    static synchronized void markSendConfirmed(Context c) {
+        if (sendConfirmed(c)) return;
         p(c).edit().putBoolean("sendConfirmed", true).apply();
         append(c, "SEND_RECEIPT editable_to_noneditable=true");
     }
 
-    static void markVerified(Context c, String id) {
+    static synchronized void markVerified(Context c, String id) {
+        if ("FINISHED".equals(state(c)) && !verifiedConversationId(c).isEmpty()) return;
         p(c).edit()
                 .putString("verifiedConversationId", id == null ? "" : id)
                 .putString("state", "FINISHED")
@@ -121,7 +132,8 @@ final class LabStore {
         append(c, "VERIFIED_CONVERSATION_ID=" + id);
     }
 
-    static void finish(Context c, String status) {
+    static synchronized void finish(Context c, String status) {
+        if ("FINISHED".equals(state(c))) return;
         p(c).edit().putString("state", "FINISHED").putString("status", status).apply();
         append(c, "FINISH status=" + status + " finishedAt=" + now());
     }
