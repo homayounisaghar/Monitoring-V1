@@ -1,0 +1,129 @@
+name: SwissTransfer APK ingest probe
+
+on:
+  push:
+    branches:
+      - build/pebble-chat-bridge-v019
+    paths:
+      - .github/workflows/swisstransfer-apk-ingest.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Download APK via SwissTransfer APIs
+        env:
+          LINK_ID: 01a05b9a-9f7f-73ef-8999-5507a44c3b73
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib, json, os, pathlib, urllib.request, urllib.error
+
+          link_id = os.environ['LINK_ID']
+          ua = 'Mozilla/5.0 (X11; Linux x86_64) ChatGPT-ControlPlane-Ingest/1.0'
+
+          def request_json(url, data=None, headers=None):
+              h = {'User-Agent': ua, 'Accept': 'application/json, text/plain, */*'}
+              if headers:
+                  h.update(headers)
+              body = None
+              if data is not None:
+                  body = json.dumps(data).encode('utf-8')
+                  h['Content-Type'] = 'application/json'
+              req = urllib.request.Request(url, data=body, headers=h, method='POST' if body is not None else 'GET')
+              with urllib.request.urlopen(req, timeout=30) as r:
+                  raw = r.read()
+              try:
+                  return json.loads(raw.decode('utf-8'))
+              except Exception:
+                  return raw.decode('utf-8').strip().strip('"')
+
+          meta_url = f'https://www.swisstransfer.com/api/links/{link_id}'
+          meta = request_json(meta_url)
+          transfer = meta.get('data', meta)
+          container = transfer.get('container') or {}
+          files = container.get('files') or []
+          if not files:
+              raise RuntimeError(f'No files found in transfer; top-level keys={list(transfer.keys())}')
+
+          print('transfer keys:', sorted(transfer.keys()))
+          print('file count:', len(files))
+          for i, f in enumerate(files):
+              print(f"file[{i}] name={f.get('fileName')} uuid={f.get('UUID')} size={f.get('fileSizeInBytes')}")
+
+          # Prefer the APK-looking item; otherwise choose the largest file.
+          selected = next((f for f in files if str(f.get('fileName','')).lower().endswith('.apk')), None)
+          if selected is None:
+              selected = max(files, key=lambda f: int(f.get('fileSizeInBytes') or 0))
+
+          file_id = selected['UUID']
+          expected_size = int(selected.get('fileSizeInBytes') or 0)
+          out = pathlib.Path('chatgpt.apk')
+
+          def stream_download(url):
+              req = urllib.request.Request(url, headers={'User-Agent': ua, 'Accept': '*/*'})
+              h = hashlib.sha256()
+              total = 0
+              with urllib.request.urlopen(req, timeout=60) as r, out.open('wb') as w:
+                  while True:
+                      chunk = r.read(1024 * 1024)
+                      if not chunk:
+                          break
+                      w.write(chunk)
+                      h.update(chunk)
+                      total += len(chunk)
+              return total, h.hexdigest()
+
+          # Official current v2 direct-download route from Infomaniak source.
+          v2 = f'https://swisstransfer.infomaniak.com/api/1/links/{link_id}/files/{file_id}?redirect=true'
+          try:
+              total, sha = stream_download(v2)
+              print('download mechanism: official-v2')
+          except Exception as first_error:
+              print('official-v2 failed:', repr(first_error))
+              # Legacy API fallback used by the official client for tokenized download.
+              container_id = transfer.get('containerUUID') or container.get('UUID')
+              token = request_json(
+                  'https://www.swisstransfer.com/api/generateDownloadToken',
+                  {'password': '', 'containerUUID': container_id, 'fileUUID': file_id},
+              )
+              host = transfer.get('downloadHost')
+              if not host:
+                  raise RuntimeError('No downloadHost in legacy transfer metadata') from first_error
+              legacy = f'https://{host}/api/download/{link_id}/{file_id}?token={token}'
+              total, sha = stream_download(legacy)
+              print('download mechanism: legacy-token-fallback')
+
+          print('downloaded bytes:', total)
+          print('expected bytes:', expected_size)
+          print('sha256:', sha)
+          if expected_size and total != expected_size:
+              raise RuntimeError(f'size mismatch: got {total}, expected {expected_size}')
+          if out.read_bytes()[:2] != b'PK':
+              raise RuntimeError('Downloaded payload is not ZIP/APK (missing PK header)')
+          pathlib.Path('ingest-proof.txt').write_text(
+              f'link_id={link_id}\nfile={selected.get("fileName")}\nbytes={total}\nsha256={sha}\n',
+              encoding='utf-8'
+          )
+          PY
+
+      - name: APK ZIP sanity check
+        run: |
+          set -euo pipefail
+          unzip -t chatgpt.apk >/tmp/unzip-test.txt
+          grep -E 'AndroidManifest.xml|classes[0-9]*\.dex|assets/.*\.valdimodule' /tmp/unzip-test.txt | head -n 40 || true
+          echo '--- ingest proof ---'
+          cat ingest-proof.txt
+
+      - name: Upload text proof only
+        uses: actions/upload-artifact@v4
+        with:
+          name: swisstransfer-apk-ingest-proof
+          path: ingest-proof.txt
+          if-no-files-found: error
+          retention-days: 3
