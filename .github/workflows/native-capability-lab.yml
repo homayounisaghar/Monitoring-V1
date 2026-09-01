@@ -26,31 +26,48 @@ jobs:
           set -euo pipefail
           ROOT=runtime_probes/native-capability-lab
           SVC="$ROOT/app/src/main/java/com/openai/controlplane/capabilitylab/LabAccessibilityService.java"
+          STORE="$ROOT/app/src/main/java/com/openai/controlplane/capabilitylab/LabStore.java"
+          MAIN="$ROOT/app/src/main/java/com/openai/controlplane/capabilitylab/MainActivity.java"
+          SHORTCUT="$ROOT/app/src/main/java/com/openai/controlplane/capabilitylab/LabShortcutReadSide.java"
           MAN="$ROOT/app/src/main/AndroidManifest.xml"
           PLAN="$ROOT/plans/default.json"
           grep -Fq 'com.openai.chatgpt' "$ROOT/app/src/main/java/com/openai/controlplane/capabilitylab/ProfileGuard.java"
           grep -Fq 'ACTION_CLICK' "$SVC"
-          grep -Fq 'WRITE_CLAIM' "$ROOT/app/src/main/java/com/openai/controlplane/capabilitylab/LabStore.java"
+          grep -Fq 'WRITE_CLAIM' "$STORE"
+          grep -Fq 'advanceStepIfCurrent' "$STORE"
+          grep -Fq 'ACCESSIBILITY_METADATA' "$SVC"
+          grep -Fq 'SHORTCUT_HOST_PERMISSION' "$SHORTCUT"
+          grep -Fq 'TEST COMPLETE' "$MAIN"
           grep -Fq 'android:canTakeScreenshot="true"' "$ROOT/app/src/main/res/xml/accessibility_service_config.xml"
           grep -Fq 'android.permission.INTERNET' "$MAN"
           grep -Fq 'targetSignerSha256' "$PLAN"
-          grep -Fq 'conversation_id_readside_v1' "$PLAN"
+          grep -Fq 'conversation_id_readside_v2' "$PLAN"
           ! grep -R -n -E 'api\.openai\.com|Authorization: Bearer|access_token|refresh_token' "$ROOT"
           ! grep -Fq 'dispatchGesture' "$SVC"
           ! grep -Fq 'getBoundsInScreen' "$SVC"
           ! grep -Fq 'GLOBAL_ACTION_' "$SVC"
           python3 - <<'PY'
           from pathlib import Path
-          s = Path('runtime_probes/native-capability-lab/app/src/main/java/com/openai/controlplane/capabilitylab/LabAccessibilityService.java').read_text()
-          # The current v0.1 suite has exactly one mutating primitive: the bounded semantic Send click.
-          if s.count('performAction(AccessibilityNodeInfo.ACTION_CLICK)') != 1:
-              raise SystemExit('Capability Lab v0.1 must contain exactly one ACTION_CLICK write site')
-          p = Path('runtime_probes/native-capability-lab/plans/default.json').read_text()
           import json
+          root = Path('runtime_probes/native-capability-lab')
+          s = (root / 'app/src/main/java/com/openai/controlplane/capabilitylab/LabAccessibilityService.java').read_text()
+          # The suite has exactly one mutating primitive: the bounded semantic Send click.
+          if s.count('performAction(AccessibilityNodeInfo.ACTION_CLICK)') != 1:
+              raise SystemExit('Capability Lab must contain exactly one ACTION_CLICK write site')
+          if 'completeStep();' in s:
+              raise SystemExit('unguarded bare completeStep() found; step-token hardening regressed')
+          p = (root / 'plans/default.json').read_text()
           data = json.loads(p)
           assert data['schema'] == 1
           assert data['targetVersion'] == '1.2026.237'
-          assert data['suite'] == 'conversation_id_readside_v1'
+          assert data['suite'] == 'conversation_id_readside_v2'
+          ops = [x['op'] for x in data['steps']]
+          assert ops == [
+              'launch_prompt', 'semantic_send', 'return_lab', 'wait',
+              'notification_snapshot', 'channel_snapshot', 'resume_chatgpt',
+              'capture_tree', 'return_lab', 'verify_candidates', 'finish'
+          ]
+          assert data['steps'][3]['ms'] == 30000
           PY
 
       - name: Set up Java
@@ -88,7 +105,7 @@ jobs:
           AAPT=$(find "$ANDROID_SDK_ROOT/build-tools" -type f -name aapt | sort | tail -n 1)
           "$APKSIGNER" verify --verbose --print-certs ci/out/chatgpt-capability-lab.apk | tee ci/out/apksigner.txt
           "$AAPT" dump badging ci/out/chatgpt-capability-lab.apk | tee ci/out/badging.txt
-          grep -Fq "package: name='com.openai.controlplane.capabilitylab' versionCode='1' versionName='0.1-native-capability-lab'" ci/out/badging.txt
+          grep -Fq "package: name='com.openai.controlplane.capabilitylab' versionCode='2' versionName='0.2-native-capability-lab'" ci/out/badging.txt
           sha256sum ci/out/chatgpt-capability-lab.apk | tee ci/out/SHA256.txt
 
       - name: Upload workflow artifact
@@ -115,5 +132,5 @@ jobs:
             ci/out/SHA256.txt#SHA256.txt \
             --target "$GITHUB_SHA" \
             --title "ChatGPT Capability Lab $SHORT" \
-            --notes "Unified on-device test harness replacing per-hypothesis APK iteration. Exact ChatGPT 1.2026.237 + pinned signer fail-closed; persistent test state; remote allowlisted plan with embedded fallback; bounded semantic Send with durable claim-before-write; NotificationListener evidence; channel-read attempt; privacy-redacted Accessibility tree; candidate /c/<id> reopen verification. INTERNET is test-plan transport only; no ChatGPT credentials/private APIs and no coordinate writes." \
+            --notes "Capability Lab v0.2: serialized/idempotent step transitions after the v0.1 race observed on-device; explicit TEST COMPLETE UI; deeper privacy-redacted Accessibility metadata harvesting; read-only ChatGPT shortcut-host metadata attempt; exact ChatGPT 1.2026.237 + pinned signer fail-closed; one bounded semantic Send write site; candidate /c/<id> reopen verification. INTERNET remains test-plan transport only; no ChatGPT credentials/private APIs and no coordinate writes." \
             --prerelease
