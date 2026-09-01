@@ -19,6 +19,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: build/pebble-chat-bridge-v019
+          fetch-depth: 0
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -64,7 +65,7 @@ jobs:
         run: |
           set -euo pipefail
           python3 - <<'PY'
-          import pathlib,re
+          import pathlib
           root=pathlib.Path('work/jadx/sources'); out=pathlib.Path('output/analysis/chatgpt-1.2026.237/route-xref'); out.mkdir(parents=True,exist_ok=True)
           patterns={
            'ROUTE_ATTACHMENTS': ['attachmentUri','attachmentAssetPointer','hasAttachedRouteAttachments','Share attachment wait timed out','AttachedRoute','routeAttachments','focusKeyboard'],
@@ -92,7 +93,6 @@ jobs:
               if ex>=500:break
             rows += [f'_files={fh}; excerpts={ex}_']
             (out/(title+'.md')).write_text('\n'.join(rows),encoding='utf-8')
-          # Preserve whole source files for any class/method mentioning route attachment markers.
           hitsdir=out/'route-attachment-files';hitsdir.mkdir(exist_ok=True)
           copied=0
           for p in allfiles:
@@ -105,11 +105,12 @@ jobs:
       - name: Commit xref
         run: |
           set -euo pipefail
+          git config user.name 'chatgpt-control-plane-bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git pull --rebase origin build/pebble-chat-bridge-v019
           rm -rf analysis/chatgpt-1.2026.237/route-xref
           mkdir -p analysis/chatgpt-1.2026.237
           cp -a output/analysis/chatgpt-1.2026.237/route-xref analysis/chatgpt-1.2026.237/
-          git config user.name 'chatgpt-control-plane-bot'
-          git config user.email 'actions@users.noreply.github.com'
           git add analysis/chatgpt-1.2026.237/route-xref
           if ! git diff --cached --quiet; then
             git commit -m 'persist ChatGPT route attachment and voice xrefs'
