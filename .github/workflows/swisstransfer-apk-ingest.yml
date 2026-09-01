@@ -16,98 +16,75 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - name: Download APK via SwissTransfer APIs
+      - name: Download APK via SwissTransfer v2 API
         env:
           LINK_ID: 01a05b9a-9f7f-73ef-8999-5507a44c3b73
         run: |
           set -euo pipefail
           python3 - <<'PY'
-          import hashlib, json, os, pathlib, urllib.request, urllib.error
+          import hashlib, json, os, pathlib, urllib.request
 
           link_id = os.environ['LINK_ID']
           ua = 'Mozilla/5.0 (X11; Linux x86_64) ChatGPT-ControlPlane-Ingest/1.0'
+          base = 'https://swisstransfer.infomaniak.com/api/1'
 
-          def request_json(url, data=None, headers=None):
-              h = {'User-Agent': ua, 'Accept': 'application/json, text/plain, */*'}
-              if headers:
-                  h.update(headers)
-              body = None
-              if data is not None:
-                  body = json.dumps(data).encode('utf-8')
-                  h['Content-Type'] = 'application/json'
-              req = urllib.request.Request(url, data=body, headers=h, method='POST' if body is not None else 'GET')
+          def get_json(url):
+              req = urllib.request.Request(url, headers={
+                  'User-Agent': ua,
+                  'Accept': 'application/json, text/plain, */*',
+              })
               with urllib.request.urlopen(req, timeout=30) as r:
-                  raw = r.read()
-              try:
-                  return json.loads(raw.decode('utf-8'))
-              except Exception:
-                  return raw.decode('utf-8').strip().strip('"')
+                  return json.loads(r.read().decode('utf-8'))
 
-          meta_url = f'https://www.swisstransfer.com/api/links/{link_id}'
-          meta = request_json(meta_url)
-          transfer = meta.get('data', meta)
-          container = transfer.get('container') or {}
-          files = container.get('files') or []
+          meta = get_json(f'{base}/links/{link_id}?with=transfer')
+          payload = meta.get('data', meta)
+          link_record_id = payload.get('id') or link_id
+          transfer = payload.get('transfer') or {}
+          files = transfer.get('files') or []
           if not files:
-              raise RuntimeError(f'No files found in transfer; top-level keys={list(transfer.keys())}')
+              raise RuntimeError(f'No files in v2 transfer; payload keys={list(payload.keys())}, transfer keys={list(transfer.keys())}')
 
-          print('transfer keys:', sorted(transfer.keys()))
+          print('link record id:', link_record_id)
+          print('transfer id:', transfer.get('id'))
           print('file count:', len(files))
           for i, f in enumerate(files):
-              print(f"file[{i}] name={f.get('fileName')} uuid={f.get('UUID')} size={f.get('fileSizeInBytes')}")
+              print(f"file[{i}] path={f.get('path')} id={f.get('id')} size={f.get('size')} mime={f.get('mime_type')}")
 
-          # Prefer the APK-looking item; otherwise choose the largest file.
-          selected = next((f for f in files if str(f.get('fileName','')).lower().endswith('.apk')), None)
+          selected = next((f for f in files if str(f.get('path','')).lower().endswith('.apk')), None)
           if selected is None:
-              selected = max(files, key=lambda f: int(f.get('fileSizeInBytes') or 0))
+              selected = max(files, key=lambda f: int(f.get('size') or 0))
 
-          file_id = selected['UUID']
-          expected_size = int(selected.get('fileSizeInBytes') or 0)
+          file_id = selected['id']
+          expected_size = int(selected.get('size') or 0)
           out = pathlib.Path('chatgpt.apk')
+          download_url = f'{base}/links/{link_record_id}/files/{file_id}?redirect=true'
 
-          def stream_download(url):
-              req = urllib.request.Request(url, headers={'User-Agent': ua, 'Accept': '*/*'})
-              h = hashlib.sha256()
-              total = 0
-              with urllib.request.urlopen(req, timeout=60) as r, out.open('wb') as w:
-                  while True:
-                      chunk = r.read(1024 * 1024)
-                      if not chunk:
-                          break
-                      w.write(chunk)
-                      h.update(chunk)
-                      total += len(chunk)
-              return total, h.hexdigest()
+          req = urllib.request.Request(download_url, headers={'User-Agent': ua, 'Accept': '*/*'})
+          h = hashlib.sha256()
+          total = 0
+          with urllib.request.urlopen(req, timeout=90) as r, out.open('wb') as w:
+              print('resolved download URL:', r.geturl())
+              while True:
+                  chunk = r.read(1024 * 1024)
+                  if not chunk:
+                      break
+                  w.write(chunk)
+                  h.update(chunk)
+                  total += len(chunk)
 
-          # Official current v2 direct-download route from Infomaniak source.
-          v2 = f'https://swisstransfer.infomaniak.com/api/1/links/{link_id}/files/{file_id}?redirect=true'
-          try:
-              total, sha = stream_download(v2)
-              print('download mechanism: official-v2')
-          except Exception as first_error:
-              print('official-v2 failed:', repr(first_error))
-              # Legacy API fallback used by the official client for tokenized download.
-              container_id = transfer.get('containerUUID') or container.get('UUID')
-              token = request_json(
-                  'https://www.swisstransfer.com/api/generateDownloadToken',
-                  {'password': '', 'containerUUID': container_id, 'fileUUID': file_id},
-              )
-              host = transfer.get('downloadHost')
-              if not host:
-                  raise RuntimeError('No downloadHost in legacy transfer metadata') from first_error
-              legacy = f'https://{host}/api/download/{link_id}/{file_id}?token={token}'
-              total, sha = stream_download(legacy)
-              print('download mechanism: legacy-token-fallback')
-
+          sha = h.hexdigest()
+          print('download mechanism: official-v2')
           print('downloaded bytes:', total)
           print('expected bytes:', expected_size)
           print('sha256:', sha)
           if expected_size and total != expected_size:
               raise RuntimeError(f'size mismatch: got {total}, expected {expected_size}')
-          if out.read_bytes()[:2] != b'PK':
-              raise RuntimeError('Downloaded payload is not ZIP/APK (missing PK header)')
+          with out.open('rb') as f:
+              if f.read(2) != b'PK':
+                  raise RuntimeError('Downloaded payload is not ZIP/APK (missing PK header)')
+
           pathlib.Path('ingest-proof.txt').write_text(
-              f'link_id={link_id}\nfile={selected.get("fileName")}\nbytes={total}\nsha256={sha}\n',
+              f'link_id={link_id}\nlink_record_id={link_record_id}\nfile={selected.get("path")}\nbytes={total}\nsha256={sha}\n',
               encoding='utf-8'
           )
           PY
