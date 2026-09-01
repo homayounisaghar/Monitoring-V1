@@ -212,7 +212,7 @@ public class LabNotificationService extends NotificationListenerService {
             ShortcutInfo shortcut = r.getConversationShortcutInfo();
             if (shortcut != null) {
                 out.append(" rankingShortcutId=").append(q(shortcut.getId()))
-                        .append(" rankingShortcutShortLabel=").append(q(text(shortcut.getShortLabel()))
+                        .append(" rankingShortcutShortLabel=").append(q(text(shortcut.getShortLabel())))
                         .append(" rankingShortcutLongLabel=").append(q(text(shortcut.getLongLabel())));
                 LabStore.addCandidate(this, "ranking.shortcutId", shortcut.getId());
             }
