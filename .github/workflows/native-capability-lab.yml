@@ -28,7 +28,7 @@ jobs:
           SVC="$ROOT/app/src/main/java/com/openai/controlplane/capabilitylab/LabAccessibilityService.java"
           MAN="$ROOT/app/src/main/AndroidManifest.xml"
           PLAN="$ROOT/plans/default.json"
-          grep -Fq 'com.openai.chatgpt' "$SVC"
+          grep -Fq 'com.openai.chatgpt' "$ROOT/app/src/main/java/com/openai/controlplane/capabilitylab/ProfileGuard.java"
           grep -Fq 'ACTION_CLICK' "$SVC"
           grep -Fq 'WRITE_CLAIM' "$ROOT/app/src/main/java/com/openai/controlplane/capabilitylab/LabStore.java"
           grep -Fq 'android:canTakeScreenshot="true"' "$ROOT/app/src/main/res/xml/accessibility_service_config.xml"
