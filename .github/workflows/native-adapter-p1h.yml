@@ -9,6 +9,7 @@ on:
       - 'build_tools/apply_v041_native_adapter_p1h_notification_binding.py'
       - 'build_tools/apply_v041a_p1h_remove_legacy_autosend.py'
       - 'build_tools/apply_v041b_p1h_dedupe_semantic_confirm.py'
+      - 'build_tools/apply_v041c_p1h_restore_permission_gates.py'
   workflow_dispatch:
 
 permissions:
@@ -37,7 +38,7 @@ jobs:
           test "$(sha256sum ci/source.tgz | awk '{print $1}')" = "c7485116b17dfe4f2aa9f61469ab01e1596efccdf0d43f3d7b560d3c474e6196"
           tar -xzf ci/source.tgz -C ci/src
 
-      - name: Apply frozen adapter chain through P1h
+      - name: Apply frozen adapter chain through guarded P1h
         shell: bash
         run: |
           set -euo pipefail
@@ -62,6 +63,7 @@ jobs:
           python3 build_tools/apply_v041_native_adapter_p1h_notification_binding.py ci/src
           python3 build_tools/apply_v041a_p1h_remove_legacy_autosend.py ci/src
           python3 build_tools/apply_v041b_p1h_dedupe_semantic_confirm.py ci/src
+          python3 build_tools/apply_v041c_p1h_restore_permission_gates.py ci/src
 
           python3 - <<'PY'
           import re
@@ -84,11 +86,14 @@ jobs:
           STORE=ci/src/app/src/main/java/com/pebblebridge/poc/NativeAdapterProofStore.java
           MAN=ci/src/app/src/main/AndroidManifest.xml
           grep -Fq 'applicationId "com.pebblebridge.poc.nativep1h"' ci/src/app/build.gradle
-          grep -Fq 'versionCode 41' ci/src/app/build.gradle
-          grep -Fq 'versionName "0.41-native-adapter-p1h-notification-binding"' ci/src/app/build.gradle
+          grep -Fq 'versionCode 42' ci/src/app/build.gradle
+          grep -Fq 'versionName "0.42-native-adapter-p1h-notification-binding-guarded"' ci/src/app/build.gradle
           grep -Fq 'Start P1h conversationId binding proof' "$ACT"
           grep -Fq 'hasExactChatGptBuild' "$ACT"
           grep -Fq '1.2026.237' "$ACT"
+          grep -Fq 'if (!hasNotificationAccess())' "$ACT"
+          grep -Fq 'if (!isAccessibilityVerifierEnabled())' "$ACT"
+          grep -Fq 'No ChatGPT Send was attempted.' "$ACT"
           ! grep -Fq 'appendQueryParameter("autosend"' "$ACT"
           grep -Fq 'appendQueryParameter("prompt", prompt)' "$ACT"
           grep -Fq '.putString("state", WAITING_NOTIFICATION)' "$STORE"
@@ -106,6 +111,13 @@ jobs:
           ! grep -Eqi 'backend-api|Authorization:|access[_-]?token|refresh[_-]?token' "$ACT" "$SVC" "$LIS"
           python3 - <<'PY'
           from pathlib import Path
+          act = Path('ci/src/app/src/main/java/com/pebblebridge/poc/NativeAdapterProofActivity.java').read_text()
+          start = act.index('    private void startProof() {')
+          marker = act.index('        String marker = NativeAdapterProofStore.start(this);', start)
+          prefix = act[start:marker]
+          if not (prefix.index('hasExactChatGptBuild()') < prefix.index('hasNotificationAccess()') < prefix.index('isAccessibilityVerifierEnabled()')):
+              raise SystemExit('P1h permission/build gates are not all before marker creation')
+
           svc = Path('ci/src/app/src/main/java/com/pebblebridge/poc/NativeProbeAccessibilityService.java').read_text()
           a = svc.index('    private void observeNativeAdapterP1gSemanticParentSend')
           b = svc.index('    private void observeNativeAdapterP1eManualSendTrace', a)
@@ -188,5 +200,5 @@ jobs:
             ci/out/SHA256.txt#SHA256.txt \
             --target "$GITHUB_SHA" \
             --title "Native Adapter P1h ConversationId Binding $SHORT" \
-            --notes "ConversationId binding proof for exact ChatGPT 1.2026.237. Uses proven new-chat draft injection plus the frozen P1g bounded semantic-parent Send. After editable-to-noneditable Send confirmation it returns the probe foreground, arms NotificationListener, captures ChatGPT StatusBarNotification.tag as candidate, explicitly reopens /c/<candidate>, and requires read-only unique-marker verification before VERIFIED. No autosend query, no coordinates, no gestures, no Search, no private backend API, no blind write retry." \
+            --notes "Guarded conversationId binding proof for exact ChatGPT 1.2026.237. Before any real Send it requires exact ChatGPT build, Notification Access and Accessibility. Then it uses proven new-chat draft injection plus frozen P1g bounded semantic-parent Send. After editable-to-noneditable confirmation it returns the probe foreground, captures ChatGPT StatusBarNotification.tag as candidate, explicitly reopens /c/<candidate>, and requires read-only unique-marker verification before VERIFIED. No autosend query, no coordinates, no gestures, no Search, no private backend API, no blind write retry." \
             --prerelease
