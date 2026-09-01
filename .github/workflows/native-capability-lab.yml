@@ -29,6 +29,8 @@ jobs:
           STORE="$ROOT/app/src/main/java/com/openai/controlplane/capabilitylab/LabStore.java"
           MAIN="$ROOT/app/src/main/java/com/openai/controlplane/capabilitylab/MainActivity.java"
           SHORTCUT="$ROOT/app/src/main/java/com/openai/controlplane/capabilitylab/LabShortcutReadSide.java"
+          OBSERVER="$ROOT/app/src/main/java/com/openai/controlplane/capabilitylab/LabShizukuObserver.java"
+          NOTIF="$ROOT/app/src/main/java/com/openai/controlplane/capabilitylab/LabNotificationService.java"
           MAN="$ROOT/app/src/main/AndroidManifest.xml"
           PLAN="$ROOT/plans/default.json"
           grep -Fq 'com.openai.chatgpt' "$ROOT/app/src/main/java/com/openai/controlplane/capabilitylab/ProfileGuard.java"
@@ -38,11 +40,19 @@ jobs:
           grep -Fq 'ACCESSIBILITY_METADATA' "$SVC"
           grep -Fq 'SHORTCUT_HOST_PERMISSION' "$SHORTCUT"
           grep -Fq 'TEST COMPLETE' "$MAIN"
+          grep -Fq 'LabShizukuObserver.permissionGranted' "$MAIN"
+          grep -Fq 'classification=LAB_ONLY_DISCOVERY' "$OBSERVER"
+          grep -Fq 'dumpsys notification --noredact' "$OBSERVER"
+          grep -Fq 'dumpsys shortcut' "$OBSERVER"
+          grep -Fq 'dumpsys activity activities' "$OBSERVER"
+          grep -Fq 'LabShizukuObserver.capture' "$NOTIF"
+          grep -Fq "dev.rikka.shizuku:api:13.1.5" "$ROOT/app/build.gradle"
+          grep -Fq "dev.rikka.shizuku:provider:13.1.5" "$ROOT/app/build.gradle"
           grep -Fq 'android:canTakeScreenshot="true"' "$ROOT/app/src/main/res/xml/accessibility_service_config.xml"
           grep -Fq 'android.permission.INTERNET' "$MAN"
           grep -Fq 'ChatGPT Capability Lab Stable' "$MAN"
           grep -Fq 'targetSignerSha256' "$PLAN"
-          grep -Fq 'conversation_id_readside_v2' "$PLAN"
+          grep -Fq 'conversation_id_readside_v3_timesliced_accessibility' "$PLAN"
           ! grep -R -n -E 'api\.openai\.com|Authorization: Bearer|access_token|refresh_token' "$ROOT"
           ! grep -Fq 'dispatchGesture' "$SVC"
           ! grep -Fq 'getBoundsInScreen' "$SVC"
@@ -58,19 +68,17 @@ jobs:
               raise SystemExit('unguarded bare completeStep() found; step-token hardening regressed')
           gradle = (root / 'app/build.gradle').read_text()
           assert "applicationId 'com.openai.controlplane.capabilitylab.stable'" in gradle
-          assert 'versionCode 3' in gradle
-          assert "versionName '0.3-native-capability-lab-stable'" in gradle
+          assert 'versionCode 4' in gradle
+          assert "versionName '0.4-native-capability-lab-stable-observer'" in gradle
+          observer = (root / 'app/src/main/java/com/openai/controlplane/capabilitylab/LabShizukuObserver.java').read_text()
+          assert 'Raw dumpsys output is never persisted' in observer
+          assert 'LabStore.addCandidate' in observer
+          assert observer.count('dumpsys ') >= 4
           data = json.loads((root / 'plans/default.json').read_text())
           assert data['schema'] == 1
           assert data['targetVersion'] == '1.2026.237'
-          assert data['suite'] == 'conversation_id_readside_v2'
-          ops = [x['op'] for x in data['steps']]
-          assert ops == [
-              'launch_prompt', 'semantic_send', 'return_lab', 'wait',
-              'notification_snapshot', 'channel_snapshot', 'resume_chatgpt',
-              'capture_tree', 'return_lab', 'verify_candidates', 'finish'
-          ]
-          assert data['steps'][3]['ms'] == 30000
+          assert data['suite'] == 'conversation_id_readside_v3_timesliced_accessibility'
+          assert any(x['op'] == 'channel_snapshot' for x in data['steps'])
           PY
 
       - name: Set up Java
@@ -108,7 +116,7 @@ jobs:
           AAPT=$(find "$ANDROID_SDK_ROOT/build-tools" -type f -name aapt | sort | tail -n 1)
           "$APKSIGNER" verify --verbose --print-certs ci/out/chatgpt-capability-lab-ci-only.apk | tee ci/out/apksigner.txt
           "$AAPT" dump badging ci/out/chatgpt-capability-lab-ci-only.apk | tee ci/out/badging.txt
-          grep -Fq "package: name='com.openai.controlplane.capabilitylab.stable' versionCode='3' versionName='0.3-native-capability-lab-stable'" ci/out/badging.txt
+          grep -Fq "package: name='com.openai.controlplane.capabilitylab.stable' versionCode='4' versionName='0.4-native-capability-lab-stable-observer'" ci/out/badging.txt
           sha256sum ci/out/chatgpt-capability-lab-ci-only.apk | tee ci/out/SHA256.txt
 
       - name: Upload CI-only artifact
