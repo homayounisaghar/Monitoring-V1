@@ -1,12 +1,12 @@
 {
   "schema": 1,
-  "suite": "conversation_id_readside_v3_timesliced_accessibility",
+  "suite": "conversation_id_observer_v1_shizuku",
   "targetVersion": "1.2026.237",
   "targetSignerSha256": "b24f4bfbb3cf293f938703b9d87027c1102cc36dc4fa206910e08927db40473c",
   "steps": [
     {
       "op": "launch_prompt",
-      "prompt": "Capability Lab time-sliced conversation binding proof. Reply with exactly this marker and no other text: {{marker}}"
+      "prompt": "Capability Lab observer conversation binding proof. Reply with exactly this marker and no other text: {{marker}}"
     },
     {
       "op": "capture_tree",
@@ -23,37 +23,18 @@
       "timeoutMs": 8000
     },
     {
-      "op": "return_lab"
-    },
-    {
       "op": "wait",
       "ms": 1000
     },
     {
-      "op": "resume_chatgpt"
-    },
-    {
-      "op": "capture_tree",
-      "label": "post_send_1s",
-      "timeoutMs": 8000
-    },
-    {
-      "op": "return_lab"
+      "op": "channel_snapshot"
     },
     {
       "op": "wait",
       "ms": 4000
     },
     {
-      "op": "resume_chatgpt"
-    },
-    {
-      "op": "capture_tree",
-      "label": "post_send_5s",
-      "timeoutMs": 8000
-    },
-    {
-      "op": "return_lab"
+      "op": "channel_snapshot"
     },
     {
       "op": "wait",
@@ -66,11 +47,8 @@
       "op": "channel_snapshot"
     },
     {
-      "op": "resume_chatgpt"
-    },
-    {
       "op": "capture_tree",
-      "label": "post_send_30s",
+      "label": "post_send_observer_final",
       "timeoutMs": 12000
     },
     {
