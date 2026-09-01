@@ -1,0 +1,96 @@
+name: Native Capability Probe P2
+
+on:
+  push:
+    branches:
+      - build/pebble-chat-bridge-v019
+    paths:
+      - '.github/workflows/native-capability-p2.yml'
+      - 'runtime_probes/native-capability-p2/**'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: build/pebble-chat-bridge-v019
+
+      - name: P2 safety and exact-boundary prechecks
+        run: |
+          set -euo pipefail
+          ROOT=runtime_probes/native-capability-p2
+          SRC="$ROOT/app/src/main/java/com/openai/controlplane/capabilityprobe/MainActivity.java"
+          MAN="$ROOT/app/src/main/AndroidManifest.xml"
+          grep -Fq 'EXPECTED_VERSION = "1.2026.237"' "$SRC"
+          grep -Fq 'Intent.ACTION_SEND' "$SRC"
+          grep -Fq 'Intent.ACTION_SEND_MULTIPLE' "$SRC"
+          grep -Fq 'https://chatgpt.com/voice' "$SRC"
+          grep -Fq 'com.openai.voice.assistant.AssistantActivity' "$SRC"
+          grep -Fq 'Intent.ACTION_PROCESS_TEXT' "$SRC"
+          grep -Fq 'Fail closed: expected ChatGPT' "$SRC"
+          grep -Fq 'android:grantUriPermissions="true"' "$MAN"
+          ! grep -Eqi 'backend-api|Authorization:|access[_-]?token|refresh[_-]?token|performAction|dispatchGesture|AccessibilityService|autosend' "$SRC"
+          ! grep -Fq 'android.permission.INTERNET' "$MAN"
+          ! grep -Fq 'android.permission.BIND_ACCESSIBILITY_SERVICE' "$MAN"
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK
+        run: |
+          set -euo pipefail
+          sdkmanager "platforms;android-35" "build-tools;35.0.0"
+          echo "sdk.dir=$ANDROID_SDK_ROOT" > runtime_probes/native-capability-p2/local.properties
+
+      - name: Build P2 APK
+        run: |
+          set -euo pipefail
+          curl -fsSL https://services.gradle.org/distributions/gradle-8.10.2-bin.zip -o /tmp/gradle.zip
+          unzip -q /tmp/gradle.zip -d /tmp
+          cd runtime_probes/native-capability-p2
+          /tmp/gradle-8.10.2/bin/gradle --no-daemon :app:assembleDebug --stacktrace
+          mkdir -p ../../ci/out
+          cp app/build/outputs/apk/debug/app-debug.apk ../../ci/out/native-capability-p2.apk
+
+      - name: Verify APK and checksum
+        run: |
+          set -euo pipefail
+          APKSIGNER=$(find "$ANDROID_SDK_ROOT/build-tools" -type f -name apksigner | sort | tail -n 1)
+          "$APKSIGNER" verify --verbose --print-certs ci/out/native-capability-p2.apk | tee ci/out/native-capability-p2-apksigner.txt
+          sha256sum ci/out/native-capability-p2.apk | tee ci/out/native-capability-p2-SHA256.txt
+          "$ANDROID_SDK_ROOT/build-tools/35.0.0/aapt" dump badging ci/out/native-capability-p2.apk | head -n 20 | tee ci/out/native-capability-p2-badging.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: native-capability-p2
+          path: |
+            ci/out/native-capability-p2.apk
+            ci/out/native-capability-p2-SHA256.txt
+            ci/out/native-capability-p2-apksigner.txt
+            ci/out/native-capability-p2-badging.txt
+
+      - name: Publish prerelease
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          SHORT=$(printf '%s' "$GITHUB_SHA" | cut -c1-12)
+          TAG="native-capability-p2-gha-$SHORT"
+          gh release create "$TAG" \
+            ci/out/native-capability-p2.apk#native-capability-p2.apk \
+            ci/out/native-capability-p2-SHA256.txt#SHA256.txt \
+            --target "$GITHUB_SHA" \
+            --title "Native Capability Probe P2 $SHORT" \
+            --notes "Read/write boundary probe derived from the exact ChatGPT 1.2026.237 APK census. Tests only exported Android contracts: ACTION_SEND one harmless local text file, ACTION_SEND_MULTIPLE two harmless local files, explicit /voice VIEW, explicit exported AssistantActivity with isAssistant=true, and PROCESS_TEXT. It performs no ChatGPT Send, no Accessibility action, no private backend request, and fails closed unless installed ChatGPT versionName is exactly 1.2026.237." \
+            --prerelease
