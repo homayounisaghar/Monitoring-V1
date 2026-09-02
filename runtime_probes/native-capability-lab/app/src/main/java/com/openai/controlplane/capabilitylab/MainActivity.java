@@ -70,7 +70,7 @@ public class MainActivity extends Activity {
         root.addView(title);
 
         TextView desc = new TextView(this);
-        desc.setText("Unified on-device capability test harness. The stable v0.4 build adds a LAB-ONLY Shizuku observer for the remaining conversationId discovery boundary. Shizuku is used only to inspect Android system state (dumpsys) and never establishes a production capability by itself. Raw shell output is not persisted; only bounded hashes, summaries and candidate IDs are retained.\n\nChatGPT execution still uses the exact official app, one bounded semantic Send, no ChatGPT credentials/private APIs and no coordinate writes.");
+        desc.setText("Stable v0.6 tests a production-faithful binding path through the official ChatGPT Global Search UI. The Lab creates one synthetic marker chat, uses the already-proven bounded semantic Send, opens ChatGPT's own Search control, enters the marker into the official Search ChatGPT field, requires a unique marker-bearing conversation result, then opens that result and verifies the exact marker thread.\n\nNo private ChatGPT API is called by the Lab, no ChatGPT credentials are extracted, and no coordinate writes are used. Shizuku remains available only as optional LAB-only diagnostics and is not required for this proof.");
         desc.setTextSize(15f);
         desc.setPadding(0, dp(10), 0, dp(12));
         root.addView(desc);
@@ -86,10 +86,10 @@ public class MainActivity extends Activity {
             try { startActivity(new Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)); }
             catch (Throwable t) { startActivity(new Intent("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS")); }
         }));
-        root.addView(button("Open / install Shizuku (LAB observer only)", v -> openShizuku()));
-        root.addView(button("Grant Shizuku observer permission", v -> requestShizukuPermission()));
+        root.addView(button("Open Shizuku (optional LAB diagnostics)", v -> openShizuku()));
+        root.addView(button("Grant Shizuku observer permission (optional)", v -> requestShizukuPermission()));
 
-        runButton = button("RUN CURRENT SUITE (1 synthetic test message)", v -> startSuite());
+        runButton = button("RUN OFFICIAL GLOBAL SEARCH BINDING PROOF", v -> startSuite());
         root.addView(runButton);
         root.addView(button("Reset Lab run state", v -> {
             if ("RUNNING".equals(LabStore.status(this))) return;
@@ -182,11 +182,6 @@ public class MainActivity extends Activity {
             refreshUi();
             return;
         }
-        if (!LabShizukuObserver.permissionGranted()) {
-            LabStore.append(this, "PRECONDITION_FAIL LAB observer requires running Shizuku + granted permission");
-            refreshUi();
-            return;
-        }
 
         starting = true;
         refreshUi();
@@ -201,7 +196,7 @@ public class MainActivity extends Activity {
                 LabStore.append(this, "PROFILE version=" + ProfileGuard.version(this) + " signer=" + ProfileGuard.signerSha256(this));
                 LabStore.append(this, "SERVICES accessibilityConnected=" + LabAccessibilityService.isLive()
                         + " notificationConnected=" + LabNotificationService.isLive());
-                LabStore.append(this, "LAB_OBSERVER " + LabShizukuObserver.compactStatus()
+                LabStore.append(this, "OPTIONAL_LAB_OBSERVER " + LabShizukuObserver.compactStatus()
                         + " classification=LAB_ONLY_DISCOVERY");
                 runOnUiThread(() -> {
                     starting = false;
@@ -235,7 +230,6 @@ public class MainActivity extends Activity {
         boolean nGrant = settingContains("enabled_notification_listeners", getPackageName());
         boolean aLive = LabAccessibilityService.isLive() && LabStore.accessibilityConnected(this);
         boolean nLive = LabNotificationService.isLive() && LabStore.notificationConnected(this);
-        boolean observerReady = LabShizukuObserver.permissionGranted();
         String runState = LabStore.state(this);
         String runStatus = LabStore.status(this);
         boolean running = "RUNNING".equals(runStatus);
@@ -247,10 +241,8 @@ public class MainActivity extends Activity {
                 runBanner.setText("BLOCKED — ChatGPT build mismatch");
             } else if (!aLive || !nLive) {
                 runBanner.setText("SETUP REQUIRED — enable both Lab services");
-            } else if (!observerReady) {
-                runBanner.setText("LAB OBSERVER SETUP\nStart Shizuku, then grant observer permission.");
             } else if (starting) {
-                runBanner.setText("STARTING TEST…");
+                runBanner.setText("STARTING OFFICIAL SEARCH PROOF…");
             } else if (running) {
                 runBanner.setText("TEST RUNNING — step " + LabStore.step(this) + "\nDo not operate ChatGPT until this changes.");
             } else if (finished && runStatus.startsWith("PASS")) {
@@ -260,7 +252,7 @@ public class MainActivity extends Activity {
             } else if (finished) {
                 runBanner.setText("TEST COMPLETE — " + runStatus + "\nTap COPY FINAL REPORT.");
             } else {
-                runBanner.setText("READY TO RUN — LAB OBSERVER ARMED");
+                runBanner.setText("READY TO RUN — OFFICIAL GLOBAL SEARCH PROOF");
             }
         }
 
@@ -270,20 +262,19 @@ public class MainActivity extends Activity {
         b.append("Signer: ").append(ProfileGuard.shortSigner(this)).append(exact ? " [PINNED]" : " [UNVERIFIED]").append('\n');
         b.append("Accessibility grant/live: ").append(aGrant).append('/').append(aLive).append('\n');
         b.append("Notification grant/live: ").append(nGrant).append('/').append(nLive).append('\n');
-        b.append("LAB observer/Shizuku: ").append(LabShizukuObserver.compactStatus()).append('\n');
+        b.append("Optional Shizuku: ").append(LabShizukuObserver.compactStatus()).append('\n');
         b.append("Plan URL: ").append(PlanLoader.PLAN_URL).append('\n');
         b.append("Run: ").append(LabStore.compactSummary(this)).append('\n');
         if (!exact) b.append("\nBLOCKED: exact official ChatGPT profile is required.\n");
         else if (!aLive || !nLive) b.append("\nSETUP: grant both Lab services and return here.\n");
-        else if (!observerReady) b.append("\nOBSERVER SETUP: install/start Shizuku via wireless debugging, then tap Grant Shizuku observer permission. Shell evidence is LAB-ONLY discovery.\n");
-        else if (running || starting) b.append("\nRUNNING: allow the Lab to navigate ChatGPT and return itself here. No intermediate screenshots are required.\n");
+        else if (running || starting) b.append("\nRUNNING: allow the Lab to navigate official ChatGPT Search and return itself here. No intermediate screenshots are required.\n");
         else if (finished) b.append("\nFINISHED: use the completion banner above and tap COPY FINAL REPORT. Reset only before a deliberate new run.\n");
-        else b.append("\nREADY: one tap runs the current observer suite autonomously. Do not manually operate ChatGPT while a run is active.\n");
+        else b.append("\nREADY: one tap runs the production-faithful official Global Search binding proof. Do not manually operate ChatGPT while a run is active.\n");
         status.setText(b.toString());
 
         String r = LabStore.report(this);
         report.setText(tail(r, 50000));
-        if (runButton != null) runButton.setEnabled(exact && aLive && nLive && observerReady && idle && !starting);
+        if (runButton != null) runButton.setEnabled(exact && aLive && nLive && idle && !starting);
         if (copyButton != null) copyButton.setEnabled(finished);
     }
 
