@@ -1,6 +1,10 @@
 name: Apply Capability Lab v0.18 History Accessibility Boundary
 
 on:
+  push:
+    branches: [build/pebble-chat-bridge-v019]
+    paths:
+      - '.github/workflows/apply-capability-lab-v18-history-a11y.yml'
   workflow_dispatch:
 
 permissions:
