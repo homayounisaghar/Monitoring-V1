@@ -397,6 +397,41 @@ public class LabAccessibilityService extends AccessibilityService {
                 return;
             }
 
+            // v0.10 crossed the Menu gate and exposed the real first-party drawer control
+            // as a child whose COMPLETE semantic is exactly "Search", with ACTION_CLICK on
+            // its parent. Accept that control only in this post-Menu state and only when it
+            // is unique across ChatGPT roots. Do not broaden this into a generic Search alias.
+            int exactDrawerSearchCount = countExactSemanticAcrossRoots(roots, "Search");
+            if (exactDrawerSearchCount > 0) {
+                LabStore.append(this, "GLOBAL_SEARCH_DRAWER_SEARCH_EXACT_MATCHES=" + exactDrawerSearchCount);
+            }
+            if (exactDrawerSearchCount > 1) {
+                failRun("GLOBAL_SEARCH_DRAWER_SEARCH_NOT_UNIQUE count=" + exactDrawerSearchCount);
+                return;
+            }
+            if (exactDrawerSearchCount == 1) {
+                AccessibilityNodeInfo exactDrawerSearch = findUniqueExactSemanticAcrossRoots(roots, "Search");
+                if (exactDrawerSearch == null) {
+                    failRun("GLOBAL_SEARCH_DRAWER_SEARCH_UNIQUE_RESOLUTION_FAILED");
+                    return;
+                }
+                LabStore.setState(this, "WAITING_GLOBAL_SEARCH_FIELD");
+                if (!performBoundedNavigation(exactDrawerSearch, "GLOBAL_SEARCH_DRAWER_EXACT_SEARCH", "Search")) {
+                    failRun("GLOBAL_SEARCH_DRAWER_EXACT_SEARCH_ACTION_FALSE");
+                    return;
+                }
+                handler.postDelayed(() -> {
+                    if (!isCurrentStep(expectedStep)) return;
+                    if (!"WAITING_GLOBAL_SEARCH_FIELD".equals(LabStore.state(this))) return;
+                    List<AccessibilityNodeInfo> postSearchRoots = chatGptRoots();
+                    LabStore.append(this, "GLOBAL_SEARCH_POST_SEARCH_CLICK_CONTROL_CENSUS windows="
+                            + postSearchRoots.size() + " "
+                            + LabStore.abbrev(controlCensus(postSearchRoots, 220), 18000));
+                    tryGlobalSearchBinding(expectedStep);
+                }, 300L);
+                return;
+            }
+
             AccessibilityNodeInfo historySearch = findUniqueHistorySearchEntryAcrossRoots(roots);
             if (historySearch == null) return;
             LabStore.setState(this, "WAITING_GLOBAL_SEARCH_FIELD");
@@ -878,6 +913,16 @@ public class LabAccessibilityService extends AccessibilityService {
             for (AccessibilityNodeInfo n : one) addUniqueNode(found, n);
         }
         return found.size();
+    }
+
+    private AccessibilityNodeInfo findUniqueExactSemanticAcrossRoots(List<AccessibilityNodeInfo> roots, String exact) {
+        List<AccessibilityNodeInfo> found = new ArrayList<>();
+        for (AccessibilityNodeInfo root : roots) {
+            List<AccessibilityNodeInfo> one = new ArrayList<>();
+            collectExactSemanticNodes(root, exact, one, 0);
+            for (AccessibilityNodeInfo n : one) addUniqueNode(found, n);
+        }
+        return found.size() == 1 ? found.get(0) : null;
     }
 
     private MarkerCounts countMarkerNodesAcrossRoots(List<AccessibilityNodeInfo> roots, String marker) {
