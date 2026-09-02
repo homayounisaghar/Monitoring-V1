@@ -699,6 +699,11 @@ public class LabAccessibilityService extends AccessibilityService {
                 return;
             }
             AccessibilityNodeInfo close = findUniqueExactSemanticAcrossRoots(roots, "Close");
+            // Freeze result evaluation before closing Search. Otherwise the accessibility
+            // event caused by Close could re-enter WAITING_GLOBAL_SEARCH_RESULT and count a
+            // marker that appears only after the close/history transition as a hit for the
+            // earlier probe stage, corrupting trigger attribution.
+            LabStore.setState(this, "WAITING_GLOBAL_SEARCH_PROBE_CLOSE");
             if (close == null || !performBoundedNavigation(close, "GLOBAL_SEARCH_PROBE_CLOSE", "Close")) {
                 failRun("GLOBAL_SEARCH_PROBE_CLOSE_ACTION_FALSE label=" + label);
                 return;
