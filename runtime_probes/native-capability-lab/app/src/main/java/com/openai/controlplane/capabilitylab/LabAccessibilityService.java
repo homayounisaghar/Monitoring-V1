@@ -448,6 +448,14 @@ public class LabAccessibilityService extends AccessibilityService {
             AccessibilityNodeInfo field = null;
             String surface = "";
             AccessibilityNodeInfo globalRoot = findGlobalSearchRoot(roots);
+            if (globalRoot == null) {
+                // v0.12 runtime contract, usable only after the already-proven Menu + Search
+                // navigation has placed the runner in WAITING_GLOBAL_SEARCH_FIELD.
+                globalRoot = findRuntimeSearchRoot(roots);
+                if (globalRoot != null) {
+                    LabStore.append(this, "GLOBAL_SEARCH_RUNTIME_FIELD_CONTRACT matched=true");
+                }
+            }
             if (globalRoot != null) {
                 field = findGlobalSearchField(globalRoot);
                 surface = "global";
@@ -467,13 +475,25 @@ public class LabAccessibilityService extends AccessibilityService {
                 failRun("GLOBAL_SEARCH_SET_TEXT_FALSE surface=" + surface);
                 return;
             }
-            handler.postDelayed(() -> tryGlobalSearchBinding(expectedStep), 350L);
+            handler.postDelayed(() -> {
+                if (!isCurrentStep(expectedStep)) return;
+                if (!"WAITING_GLOBAL_SEARCH_RESULT".equals(LabStore.state(this))) return;
+                List<AccessibilityNodeInfo> postQueryRoots = chatGptRoots();
+                LabStore.append(this, "GLOBAL_SEARCH_POST_QUERY_CONTROL_CENSUS windows="
+                        + postQueryRoots.size() + " "
+                        + LabStore.abbrev(controlCensus(postQueryRoots, 260), 20000));
+                tryGlobalSearchBinding(expectedStep);
+            }, 350L);
             return;
         }
 
         if ("WAITING_GLOBAL_SEARCH_RESULT".equals(state)) {
             AccessibilityNodeInfo surfaceRoot = findGlobalSearchRoot(roots);
             boolean globalSurface = surfaceRoot != null;
+            if (surfaceRoot == null) {
+                surfaceRoot = findRuntimeSearchRoot(roots);
+                if (surfaceRoot != null) globalSurface = true;
+            }
             if (surfaceRoot == null) surfaceRoot = findRootWithHistorySearchFieldEquals(roots, marker);
             if (surfaceRoot == null) surfaceRoot = findHistoryDrawerRoot(roots);
             boolean historySurface = !globalSurface && surfaceRoot != null;
@@ -848,6 +868,26 @@ public class LabAccessibilityService extends AccessibilityService {
     private AccessibilityNodeInfo findGlobalSearchRoot(List<AccessibilityNodeInfo> roots) {
         for (AccessibilityNodeInfo root : roots) if (isGlobalSearchScreen(root)) return root;
         return null;
+    }
+
+    private AccessibilityNodeInfo findRuntimeSearchRoot(List<AccessibilityNodeInfo> roots) {
+        AccessibilityNodeInfo match = null;
+        for (AccessibilityNodeInfo root : roots) {
+            if (!isRuntimeSearchRoot(root)) continue;
+            if (match != null && !match.equals(root)) return null;
+            match = root;
+        }
+        return match;
+    }
+
+    private boolean isRuntimeSearchRoot(AccessibilityNodeInfo root) {
+        if (root == null) return false;
+        List<AccessibilityNodeInfo> search = new ArrayList<>();
+        List<AccessibilityNodeInfo> close = new ArrayList<>();
+        collectExactSemanticNodes(root, "Search", search, 0);
+        collectExactSemanticNodes(root, "Close", close, 0);
+        int editableSetTextFields = countEditableSearchFields(root, false);
+        return search.size() == 1 && close.size() == 1 && editableSetTextFields == 1;
     }
 
     private boolean anyHistoryDrawerScreen(List<AccessibilityNodeInfo> roots) {
