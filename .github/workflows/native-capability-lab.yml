@@ -20,7 +20,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Capability Lab safety prechecks
+      - name: Capability Lab v0.14 safety prechecks
         shell: bash
         run: |
           set -euo pipefail
@@ -28,86 +28,58 @@ jobs:
           SVC="$ROOT/app/src/main/java/com/openai/controlplane/capabilitylab/LabAccessibilityService.java"
           STORE="$ROOT/app/src/main/java/com/openai/controlplane/capabilitylab/LabStore.java"
           MAIN="$ROOT/app/src/main/java/com/openai/controlplane/capabilitylab/MainActivity.java"
-          SHORTCUT="$ROOT/app/src/main/java/com/openai/controlplane/capabilitylab/LabShortcutReadSide.java"
-          OBSERVER="$ROOT/app/src/main/java/com/openai/controlplane/capabilitylab/LabShizukuObserver.java"
           MAN="$ROOT/app/src/main/AndroidManifest.xml"
           PLAN="$ROOT/plans/default.json"
+
           grep -Fq 'com.openai.chatgpt' "$ROOT/app/src/main/java/com/openai/controlplane/capabilitylab/ProfileGuard.java"
           grep -Fq 'WRITE_CLAIM' "$STORE"
           grep -Fq 'advanceStepIfCurrent' "$STORE"
           grep -Fq 'markSearchBindingVerified' "$STORE"
-          grep -Fq 'GLOBAL_SEARCH_ENTRY_CONTROL_CENSUS' "$SVC"
-          grep -Fq 'GLOBAL_SEARCH_MENU_EXACT_MATCHES' "$SVC"
-          grep -Fq 'GLOBAL_SEARCH_DRAWER_SEARCH_EXACT_MATCHES' "$SVC"
-          grep -Fq 'GLOBAL_SEARCH_POST_SEARCH_CLICK_CONTROL_CENSUS' "$SVC"
+          grep -Fq 'GLOBAL_SEARCH_MARKER_OVERRIDE source=plan' "$SVC"
+          grep -Fq 'GLOBAL_SEARCH_QUERY_RECEIPT exact=' "$SVC"
           grep -Fq 'GLOBAL_SEARCH_RUNTIME_FIELD_CONTRACT matched=true' "$SVC"
-          grep -Fq 'GLOBAL_SEARCH_POST_QUERY_CONTROL_CENSUS' "$SVC"
-          grep -Fq 'findRuntimeSearchRoot' "$SVC"
-          grep -Fq 'collectExactSemanticNodes(root, "Search", search, 0)' "$SVC"
-          grep -Fq 'collectExactSemanticNodes(root, "Close", close, 0)' "$SVC"
-          grep -Fq 'findUniqueExactSemanticAcrossRoots' "$SVC"
-          grep -Fq 'collectExactSemanticNodes' "$SVC"
-          grep -Fq 'chatGptRoots()' "$SVC"
-          grep -Fq 'getWindows()' "$SVC"
-          grep -Fq 'performBoundedNavigation' "$SVC"
-          grep -Fq 'Open conversation history' "$SVC"
-          grep -Fq 'Open sidebar' "$SVC"
-          grep -Fq '"Menu"' "$SVC"
-          grep -Fq 'countExactSemanticAcrossRoots(roots, "Search")' "$SVC"
-          grep -Fq 'GLOBAL_SEARCH_DRAWER_EXACT_SEARCH' "$SVC"
-          grep -Fq 'findHistorySearchFieldAcrossRoots' "$SVC"
-          grep -Fq 'findUniqueHistorySearchEntryAcrossRoots' "$SVC"
-          grep -Fq 'chatgpt.history-search' "$SVC"
           grep -Fq 'GLOBAL_SEARCH_QUERY ACTION_SET_TEXT' "$SVC"
+          grep -Fq 'GLOBAL_SEARCH_RESULT' "$SVC"
           grep -Fq 'GLOBAL_SEARCH_REOPEN_VERIFIED' "$SVC"
-          grep -Fq 'GLOBAL_SEARCH_TIMEOUT_DIAGNOSTIC' "$SVC"
-          grep -Fq 'styleButton(accessibilityButton' "$MAIN"
+          grep -Fq 'findRuntimeSearchRoot' "$SVC"
+          grep -Fq 'performBoundedNavigation' "$SVC"
           grep -Fq 'READY TO RUN — press the BLUE RUN button' "$MAIN"
-          grep -Fq 'ColorStateList' "$MAIN"
-          grep -Fq 'TEST COMPLETE' "$MAIN"
-          grep -Fq 'SHORTCUT_HOST_PERMISSION' "$SHORTCUT"
-          grep -Fq 'classification=LAB_ONLY_DISCOVERY' "$OBSERVER"
-          grep -Fq "dev.rikka.shizuku:api:13.1.5" "$ROOT/app/build.gradle"
-          grep -Fq "dev.rikka.shizuku:provider:13.1.5" "$ROOT/app/build.gradle"
-          grep -Fq 'rikka.shizuku.ShizukuProvider' "$MAN"
-          grep -Fq '${applicationId}.shizuku' "$MAN"
-          grep -Fq 'android.permission.INTERACT_ACROSS_USERS_FULL' "$MAN"
-          grep -Fq 'flagRetrieveInteractiveWindows' "$ROOT/app/src/main/res/xml/accessibility_service_config.xml"
           grep -Fq 'android.permission.INTERNET' "$MAN"
-          grep -Fq 'ChatGPT Capability Lab Stable' "$MAN"
-          grep -Fq 'targetSignerSha256' "$PLAN"
-          grep -Fq 'conversation_search_binding_v8_state_bound_search_field' "$PLAN"
-          grep -Fq 'global_search_binding' "$PLAN"
+          grep -Fq 'conversation_search_binding_v9_indexed_marker_reopen' "$PLAN"
+          grep -Fq 'LAB_CID_9FC96C5A35E04E5B' "$PLAN"
+
           ! grep -R -n -E 'api\.openai\.com|Authorization: Bearer|access_token|refresh_token' "$ROOT"
           ! grep -Fq 'dispatchGesture' "$SVC"
           ! grep -Fq 'getBoundsInScreen' "$SVC"
           ! grep -Fq 'GLOBAL_ACTION_' "$SVC"
+
           python3 - <<'PY'
           from pathlib import Path
           import json
           root = Path('runtime_probes/native-capability-lab')
           s = (root / 'app/src/main/java/com/openai/controlplane/capabilitylab/LabAccessibilityService.java').read_text()
           if s.count('performAction(AccessibilityNodeInfo.ACTION_CLICK)') != 2:
-              raise SystemExit('Capability Lab v0.13 must contain exactly two ACTION_CLICK code sites')
+              raise SystemExit('v0.14 must retain exactly two ACTION_CLICK code sites')
           if s.count('performAction(AccessibilityNodeInfo.ACTION_SET_TEXT') != 1:
-              raise SystemExit('Capability Lab v0.13 must contain exactly one Search ACTION_SET_TEXT site')
+              raise SystemExit('v0.14 must retain exactly one Search ACTION_SET_TEXT site')
           if 'completeStep();' in s:
-              raise SystemExit('unguarded bare completeStep() found; step-token hardening regressed')
+              raise SystemExit('unguarded bare completeStep() found')
           gradle = (root / 'app/build.gradle').read_text()
           assert "applicationId 'com.openai.controlplane.capabilitylab.stable'" in gradle
-          assert 'versionCode 13' in gradle
-          assert "versionName '0.13-native-capability-lab-stable-state-bound-search-field'" in gradle
+          assert 'versionCode 14' in gradle
+          assert "versionName '0.14-native-capability-lab-stable-indexed-marker-reopen'" in gradle
           data = json.loads((root / 'plans/default.json').read_text())
           assert data['schema'] == 1
           assert data['targetVersion'] == '1.2026.237'
-          assert data['suite'] == 'conversation_search_binding_v8_state_bound_search_field'
-          ops = [x['op'] for x in data['steps']]
-          assert ops == [
-              'launch_prompt', 'capture_tree', 'semantic_send', 'capture_tree',
-              'wait', 'global_search_binding', 'return_lab', 'verify_candidates', 'finish'
+          assert data['suite'] == 'conversation_search_binding_v9_indexed_marker_reopen'
+          assert [x['op'] for x in data['steps']] == [
+              'resume_chatgpt', 'wait', 'global_search_binding',
+              'return_lab', 'verify_candidates', 'finish'
           ]
-          assert data['steps'][4]['ms'] == 8000
-          assert data['steps'][5]['timeoutMs'] == 35000
+          assert data['steps'][1]['ms'] == 500
+          assert data['steps'][2]['timeoutMs'] == 35000
+          assert data['steps'][2]['marker'] == 'LAB_CID_9FC96C5A35E04E5B'
+          assert not any(x['op'] in ('launch_prompt', 'semantic_send') for x in data['steps'])
           PY
 
       - name: Set up Java
@@ -145,7 +117,7 @@ jobs:
           AAPT=$(find "$ANDROID_SDK_ROOT/build-tools" -type f -name aapt | sort | tail -n 1)
           "$APKSIGNER" verify --verbose --print-certs ci/out/chatgpt-capability-lab-ci-only.apk | tee ci/out/apksigner.txt
           "$AAPT" dump badging ci/out/chatgpt-capability-lab-ci-only.apk | tee ci/out/badging.txt
-          grep -Fq "package: name='com.openai.controlplane.capabilitylab.stable' versionCode='13' versionName='0.13-native-capability-lab-stable-state-bound-search-field'" ci/out/badging.txt
+          grep -Fq "package: name='com.openai.controlplane.capabilitylab.stable' versionCode='14' versionName='0.14-native-capability-lab-stable-indexed-marker-reopen'" ci/out/badging.txt
           sha256sum ci/out/chatgpt-capability-lab-ci-only.apk | tee ci/out/SHA256.txt
 
       - name: Upload CI-only artifact
