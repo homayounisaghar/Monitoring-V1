@@ -20,7 +20,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Capability Lab v0.16 safety prechecks
+      - name: Capability Lab v0.17 safety prechecks
         shell: bash
         run: |
           set -euo pipefail
@@ -34,33 +34,28 @@ jobs:
 
           grep -Fq 'com.openai.chatgpt' "$ROOT/app/src/main/java/com/openai/controlplane/capabilitylab/ProfileGuard.java"
           grep -Fq 'WRITE_CLAIM' "$STORE"
-          grep -Fq 'advanceStepIfCurrent' "$STORE"
-          grep -Fq 'markSearchBindingVerified' "$STORE"
-          grep -Fq 'sendConfirmedAtMs' "$STORE"
-          grep -Fq 'reportFileName' "$STORE"
-          grep -Fq 'appendUiSnapshotOnce' "$STORE"
-          grep -Fq 'capability-lab-report-' "$STORE"
-          grep -Fq 'GLOBAL_SEARCH_QUERY_RECEIPT_DEFERRED_TO_RESULT_EVIDENCE' "$SVC"
-          grep -Fq 'GLOBAL_SEARCH_PROBE_MISS' "$SVC"
-          grep -Fq 'GLOBAL_SEARCH_PROBE_POST_CLOSE' "$SVC"
-          grep -Fq 'SEARCH_INDEX_FIRST_VERIFIED_HIT' "$SVC"
-          grep -Fq 'HISTORY_REFRESH_READY' "$SVC"
-          grep -Fq 'case "history_refresh"' "$SVC"
-          grep -Fq 'case "finish_if_search_binding"' "$SVC"
-          grep -Fq 'findRuntimeSearchSurfaceRoot' "$SVC"
+          grep -Fq 'markHistoryBindingVerified' "$STORE"
+          grep -Fq 'CANDIDATES_CLEARED scope=history_selected_row' "$STORE"
+          grep -Fq 'case "history_recent_binding"' "$SVC"
+          grep -Fq 'HISTORY_RECENT_SWITCH_AWAY' "$SVC"
+          grep -Fq 'HISTORY_RECENT_ROWS' "$SVC"
+          grep -Fq 'HISTORY_RECENT_SELECTED_ROW' "$SVC"
+          grep -Fq 'HISTORY_RECENT_REOPEN_VERIFIED' "$SVC"
+          grep -Fq 'harvestAccessibilityMetadata(row)' "$SVC"
           grep -Fq 'performBoundedNavigation' "$SVC"
-          grep -Fq 'SHARE FULL REPORT FILE' "$MAIN"
-          grep -Fq 'RUN FRESH INDEX TRIGGER LADDER' "$MAIN"
-          grep -Fq 'appendUiSnapshotOnce' "$MAIN"
-          grep -Fq 'FileProvider.getUriForFile' "$MAIN"
-          grep -Fq 'conversation_search_binding_v11_fresh_index_trigger_ladder' "$LOADER"
-          grep -Fq 'conversation_search_binding_v11_fresh_index_trigger_ladder' "$PLAN"
+          grep -Fq 'DOWNLOAD FULL REPORT' "$MAIN"
+          grep -Fq 'RUN FRESH HISTORY BINDING PROOF' "$MAIN"
+          grep -Fq 'MediaStore.Downloads.EXTERNAL_CONTENT_URI' "$MAIN"
+          grep -Fq 'conversation_history_binding_v12_fresh_recent_reopen' "$LOADER"
+          grep -Fq 'conversation_history_binding_v12_fresh_recent_reopen' "$PLAN"
           grep -Fq 'android.permission.INTERNET' "$MAN"
 
           ! grep -R -n -E 'api\.openai\.com|Authorization: Bearer|access_token|refresh_token' "$ROOT"
           ! grep -Fq 'dispatchGesture' "$SVC"
           ! grep -Fq 'getBoundsInScreen' "$SVC"
           ! grep -Fq 'GLOBAL_ACTION_' "$SVC"
+          ! grep -Fq 'Intent.createChooser' "$MAIN"
+          ! grep -Fq 'FileProvider.getUriForFile' "$MAIN"
 
           python3 - <<'PY'
           from pathlib import Path
@@ -68,41 +63,31 @@ jobs:
           root = Path('runtime_probes/native-capability-lab')
           s = (root / 'app/src/main/java/com/openai/controlplane/capabilitylab/LabAccessibilityService.java').read_text()
           if s.count('performAction(AccessibilityNodeInfo.ACTION_CLICK)') != 2:
-              raise SystemExit('v0.16 must retain exactly two ACTION_CLICK code sites')
+              raise SystemExit('v0.17 must retain exactly two ACTION_CLICK code sites')
           if s.count('performAction(AccessibilityNodeInfo.ACTION_SET_TEXT') != 1:
-              raise SystemExit('v0.16 must retain exactly one Search ACTION_SET_TEXT site')
+              raise SystemExit('v0.17 must retain exactly one Search ACTION_SET_TEXT site')
           if 'completeStep();' in s:
               raise SystemExit('unguarded bare completeStep() found')
 
           gradle = (root / 'app/build.gradle').read_text()
           assert "applicationId 'com.openai.controlplane.capabilitylab.stable'" in gradle
-          assert 'versionCode 16' in gradle
-          assert "versionName '0.16-native-capability-lab-stable-index-trigger-ladder'" in gradle
+          assert 'versionCode 17' in gradle
+          assert '0.17-native-capability-lab-stable-fresh-history-binding' in gradle
 
           data = json.loads((root / 'plans/default.json').read_text())
           assert data['schema'] == 1
           assert data['targetVersion'] == '1.2026.237'
-          assert data['suite'] == 'conversation_search_binding_v11_fresh_index_trigger_ladder'
+          assert data['suite'] == 'conversation_history_binding_v12_fresh_recent_reopen'
           steps = data['steps']
           ops = [x['op'] for x in steps]
           assert ops.count('launch_prompt') == 1
           assert ops.count('semantic_send') == 1
-          assert ops.count('history_refresh') == 1
-          assert ops.count('global_search_binding') == 4
-          assert ops.count('finish_if_search_binding') == 4
-          probes = [x for x in steps if x['op'] == 'global_search_binding']
-          assert all(x.get('probe') is True for x in probes)
-          assert [x['label'] for x in probes] == [
-              'early_search',
-              'after_history_dwell',
-              'after_foreground_roundtrip',
-              'after_additional_8s',
-          ]
-          assert [x['resultWaitMs'] for x in probes] == [1800, 1800, 1800, 2200]
-          assert all(x['navigationTimeoutMs'] == 8000 for x in probes)
+          assert ops.count('history_recent_binding') == 1
+          assert ops.count('verify_candidates') == 1
+          assert ops.count('global_search_binding') == 0
+          assert ops.count('history_refresh') == 0
           assert steps[-1]['op'] == 'finish'
-          assert steps[-1]['inconclusiveStatus'] == 'INCONCLUSIVE_FRESH_INDEX_NOT_READY_AFTER_TRIGGER_LADDER'
-          assert not any('marker' in x for x in probes)
+          assert steps[-1]['inconclusiveStatus'] == 'INCONCLUSIVE_FRESH_HISTORY_RECENT_BINDING_NOT_FOUND'
           PY
 
       - name: Set up Java
@@ -140,7 +125,7 @@ jobs:
           AAPT=$(find "$ANDROID_SDK_ROOT/build-tools" -type f -name aapt | sort | tail -n 1)
           "$APKSIGNER" verify --verbose --print-certs ci/out/chatgpt-capability-lab-ci-only.apk | tee ci/out/apksigner.txt
           "$AAPT" dump badging ci/out/chatgpt-capability-lab-ci-only.apk | tee ci/out/badging.txt
-          grep -Fq "package: name='com.openai.controlplane.capabilitylab.stable' versionCode='16' versionName='0.16-native-capability-lab-stable-index-trigger-ladder'" ci/out/badging.txt
+          grep -Fq "package: name='com.openai.controlplane.capabilitylab.stable' versionCode='17' versionName='0.17-native-capability-lab-stable-fresh-history-binding'" ci/out/badging.txt
           sha256sum ci/out/chatgpt-capability-lab-ci-only.apk | tee ci/out/SHA256.txt
 
       - name: Upload CI-only artifact
