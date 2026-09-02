@@ -61,6 +61,7 @@ final class LabStore {
                 .putString("marker", "")
                 .putBoolean("writeClaimed", false)
                 .putBoolean("sendConfirmed", false)
+                .putBoolean("searchBindingVerified", false)
                 .putString("candidates", "")
                 .putInt("candidateIndex", 0)
                 .putString("verifiedConversationId", "")
@@ -89,6 +90,7 @@ final class LabStore {
     static String marker(Context c) { return p(c).getString("marker", ""); }
     static boolean writeClaimed(Context c) { return p(c).getBoolean("writeClaimed", false); }
     static boolean sendConfirmed(Context c) { return p(c).getBoolean("sendConfirmed", false); }
+    static boolean searchBindingVerified(Context c) { return p(c).getBoolean("searchBindingVerified", false); }
     static int candidateIndex(Context c) { return p(c).getInt("candidateIndex", 0); }
     static long waitUntil(Context c) { return p(c).getLong("waitUntil", 0L); }
     static String verifiedConversationId(Context c) { return p(c).getString("verifiedConversationId", ""); }
@@ -120,6 +122,12 @@ final class LabStore {
         if (sendConfirmed(c)) return;
         p(c).edit().putBoolean("sendConfirmed", true).apply();
         append(c, "SEND_RECEIPT editable_to_noneditable=true");
+    }
+
+    static synchronized void markSearchBindingVerified(Context c) {
+        if (searchBindingVerified(c)) return;
+        p(c).edit().putBoolean("searchBindingVerified", true).apply();
+        append(c, "VERIFIED_SEARCH_BINDING marker=" + marker(c));
     }
 
     static synchronized void markVerified(Context c, String id) {
@@ -184,7 +192,8 @@ final class LabStore {
                 + " step=" + step(c)
                 + " marker=" + marker(c)
                 + " candidates=" + candidates(c).size()
-                + " verifiedId=" + verifiedConversationId(c);
+                + " verifiedId=" + verifiedConversationId(c)
+                + " searchBinding=" + searchBindingVerified(c);
     }
 
     private static String now() {
