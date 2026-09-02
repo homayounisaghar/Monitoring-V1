@@ -37,6 +37,8 @@ jobs:
           grep -Fq 'advanceStepIfCurrent' "$STORE"
           grep -Fq 'markSearchBindingVerified' "$STORE"
           grep -Fq 'GLOBAL_SEARCH_ENTRY_CONTROL_CENSUS' "$SVC"
+          grep -Fq 'GLOBAL_SEARCH_MENU_EXACT_MATCHES' "$SVC"
+          grep -Fq 'collectExactSemanticNodes' "$SVC"
           grep -Fq 'chatGptRoots()' "$SVC"
           grep -Fq 'getWindows()' "$SVC"
           grep -Fq 'performBoundedNavigation' "$SVC"
@@ -64,7 +66,7 @@ jobs:
           grep -Fq 'android.permission.INTERNET' "$MAN"
           grep -Fq 'ChatGPT Capability Lab Stable' "$MAN"
           grep -Fq 'targetSignerSha256' "$PLAN"
-          grep -Fq 'conversation_search_binding_v4_menu_calibration' "$PLAN"
+          grep -Fq 'conversation_search_binding_v5_exact_menu' "$PLAN"
           grep -Fq 'global_search_binding' "$PLAN"
           ! grep -R -n -E 'api\.openai\.com|Authorization: Bearer|access_token|refresh_token' "$ROOT"
           ! grep -Fq 'dispatchGesture' "$SVC"
@@ -75,22 +77,20 @@ jobs:
           import json
           root = Path('runtime_probes/native-capability-lab')
           s = (root / 'app/src/main/java/com/openai/controlplane/capabilitylab/LabAccessibilityService.java').read_text()
-          # Two code sites only: proven Send click plus generic bounded navigation click.
-          # The latter is called only after exact semantic/unique-result selection.
           if s.count('performAction(AccessibilityNodeInfo.ACTION_CLICK)') != 2:
-              raise SystemExit('Capability Lab v0.9 must contain exactly two ACTION_CLICK code sites')
+              raise SystemExit('Capability Lab v0.10 must contain exactly two ACTION_CLICK code sites')
           if s.count('performAction(AccessibilityNodeInfo.ACTION_SET_TEXT') != 1:
-              raise SystemExit('Capability Lab v0.9 must contain exactly one Search ACTION_SET_TEXT site')
+              raise SystemExit('Capability Lab v0.10 must contain exactly one Search ACTION_SET_TEXT site')
           if 'completeStep();' in s:
               raise SystemExit('unguarded bare completeStep() found; step-token hardening regressed')
           gradle = (root / 'app/build.gradle').read_text()
           assert "applicationId 'com.openai.controlplane.capabilitylab.stable'" in gradle
-          assert 'versionCode 9' in gradle
-          assert "versionName '0.9-native-capability-lab-stable-menu-calibration'" in gradle
+          assert 'versionCode 10' in gradle
+          assert "versionName '0.10-native-capability-lab-stable-exact-menu'" in gradle
           data = json.loads((root / 'plans/default.json').read_text())
           assert data['schema'] == 1
           assert data['targetVersion'] == '1.2026.237'
-          assert data['suite'] == 'conversation_search_binding_v4_menu_calibration'
+          assert data['suite'] == 'conversation_search_binding_v5_exact_menu'
           ops = [x['op'] for x in data['steps']]
           assert ops == [
               'launch_prompt', 'capture_tree', 'semantic_send', 'capture_tree',
@@ -135,7 +135,7 @@ jobs:
           AAPT=$(find "$ANDROID_SDK_ROOT/build-tools" -type f -name aapt | sort | tail -n 1)
           "$APKSIGNER" verify --verbose --print-certs ci/out/chatgpt-capability-lab-ci-only.apk | tee ci/out/apksigner.txt
           "$AAPT" dump badging ci/out/chatgpt-capability-lab-ci-only.apk | tee ci/out/badging.txt
-          grep -Fq "package: name='com.openai.controlplane.capabilitylab.stable' versionCode='9' versionName='0.9-native-capability-lab-stable-menu-calibration'" ci/out/badging.txt
+          grep -Fq "package: name='com.openai.controlplane.capabilitylab.stable' versionCode='10' versionName='0.10-native-capability-lab-stable-exact-menu'" ci/out/badging.txt
           sha256sum ci/out/chatgpt-capability-lab-ci-only.apk | tee ci/out/SHA256.txt
 
       - name: Upload CI-only artifact
