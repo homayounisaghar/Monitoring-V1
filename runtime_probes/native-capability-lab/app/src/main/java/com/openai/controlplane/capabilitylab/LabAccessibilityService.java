@@ -1158,8 +1158,20 @@ public class LabAccessibilityService extends AccessibilityService {
     }
 
     private boolean isGlobalSearchScreen(AccessibilityNodeInfo root) {
-        return containsSemantic(root, "chatgpt-global-search", 0)
-                || countEditableSearchFields(root, true) == 1;
+        if (containsSemantic(root, "chatgpt-global-search", 0)
+                || countEditableSearchFields(root, true) == 1) {
+            return true;
+        }
+
+        // v0.11 real-device evidence reached the official Search surface, but the runtime
+        // EditText intentionally exposed no semantic/hint. Identify that surface only by
+        // the exact first-party heading plus exactly one visible/enabled ACTION_SET_TEXT
+        // field. This remains screen-scoped and must not turn a generic EditText into a
+        // Search field elsewhere in ChatGPT.
+        List<AccessibilityNodeInfo> runtimeSentinels = new ArrayList<>();
+        collectExactSemanticNodes(root, "Search chats, files, and projects", runtimeSentinels, 0);
+        int editableSetTextFields = countEditableSearchFields(root, false);
+        return runtimeSentinels.size() == 1 && editableSetTextFields == 1;
     }
 
     private AccessibilityNodeInfo findUniqueGlobalSearchEntry(AccessibilityNodeInfo root) {

@@ -8,8 +8,8 @@ android {
         applicationId 'com.openai.controlplane.capabilitylab.stable'
         minSdk 32
         targetSdk 35
-        versionCode 11
-        versionName '0.11-native-capability-lab-stable-exact-drawer-search'
+        versionCode 12
+        versionName '0.12-native-capability-lab-stable-runtime-search-field'
     }
 }
 

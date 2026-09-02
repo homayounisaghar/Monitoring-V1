@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "suite": "conversation_search_binding_v6_exact_drawer_search",
+  "suite": "conversation_search_binding_v7_runtime_search_field",
   "targetVersion": "1.2026.237",
   "targetSignerSha256": "b24f4bfbb3cf293f938703b9d87027c1102cc36dc4fa206910e08927db40473c",
   "steps": [
