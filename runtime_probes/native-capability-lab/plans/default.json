@@ -1,12 +1,12 @@
 {
   "schema": 1,
-  "suite": "conversation_id_observer_v1_shizuku",
+  "suite": "conversation_search_binding_v1_official_ui",
   "targetVersion": "1.2026.237",
   "targetSignerSha256": "b24f4bfbb3cf293f938703b9d87027c1102cc36dc4fa206910e08927db40473c",
   "steps": [
     {
       "op": "launch_prompt",
-      "prompt": "Capability Lab observer conversation binding proof. Reply with exactly this marker and no other text: {{marker}}"
+      "prompt": "Capability Lab official search binding proof. Reply with exactly this marker and no other text: {{marker}}"
     },
     {
       "op": "capture_tree",
@@ -19,37 +19,16 @@
     },
     {
       "op": "capture_tree",
-      "label": "post_send_immediate",
+      "label": "post_send_receipt",
       "timeoutMs": 8000
     },
     {
       "op": "wait",
-      "ms": 1000
+      "ms": 5000
     },
     {
-      "op": "channel_snapshot"
-    },
-    {
-      "op": "wait",
-      "ms": 4000
-    },
-    {
-      "op": "channel_snapshot"
-    },
-    {
-      "op": "wait",
-      "ms": 25000
-    },
-    {
-      "op": "notification_snapshot"
-    },
-    {
-      "op": "channel_snapshot"
-    },
-    {
-      "op": "capture_tree",
-      "label": "post_send_observer_final",
-      "timeoutMs": 12000
+      "op": "global_search_binding",
+      "timeoutMs": 30000
     },
     {
       "op": "return_lab"
