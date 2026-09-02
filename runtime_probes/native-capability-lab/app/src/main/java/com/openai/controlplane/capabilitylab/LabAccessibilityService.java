@@ -497,12 +497,22 @@ public class LabAccessibilityService extends AccessibilityService {
                 String actualQuery = receiptField == null || receiptField.getText() == null
                         ? "" : receiptField.getText().toString();
                 boolean exactQuery = marker.equals(actualQuery);
+                boolean queryTextUnavailable = actualQuery.isEmpty();
                 LabStore.append(this, "GLOBAL_SEARCH_QUERY_RECEIPT exact=" + exactQuery
+                        + " unavailable=" + queryTextUnavailable
                         + " actualLen=" + actualQuery.length()
                         + " actual=" + LabStore.abbrev(actualQuery, 96));
-                if (!exactQuery) {
+                // Runtime v0.14 showed ACTION_SET_TEXT=true while the re-rendered Search
+                // EditText returned an empty getText() through Accessibility. Empty readback
+                // is therefore treated as unavailable evidence, not contradictory evidence.
+                // A non-empty mismatch still fails closed. Exactness is then established by
+                // the unique marker-bearing result and exact marker receipt after reopen.
+                if (!exactQuery && !queryTextUnavailable) {
                     failRun("GLOBAL_SEARCH_QUERY_TEXT_MISMATCH");
                     return;
+                }
+                if (queryTextUnavailable) {
+                    LabStore.append(this, "GLOBAL_SEARCH_QUERY_RECEIPT_DEFERRED_TO_RESULT_EVIDENCE");
                 }
                 LabStore.append(this, "GLOBAL_SEARCH_POST_QUERY_CONTROL_CENSUS windows="
                         + postQueryRoots.size() + " "
@@ -517,6 +527,12 @@ public class LabAccessibilityService extends AccessibilityService {
             boolean globalSurface = surfaceRoot != null;
             if (surfaceRoot == null) {
                 surfaceRoot = findRuntimeSearchRoot(roots);
+                if (surfaceRoot != null) globalSurface = true;
+            }
+            if (surfaceRoot == null) {
+                // After a query the literal Search label may disappear while the same
+                // first-party surface keeps the unique editable field + Close control.
+                surfaceRoot = findRuntimeSearchSurfaceRoot(roots);
                 if (surfaceRoot != null) globalSurface = true;
             }
             if (surfaceRoot == null) surfaceRoot = findRootWithHistorySearchFieldEquals(roots, marker);
@@ -570,7 +586,10 @@ public class LabAccessibilityService extends AccessibilityService {
         }
 
         if ("WAITING_GLOBAL_SEARCH_REOPEN".equals(state)) {
-            if (anyGlobalSearchScreen(roots) || anyHistoryDrawerScreen(roots)) return;
+            // Do not mistake the marker text inside Search results for a reopened chat.
+            // Require every known Search-surface sentinel to disappear first.
+            if (anyGlobalSearchScreen(roots) || anyHistoryDrawerScreen(roots)
+                    || findRuntimeSearchSurfaceRoot(roots) != null) return;
             MarkerCounts counts = countMarkerNodesAcrossRoots(roots, marker);
             if (counts.editable != 0 || counts.nonEditable < 1) return;
             LabStore.append(this, "GLOBAL_SEARCH_REOPEN_VERIFIED markerEditable=" + counts.editable
@@ -913,6 +932,24 @@ public class LabAccessibilityService extends AccessibilityService {
         collectExactSemanticNodes(root, "Close", close, 0);
         int editableSetTextFields = countEditableSearchFields(root, false);
         return search.size() == 1 && close.size() == 1 && editableSetTextFields == 1;
+    }
+
+    private AccessibilityNodeInfo findRuntimeSearchSurfaceRoot(List<AccessibilityNodeInfo> roots) {
+        AccessibilityNodeInfo match = null;
+        for (AccessibilityNodeInfo root : roots) {
+            if (!isRuntimeSearchSurfaceRoot(root)) continue;
+            if (match != null && !match.equals(root)) return null;
+            match = root;
+        }
+        return match;
+    }
+
+    private boolean isRuntimeSearchSurfaceRoot(AccessibilityNodeInfo root) {
+        if (root == null) return false;
+        List<AccessibilityNodeInfo> close = new ArrayList<>();
+        collectExactSemanticNodes(root, "Close", close, 0);
+        int editableSetTextFields = countEditableSearchFields(root, false);
+        return close.size() == 1 && editableSetTextFields == 1;
     }
 
     private boolean anyHistoryDrawerScreen(List<AccessibilityNodeInfo> roots) {

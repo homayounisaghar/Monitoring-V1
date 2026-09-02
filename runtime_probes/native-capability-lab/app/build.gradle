@@ -8,8 +8,8 @@ android {
         applicationId 'com.openai.controlplane.capabilitylab.stable'
         minSdk 32
         targetSdk 35
-        versionCode 14
-        versionName '0.14-native-capability-lab-stable-indexed-marker-reopen'
+        versionCode 15
+        versionName '0.15-native-capability-lab-stable-result-evidence-receipt'
     }
 }
 
