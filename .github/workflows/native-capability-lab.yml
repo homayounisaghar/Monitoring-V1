@@ -52,7 +52,7 @@ jobs:
           grep -Fq 'android.permission.INTERNET' "$MAN"
           grep -Fq 'ChatGPT Capability Lab Stable' "$MAN"
           grep -Fq 'targetSignerSha256' "$PLAN"
-          grep -Fq 'conversation_id_readside_v3_timesliced_accessibility' "$PLAN"
+          grep -Fq 'conversation_id_observer_v1_shizuku' "$PLAN"
           ! grep -R -n -E 'api\.openai\.com|Authorization: Bearer|access_token|refresh_token' "$ROOT"
           ! grep -Fq 'dispatchGesture' "$SVC"
           ! grep -Fq 'getBoundsInScreen' "$SVC"
@@ -77,7 +77,7 @@ jobs:
           data = json.loads((root / 'plans/default.json').read_text())
           assert data['schema'] == 1
           assert data['targetVersion'] == '1.2026.237'
-          assert data['suite'] == 'conversation_id_readside_v3_timesliced_accessibility'
+          assert data['suite'] == 'conversation_id_observer_v1_shizuku'
           assert any(x['op'] == 'channel_snapshot' for x in data['steps'])
           PY
 
