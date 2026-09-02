@@ -312,6 +312,15 @@ public class LabAccessibilityService extends AccessibilityService {
 
     private void opGlobalSearchBinding(JSONObject step, int stepIndex) {
         if (!isCurrentStep(stepIndex)) return;
+        String requestedMarker = step.optString("marker", "").trim();
+        if (!requestedMarker.isEmpty()) {
+            if (!requestedMarker.matches("LAB_CID_[0-9A-F]{16}")) {
+                failRun("GLOBAL_SEARCH_PLAN_MARKER_INVALID");
+                return;
+            }
+            LabStore.setMarker(this, requestedMarker);
+            LabStore.append(this, "GLOBAL_SEARCH_MARKER_OVERRIDE source=plan marker=" + requestedMarker);
+        }
         LabStore.setState(this, "WAITING_GLOBAL_SEARCH_ENTRY");
         List<AccessibilityNodeInfo> roots = chatGptRoots();
         LabStore.append(this, "GLOBAL_SEARCH_BINDING_ARMED marker=" + LabStore.marker(this)
@@ -335,7 +344,10 @@ public class LabAccessibilityService extends AccessibilityService {
 
         String state = LabStore.state(this);
         if ("WAITING_GLOBAL_SEARCH_ENTRY".equals(state)) {
-            if (anyGlobalSearchScreen(roots)) {
+            // An indexed-marker probe may resume ChatGPT while the first-party Search
+            // surface is already open from a previous run. Accept the same strict runtime
+            // Search root contract here instead of forcing a redundant Menu -> Search cycle.
+            if (anyGlobalSearchScreen(roots) || findRuntimeSearchRoot(roots) != null) {
                 LabStore.setState(this, "WAITING_GLOBAL_SEARCH_FIELD");
                 handler.postDelayed(() -> tryGlobalSearchBinding(expectedStep), 120L);
                 return;
@@ -479,6 +491,19 @@ public class LabAccessibilityService extends AccessibilityService {
                 if (!isCurrentStep(expectedStep)) return;
                 if (!"WAITING_GLOBAL_SEARCH_RESULT".equals(LabStore.state(this))) return;
                 List<AccessibilityNodeInfo> postQueryRoots = chatGptRoots();
+                AccessibilityNodeInfo receiptRoot = findGlobalSearchRoot(postQueryRoots);
+                if (receiptRoot == null) receiptRoot = findRuntimeSearchRoot(postQueryRoots);
+                AccessibilityNodeInfo receiptField = receiptRoot == null ? null : findGlobalSearchField(receiptRoot);
+                String actualQuery = receiptField == null || receiptField.getText() == null
+                        ? "" : receiptField.getText().toString();
+                boolean exactQuery = marker.equals(actualQuery);
+                LabStore.append(this, "GLOBAL_SEARCH_QUERY_RECEIPT exact=" + exactQuery
+                        + " actualLen=" + actualQuery.length()
+                        + " actual=" + LabStore.abbrev(actualQuery, 96));
+                if (!exactQuery) {
+                    failRun("GLOBAL_SEARCH_QUERY_TEXT_MISMATCH");
+                    return;
+                }
                 LabStore.append(this, "GLOBAL_SEARCH_POST_QUERY_CONTROL_CENSUS windows="
                         + postQueryRoots.size() + " "
                         + LabStore.abbrev(controlCensus(postQueryRoots, 260), 20000));

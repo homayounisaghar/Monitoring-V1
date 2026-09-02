@@ -77,7 +77,7 @@ public class MainActivity extends Activity {
         root.addView(title);
 
         TextView desc = new TextView(this);
-        desc.setText("Stable v0.10 matches the real-device Menu semantic exactly (not by substring) and continues the official Search proof across every ChatGPT accessibility window and exact semantic/custom-action labels, while keeping the Conversation History -> Search chats fallback. It also adds a privacy-redacted control census so any remaining mismatch is directly calibratable. The Lab creates one synthetic marker chat, uses the already-proven bounded semantic Send, opens ChatGPT's own Search control, enters the marker into the official Search ChatGPT field, requires a unique marker-bearing conversation result, then opens that result and verifies the exact marker thread.\n\nNo private ChatGPT API is called by the Lab, no ChatGPT credentials are extracted, and no coordinate writes are used. Shizuku remains available only as optional LAB-only diagnostics and is not required for this proof.");
+        desc.setText("Stable v0.14 runs a read-only indexed-marker SearchBinding proof. It does not create a new chat in this run. Instead it searches a previously created synthetic marker that is already visibly indexed in ChatGPT Search, then opens the unique official result and verifies the exact marker thread. This isolates SearchBinding correctness from fresh-conversation indexing latency.\n\nNo private ChatGPT API is called by the Lab, no ChatGPT credentials are extracted, and no coordinate writes are used. Shizuku remains available only as optional LAB-only diagnostics and is not required for this proof.");
         desc.setTextSize(15f);
         desc.setPadding(0, dp(10), 0, dp(12));
         root.addView(desc);

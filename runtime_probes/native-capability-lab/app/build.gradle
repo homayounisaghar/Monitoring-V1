@@ -8,8 +8,8 @@ android {
         applicationId 'com.openai.controlplane.capabilitylab.stable'
         minSdk 32
         targetSdk 35
-        versionCode 13
-        versionName '0.13-native-capability-lab-stable-state-bound-search-field'
+        versionCode 14
+        versionName '0.14-native-capability-lab-stable-indexed-marker-reopen'
     }
 }
 
