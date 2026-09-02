@@ -8,8 +8,8 @@ android {
         applicationId 'com.openai.controlplane.capabilitylab.stable'
         minSdk 32
         targetSdk 35
-        versionCode 5
-        versionName '0.5-native-capability-lab-stable-shizuku-provider-fix'
+        versionCode 6
+        versionName '0.6-native-capability-lab-stable-global-search'
     }
 }
 
