@@ -1,0 +1,46 @@
+name: Apply Capability Lab v0.7 Search Fallback
+
+on:
+  push:
+    branches:
+      - build/pebble-chat-bridge-v019
+    paths:
+      - '.github/workflows/apply-capability-lab-v07.yml'
+      - 'build_tools/apply_capability_lab_v07_history_search_fallback.py'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Apply v0.7 patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 build_tools/apply_capability_lab_v07_history_search_fallback.py
+          git diff --check
+          grep -Fq "versionCode 7" runtime_probes/native-capability-lab/app/build.gradle
+          grep -Fq "conversation_search_binding_v2_history_fallback" runtime_probes/native-capability-lab/plans/default.json
+          grep -Fq "WAITING_GLOBAL_SEARCH_DRAWER" runtime_probes/native-capability-lab/app/src/main/java/com/openai/controlplane/capabilitylab/LabAccessibilityService.java
+
+      - name: Commit patched source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add runtime_probes/native-capability-lab .github/workflows/native-capability-lab.yml
+          if git diff --cached --quiet; then
+            echo "No patch changes to commit"
+            exit 0
+          fi
+          git commit -m "Harden Capability Lab Search via history fallback"
+          git push origin HEAD:build/pebble-chat-bridge-v019
