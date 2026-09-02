@@ -113,11 +113,14 @@ jobs:
           cd runtime_probes/native-capability-lab
           /tmp/gradle-8.10.2/bin/gradle --no-daemon :app:assembleRelease --stacktrace
           test -f app/build/outputs/apk/release/app-release-unsigned.apk
-          mkdir -p ../../ci/out/signing-tools/lib
+          mkdir -p ../../ci/out/signing-tools/lib ../../ci/out/signing-tools/lib64
           cp app/build/outputs/apk/release/app-release-unsigned.apk ../../ci/out/chatgpt-capability-lab-v18-unsigned.apk
           cp "$ANDROID_SDK_ROOT/build-tools/35.0.0/apksigner" ../../ci/out/signing-tools/apksigner
           cp "$ANDROID_SDK_ROOT/build-tools/35.0.0/lib/apksigner.jar" ../../ci/out/signing-tools/lib/apksigner.jar
           cp "$ANDROID_SDK_ROOT/build-tools/35.0.0/zipalign" ../../ci/out/signing-tools/zipalign
+          LIBCPP=$(find "$ANDROID_SDK_ROOT/build-tools/35.0.0" -type f -name 'libc++.so' | head -n 1)
+          test -n "$LIBCPP"
+          cp "$LIBCPP" ../../ci/out/signing-tools/lib64/libc++.so
 
       - name: Verify unsigned package metadata
         shell: bash
@@ -141,3 +144,4 @@ jobs:
             ci/out/signing-tools/apksigner
             ci/out/signing-tools/lib/apksigner.jar
             ci/out/signing-tools/zipalign
+            ci/out/signing-tools/lib64/libc++.so
