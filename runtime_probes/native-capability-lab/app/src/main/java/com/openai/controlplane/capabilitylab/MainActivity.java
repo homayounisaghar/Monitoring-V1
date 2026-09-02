@@ -4,31 +4,37 @@ import android.app.Activity;
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Context;
+import android.content.ContentValues;
 import android.content.Intent;
 import android.content.res.ColorStateList;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Environment;
 import android.os.Handler;
 import android.os.Looper;
 import android.provider.Settings;
+import android.provider.MediaStore;
 import android.text.method.ScrollingMovementMethod;
 import android.view.View;
 import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
-
-import androidx.core.content.FileProvider;
+import android.widget.Toast;
 
 import org.json.JSONObject;
 
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.OutputStream;
 
 public class MainActivity extends Activity {
     private static final String SCREEN_DESCRIPTION =
-            "Stable v0.16 runs a fresh-chat Search indexing trigger ladder. It creates one synthetic marker chat, sends it once with the proven CLAIM/no-replay Send contract, then tries several bounded first-party trigger sequences in one run: an early Search probe, an explicit History refresh/dwell, an app foreground round-trip, and an additional timed probe. Each Search hit still must open the unique official result and verify the exact marker on the reopened conversation.\n\nThe Lab now keeps a complete persistent report file. Raw evidence, plan JSON, key ChatGPT UI censuses/trees, and the Lab UI/status snapshot are written into that file so screenshots should normally be unnecessary. No private ChatGPT API is called, no ChatGPT credentials are extracted, and no coordinate writes, gestures, or global actions are used.";
+            "Stable v0.17 tests a fresh History binding that does not depend on Global Search indexing. It creates one synthetic marker chat, sends exactly once with the proven CLAIM/no-replay Send contract, opens official History, deliberately switches away through the exact New chat control, reopens History, selects only the first semantic conversation row, harvests that row metadata, and requires the exact marker on the reopened thread.
+
+The full report file remains authoritative and captures the relevant ChatGPT Accessibility surfaces. DOWNLOAD FULL REPORT saves it directly to Android Downloads with one tap and no share sheet. No private ChatGPT API is called, no credentials are extracted, and no coordinate writes, gestures, or global actions are used.";
 
     private final Handler handler = new Handler(Looper.getMainLooper());
     private TextView runBanner;
@@ -108,7 +114,7 @@ public class MainActivity extends Activity {
         shizukuGrantButton = button("Optional Shizuku permission", v -> requestShizukuPermission());
         root.addView(shizukuGrantButton);
 
-        runButton = button("RUN FRESH INDEX TRIGGER LADDER", v -> startSuite());
+        runButton = button("RUN FRESH HISTORY BINDING PROOF", v -> startSuite());
         root.addView(runButton);
         resetButton = button("Reset Lab run state", v -> {
             if ("RUNNING".equals(LabStore.status(this))) return;
@@ -118,7 +124,7 @@ public class MainActivity extends Activity {
         root.addView(resetButton);
         copyButton = button("COPY FINAL REPORT", v -> copyReport());
         root.addView(copyButton);
-        shareButton = button("SHARE FULL REPORT FILE", v -> shareReportFile());
+        shareButton = button("DOWNLOAD FULL REPORT", v -> downloadReportFile());
         root.addView(shareButton);
 
         status = new TextView(this);
@@ -266,25 +272,43 @@ public class MainActivity extends Activity {
         if (cm != null) cm.setPrimaryClip(ClipData.newPlainText("ChatGPT Capability Lab report", LabStore.report(this)));
     }
 
-    private void shareReportFile() {
+    private void downloadReportFile() {
+        Uri outUri = null;
         try {
             File f = LabStore.ensureReportFile(this);
             if (f == null || !f.exists()) {
-                LabStore.append(this, "REPORT_FILE_SHARE_ERROR missing_report_file");
+                LabStore.append(this, "REPORT_FILE_DOWNLOAD_ERROR missing_report_file");
                 refreshUi();
                 return;
             }
-            Uri uri = FileProvider.getUriForFile(this, getPackageName() + ".files", f);
-            Intent send = new Intent(Intent.ACTION_SEND);
-            send.setType("text/plain");
-            send.putExtra(Intent.EXTRA_STREAM, uri);
-            send.putExtra(Intent.EXTRA_SUBJECT, "ChatGPT Capability Lab report " + LabStore.runId(this));
-            send.setClipData(ClipData.newRawUri("Capability Lab report", uri));
-            send.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-            startActivity(Intent.createChooser(send, "Share Capability Lab report file"));
+            LabStore.append(this, "REPORT_FILE_DOWNLOAD_STARTED name=" + f.getName());
+            ContentValues values = new ContentValues();
+            values.put(MediaStore.MediaColumns.DISPLAY_NAME, f.getName());
+            values.put(MediaStore.MediaColumns.MIME_TYPE, "text/plain");
+            values.put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS);
+            values.put(MediaStore.MediaColumns.IS_PENDING, 1);
+            outUri = getContentResolver().insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values);
+            if (outUri == null) throw new IllegalStateException("Downloads insert returned null");
+            try (FileInputStream in = new FileInputStream(f);
+                 OutputStream out = getContentResolver().openOutputStream(outUri, "w")) {
+                if (out == null) throw new IllegalStateException("Downloads output stream null");
+                byte[] buf = new byte[8192];
+                int n;
+                while ((n = in.read(buf)) >= 0) out.write(buf, 0, n);
+                out.flush();
+            }
+            ContentValues done = new ContentValues();
+            done.put(MediaStore.MediaColumns.IS_PENDING, 0);
+            getContentResolver().update(outUri, done, null, null);
+            LabStore.append(this, "REPORT_FILE_DOWNLOAD_SUCCESS name=" + f.getName());
+            Toast.makeText(this, "Saved to Downloads: " + f.getName(), Toast.LENGTH_LONG).show();
         } catch (Throwable t) {
-            LabStore.append(this, "REPORT_FILE_SHARE_ERROR " + t.getClass().getSimpleName()
+            if (outUri != null) {
+                try { getContentResolver().delete(outUri, null, null); } catch (Throwable ignored) {}
+            }
+            LabStore.append(this, "REPORT_FILE_DOWNLOAD_ERROR " + t.getClass().getSimpleName()
                     + ":" + LabStore.abbrev(String.valueOf(t.getMessage()), 220));
+            Toast.makeText(this, "Could not save report", Toast.LENGTH_LONG).show();
             refreshUi();
         }
     }
@@ -307,15 +331,15 @@ public class MainActivity extends Activity {
         } else if (!aLive || !nLive) {
             styleBanner("SETUP REQUIRED — follow the BLUE button", AMBER);
         } else if (starting) {
-            styleBanner("STARTING INDEX TRIGGER LADDER…", BLUE);
+            styleBanner("STARTING FRESH HISTORY BINDING PROOF…", BLUE);
         } else if (running) {
             styleBanner("TEST RUNNING — step " + LabStore.step(this) + "\nDo not operate ChatGPT.", AMBER);
         } else if (finished && runStatus.startsWith("PASS")) {
-            styleBanner("✓ TEST COMPLETE — PASS\nSHARE FULL REPORT FILE is GREEN.", GREEN);
+            styleBanner("✓ TEST COMPLETE — PASS\nDOWNLOAD FULL REPORT is GREEN.", GREEN);
         } else if (finished && runStatus.startsWith("INCONCLUSIVE")) {
-            styleBanner("TEST COMPLETE — INCONCLUSIVE\nSHARE FULL REPORT FILE is GREEN.", AMBER);
+            styleBanner("TEST COMPLETE — INCONCLUSIVE\nDOWNLOAD FULL REPORT is GREEN.", AMBER);
         } else if (finished) {
-            styleBanner("TEST COMPLETE — " + runStatus + "\nSHARE FULL REPORT FILE is GREEN.", RED);
+            styleBanner("TEST COMPLETE — " + runStatus + "\nDOWNLOAD FULL REPORT is GREEN.", RED);
         } else {
             styleBanner("READY TO RUN — press the BLUE RUN button", BLUE);
         }
@@ -332,9 +356,9 @@ public class MainActivity extends Activity {
         b.append("Full report file: ").append(LabStore.reportFileName(this).isEmpty() ? "<created when run starts>" : LabStore.reportFileName(this)).append('\n');
         if (!exact) b.append("\nBLOCKED: exact official ChatGPT profile is required.\n");
         else if (!aLive || !nLive) b.append("\nSETUP: grant both Lab services and return here.\n");
-        else if (running || starting) b.append("\nRUNNING: the Lab is executing several bounded official-UI indexing probes in one run. No screenshots are expected; the report file captures the evidence.\n");
-        else if (finished) b.append("\nFINISHED: tap SHARE FULL REPORT FILE and send the .txt file. COPY FINAL REPORT remains a fallback. Reset only before a deliberate new run.\n");
-        else b.append("\nREADY: one tap creates one synthetic chat and runs the full trigger ladder. Do not manually operate ChatGPT while the run is active.\n");
+        else if (running || starting) b.append("\nRUNNING: the Lab is executing one bounded official-UI fresh History binding proof. No screenshots are expected; the report file captures the evidence.\n");
+        else if (finished) b.append("\nFINISHED: tap DOWNLOAD FULL REPORT and send the .txt file. COPY FINAL REPORT remains a fallback. Reset only before a deliberate new run.\n");
+        else b.append("\nREADY: one tap creates one synthetic chat, switches away, reopens History, and verifies the newest semantic row. Do not manually operate ChatGPT while the run is active.\n");
 
         boolean shizukuReady = LabShizukuObserver.permissionGranted();
         boolean nextAccessibility = exact && !aLive;
@@ -355,7 +379,7 @@ public class MainActivity extends Activity {
                 shizukuReady ? "✓ Optional Shizuku permission granted" : "Optional: Grant Shizuku permission",
                 shizukuReady ? GREEN : GRAY, true);
         styleButton(runButton,
-                running ? "INDEX TRIGGER LADDER RUNNING…" : "RUN FRESH INDEX TRIGGER LADDER",
+                running ? "INDEX TRIGGER LADDER RUNNING…" : "RUN FRESH HISTORY BINDING PROOF",
                 readyToRun ? BLUE : GRAY, readyToRun);
         styleButton(resetButton,
                 finished ? "Reset completed run" : "Reset Lab run state",
@@ -364,7 +388,7 @@ public class MainActivity extends Activity {
                 finished ? "COPY FINAL REPORT (fallback)" : "COPY FINAL REPORT (after test)",
                 finished ? GREEN : GRAY, finished);
         styleButton(shareButton,
-                reportFileReady ? "SHARE FULL REPORT FILE" : "SHARE FULL REPORT FILE (after test)",
+                reportFileReady ? "DOWNLOAD FULL REPORT" : "DOWNLOAD FULL REPORT (after test)",
                 reportFileReady ? GREEN : GRAY, reportFileReady);
 
         String statusText = b.toString();

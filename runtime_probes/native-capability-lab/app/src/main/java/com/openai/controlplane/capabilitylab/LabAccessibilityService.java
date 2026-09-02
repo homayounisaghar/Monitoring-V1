@@ -72,6 +72,8 @@ public class LabAccessibilityService extends AccessibilityService {
             tryVerifyNeutralThenCandidate(expectedStep);
         } else if ("WAITING_VERIFY_CANDIDATE".equals(state)) {
             tryVerifyCandidate(expectedStep);
+        } else if (state.startsWith("WAITING_HISTORY_RECENT_")) {
+            tryHistoryRecentBinding(expectedStep);
         } else if (state.startsWith("WAITING_HISTORY_REFRESH")) {
             tryHistoryRefresh(expectedStep);
         } else if (state.startsWith("WAITING_GLOBAL_SEARCH_")) {
@@ -168,6 +170,9 @@ public class LabAccessibilityService extends AccessibilityService {
                 case "global_search_binding":
                     opGlobalSearchBinding(step, i);
                     break;
+                case "history_recent_binding":
+                    opHistoryRecentBinding(step, i);
+                    break;
                 case "history_refresh":
                     opHistoryRefresh(step, i);
                     break;
@@ -198,6 +203,8 @@ public class LabAccessibilityService extends AccessibilityService {
                 case "finish":
                     if (!LabStore.verifiedConversationId(this).isEmpty()) {
                         LabStore.finish(this, "PASS_VERIFIED_CONVERSATION_ID");
+                    } else if (LabStore.historyBindingVerified(this)) {
+                        LabStore.finish(this, "PASS_VERIFIED_HISTORY_RECENT_BINDING");
                     } else if (LabStore.searchBindingVerified(this)) {
                         LabStore.finish(this, "PASS_VERIFIED_SEARCH_BINDING");
                     } else {
@@ -732,6 +739,257 @@ public class LabAccessibilityService extends AccessibilityService {
         }
         LabStore.setState(this, "RUNNING");
         completeStep(expectedStep);
+    }
+
+    private void opHistoryRecentBinding(JSONObject step, int stepIndex) {
+        if (!isCurrentStep(stepIndex)) return;
+        LabStore.setState(this, "WAITING_HISTORY_RECENT_OPEN_INITIAL");
+        LabStore.append(this, "HISTORY_RECENT_BINDING_ARMED marker=" + LabStore.marker(this));
+        armTimeout(step.optLong("timeoutMs", 20000L), "HISTORY_RECENT_BINDING_TIMEOUT", stepIndex);
+        handler.postDelayed(() -> tryHistoryRecentBinding(stepIndex), 200L);
+    }
+
+    private void tryHistoryRecentBinding(int expectedStep) {
+        if (!isCurrentStep(expectedStep)) return;
+        String state = LabStore.state(this);
+        if (!state.startsWith("WAITING_HISTORY_RECENT_")) return;
+        List<AccessibilityNodeInfo> roots = chatGptRoots();
+        if (roots.isEmpty()) return;
+
+        if ("WAITING_HISTORY_RECENT_OPEN_INITIAL".equals(state)) {
+            if (isRuntimeHistoryDrawer(roots) || anyHistoryDrawerScreen(roots)) {
+                recordHistoryRecentDrawer("before_switch_away", roots);
+                switchAwayFromFreshThread(expectedStep, roots);
+                return;
+            }
+            AccessibilityNodeInfo historyEntry = findUniqueHistoryEntryAcrossRoots(roots);
+            if (historyEntry == null) return;
+            LabStore.setState(this, "WAITING_HISTORY_RECENT_WAIT_INITIAL_DRAWER");
+            if (!performBoundedNavigation(historyEntry, "HISTORY_RECENT_OPEN_INITIAL",
+                    "Open conversation history", "Open sidebar", "Open navigation",
+                    "Open navigation menu", "Navigation menu", "Menu")) {
+                failRun("HISTORY_RECENT_OPEN_INITIAL_ACTION_FALSE");
+                return;
+            }
+            handler.postDelayed(() -> tryHistoryRecentBinding(expectedStep), 280L);
+            return;
+        }
+
+        if ("WAITING_HISTORY_RECENT_WAIT_INITIAL_DRAWER".equals(state)) {
+            if (!(isRuntimeHistoryDrawer(roots) || anyHistoryDrawerScreen(roots))) return;
+            recordHistoryRecentDrawer("before_switch_away", roots);
+            switchAwayFromFreshThread(expectedStep, roots);
+            return;
+        }
+
+        if ("WAITING_HISTORY_RECENT_SWITCH_AWAY".equals(state)) {
+            if (isRuntimeHistoryDrawer(roots) || anyHistoryDrawerScreen(roots)) return;
+            if (findRuntimeSearchSurfaceRoot(roots) != null || anyGlobalSearchScreen(roots)) return;
+            AccessibilityNodeInfo active = getRootInActiveWindow();
+            String snapshot = active == null ? "<no active root>"
+                    : normalizedTree(active, LabStore.marker(this), 260, 11);
+            LabStore.append(this, "HISTORY_RECENT_SWITCH_AWAY_RECEIPT surface=chat_or_starter"
+                    + " activeSnapshot=" + LabStore.abbrev(snapshot, 12000));
+            LabStore.setState(this, "WAITING_HISTORY_RECENT_REOPEN_HISTORY");
+            handler.postDelayed(() -> tryHistoryRecentBinding(expectedStep), 260L);
+            return;
+        }
+
+        if ("WAITING_HISTORY_RECENT_REOPEN_HISTORY".equals(state)) {
+            if (isRuntimeHistoryDrawer(roots) || anyHistoryDrawerScreen(roots)) {
+                prepareHistoryRecentRows(expectedStep, roots);
+                return;
+            }
+            AccessibilityNodeInfo historyEntry = findUniqueHistoryEntryAcrossRoots(roots);
+            if (historyEntry == null) return;
+            LabStore.setState(this, "WAITING_HISTORY_RECENT_WAIT_REOPENED_DRAWER");
+            if (!performBoundedNavigation(historyEntry, "HISTORY_RECENT_REOPEN_HISTORY",
+                    "Open conversation history", "Open sidebar", "Open navigation",
+                    "Open navigation menu", "Navigation menu", "Menu")) {
+                failRun("HISTORY_RECENT_REOPEN_HISTORY_ACTION_FALSE");
+                return;
+            }
+            handler.postDelayed(() -> tryHistoryRecentBinding(expectedStep), 280L);
+            return;
+        }
+
+        if ("WAITING_HISTORY_RECENT_WAIT_REOPENED_DRAWER".equals(state)) {
+            if (!(isRuntimeHistoryDrawer(roots) || anyHistoryDrawerScreen(roots))) return;
+            prepareHistoryRecentRows(expectedStep, roots);
+            return;
+        }
+
+        if ("WAITING_HISTORY_RECENT_SETTLE".equals(state)) {
+            if (!(isRuntimeHistoryDrawer(roots) || anyHistoryDrawerScreen(roots))) return;
+            long remaining = LabStore.waitUntil(this) - System.currentTimeMillis();
+            if (remaining > 0L) {
+                handler.postDelayed(() -> tryHistoryRecentBinding(expectedStep), Math.min(remaining, 250L));
+                return;
+            }
+            evaluateHistoryRecentRows(expectedStep, roots);
+            return;
+        }
+
+        if ("WAITING_HISTORY_RECENT_VERIFY_REOPEN".equals(state)) {
+            if (isRuntimeHistoryDrawer(roots) || anyHistoryDrawerScreen(roots)) return;
+            AccessibilityNodeInfo active = getRootInActiveWindow();
+            if (active == null || !isChatGptRoot(active)) return;
+            MarkerCounts counts = countMarkerNodes(active, LabStore.marker(this));
+            if (counts.editable == 0 && counts.nonEditable >= 1) {
+                cancelTimeout();
+                String title = LabStore.historyCandidateTitle(this);
+                LabStore.append(this, "HISTORY_RECENT_REOPEN_VERIFIED markerEditable=" + counts.editable
+                        + " markerNonEditable=" + counts.nonEditable
+                        + " title=" + LabStore.abbrev(title, 180));
+                LabStore.markHistoryBindingVerified(this, title);
+                completeStep(expectedStep);
+                return;
+            }
+            long remaining = LabStore.waitUntil(this) - System.currentTimeMillis();
+            if (remaining > 0L) {
+                handler.postDelayed(() -> tryHistoryRecentBinding(expectedStep), Math.min(remaining, 250L));
+                return;
+            }
+            String snapshot = normalizedTree(active, LabStore.marker(this), 320, 12);
+            LabStore.append(this, "HISTORY_RECENT_TOP_ROW_MISMATCH title="
+                    + LabStore.abbrev(LabStore.historyCandidateTitle(this), 180)
+                    + " markerEditable=" + counts.editable
+                    + " markerNonEditable=" + counts.nonEditable
+                    + " activeSnapshot=" + LabStore.abbrev(snapshot, 16000));
+            LabStore.clearCandidates(this);
+            cancelTimeout();
+            completeStep(expectedStep);
+        }
+    }
+
+    private void switchAwayFromFreshThread(int expectedStep, List<AccessibilityNodeInfo> roots) {
+        int newChatCount = countExactSemanticAcrossRoots(roots, "New chat");
+        LabStore.append(this, "HISTORY_RECENT_NEW_CHAT_EXACT_MATCHES=" + newChatCount);
+        if (newChatCount != 1) {
+            failRun("HISTORY_RECENT_NEW_CHAT_NOT_UNIQUE count=" + newChatCount);
+            return;
+        }
+        AccessibilityNodeInfo newChat = findUniqueExactSemanticAcrossRoots(roots, "New chat");
+        if (newChat == null) {
+            failRun("HISTORY_RECENT_NEW_CHAT_MISSING");
+            return;
+        }
+        LabStore.setState(this, "WAITING_HISTORY_RECENT_SWITCH_AWAY");
+        if (!performBoundedNavigation(newChat, "HISTORY_RECENT_SWITCH_AWAY", "New chat")) {
+            failRun("HISTORY_RECENT_SWITCH_AWAY_ACTION_FALSE");
+            return;
+        }
+        handler.postDelayed(() -> tryHistoryRecentBinding(expectedStep), 320L);
+    }
+
+    private void prepareHistoryRecentRows(int expectedStep, List<AccessibilityNodeInfo> roots) {
+        recordHistoryRecentDrawer("after_switch_away", roots);
+        JSONObject step = currentPlanStep(expectedStep);
+        long settleMs = step == null ? 1200L : Math.max(300L, Math.min(step.optLong("settleMs", 1200L), 5000L));
+        LabStore.setWaitUntil(this, System.currentTimeMillis() + settleMs);
+        LabStore.setState(this, "WAITING_HISTORY_RECENT_SETTLE");
+        LabStore.append(this, "HISTORY_RECENT_SETTLE ms=" + settleMs);
+        handler.postDelayed(() -> tryHistoryRecentBinding(expectedStep), Math.min(settleMs, 300L));
+    }
+
+    private void evaluateHistoryRecentRows(int expectedStep, List<AccessibilityNodeInfo> roots) {
+        List<AccessibilityNodeInfo> rows = historyConversationRows(roots);
+        StringBuilder titles = new StringBuilder();
+        for (int i = 0; i < rows.size() && i < 16; i++) {
+            if (titles.length() > 0) titles.append(" | ");
+            titles.append(i).append(':').append(LabStore.abbrev(historyRowTitle(rows.get(i)), 120));
+        }
+        String snapshot = roots.isEmpty() ? "<no ChatGPT roots>"
+                : normalizedTree(roots.get(0), LabStore.marker(this), 520, 14);
+        LabStore.append(this, "HISTORY_RECENT_ROWS count=" + rows.size()
+                + " titles=" + titles
+                + " controlCensus=" + LabStore.abbrev(controlCensus(roots, 360), 26000)
+                + " activeSnapshot=" + LabStore.abbrev(snapshot, 22000));
+        if (rows.isEmpty()) {
+            cancelTimeout();
+            LabStore.append(this, "HISTORY_RECENT_NO_ROWS_AFTER_SWITCH_AWAY");
+            completeStep(expectedStep);
+            return;
+        }
+
+        AccessibilityNodeInfo row = rows.get(0);
+        String title = historyRowTitle(row);
+        LabStore.clearCandidates(this);
+        LabStore.setHistoryCandidateTitle(this, title);
+        MetadataStats stats = harvestAccessibilityMetadata(row);
+        String rowTree = normalizedTree(row, LabStore.marker(this), 180, 7);
+        LabStore.append(this, "HISTORY_RECENT_SELECTED_ROW index=0 title=" + LabStore.abbrev(title, 180)
+                + " metadataNodes=" + stats.nodes
+                + " extras=" + stats.extras
+                + " candidateMatches=" + stats.candidateMatches
+                + " rowTree=" + LabStore.abbrev(rowTree, 12000));
+
+        LabStore.setState(this, "WAITING_HISTORY_RECENT_VERIFY_REOPEN");
+        LabStore.setWaitUntil(this, System.currentTimeMillis() + 1800L);
+        if (!performBoundedNavigation(row, "HISTORY_RECENT_ROW_OPEN")) {
+            failRun("HISTORY_RECENT_ROW_OPEN_ACTION_FALSE");
+            return;
+        }
+        handler.postDelayed(() -> tryHistoryRecentBinding(expectedStep), 300L);
+    }
+
+    private void recordHistoryRecentDrawer(String phase, List<AccessibilityNodeInfo> roots) {
+        String snapshot = roots.isEmpty() ? "<no ChatGPT roots>"
+                : normalizedTree(roots.get(0), LabStore.marker(this), 520, 14);
+        LabStore.append(this, "HISTORY_RECENT_DRAWER phase=" + phase
+                + " rows=" + historyConversationRows(roots).size()
+                + " controlCensus=" + LabStore.abbrev(controlCensus(roots, 360), 26000)
+                + " activeSnapshot=" + LabStore.abbrev(snapshot, 22000));
+    }
+
+    private List<AccessibilityNodeInfo> historyConversationRows(List<AccessibilityNodeInfo> roots) {
+        List<AccessibilityNodeInfo> out = new ArrayList<>();
+        if (roots == null) return out;
+        for (AccessibilityNodeInfo root : roots) {
+            collectHistoryConversationRows(root, out, 0);
+            if (out.size() >= 40) break;
+        }
+        return out;
+    }
+
+    private void collectHistoryConversationRows(AccessibilityNodeInfo node,
+                                                List<AccessibilityNodeInfo> out,
+                                                int depth) {
+        if (node == null || depth > 24 || out.size() >= 40) return;
+        if (node.isVisibleToUser() && node.isEnabled() && node.isClickable()
+                && hasAction(node, AccessibilityNodeInfo.ACTION_CLICK)
+                && hasAction(node, AccessibilityNodeInfo.ACTION_LONG_CLICK)) {
+            String title = historyRowTitle(node);
+            if (!title.isEmpty()) {
+                out.add(node);
+                return;
+            }
+        }
+        for (int i = 0; i < node.getChildCount(); i++) {
+            collectHistoryConversationRows(node.getChild(i), out, depth + 1);
+            if (out.size() >= 40) return;
+        }
+    }
+
+    private String historyRowTitle(AccessibilityNodeInfo row) {
+        return historyRowTitle(row, 0);
+    }
+
+    private String historyRowTitle(AccessibilityNodeInfo node, int depth) {
+        if (node == null || depth > 6) return "";
+        CharSequence text = node.getText();
+        if (text != null) {
+            String value = text.toString().trim();
+            String cls = String.valueOf(node.getClassName());
+            if (!value.isEmpty() && cls.endsWith("TextView")
+                    && !"New chat".equals(value) && !"Search".equals(value)
+                    && !"Close".equals(value)) return value;
+        }
+        for (int i = 0; i < node.getChildCount(); i++) {
+            String value = historyRowTitle(node.getChild(i), depth + 1);
+            if (!value.isEmpty()) return value;
+        }
+        return "";
     }
 
     private void opHistoryRefresh(JSONObject step, int stepIndex) {

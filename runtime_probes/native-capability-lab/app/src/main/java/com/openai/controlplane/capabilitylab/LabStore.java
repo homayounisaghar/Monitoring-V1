@@ -68,6 +68,9 @@ final class LabStore {
                 .putBoolean("sendConfirmed", false)
                 .putLong("sendConfirmedAtMs", 0L)
                 .putBoolean("searchBindingVerified", false)
+                .putBoolean("historyBindingVerified", false)
+                .putString("historyCandidateTitle", "")
+                .putString("historyVerifiedTitle", "")
                 .putString("candidates", "")
                 .putInt("candidateIndex", 0)
                 .putString("verifiedConversationId", "")
@@ -108,6 +111,9 @@ final class LabStore {
     static boolean sendConfirmed(Context c) { return p(c).getBoolean("sendConfirmed", false); }
     static long sendConfirmedAtMs(Context c) { return p(c).getLong("sendConfirmedAtMs", 0L); }
     static boolean searchBindingVerified(Context c) { return p(c).getBoolean("searchBindingVerified", false); }
+    static boolean historyBindingVerified(Context c) { return p(c).getBoolean("historyBindingVerified", false); }
+    static String historyCandidateTitle(Context c) { return p(c).getString("historyCandidateTitle", ""); }
+    static String historyVerifiedTitle(Context c) { return p(c).getString("historyVerifiedTitle", ""); }
     static int candidateIndex(Context c) { return p(c).getInt("candidateIndex", 0); }
     static long waitUntil(Context c) { return p(c).getLong("waitUntil", 0L); }
     static String verifiedConversationId(Context c) { return p(c).getString("verifiedConversationId", ""); }
@@ -124,6 +130,9 @@ final class LabStore {
     static void setMarker(Context c, String value) { p(c).edit().putString("marker", value == null ? "" : value).apply(); }
     static void setWaitUntil(Context c, long value) { p(c).edit().putLong("waitUntil", value).apply(); }
     static void setCandidateIndex(Context c, int value) { p(c).edit().putInt("candidateIndex", value).apply(); }
+    static void setHistoryCandidateTitle(Context c, String value) {
+        p(c).edit().putString("historyCandidateTitle", value == null ? "" : value).apply();
+    }
 
     static synchronized boolean advanceStepIfCurrent(Context c, int expectedStep) {
         if (!"RUNNING".equals(status(c)) || step(c) != expectedStep) return false;
@@ -154,6 +163,22 @@ final class LabStore {
         if (searchBindingVerified(c)) return;
         p(c).edit().putBoolean("searchBindingVerified", true).commit();
         append(c, "VERIFIED_SEARCH_BINDING marker=" + marker(c));
+    }
+
+    static synchronized void markHistoryBindingVerified(Context c, String title) {
+        if (historyBindingVerified(c)) return;
+        String safeTitle = title == null ? "" : title;
+        p(c).edit()
+                .putBoolean("historyBindingVerified", true)
+                .putString("historyVerifiedTitle", safeTitle)
+                .commit();
+        append(c, "VERIFIED_HISTORY_RECENT_BINDING marker=" + marker(c)
+                + " title=" + abbrev(safeTitle, 180));
+    }
+
+    static synchronized void clearCandidates(Context c) {
+        p(c).edit().putString("candidates", "").putInt("candidateIndex", 0).commit();
+        append(c, "CANDIDATES_CLEARED scope=history_selected_row");
     }
 
     static synchronized void markVerified(Context c, String id) {
@@ -251,6 +276,8 @@ final class LabStore {
                 + " candidates=" + candidates(c).size()
                 + " verifiedId=" + verifiedConversationId(c)
                 + " searchBinding=" + searchBindingVerified(c)
+                + " historyBinding=" + historyBindingVerified(c)
+                + " historyTitle=" + historyVerifiedTitle(c)
                 + " sinceSendMs=" + sinceSendMs(c)
                 + " reportFile=" + reportFileName(c);
     }
