@@ -37,13 +37,18 @@ jobs:
           grep -Fq 'advanceStepIfCurrent' "$STORE"
           grep -Fq 'markSearchBindingVerified' "$STORE"
           grep -Fq 'GLOBAL_SEARCH_ENTRY ACTION_CLICK' "$SVC"
+          grep -Fq 'GLOBAL_SEARCH_HISTORY_ENTRY ACTION_CLICK' "$SVC"
+          grep -Fq 'GLOBAL_SEARCH_HISTORY_SEARCH ACTION_CLICK' "$SVC"
           grep -Fq 'GLOBAL_SEARCH_QUERY ACTION_SET_TEXT' "$SVC"
           grep -Fq 'GLOBAL_SEARCH_RESULT ACTION_CLICK' "$SVC"
           grep -Fq 'GLOBAL_SEARCH_REOPEN_VERIFIED' "$SVC"
+          grep -Fq 'GLOBAL_SEARCH_TIMEOUT_DIAGNOSTIC' "$SVC"
           grep -Fq 'Search chats, files, and projects' "$SVC"
+          grep -Fq 'Open conversation history' "$SVC"
+          grep -Fq 'chatgpt.history-search' "$SVC"
           grep -Fiq 'search chatgpt' "$SVC"
           grep -Fq 'TEST COMPLETE' "$MAIN"
-          grep -Fq 'OFFICIAL GLOBAL SEARCH' "$MAIN"
+          grep -Fq 'OFFICIAL SEARCH' "$MAIN"
           grep -Fq 'SHORTCUT_HOST_PERMISSION' "$SHORTCUT"
           grep -Fq 'classification=LAB_ONLY_DISCOVERY' "$OBSERVER"
           grep -Fq "dev.rikka.shizuku:api:13.1.5" "$ROOT/app/build.gradle"
@@ -55,7 +60,7 @@ jobs:
           grep -Fq 'android.permission.INTERNET' "$MAN"
           grep -Fq 'ChatGPT Capability Lab Stable' "$MAN"
           grep -Fq 'targetSignerSha256' "$PLAN"
-          grep -Fq 'conversation_search_binding_v1_official_ui' "$PLAN"
+          grep -Fq 'conversation_search_binding_v2_history_fallback' "$PLAN"
           grep -Fq 'global_search_binding' "$PLAN"
           ! grep -R -n -E 'api\.openai\.com|Authorization: Bearer|access_token|refresh_token' "$ROOT"
           ! grep -Fq 'dispatchGesture' "$SVC"
@@ -66,28 +71,29 @@ jobs:
           import json
           root = Path('runtime_probes/native-capability-lab')
           s = (root / 'app/src/main/java/com/openai/controlplane/capabilitylab/LabAccessibilityService.java').read_text()
-          # Three semantic navigation/write clicks only: proven Send, Search entry, unique Search result.
-          if s.count('performAction(AccessibilityNodeInfo.ACTION_CLICK)') != 3:
-              raise SystemExit('Capability Lab v0.6 must contain exactly three bounded ACTION_CLICK sites')
+          # Five bounded semantic clicks: proven Send, direct Search entry, history drawer,
+          # history Search entry, and the unique Search result. No coordinate writes.
+          if s.count('performAction(AccessibilityNodeInfo.ACTION_CLICK)') != 5:
+              raise SystemExit('Capability Lab v0.7 must contain exactly five bounded ACTION_CLICK sites')
           if s.count('performAction(AccessibilityNodeInfo.ACTION_SET_TEXT') != 1:
-              raise SystemExit('Capability Lab v0.6 must contain exactly one Global Search ACTION_SET_TEXT site')
+              raise SystemExit('Capability Lab v0.7 must contain exactly one Search ACTION_SET_TEXT site')
           if 'completeStep();' in s:
               raise SystemExit('unguarded bare completeStep() found; step-token hardening regressed')
           gradle = (root / 'app/build.gradle').read_text()
           assert "applicationId 'com.openai.controlplane.capabilitylab.stable'" in gradle
-          assert 'versionCode 6' in gradle
-          assert "versionName '0.6-native-capability-lab-stable-global-search'" in gradle
+          assert 'versionCode 7' in gradle
+          assert "versionName '0.7-native-capability-lab-stable-search-fallback'" in gradle
           data = json.loads((root / 'plans/default.json').read_text())
           assert data['schema'] == 1
           assert data['targetVersion'] == '1.2026.237'
-          assert data['suite'] == 'conversation_search_binding_v1_official_ui'
+          assert data['suite'] == 'conversation_search_binding_v2_history_fallback'
           ops = [x['op'] for x in data['steps']]
           assert ops == [
               'launch_prompt', 'capture_tree', 'semantic_send', 'capture_tree',
               'wait', 'global_search_binding', 'return_lab', 'verify_candidates', 'finish'
           ]
-          assert data['steps'][4]['ms'] == 5000
-          assert data['steps'][5]['timeoutMs'] == 30000
+          assert data['steps'][4]['ms'] == 8000
+          assert data['steps'][5]['timeoutMs'] == 45000
           PY
 
       - name: Set up Java
@@ -125,7 +131,7 @@ jobs:
           AAPT=$(find "$ANDROID_SDK_ROOT/build-tools" -type f -name aapt | sort | tail -n 1)
           "$APKSIGNER" verify --verbose --print-certs ci/out/chatgpt-capability-lab-ci-only.apk | tee ci/out/apksigner.txt
           "$AAPT" dump badging ci/out/chatgpt-capability-lab-ci-only.apk | tee ci/out/badging.txt
-          grep -Fq "package: name='com.openai.controlplane.capabilitylab.stable' versionCode='6' versionName='0.6-native-capability-lab-stable-global-search'" ci/out/badging.txt
+          grep -Fq "package: name='com.openai.controlplane.capabilitylab.stable' versionCode='7' versionName='0.7-native-capability-lab-stable-search-fallback'" ci/out/badging.txt
           sha256sum ci/out/chatgpt-capability-lab-ci-only.apk | tee ci/out/SHA256.txt
 
       - name: Upload CI-only artifact
