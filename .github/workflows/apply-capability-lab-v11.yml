@@ -33,15 +33,16 @@ jobs:
           grep -Fq "GLOBAL_SEARCH_POST_SEARCH_CLICK_CONTROL_CENSUS" runtime_probes/native-capability-lab/app/src/main/java/com/openai/controlplane/capabilitylab/LabAccessibilityService.java
           grep -Fq "findUniqueExactSemanticAcrossRoots" runtime_probes/native-capability-lab/app/src/main/java/com/openai/controlplane/capabilitylab/LabAccessibilityService.java
 
-      - name: Commit patched source
+      - name: Commit patched runtime source
         shell: bash
         run: |
           set -euo pipefail
+          git checkout -- .github/workflows/native-capability-lab.yml
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add runtime_probes/native-capability-lab .github/workflows/native-capability-lab.yml
+          git add runtime_probes/native-capability-lab
           if git diff --cached --quiet; then
-            echo "No patch changes to commit"
+            echo "No runtime patch changes to commit"
             exit 0
           fi
           git commit -m "Calibrate exact post-Menu Search in Capability Lab v0.11"
