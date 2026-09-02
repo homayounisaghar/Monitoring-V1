@@ -5,6 +5,8 @@ import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Context;
 import android.content.Intent;
+import android.content.res.ColorStateList;
+import android.graphics.Color;
 import android.graphics.Typeface;
 import android.net.Uri;
 import android.os.Bundle;
@@ -25,7 +27,12 @@ public class MainActivity extends Activity {
     private TextView runBanner;
     private TextView status;
     private TextView report;
+    private Button accessibilityButton;
+    private Button notificationButton;
+    private Button shizukuOpenButton;
+    private Button shizukuGrantButton;
     private Button runButton;
+    private Button resetButton;
     private Button copyButton;
     private volatile boolean starting;
 
@@ -70,7 +77,7 @@ public class MainActivity extends Activity {
         root.addView(title);
 
         TextView desc = new TextView(this);
-        desc.setText("Stable v0.7 tests a production-faithful binding path through official ChatGPT Search, with an exact-build Conversation History -> Search chats fallback when the direct Global Search control is not exposed in the active layout. The Lab creates one synthetic marker chat, uses the already-proven bounded semantic Send, opens ChatGPT's own Search control, enters the marker into the official Search ChatGPT field, requires a unique marker-bearing conversation result, then opens that result and verifies the exact marker thread.\n\nNo private ChatGPT API is called by the Lab, no ChatGPT credentials are extracted, and no coordinate writes are used. Shizuku remains available only as optional LAB-only diagnostics and is not required for this proof.");
+        desc.setText("Stable v0.8 expands the official Search proof across every ChatGPT accessibility window and exact semantic/custom-action labels, while keeping the Conversation History -> Search chats fallback. It also adds a privacy-redacted control census so any remaining mismatch is directly calibratable. The Lab creates one synthetic marker chat, uses the already-proven bounded semantic Send, opens ChatGPT's own Search control, enters the marker into the official Search ChatGPT field, requires a unique marker-bearing conversation result, then opens that result and verifies the exact marker thread.\n\nNo private ChatGPT API is called by the Lab, no ChatGPT credentials are extracted, and no coordinate writes are used. Shizuku remains available only as optional LAB-only diagnostics and is not required for this proof.");
         desc.setTextSize(15f);
         desc.setPadding(0, dp(10), 0, dp(12));
         root.addView(desc);
@@ -81,21 +88,26 @@ public class MainActivity extends Activity {
         runBanner.setPadding(dp(12), dp(14), dp(12), dp(14));
         root.addView(runBanner);
 
-        root.addView(button("Open Accessibility settings", v -> startActivity(new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))));
-        root.addView(button("Open Notification Access settings", v -> {
+        accessibilityButton = button("Accessibility", v -> startActivity(new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)));
+        root.addView(accessibilityButton);
+        notificationButton = button("Notification Access", v -> {
             try { startActivity(new Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)); }
             catch (Throwable t) { startActivity(new Intent("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS")); }
-        }));
-        root.addView(button("Open Shizuku (optional LAB diagnostics)", v -> openShizuku()));
-        root.addView(button("Grant Shizuku observer permission (optional)", v -> requestShizukuPermission()));
+        });
+        root.addView(notificationButton);
+        shizukuOpenButton = button("Optional Shizuku diagnostics", v -> openShizuku());
+        root.addView(shizukuOpenButton);
+        shizukuGrantButton = button("Optional Shizuku permission", v -> requestShizukuPermission());
+        root.addView(shizukuGrantButton);
 
-        runButton = button("RUN OFFICIAL SEARCH BINDING PROOF", v -> startSuite());
+        runButton = button("RUN SEARCH BINDING PROOF", v -> startSuite());
         root.addView(runButton);
-        root.addView(button("Reset Lab run state", v -> {
+        resetButton = button("Reset Lab run state", v -> {
             if ("RUNNING".equals(LabStore.status(this))) return;
             LabStore.resetRun(this);
             refreshUi();
-        }));
+        });
+        root.addView(resetButton);
         copyButton = button("COPY FINAL REPORT", v -> copyReport());
         root.addView(copyButton);
 
@@ -132,6 +144,27 @@ public class MainActivity extends Activity {
         lp.setMargins(0, dp(4), 0, dp(4));
         b.setLayoutParams(lp);
         return b;
+    }
+
+    private static final int GREEN = Color.rgb(46, 125, 50);
+    private static final int BLUE = Color.rgb(21, 101, 192);
+    private static final int AMBER = Color.rgb(239, 108, 0);
+    private static final int RED = Color.rgb(198, 40, 40);
+    private static final int GRAY = Color.rgb(84, 110, 122);
+
+    private void styleButton(Button b, String text, int color, boolean enabled) {
+        if (b == null) return;
+        b.setText(text);
+        b.setEnabled(enabled);
+        b.setBackgroundTintList(ColorStateList.valueOf(color));
+        b.setTextColor(Color.WHITE);
+    }
+
+    private void styleBanner(String text, int color) {
+        if (runBanner == null) return;
+        runBanner.setText(text);
+        runBanner.setTextColor(Color.WHITE);
+        runBanner.setBackgroundColor(color);
     }
 
     private void openShizuku() {
@@ -236,24 +269,22 @@ public class MainActivity extends Activity {
         boolean finished = "FINISHED".equals(runState);
         boolean idle = "IDLE".equals(runStatus);
 
-        if (runBanner != null) {
-            if (!exact) {
-                runBanner.setText("BLOCKED — ChatGPT build mismatch");
-            } else if (!aLive || !nLive) {
-                runBanner.setText("SETUP REQUIRED — enable both Lab services");
-            } else if (starting) {
-                runBanner.setText("STARTING OFFICIAL SEARCH PROOF…");
-            } else if (running) {
-                runBanner.setText("TEST RUNNING — step " + LabStore.step(this) + "\nDo not operate ChatGPT until this changes.");
-            } else if (finished && runStatus.startsWith("PASS")) {
-                runBanner.setText("✓ TEST COMPLETE — PASS\nTap COPY FINAL REPORT.");
-            } else if (finished && runStatus.startsWith("INCONCLUSIVE")) {
-                runBanner.setText("TEST COMPLETE — INCONCLUSIVE\nTap COPY FINAL REPORT.");
-            } else if (finished) {
-                runBanner.setText("TEST COMPLETE — " + runStatus + "\nTap COPY FINAL REPORT.");
-            } else {
-                runBanner.setText("READY TO RUN — OFFICIAL SEARCH + HISTORY FALLBACK");
-            }
+        if (!exact) {
+            styleBanner("BLOCKED — ChatGPT build mismatch", RED);
+        } else if (!aLive || !nLive) {
+            styleBanner("SETUP REQUIRED — follow the BLUE button", AMBER);
+        } else if (starting) {
+            styleBanner("STARTING SEARCH PROOF…", BLUE);
+        } else if (running) {
+            styleBanner("TEST RUNNING — step " + LabStore.step(this) + "\nDo not operate ChatGPT.", AMBER);
+        } else if (finished && runStatus.startsWith("PASS")) {
+            styleBanner("✓ TEST COMPLETE — PASS\nCOPY FINAL REPORT is GREEN.", GREEN);
+        } else if (finished && runStatus.startsWith("INCONCLUSIVE")) {
+            styleBanner("TEST COMPLETE — INCONCLUSIVE\nCOPY FINAL REPORT is GREEN.", AMBER);
+        } else if (finished) {
+            styleBanner("TEST COMPLETE — " + runStatus + "\nCOPY FINAL REPORT is GREEN.", RED);
+        } else {
+            styleBanner("READY TO RUN — press the BLUE RUN button", BLUE);
         }
 
         StringBuilder b = new StringBuilder();
@@ -270,12 +301,37 @@ public class MainActivity extends Activity {
         else if (running || starting) b.append("\nRUNNING: allow the Lab to navigate official ChatGPT Search and return itself here. No intermediate screenshots are required.\n");
         else if (finished) b.append("\nFINISHED: use the completion banner above and tap COPY FINAL REPORT. Reset only before a deliberate new run.\n");
         else b.append("\nREADY: one tap runs the production-faithful official Global Search binding proof. Do not manually operate ChatGPT while a run is active.\n");
+        boolean shizukuReady = LabShizukuObserver.permissionGranted();
+        boolean nextAccessibility = exact && !aLive;
+        boolean nextNotification = exact && aLive && !nLive;
+        boolean readyToRun = exact && aLive && nLive && idle && !starting;
+
+        styleButton(accessibilityButton,
+                aLive ? "✓ Accessibility enabled" : "Enable Accessibility",
+                aLive ? GREEN : (nextAccessibility ? BLUE : GRAY), true);
+        styleButton(notificationButton,
+                nLive ? "✓ Notification Access enabled" : "Enable Notification Access",
+                nLive ? GREEN : (nextNotification ? BLUE : GRAY), true);
+        styleButton(shizukuOpenButton,
+                shizukuReady ? "✓ Optional Shizuku observer ready" : "Optional: Open Shizuku diagnostics",
+                shizukuReady ? GREEN : GRAY, true);
+        styleButton(shizukuGrantButton,
+                shizukuReady ? "✓ Optional Shizuku permission granted" : "Optional: Grant Shizuku permission",
+                shizukuReady ? GREEN : GRAY, true);
+        styleButton(runButton,
+                running ? "TEST RUNNING…" : "RUN SEARCH BINDING PROOF",
+                readyToRun ? BLUE : GRAY, readyToRun);
+        styleButton(resetButton,
+                finished ? "Reset completed run" : "Reset Lab run state",
+                finished ? AMBER : GRAY, !running && !starting);
+        styleButton(copyButton,
+                finished ? "COPY FINAL REPORT" : "COPY FINAL REPORT (after test)",
+                finished ? GREEN : GRAY, finished);
+
         status.setText(b.toString());
 
         String r = LabStore.report(this);
         report.setText(tail(r, 50000));
-        if (runButton != null) runButton.setEnabled(exact && aLive && nLive && idle && !starting);
-        if (copyButton != null) copyButton.setEnabled(finished);
     }
 
     private boolean settingContains(String key, String token) {
