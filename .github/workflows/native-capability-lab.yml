@@ -48,6 +48,10 @@ jobs:
           grep -Fq 'LabShizukuObserver.capture' "$NOTIF"
           grep -Fq "dev.rikka.shizuku:api:13.1.5" "$ROOT/app/build.gradle"
           grep -Fq "dev.rikka.shizuku:provider:13.1.5" "$ROOT/app/build.gradle"
+          grep -Fq 'rikka.shizuku.ShizukuProvider' "$MAN"
+          grep -Fq '${applicationId}.shizuku' "$MAN"
+          grep -Fq 'android.permission.INTERACT_ACROSS_USERS_FULL' "$MAN"
+          grep -Fq 'moe.shizuku.privileged.api' "$MAN"
           grep -Fq 'android:canTakeScreenshot="true"' "$ROOT/app/src/main/res/xml/accessibility_service_config.xml"
           grep -Fq 'android.permission.INTERNET' "$MAN"
           grep -Fq 'ChatGPT Capability Lab Stable' "$MAN"
@@ -68,8 +72,8 @@ jobs:
               raise SystemExit('unguarded bare completeStep() found; step-token hardening regressed')
           gradle = (root / 'app/build.gradle').read_text()
           assert "applicationId 'com.openai.controlplane.capabilitylab.stable'" in gradle
-          assert 'versionCode 4' in gradle
-          assert "versionName '0.4-native-capability-lab-stable-observer'" in gradle
+          assert 'versionCode 5' in gradle
+          assert "versionName '0.5-native-capability-lab-stable-shizuku-provider-fix'" in gradle
           observer = (root / 'app/src/main/java/com/openai/controlplane/capabilitylab/LabShizukuObserver.java').read_text()
           assert 'Raw dumpsys output is never persisted' in observer
           assert 'LabStore.addCandidate' in observer
@@ -116,7 +120,7 @@ jobs:
           AAPT=$(find "$ANDROID_SDK_ROOT/build-tools" -type f -name aapt | sort | tail -n 1)
           "$APKSIGNER" verify --verbose --print-certs ci/out/chatgpt-capability-lab-ci-only.apk | tee ci/out/apksigner.txt
           "$AAPT" dump badging ci/out/chatgpt-capability-lab-ci-only.apk | tee ci/out/badging.txt
-          grep -Fq "package: name='com.openai.controlplane.capabilitylab.stable' versionCode='4' versionName='0.4-native-capability-lab-stable-observer'" ci/out/badging.txt
+          grep -Fq "package: name='com.openai.controlplane.capabilitylab.stable' versionCode='5' versionName='0.5-native-capability-lab-stable-shizuku-provider-fix'" ci/out/badging.txt
           sha256sum ci/out/chatgpt-capability-lab-ci-only.apk | tee ci/out/SHA256.txt
 
       - name: Upload CI-only artifact
