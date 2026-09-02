@@ -959,11 +959,12 @@ public class LabAccessibilityService extends AccessibilityService {
         if (node.isVisibleToUser() && node.isEnabled() && node.isClickable()
                 && hasAction(node, AccessibilityNodeInfo.ACTION_CLICK)
                 && hasAction(node, AccessibilityNodeInfo.ACTION_LONG_CLICK)) {
-            String title = historyRowTitle(node);
-            if (!title.isEmpty()) {
-                out.add(node);
-                return;
-            }
+            // Runtime evidence distinguishes History conversation rows by their
+            // ACTION_CLICK + ACTION_LONG_CLICK contract. A freshly finalized
+            // conversation may not have a generated title yet, so title text is
+            // evidence only, not a prerequisite for row recognition.
+            out.add(node);
+            return;
         }
         for (int i = 0; i < node.getChildCount(); i++) {
             collectHistoryConversationRows(node.getChild(i), out, depth + 1);
@@ -982,8 +983,7 @@ public class LabAccessibilityService extends AccessibilityService {
             String value = text.toString().trim();
             String cls = String.valueOf(node.getClassName());
             if (!value.isEmpty() && cls.endsWith("TextView")
-                    && !"New chat".equals(value) && !"Search".equals(value)
-                    && !"Close".equals(value)) return value;
+                    && !"Search".equals(value) && !"Close".equals(value)) return value;
         }
         for (int i = 0; i < node.getChildCount(); i++) {
             String value = historyRowTitle(node.getChild(i), depth + 1);
