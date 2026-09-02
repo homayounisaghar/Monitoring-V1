@@ -70,7 +70,7 @@ public class MainActivity extends Activity {
         root.addView(title);
 
         TextView desc = new TextView(this);
-        desc.setText("Stable v0.6 tests a production-faithful binding path through the official ChatGPT Global Search UI. The Lab creates one synthetic marker chat, uses the already-proven bounded semantic Send, opens ChatGPT's own Search control, enters the marker into the official Search ChatGPT field, requires a unique marker-bearing conversation result, then opens that result and verifies the exact marker thread.\n\nNo private ChatGPT API is called by the Lab, no ChatGPT credentials are extracted, and no coordinate writes are used. Shizuku remains available only as optional LAB-only diagnostics and is not required for this proof.");
+        desc.setText("Stable v0.7 tests a production-faithful binding path through official ChatGPT Search, with an exact-build Conversation History -> Search chats fallback when the direct Global Search control is not exposed in the active layout. The Lab creates one synthetic marker chat, uses the already-proven bounded semantic Send, opens ChatGPT's own Search control, enters the marker into the official Search ChatGPT field, requires a unique marker-bearing conversation result, then opens that result and verifies the exact marker thread.\n\nNo private ChatGPT API is called by the Lab, no ChatGPT credentials are extracted, and no coordinate writes are used. Shizuku remains available only as optional LAB-only diagnostics and is not required for this proof.");
         desc.setTextSize(15f);
         desc.setPadding(0, dp(10), 0, dp(12));
         root.addView(desc);
@@ -89,7 +89,7 @@ public class MainActivity extends Activity {
         root.addView(button("Open Shizuku (optional LAB diagnostics)", v -> openShizuku()));
         root.addView(button("Grant Shizuku observer permission (optional)", v -> requestShizukuPermission()));
 
-        runButton = button("RUN OFFICIAL GLOBAL SEARCH BINDING PROOF", v -> startSuite());
+        runButton = button("RUN OFFICIAL SEARCH BINDING PROOF", v -> startSuite());
         root.addView(runButton);
         root.addView(button("Reset Lab run state", v -> {
             if ("RUNNING".equals(LabStore.status(this))) return;
@@ -252,7 +252,7 @@ public class MainActivity extends Activity {
             } else if (finished) {
                 runBanner.setText("TEST COMPLETE — " + runStatus + "\nTap COPY FINAL REPORT.");
             } else {
-                runBanner.setText("READY TO RUN — OFFICIAL GLOBAL SEARCH PROOF");
+                runBanner.setText("READY TO RUN — OFFICIAL SEARCH + HISTORY FALLBACK");
             }
         }
 
