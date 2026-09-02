@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "suite": "conversation_history_accessibility_binding_v15_row_disambiguated",
+  "suite": "conversation_history_title_binding_v16_rename_reopen",
   "targetVersion": "1.2026.237",
   "targetSignerSha256": "b24f4bfbb3cf293f938703b9d87027c1102cc36dc4fa206910e08927db40473c",
   "steps": [
@@ -9,22 +9,15 @@
     },
     {
       "op": "wait",
-      "ms": 900
-    },
-    {
-      "op": "history_boundary_calibration",
-      "timeoutMs": 15000
-    },
-    {
-      "op": "reset_after_calibration"
+      "ms": 700
     },
     {
       "op": "launch_prompt",
-      "prompt": "Capability Lab History accessibility proof. Reply with exactly this marker and no other text: {{marker}}"
+      "prompt": "{{titleSeed}} title-binding proof. Reply with exactly this marker and no other text: {{marker}}"
     },
     {
       "op": "capture_tree",
-      "label": "pre_send_draft_baseline",
+      "label": "pre_send_title_binding_draft",
       "timeoutMs": 8000
     },
     {
@@ -33,25 +26,21 @@
     },
     {
       "op": "capture_tree",
-      "label": "post_send_receipt",
+      "label": "post_send_title_binding_receipt",
       "timeoutMs": 8000
     },
     {
       "op": "wait",
-      "ms": 700
+      "ms": 900
     },
     {
-      "op": "history_recent_binding",
-      "timeoutMs": 26000,
-      "settleMs": 1100
-    },
-    {
-      "op": "verify_candidates",
-      "timeoutMs": 8000
+      "op": "history_title_binding",
+      "timeoutMs": 36000,
+      "settleMs": 1200
     },
     {
       "op": "finish",
-      "inconclusiveStatus": "INCONCLUSIVE_HISTORY_ACCESSIBILITY_BOUNDARY_NOT_VERIFIED"
+      "inconclusiveStatus": "INCONCLUSIVE_HISTORY_TITLE_BINDING_NOT_VERIFIED"
     }
   ]
 }

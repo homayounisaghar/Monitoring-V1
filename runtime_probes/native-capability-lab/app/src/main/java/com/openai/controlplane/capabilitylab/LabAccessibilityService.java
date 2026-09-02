@@ -78,6 +78,8 @@ public class LabAccessibilityService extends AccessibilityService {
             tryHistoryBoundaryCalibration(expectedStep);
         } else if (state.startsWith("WAITING_HISTORY_RECENT_")) {
             tryHistoryRecentBinding(expectedStep);
+        } else if (state.startsWith("WAITING_HISTORY_TITLE_")) {
+            tryHistoryTitleBinding(expectedStep);
         } else if (state.startsWith("WAITING_HISTORY_REFRESH")) {
             tryHistoryRefresh(expectedStep);
         } else if (state.startsWith("WAITING_GLOBAL_SEARCH_")) {
@@ -184,6 +186,9 @@ public class LabAccessibilityService extends AccessibilityService {
                 case "history_recent_binding":
                     opHistoryRecentBinding(step, i);
                     break;
+                case "history_title_binding":
+                    opHistoryTitleBinding(step, i);
+                    break;
                 case "history_refresh":
                     opHistoryRefresh(step, i);
                     break;
@@ -214,6 +219,8 @@ public class LabAccessibilityService extends AccessibilityService {
                 case "finish":
                     if (!LabStore.verifiedConversationId(this).isEmpty()) {
                         LabStore.finish(this, "PASS_VERIFIED_CONVERSATION_ID");
+                    } else if (LabStore.historyTitleBindingVerified(this)) {
+                        LabStore.finish(this, "PASS_VERIFIED_HISTORY_TITLE_BINDING");
                     } else if (LabStore.historyBindingVerified(this)) {
                         LabStore.finish(this, "PASS_VERIFIED_HISTORY_RECENT_BINDING");
                     } else if (LabStore.searchBindingVerified(this)) {
@@ -237,7 +244,7 @@ public class LabAccessibilityService extends AccessibilityService {
             marker = "LAB_CID_" + UUID.randomUUID().toString().replace("-", "").substring(0, 16).toUpperCase(Locale.US);
             LabStore.setMarker(this, marker);
         }
-        String prompt = step.optString("prompt", "Capability Lab proof {{marker}}").replace("{{marker}}", marker);
+        String prompt = step.optString("prompt", "Capability Lab proof {{marker}}").replace("{{marker}}", marker).replace("{{titleSeed}}", titleSeedForMarker(marker));
         Uri uri = Uri.parse("https://chatgpt.com/c").buildUpon().appendQueryParameter("prompt", prompt).build();
         Intent i = new Intent(Intent.ACTION_VIEW, uri);
         i.setComponent(new ComponentName(ProfileGuard.CHATGPT_PACKAGE, ProfileGuard.CHATGPT_DEEPLINK));
@@ -1040,6 +1047,296 @@ public class LabAccessibilityService extends AccessibilityService {
         return false;
     }
 
+    private String titleSeedForMarker(String marker) {
+        String x = marker == null ? "" : marker.replace("LAB_CID_", "").trim();
+        if (x.length() > 10) x = x.substring(0, 10);
+        return "LABSEED_" + x;
+    }
+
+    private String renameTitleForMarker(String marker) {
+        String x = marker == null ? "" : marker.replace("LAB_CID_", "").trim();
+        if (x.length() > 12) x = x.substring(0, 12);
+        return "LABTITLE_" + x;
+    }
+
+    private void opHistoryTitleBinding(JSONObject step, int stepIndex) {
+        if (!isCurrentStep(stepIndex)) return;
+        LabStore.setState(this, "WAITING_HISTORY_TITLE_OPEN");
+        LabStore.append(this, "HISTORY_TITLE_BINDING_ARMED marker=" + LabStore.marker(this)
+                + " titleSeed=" + titleSeedForMarker(LabStore.marker(this))
+                + " renameTitle=" + renameTitleForMarker(LabStore.marker(this)));
+        armTimeout(step.optLong("timeoutMs", 36000L), "HISTORY_TITLE_BINDING_TIMEOUT", stepIndex);
+        handler.postDelayed(() -> tryHistoryTitleBinding(stepIndex), 200L);
+    }
+
+    private void tryHistoryTitleBinding(int expectedStep) {
+        if (!isCurrentStep(expectedStep)) return;
+        String state = LabStore.state(this);
+        if (!state.startsWith("WAITING_HISTORY_TITLE_")) return;
+        List<AccessibilityNodeInfo> roots = chatGptRoots();
+        if (roots.isEmpty()) return;
+
+        if ("WAITING_HISTORY_TITLE_OPEN".equals(state)) {
+            if (isRuntimeHistoryDrawer(roots) || anyHistoryDrawerScreen(roots)) {
+                armHistoryTitleSettle(expectedStep);
+                return;
+            }
+            AccessibilityNodeInfo historyEntry = findUniqueHistoryEntryAcrossRoots(roots);
+            if (historyEntry == null) return;
+            LabStore.setState(this, "WAITING_HISTORY_TITLE_DRAWER");
+            if (!performBoundedNavigation(historyEntry, "HISTORY_TITLE_OPEN",
+                    "Open conversation history", "Open sidebar", "Open navigation",
+                    "Open navigation menu", "Navigation menu", "Menu")) {
+                failRun("HISTORY_TITLE_OPEN_ACTION_FALSE");
+                return;
+            }
+            handler.postDelayed(() -> tryHistoryTitleBinding(expectedStep), 280L);
+            return;
+        }
+
+        if ("WAITING_HISTORY_TITLE_DRAWER".equals(state)) {
+            if (!(isRuntimeHistoryDrawer(roots) || anyHistoryDrawerScreen(roots))) return;
+            armHistoryTitleSettle(expectedStep);
+            return;
+        }
+
+        if ("WAITING_HISTORY_TITLE_SETTLE".equals(state)) {
+            if (!(isRuntimeHistoryDrawer(roots) || anyHistoryDrawerScreen(roots))) return;
+            long remaining = LabStore.waitUntil(this) - System.currentTimeMillis();
+            if (remaining > 0L) {
+                handler.postDelayed(() -> tryHistoryTitleBinding(expectedStep), Math.min(remaining, 250L));
+                return;
+            }
+            List<AccessibilityNodeInfo> rows = historyConversationRows(roots);
+            LabStore.append(this, "HISTORY_TITLE_ROW_STATE_CENSUS count=" + rows.size()
+                    + " rows=" + LabStore.abbrev(historyTitleRowStateCensus(rows), 18000));
+            AccessibilityNodeInfo row = uniqueFreshRowForRename(rows);
+            if (row == null) {
+                LabStore.append(this, "HISTORY_TITLE_NO_SAFE_FRESH_ROW currentRows="
+                        + countStructurallyCurrentHistoryRows(rows)
+                        + " seed=" + titleSeedForMarker(LabStore.marker(this))
+                        + " action=observation_only_no_row_mutation");
+                cancelTimeout();
+                completeStep(expectedStep);
+                return;
+            }
+            if (!hasAction(row, AccessibilityNodeInfo.ACTION_LONG_CLICK)) {
+                failRun("HISTORY_TITLE_CORRELATED_ROW_NO_LONG_CLICK");
+                return;
+            }
+            LabStore.append(this, "HISTORY_TITLE_CORRELATED_ROW title="
+                    + LabStore.abbrev(historyRowTitle(row), 180)
+                    + " selected=" + row.isSelected()
+                    + " focused=" + row.isFocused()
+                    + " a11yFocused=" + row.isAccessibilityFocused()
+                    + " checked=" + row.isChecked()
+                    + " actions=" + safeActionLabels(row));
+            LabStore.setState(this, "WAITING_HISTORY_TITLE_ACTIONS");
+            boolean ok = row.performAction(AccessibilityNodeInfo.ACTION_LONG_CLICK);
+            LabStore.append(this, "HISTORY_TITLE_ROW_LONG_CLICK returned=" + ok);
+            if (!ok) {
+                failRun("HISTORY_TITLE_ROW_LONG_CLICK_FALSE");
+                return;
+            }
+            handler.postDelayed(() -> tryHistoryTitleBinding(expectedStep), 260L);
+            return;
+        }
+
+        if ("WAITING_HISTORY_TITLE_ACTIONS".equals(state)) {
+            AccessibilityNodeInfo rename = uniqueActionableExactAcrossRoots(roots, "Rename");
+            if (rename == null) return;
+            LabStore.setState(this, "WAITING_HISTORY_TITLE_EDITOR");
+            if (!performBoundedNavigation(rename, "HISTORY_TITLE_RENAME_ENTRY", "Rename")) {
+                failRun("HISTORY_TITLE_RENAME_ENTRY_ACTION_FALSE");
+                return;
+            }
+            handler.postDelayed(() -> tryHistoryTitleBinding(expectedStep), 250L);
+            return;
+        }
+
+        if ("WAITING_HISTORY_TITLE_EDITOR".equals(state)) {
+            List<AccessibilityNodeInfo> editables = visibleEditableAcrossRoots(roots);
+            if (editables.size() != 1) return;
+            AccessibilityNodeInfo editor = editables.get(0);
+            String desired = renameTitleForMarker(LabStore.marker(this));
+            Bundle args = new Bundle();
+            args.putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, desired);
+            LabStore.setState(this, "WAITING_HISTORY_TITLE_COMMIT");
+            boolean set = editor.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args);
+            LabStore.append(this, "HISTORY_TITLE_RENAME_DRAFT_SET returned=" + set
+                    + " desired=" + desired + " editableCount=" + editables.size());
+            if (!set) {
+                failRun("HISTORY_TITLE_RENAME_SET_TEXT_FALSE");
+                return;
+            }
+            handler.postDelayed(() -> tryHistoryTitleBinding(expectedStep), 220L);
+            return;
+        }
+
+        if ("WAITING_HISTORY_TITLE_COMMIT".equals(state)) {
+            AccessibilityNodeInfo commit = uniqueActionableExactAcrossRoots(roots, "Save", "Rename", "Done");
+            if (commit == null) return;
+            if (!LabStore.claimRename(this)) {
+                failUncertain("HISTORY_TITLE_RENAME_CLAIM_ALREADY_SET");
+                return;
+            }
+            LabStore.setState(this, "WAITING_HISTORY_TITLE_RENAME_CLAIMED");
+            boolean ok = performBoundedNavigation(commit, "HISTORY_TITLE_RENAME_COMMIT", "Save", "Rename", "Done");
+            if (!ok) {
+                failUncertain("HISTORY_TITLE_RENAME_COMMIT_ACTION_FALSE");
+                return;
+            }
+            handler.postDelayed(() -> tryHistoryTitleBinding(expectedStep), 320L);
+            return;
+        }
+
+        if ("WAITING_HISTORY_TITLE_RENAME_CLAIMED".equals(state)) {
+            if (isRuntimeHistoryDrawer(roots) || anyHistoryDrawerScreen(roots)) {
+                confirmRenameReceiptAndOpen(expectedStep, roots);
+                return;
+            }
+            if (!visibleEditableAcrossRoots(roots).isEmpty()) return;
+            AccessibilityNodeInfo historyEntry = findUniqueHistoryEntryAcrossRoots(roots);
+            if (historyEntry == null) return;
+            LabStore.setState(this, "WAITING_HISTORY_TITLE_RECEIPT_DRAWER");
+            if (!performBoundedNavigation(historyEntry, "HISTORY_TITLE_RECEIPT_OPEN_HISTORY",
+                    "Open conversation history", "Open sidebar", "Open navigation",
+                    "Open navigation menu", "Navigation menu", "Menu")) {
+                failUncertain("HISTORY_TITLE_RECEIPT_OPEN_HISTORY_FALSE");
+                return;
+            }
+            handler.postDelayed(() -> tryHistoryTitleBinding(expectedStep), 280L);
+            return;
+        }
+
+        if ("WAITING_HISTORY_TITLE_RECEIPT_DRAWER".equals(state)) {
+            if (!(isRuntimeHistoryDrawer(roots) || anyHistoryDrawerScreen(roots))) return;
+            confirmRenameReceiptAndOpen(expectedStep, roots);
+            return;
+        }
+
+        if ("WAITING_HISTORY_TITLE_VERIFY_REOPEN".equals(state)) {
+            if (isRuntimeHistoryDrawer(roots) || anyHistoryDrawerScreen(roots)) return;
+            AccessibilityNodeInfo active = getRootInActiveWindow();
+            if (active == null || !isChatGptRoot(active)) return;
+            MarkerCounts counts = countMarkerNodes(active, LabStore.marker(this));
+            if (counts.editable == 0 && counts.nonEditable >= 1) {
+                cancelTimeout();
+                String title = renameTitleForMarker(LabStore.marker(this));
+                LabStore.append(this, "HISTORY_TITLE_REOPEN_VERIFIED markerEditable=" + counts.editable
+                        + " markerNonEditable=" + counts.nonEditable
+                        + " title=" + title);
+                LabStore.markHistoryTitleBindingVerified(this, title);
+                completeStep(expectedStep);
+                return;
+            }
+            long remaining = LabStore.waitUntil(this) - System.currentTimeMillis();
+            if (remaining > 0L) {
+                handler.postDelayed(() -> tryHistoryTitleBinding(expectedStep), Math.min(remaining, 250L));
+                return;
+            }
+            LabStore.append(this, "HISTORY_TITLE_REOPEN_MARKER_MISMATCH markerEditable=" + counts.editable
+                    + " markerNonEditable=" + counts.nonEditable
+                    + " snapshot=" + LabStore.abbrev(normalizedTree(active, LabStore.marker(this), 320, 12), 16000));
+            failRun("HISTORY_TITLE_REOPEN_MARKER_MISMATCH");
+        }
+    }
+
+    private void armHistoryTitleSettle(int expectedStep) {
+        JSONObject step = currentPlanStep(expectedStep);
+        long settle = step == null ? 1200L : Math.max(400L, Math.min(step.optLong("settleMs", 1200L), 5000L));
+        LabStore.setWaitUntil(this, System.currentTimeMillis() + settle);
+        LabStore.setState(this, "WAITING_HISTORY_TITLE_SETTLE");
+        LabStore.append(this, "HISTORY_TITLE_SETTLE ms=" + settle);
+        handler.postDelayed(() -> tryHistoryTitleBinding(expectedStep), Math.min(settle, 300L));
+    }
+
+    private AccessibilityNodeInfo uniqueFreshRowForRename(List<AccessibilityNodeInfo> rows) {
+        AccessibilityNodeInfo current = uniqueStructurallyCurrentHistoryRow(rows);
+        if (current != null) {
+            LabStore.append(this, "HISTORY_TITLE_ROW_CORRELATION source=unique_structurally_current");
+            return current;
+        }
+        String seed = titleSeedForMarker(LabStore.marker(this)).toLowerCase(Locale.US);
+        AccessibilityNodeInfo found = null;
+        int count = 0;
+        for (AccessibilityNodeInfo row : rows) {
+            String title = historyRowTitle(row).toLowerCase(Locale.US);
+            if (!title.contains(seed)) continue;
+            count++;
+            if (found == null) found = row;
+        }
+        LabStore.append(this, "HISTORY_TITLE_ROW_CORRELATION source=title_seed seed=" + seed
+                + " matches=" + count);
+        return count == 1 ? found : null;
+    }
+
+    private String historyTitleRowStateCensus(List<AccessibilityNodeInfo> rows) {
+        StringBuilder out = new StringBuilder();
+        for (int i = 0; i < rows.size() && i < 20; i++) {
+            AccessibilityNodeInfo row = rows.get(i);
+            if (out.length() > 0) out.append(" | ");
+            out.append(i).append(':').append(LabStore.abbrev(historyRowTitle(row), 100))
+                    .append(" sel=").append(row.isSelected())
+                    .append(" foc=").append(row.isFocused())
+                    .append(" a11y=").append(row.isAccessibilityFocused())
+                    .append(" chk=").append(row.isChecked())
+                    .append(" click=").append(row.isClickable())
+                    .append(" long=").append(hasAction(row, AccessibilityNodeInfo.ACTION_LONG_CLICK));
+        }
+        return out.toString();
+    }
+
+    private AccessibilityNodeInfo uniqueActionableExactAcrossRoots(List<AccessibilityNodeInfo> roots,
+                                                                    String... labels) {
+        List<AccessibilityNodeInfo> targets = new ArrayList<>();
+        for (String label : labels) {
+            for (AccessibilityNodeInfo root : roots) {
+                List<AccessibilityNodeInfo> nodes = new ArrayList<>();
+                collectExactSemanticNodes(root, label, nodes, 0);
+                for (AccessibilityNodeInfo node : nodes) {
+                    AccessibilityNodeInfo target = firstActionClickAncestor(node, 8);
+                    if (target != null) addUniqueNode(targets, target);
+                }
+            }
+        }
+        return targets.size() == 1 ? targets.get(0) : null;
+    }
+
+    private List<AccessibilityNodeInfo> visibleEditableAcrossRoots(List<AccessibilityNodeInfo> roots) {
+        List<AccessibilityNodeInfo> out = new ArrayList<>();
+        for (AccessibilityNodeInfo root : roots) collectVisibleEditables(root, out, 0);
+        return out;
+    }
+
+    private void collectVisibleEditables(AccessibilityNodeInfo node, List<AccessibilityNodeInfo> out, int depth) {
+        if (node == null || depth > 32 || out.size() >= 20) return;
+        if (node.isVisibleToUser() && node.isEnabled() && node.isEditable()) addUniqueNode(out, node);
+        for (int i = 0; i < node.getChildCount(); i++) collectVisibleEditables(node.getChild(i), out, depth + 1);
+    }
+
+    private void confirmRenameReceiptAndOpen(int expectedStep, List<AccessibilityNodeInfo> roots) {
+        String desired = renameTitleForMarker(LabStore.marker(this));
+        List<AccessibilityNodeInfo> rows = historyConversationRows(roots);
+        List<AccessibilityNodeInfo> matches = new ArrayList<>();
+        for (AccessibilityNodeInfo row : rows) {
+            if (desired.equals(historyRowTitle(row))) addUniqueNode(matches, row);
+        }
+        LabStore.append(this, "HISTORY_TITLE_RENAME_RECEIPT_SCAN desired=" + desired
+                + " exactMatches=" + matches.size()
+                + " rows=" + LabStore.abbrev(historyTitleRowStateCensus(rows), 18000));
+        if (matches.size() != 1) return;
+        LabStore.markRenameConfirmed(this, desired);
+        LabStore.setHistoryCandidateTitle(this, desired);
+        LabStore.setState(this, "WAITING_HISTORY_TITLE_VERIFY_REOPEN");
+        LabStore.setWaitUntil(this, System.currentTimeMillis() + 2500L);
+        if (!performBoundedNavigation(matches.get(0), "HISTORY_TITLE_OPEN_RENAMED_ROW")) {
+            failRun("HISTORY_TITLE_OPEN_RENAMED_ROW_ACTION_FALSE");
+            return;
+        }
+        handler.postDelayed(() -> tryHistoryTitleBinding(expectedStep), 300L);
+    }
+
     private void opHistoryRecentBinding(JSONObject step, int stepIndex) {
         if (!isCurrentStep(stepIndex)) return;
         LabStore.clearCandidates(this);
@@ -1576,6 +1873,9 @@ public class LabAccessibilityService extends AccessibilityService {
                 onVerifyTimeout(expectedStep, reason);
             } else if ("SEND_CLAIMED".equals(state) && LabStore.writeClaimed(this)) {
                 failUncertain(reason + " after durable claim");
+            } else if (state.startsWith("WAITING_HISTORY_TITLE_")
+                    && LabStore.renameClaimed(this) && !LabStore.renameConfirmed(this)) {
+                failUncertain(reason + " after durable rename claim");
             } else {
                 if (reason.startsWith("GLOBAL_SEARCH_BINDING_TIMEOUT")) {
                     List<AccessibilityNodeInfo> roots = chatGptRoots();

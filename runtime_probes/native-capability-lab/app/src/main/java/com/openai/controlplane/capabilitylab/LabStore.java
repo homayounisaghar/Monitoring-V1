@@ -66,6 +66,9 @@ final class LabStore {
                 .putString("marker", "")
                 .putBoolean("writeClaimed", false)
                 .putBoolean("sendConfirmed", false)
+                .putBoolean("renameClaimed", false)
+                .putBoolean("renameConfirmed", false)
+                .putBoolean("historyTitleBindingVerified", false)
                 .putLong("sendConfirmedAtMs", 0L)
                 .putBoolean("searchBindingVerified", false)
                 .putBoolean("historyBindingVerified", false)
@@ -116,6 +119,9 @@ final class LabStore {
     static long sendConfirmedAtMs(Context c) { return p(c).getLong("sendConfirmedAtMs", 0L); }
     static boolean searchBindingVerified(Context c) { return p(c).getBoolean("searchBindingVerified", false); }
     static boolean historyBindingVerified(Context c) { return p(c).getBoolean("historyBindingVerified", false); }
+    static boolean renameClaimed(Context c) { return p(c).getBoolean("renameClaimed", false); }
+    static boolean renameConfirmed(Context c) { return p(c).getBoolean("renameConfirmed", false); }
+    static boolean historyTitleBindingVerified(Context c) { return p(c).getBoolean("historyTitleBindingVerified", false); }
     static String historyCandidateTitle(Context c) { return p(c).getString("historyCandidateTitle", ""); }
     static String historyVerifiedTitle(Context c) { return p(c).getString("historyVerifiedTitle", ""); }
     static boolean calibrationMode(Context c) { return p(c).getBoolean("calibrationMode", false); }
@@ -165,6 +171,31 @@ final class LabStore {
         return true;
     }
 
+    static synchronized boolean claimRename(Context c) {
+        if (renameClaimed(c)) return false;
+        p(c).edit().putBoolean("renameClaimed", true).commit();
+        append(c, "RENAME_CLAIM durable=true");
+        return true;
+    }
+
+    static synchronized void markRenameConfirmed(Context c, String title) {
+        if (renameConfirmed(c)) return;
+        p(c).edit().putBoolean("renameConfirmed", true).commit();
+        append(c, "RENAME_RECEIPT exactTitleUnique=true title=" + abbrev(title == null ? "" : title, 180));
+    }
+
+    static synchronized void markHistoryTitleBindingVerified(Context c, String title) {
+        if (historyTitleBindingVerified(c)) return;
+        String safeTitle = title == null ? "" : title;
+        p(c).edit()
+                .putBoolean("historyTitleBindingVerified", true)
+                .putBoolean("historyBindingVerified", true)
+                .putString("historyVerifiedTitle", safeTitle)
+                .commit();
+        append(c, "VERIFIED_HISTORY_TITLE_BINDING marker=" + marker(c)
+                + " title=" + abbrev(safeTitle, 180));
+    }
+
     static synchronized void markSendConfirmed(Context c) {
         if (sendConfirmed(c)) return;
         p(c).edit()
@@ -211,6 +242,9 @@ final class LabStore {
                 .putString("marker", "")
                 .putBoolean("writeClaimed", false)
                 .putBoolean("sendConfirmed", false)
+                .putBoolean("renameClaimed", false)
+                .putBoolean("renameConfirmed", false)
+                .putBoolean("historyTitleBindingVerified", false)
                 .putLong("sendConfirmedAtMs", 0L)
                 .putBoolean("searchBindingVerified", false)
                 .putBoolean("historyBindingVerified", false)
@@ -321,6 +355,9 @@ final class LabStore {
                 + " verifiedId=" + verifiedConversationId(c)
                 + " searchBinding=" + searchBindingVerified(c)
                 + " historyBinding=" + historyBindingVerified(c)
+                + " titleBinding=" + historyTitleBindingVerified(c)
+                + " renameClaimed=" + renameClaimed(c)
+                + " renameConfirmed=" + renameConfirmed(c)
                 + " historyTitle=" + historyVerifiedTitle(c)
                 + " calibrationId=" + calibrationVerifiedId(c)
                 + " freshBoundaryItem=" + abbrev(freshBoundaryItemId(c), 80)
