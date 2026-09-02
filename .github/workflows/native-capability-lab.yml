@@ -30,33 +30,33 @@ jobs:
           MAIN="$ROOT/app/src/main/java/com/openai/controlplane/capabilitylab/MainActivity.java"
           SHORTCUT="$ROOT/app/src/main/java/com/openai/controlplane/capabilitylab/LabShortcutReadSide.java"
           OBSERVER="$ROOT/app/src/main/java/com/openai/controlplane/capabilitylab/LabShizukuObserver.java"
-          NOTIF="$ROOT/app/src/main/java/com/openai/controlplane/capabilitylab/LabNotificationService.java"
           MAN="$ROOT/app/src/main/AndroidManifest.xml"
           PLAN="$ROOT/plans/default.json"
           grep -Fq 'com.openai.chatgpt' "$ROOT/app/src/main/java/com/openai/controlplane/capabilitylab/ProfileGuard.java"
-          grep -Fq 'ACTION_CLICK' "$SVC"
           grep -Fq 'WRITE_CLAIM' "$STORE"
           grep -Fq 'advanceStepIfCurrent' "$STORE"
-          grep -Fq 'ACCESSIBILITY_METADATA' "$SVC"
-          grep -Fq 'SHORTCUT_HOST_PERMISSION' "$SHORTCUT"
+          grep -Fq 'markSearchBindingVerified' "$STORE"
+          grep -Fq 'GLOBAL_SEARCH_ENTRY ACTION_CLICK' "$SVC"
+          grep -Fq 'GLOBAL_SEARCH_QUERY ACTION_SET_TEXT' "$SVC"
+          grep -Fq 'GLOBAL_SEARCH_RESULT ACTION_CLICK' "$SVC"
+          grep -Fq 'GLOBAL_SEARCH_REOPEN_VERIFIED' "$SVC"
+          grep -Fq 'Search chats, files, and projects' "$SVC"
+          grep -Fq 'Search ChatGPT' "$SVC"
           grep -Fq 'TEST COMPLETE' "$MAIN"
-          grep -Fq 'LabShizukuObserver.permissionGranted' "$MAIN"
+          grep -Fq 'OFFICIAL GLOBAL SEARCH' "$MAIN"
+          grep -Fq 'SHORTCUT_HOST_PERMISSION' "$SHORTCUT"
           grep -Fq 'classification=LAB_ONLY_DISCOVERY' "$OBSERVER"
-          grep -Fq 'dumpsys notification --noredact' "$OBSERVER"
-          grep -Fq 'dumpsys shortcut' "$OBSERVER"
-          grep -Fq 'dumpsys activity activities' "$OBSERVER"
-          grep -Fq 'LabShizukuObserver.capture' "$NOTIF"
           grep -Fq "dev.rikka.shizuku:api:13.1.5" "$ROOT/app/build.gradle"
           grep -Fq "dev.rikka.shizuku:provider:13.1.5" "$ROOT/app/build.gradle"
           grep -Fq 'rikka.shizuku.ShizukuProvider' "$MAN"
           grep -Fq '${applicationId}.shizuku' "$MAN"
           grep -Fq 'android.permission.INTERACT_ACROSS_USERS_FULL' "$MAN"
-          grep -Fq 'moe.shizuku.privileged.api' "$MAN"
           grep -Fq 'android:canTakeScreenshot="true"' "$ROOT/app/src/main/res/xml/accessibility_service_config.xml"
           grep -Fq 'android.permission.INTERNET' "$MAN"
           grep -Fq 'ChatGPT Capability Lab Stable' "$MAN"
           grep -Fq 'targetSignerSha256' "$PLAN"
-          grep -Fq 'conversation_id_observer_v1_shizuku' "$PLAN"
+          grep -Fq 'conversation_search_binding_v1_official_ui' "$PLAN"
+          grep -Fq 'global_search_binding' "$PLAN"
           ! grep -R -n -E 'api\.openai\.com|Authorization: Bearer|access_token|refresh_token' "$ROOT"
           ! grep -Fq 'dispatchGesture' "$SVC"
           ! grep -Fq 'getBoundsInScreen' "$SVC"
@@ -66,23 +66,28 @@ jobs:
           import json
           root = Path('runtime_probes/native-capability-lab')
           s = (root / 'app/src/main/java/com/openai/controlplane/capabilitylab/LabAccessibilityService.java').read_text()
-          if s.count('performAction(AccessibilityNodeInfo.ACTION_CLICK)') != 1:
-              raise SystemExit('Capability Lab must contain exactly one ACTION_CLICK write site')
+          # Three semantic navigation/write clicks only: proven Send, Search entry, unique Search result.
+          if s.count('performAction(AccessibilityNodeInfo.ACTION_CLICK)') != 3:
+              raise SystemExit('Capability Lab v0.6 must contain exactly three bounded ACTION_CLICK sites')
+          if s.count('performAction(AccessibilityNodeInfo.ACTION_SET_TEXT') != 1:
+              raise SystemExit('Capability Lab v0.6 must contain exactly one Global Search ACTION_SET_TEXT site')
           if 'completeStep();' in s:
               raise SystemExit('unguarded bare completeStep() found; step-token hardening regressed')
           gradle = (root / 'app/build.gradle').read_text()
           assert "applicationId 'com.openai.controlplane.capabilitylab.stable'" in gradle
-          assert 'versionCode 5' in gradle
-          assert "versionName '0.5-native-capability-lab-stable-shizuku-provider-fix'" in gradle
-          observer = (root / 'app/src/main/java/com/openai/controlplane/capabilitylab/LabShizukuObserver.java').read_text()
-          assert 'Raw dumpsys output is never persisted' in observer
-          assert 'LabStore.addCandidate' in observer
-          assert observer.count('dumpsys ') >= 4
+          assert 'versionCode 6' in gradle
+          assert "versionName '0.6-native-capability-lab-stable-global-search'" in gradle
           data = json.loads((root / 'plans/default.json').read_text())
           assert data['schema'] == 1
           assert data['targetVersion'] == '1.2026.237'
-          assert data['suite'] == 'conversation_id_observer_v1_shizuku'
-          assert any(x['op'] == 'channel_snapshot' for x in data['steps'])
+          assert data['suite'] == 'conversation_search_binding_v1_official_ui'
+          ops = [x['op'] for x in data['steps']]
+          assert ops == [
+              'launch_prompt', 'capture_tree', 'semantic_send', 'capture_tree',
+              'wait', 'global_search_binding', 'return_lab', 'verify_candidates', 'finish'
+          ]
+          assert data['steps'][4]['ms'] == 5000
+          assert data['steps'][5]['timeoutMs'] == 30000
           PY
 
       - name: Set up Java
@@ -120,7 +125,7 @@ jobs:
           AAPT=$(find "$ANDROID_SDK_ROOT/build-tools" -type f -name aapt | sort | tail -n 1)
           "$APKSIGNER" verify --verbose --print-certs ci/out/chatgpt-capability-lab-ci-only.apk | tee ci/out/apksigner.txt
           "$AAPT" dump badging ci/out/chatgpt-capability-lab-ci-only.apk | tee ci/out/badging.txt
-          grep -Fq "package: name='com.openai.controlplane.capabilitylab.stable' versionCode='5' versionName='0.5-native-capability-lab-stable-shizuku-provider-fix'" ci/out/badging.txt
+          grep -Fq "package: name='com.openai.controlplane.capabilitylab.stable' versionCode='6' versionName='0.6-native-capability-lab-stable-global-search'" ci/out/badging.txt
           sha256sum ci/out/chatgpt-capability-lab-ci-only.apk | tee ci/out/SHA256.txt
 
       - name: Upload CI-only artifact
