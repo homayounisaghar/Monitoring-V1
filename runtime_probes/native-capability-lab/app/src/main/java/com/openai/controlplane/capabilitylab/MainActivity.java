@@ -32,10 +32,10 @@ import java.io.OutputStream;
 
 public class MainActivity extends Activity {
     private static final String SCREEN_DESCRIPTION =
-            "Stable v0.19 tests the exact APK-derived History accessibility boundary with official Search removed from the critical path. "
+            "Stable v0.20 continues the exact APK-derived History accessibility boundary proof with official Search removed from the critical path. "
           + "It first foregrounds ChatGPT and records a direct pre-fresh baseline of raw chatgpt.history.item.* / chatgpt.history.actions.* view IDs, actions, and structure. "
           + "It then creates one fresh synthetic marker chat, sends exactly once with the proven CLAIM/no-replay contract, and identifies a fresh row only by a unique new History accessibility ID relative to that baseline. "
-          + "New chat label/container aliases are deduplicated to one actionable target before navigation. No unrelated History row is clicked if that APK-derived boundary is absent or ambiguous. "
+          + "Runtime-proven History rows titled New chat are excluded by their ACTION_LONG_CLICK row contract; the navigation control must be the unique clickable non-long-click target before switching away. No unrelated History row is clicked if that APK-derived boundary is absent or ambiguous. "
           + "Any plausible ID candidate is independently verified through neutral state -> /c/<candidate> -> exact marker. DOWNLOAD FULL REPORT saves the authoritative report directly to Android Downloads. "
           + "No private ChatGPT API is called, no credentials are extracted, and no coordinate writes, gestures, or global actions are used.";
 

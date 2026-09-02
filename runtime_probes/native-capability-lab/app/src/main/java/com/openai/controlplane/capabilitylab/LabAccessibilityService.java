@@ -1165,23 +1165,43 @@ public class LabAccessibilityService extends AccessibilityService {
 
     private void switchAwayFromFreshThread(int expectedStep, List<AccessibilityNodeInfo> roots) {
         List<AccessibilityNodeInfo> semanticLeaves = new ArrayList<>();
-        List<AccessibilityNodeInfo> actionableTargets = new ArrayList<>();
+        List<AccessibilityNodeInfo> navigationTargets = new ArrayList<>();
+        List<AccessibilityNodeInfo> excludedHistoryRows = new ArrayList<>();
+        StringBuilder signatures = new StringBuilder();
         for (AccessibilityNodeInfo root : roots) {
             List<AccessibilityNodeInfo> one = new ArrayList<>();
             collectExactSemanticNodes(root, "New chat", one, 0);
             for (AccessibilityNodeInfo leaf : one) {
                 addUniqueNode(semanticLeaves, leaf);
                 AccessibilityNodeInfo target = firstActionClickAncestor(leaf, 8);
-                if (target != null) addUniqueNode(actionableTargets, target);
+                if (target == null) continue;
+                boolean historyRowContract = hasAction(target, AccessibilityNodeInfo.ACTION_LONG_CLICK);
+                if (signatures.length() > 0) signatures.append(" || ");
+                signatures.append("leafClass=").append(shortClass(leaf.getClassName()))
+                        .append(" leafClickable=").append(leaf.isClickable())
+                        .append(" targetClass=").append(shortClass(target.getClassName()))
+                        .append(" targetClickable=").append(target.isClickable())
+                        .append(" targetLongClick=").append(historyRowContract)
+                        .append(" targetSemantic=").append(LabStore.abbrev(safeControlSemantic(target), 180))
+                        .append(" actions=").append(safeActionLabels(target));
+                if (historyRowContract) {
+                    addUniqueNode(excludedHistoryRows, target);
+                } else if (target.isVisibleToUser() && target.isEnabled()
+                        && hasAction(target, AccessibilityNodeInfo.ACTION_CLICK)) {
+                    addUniqueNode(navigationTargets, target);
+                }
             }
         }
         LabStore.append(this, "HISTORY_RECENT_NEW_CHAT_RESOLUTION semanticLeaves=" + semanticLeaves.size()
-                + " actionableTargets=" + actionableTargets.size());
-        if (actionableTargets.size() != 1) {
-            failRun("HISTORY_RECENT_NEW_CHAT_ACTIONABLE_NOT_UNIQUE count=" + actionableTargets.size());
+                + " navigationTargets=" + navigationTargets.size()
+                + " excludedLongClickHistoryRows=" + excludedHistoryRows.size()
+                + " signatures=" + LabStore.abbrev(signatures.toString(), 8000));
+        if (navigationTargets.size() != 1) {
+            failRun("HISTORY_RECENT_NEW_CHAT_NAVIGATION_NOT_UNIQUE count=" + navigationTargets.size()
+                    + " excludedHistoryRows=" + excludedHistoryRows.size());
             return;
         }
-        AccessibilityNodeInfo newChat = actionableTargets.get(0);
+        AccessibilityNodeInfo newChat = navigationTargets.get(0);
         LabStore.setState(this, "WAITING_HISTORY_RECENT_SWITCH_AWAY");
         if (!performBoundedNavigation(newChat, "HISTORY_RECENT_SWITCH_AWAY", "New chat")) {
             failRun("HISTORY_RECENT_SWITCH_AWAY_ACTION_FALSE");
