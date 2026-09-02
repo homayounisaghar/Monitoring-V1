@@ -20,7 +20,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Capability Lab v0.14 safety prechecks
+      - name: Capability Lab v0.15 safety prechecks
         shell: bash
         run: |
           set -euo pipefail
@@ -37,6 +37,8 @@ jobs:
           grep -Fq 'markSearchBindingVerified' "$STORE"
           grep -Fq 'GLOBAL_SEARCH_MARKER_OVERRIDE source=plan' "$SVC"
           grep -Fq 'GLOBAL_SEARCH_QUERY_RECEIPT exact=' "$SVC"
+          grep -Fq 'GLOBAL_SEARCH_QUERY_RECEIPT_DEFERRED_TO_RESULT_EVIDENCE' "$SVC"
+          grep -Fq 'findRuntimeSearchSurfaceRoot' "$SVC"
           grep -Fq 'GLOBAL_SEARCH_RUNTIME_FIELD_CONTRACT matched=true' "$SVC"
           grep -Fq 'GLOBAL_SEARCH_QUERY ACTION_SET_TEXT' "$SVC"
           grep -Fq 'GLOBAL_SEARCH_RESULT' "$SVC"
@@ -45,7 +47,7 @@ jobs:
           grep -Fq 'performBoundedNavigation' "$SVC"
           grep -Fq 'READY TO RUN — press the BLUE RUN button' "$MAIN"
           grep -Fq 'android.permission.INTERNET' "$MAN"
-          grep -Fq 'conversation_search_binding_v9_indexed_marker_reopen' "$PLAN"
+          grep -Fq 'conversation_search_binding_v10_result_evidence_receipt' "$PLAN"
           grep -Fq 'LAB_CID_9FC96C5A35E04E5B' "$PLAN"
 
           ! grep -R -n -E 'api\.openai\.com|Authorization: Bearer|access_token|refresh_token' "$ROOT"
@@ -59,19 +61,19 @@ jobs:
           root = Path('runtime_probes/native-capability-lab')
           s = (root / 'app/src/main/java/com/openai/controlplane/capabilitylab/LabAccessibilityService.java').read_text()
           if s.count('performAction(AccessibilityNodeInfo.ACTION_CLICK)') != 2:
-              raise SystemExit('v0.14 must retain exactly two ACTION_CLICK code sites')
+              raise SystemExit('v0.15 must retain exactly two ACTION_CLICK code sites')
           if s.count('performAction(AccessibilityNodeInfo.ACTION_SET_TEXT') != 1:
-              raise SystemExit('v0.14 must retain exactly one Search ACTION_SET_TEXT site')
+              raise SystemExit('v0.15 must retain exactly one Search ACTION_SET_TEXT site')
           if 'completeStep();' in s:
               raise SystemExit('unguarded bare completeStep() found')
           gradle = (root / 'app/build.gradle').read_text()
           assert "applicationId 'com.openai.controlplane.capabilitylab.stable'" in gradle
-          assert 'versionCode 14' in gradle
-          assert "versionName '0.14-native-capability-lab-stable-indexed-marker-reopen'" in gradle
+          assert 'versionCode 15' in gradle
+          assert "versionName '0.15-native-capability-lab-stable-result-evidence-receipt'" in gradle
           data = json.loads((root / 'plans/default.json').read_text())
           assert data['schema'] == 1
           assert data['targetVersion'] == '1.2026.237'
-          assert data['suite'] == 'conversation_search_binding_v9_indexed_marker_reopen'
+          assert data['suite'] == 'conversation_search_binding_v10_result_evidence_receipt'
           assert [x['op'] for x in data['steps']] == [
               'resume_chatgpt', 'wait', 'global_search_binding',
               'return_lab', 'verify_candidates', 'finish'
@@ -117,7 +119,7 @@ jobs:
           AAPT=$(find "$ANDROID_SDK_ROOT/build-tools" -type f -name aapt | sort | tail -n 1)
           "$APKSIGNER" verify --verbose --print-certs ci/out/chatgpt-capability-lab-ci-only.apk | tee ci/out/apksigner.txt
           "$AAPT" dump badging ci/out/chatgpt-capability-lab-ci-only.apk | tee ci/out/badging.txt
-          grep -Fq "package: name='com.openai.controlplane.capabilitylab.stable' versionCode='14' versionName='0.14-native-capability-lab-stable-indexed-marker-reopen'" ci/out/badging.txt
+          grep -Fq "package: name='com.openai.controlplane.capabilitylab.stable' versionCode='15' versionName='0.15-native-capability-lab-stable-result-evidence-receipt'" ci/out/badging.txt
           sha256sum ci/out/chatgpt-capability-lab-ci-only.apk | tee ci/out/SHA256.txt
 
       - name: Upload CI-only artifact
