@@ -380,6 +380,15 @@ public class LabAccessibilityService extends AccessibilityService {
                 handler.postDelayed(() -> tryGlobalSearchBinding(expectedStep), 120L);
                 return;
             }
+            // Trigger-ladder probes may deliberately begin while the official History
+            // drawer is already open. Re-enter the existing post-Menu drawer state rather
+            // than requiring a second Menu opener that is no longer present on that UI.
+            if (anyHistoryDrawerScreen(roots) || isRuntimeHistoryDrawer(roots)) {
+                LabStore.append(this, "GLOBAL_SEARCH_ENTRY already_history_drawer=true");
+                LabStore.setState(this, "WAITING_GLOBAL_SEARCH_DRAWER");
+                handler.postDelayed(() -> tryGlobalSearchBinding(expectedStep), 100L);
+                return;
+            }
 
             AccessibilityNodeInfo entry = findUniqueGlobalSearchEntryAcrossRoots(roots);
             if (entry != null) {
