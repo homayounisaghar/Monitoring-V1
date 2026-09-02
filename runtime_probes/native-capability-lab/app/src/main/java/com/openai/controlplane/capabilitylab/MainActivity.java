@@ -32,12 +32,11 @@ import java.io.OutputStream;
 
 public class MainActivity extends Activity {
     private static final String SCREEN_DESCRIPTION =
-            "Stable v0.17 tests a fresh History binding that does not depend on Global Search indexing. "
-          + "It creates one synthetic marker chat, sends exactly once with the proven CLAIM/no-replay Send contract, "
-          + "opens official History, deliberately switches away through the exact New chat control, reopens History, "
-          + "selects only the first semantic conversation row, harvests that row metadata, and requires the exact marker on the reopened thread. "
-          + "The full report file remains authoritative and captures the relevant ChatGPT Accessibility surfaces. "
-          + "DOWNLOAD FULL REPORT saves it directly to Android Downloads with one tap and no share sheet. "
+            "Stable v0.18 validates the exact APK-derived History accessibility boundary before using a History row. "
+          + "It first performs a best-effort calibration against an already indexed synthetic marker and records a pre-fresh baseline of raw chatgpt.history.item.* / chatgpt.history.actions.* view IDs, actions, and structure. "
+          + "It then creates one fresh synthetic marker chat, sends exactly once with the proven CLAIM/no-replay contract, and identifies a fresh row only by a unique new History accessibility ID relative to that baseline. "
+          + "New chat label/container aliases are deduplicated to one actionable target before navigation. No unrelated History row is clicked if that APK-derived boundary is absent or ambiguous. "
+          + "Any plausible ID candidate is independently verified through neutral state -> /c/<candidate> -> exact marker. DOWNLOAD FULL REPORT saves the authoritative report directly to Android Downloads. "
           + "No private ChatGPT API is called, no credentials are extracted, and no coordinate writes, gestures, or global actions are used.";
 
     private final Handler handler = new Handler(Looper.getMainLooper());
@@ -118,7 +117,7 @@ public class MainActivity extends Activity {
         shizukuGrantButton = button("Optional Shizuku permission", v -> requestShizukuPermission());
         root.addView(shizukuGrantButton);
 
-        runButton = button("RUN FRESH HISTORY BINDING PROOF", v -> startSuite());
+        runButton = button("RUN HISTORY ACCESSIBILITY BOUNDARY PROOF", v -> startSuite());
         root.addView(runButton);
         resetButton = button("Reset Lab run state", v -> {
             if ("RUNNING".equals(LabStore.status(this))) return;
@@ -335,7 +334,7 @@ public class MainActivity extends Activity {
         } else if (!aLive || !nLive) {
             styleBanner("SETUP REQUIRED — follow the BLUE button", AMBER);
         } else if (starting) {
-            styleBanner("STARTING FRESH HISTORY BINDING PROOF…", BLUE);
+            styleBanner("STARTING HISTORY ACCESSIBILITY BOUNDARY PROOF…", BLUE);
         } else if (running) {
             styleBanner("TEST RUNNING — step " + LabStore.step(this) + "\nDo not operate ChatGPT.", AMBER);
         } else if (finished && runStatus.startsWith("PASS")) {
@@ -360,7 +359,7 @@ public class MainActivity extends Activity {
         b.append("Full report file: ").append(LabStore.reportFileName(this).isEmpty() ? "<created when run starts>" : LabStore.reportFileName(this)).append('\n');
         if (!exact) b.append("\nBLOCKED: exact official ChatGPT profile is required.\n");
         else if (!aLive || !nLive) b.append("\nSETUP: grant both Lab services and return here.\n");
-        else if (running || starting) b.append("\nRUNNING: the Lab is executing one bounded official-UI fresh History binding proof. No screenshots are expected; the report file captures the evidence.\n");
+        else if (running || starting) b.append("\nRUNNING: the Lab is executing one bounded static-first History accessibility boundary proof. No screenshots are expected; the report file captures the evidence.\n");
         else if (finished) b.append("\nFINISHED: tap DOWNLOAD FULL REPORT and send the .txt file. COPY FINAL REPORT remains a fallback. Reset only before a deliberate new run.\n");
         else b.append("\nREADY: one tap creates one synthetic chat, switches away, reopens History, and verifies the newest semantic row. Do not manually operate ChatGPT while the run is active.\n");
 

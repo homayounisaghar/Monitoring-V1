@@ -71,6 +71,10 @@ final class LabStore {
                 .putBoolean("historyBindingVerified", false)
                 .putString("historyCandidateTitle", "")
                 .putString("historyVerifiedTitle", "")
+                .putBoolean("calibrationMode", false)
+                .putString("calibrationVerifiedId", "")
+                .putString("historyBaselineItemIds", "")
+                .putString("freshBoundaryItemId", "")
                 .putString("candidates", "")
                 .putInt("candidateIndex", 0)
                 .putString("verifiedConversationId", "")
@@ -114,6 +118,10 @@ final class LabStore {
     static boolean historyBindingVerified(Context c) { return p(c).getBoolean("historyBindingVerified", false); }
     static String historyCandidateTitle(Context c) { return p(c).getString("historyCandidateTitle", ""); }
     static String historyVerifiedTitle(Context c) { return p(c).getString("historyVerifiedTitle", ""); }
+    static boolean calibrationMode(Context c) { return p(c).getBoolean("calibrationMode", false); }
+    static String calibrationVerifiedId(Context c) { return p(c).getString("calibrationVerifiedId", ""); }
+    static String historyBaselineItemIds(Context c) { return p(c).getString("historyBaselineItemIds", ""); }
+    static String freshBoundaryItemId(Context c) { return p(c).getString("freshBoundaryItemId", ""); }
     static int candidateIndex(Context c) { return p(c).getInt("candidateIndex", 0); }
     static long waitUntil(Context c) { return p(c).getLong("waitUntil", 0L); }
     static String verifiedConversationId(Context c) { return p(c).getString("verifiedConversationId", ""); }
@@ -132,6 +140,13 @@ final class LabStore {
     static void setCandidateIndex(Context c, int value) { p(c).edit().putInt("candidateIndex", value).apply(); }
     static void setHistoryCandidateTitle(Context c, String value) {
         p(c).edit().putString("historyCandidateTitle", value == null ? "" : value).apply();
+    }
+    static void setCalibrationMode(Context c, boolean value) { p(c).edit().putBoolean("calibrationMode", value).apply(); }
+    static void setHistoryBaselineItemIds(Context c, String value) {
+        p(c).edit().putString("historyBaselineItemIds", value == null ? "" : value).apply();
+    }
+    static void setFreshBoundaryItemId(Context c, String value) {
+        p(c).edit().putString("freshBoundaryItemId", value == null ? "" : value).apply();
     }
 
     static synchronized boolean advanceStepIfCurrent(Context c, int expectedStep) {
@@ -179,6 +194,35 @@ final class LabStore {
     static synchronized void clearCandidates(Context c) {
         p(c).edit().putString("candidates", "").putInt("candidateIndex", 0).commit();
         append(c, "CANDIDATES_CLEARED scope=history_selected_row");
+    }
+
+    static synchronized void markCalibrationVerified(Context c, String id) {
+        String safe = id == null ? "" : id.trim();
+        p(c).edit().putString("calibrationVerifiedId", safe).commit();
+        append(c, "CALIBRATION_VERIFIED_CONVERSATION_ID=" + safe);
+    }
+
+    static synchronized void resetAfterCalibration(Context c) {
+        String baseline = historyBaselineItemIds(c);
+        String calibrated = calibrationVerifiedId(c);
+        append(c, "CALIBRATION_PHASE_COMPLETE verifiedId=" + abbrev(calibrated, 96)
+                + " baselineItemIds=" + (baseline.isEmpty() ? 0 : baseline.split("\\n").length));
+        p(c).edit()
+                .putString("marker", "")
+                .putBoolean("writeClaimed", false)
+                .putBoolean("sendConfirmed", false)
+                .putLong("sendConfirmedAtMs", 0L)
+                .putBoolean("searchBindingVerified", false)
+                .putBoolean("historyBindingVerified", false)
+                .putString("historyCandidateTitle", "")
+                .putString("historyVerifiedTitle", "")
+                .putBoolean("calibrationMode", false)
+                .putString("freshBoundaryItemId", "")
+                .putString("candidates", "")
+                .putInt("candidateIndex", 0)
+                .putString("verifiedConversationId", "")
+                .commit();
+        append(c, "FRESH_PHASE_RESET preservedHistoryBaseline=true");
     }
 
     static synchronized void markVerified(Context c, String id) {
@@ -278,6 +322,8 @@ final class LabStore {
                 + " searchBinding=" + searchBindingVerified(c)
                 + " historyBinding=" + historyBindingVerified(c)
                 + " historyTitle=" + historyVerifiedTitle(c)
+                + " calibrationId=" + calibrationVerifiedId(c)
+                + " freshBoundaryItem=" + abbrev(freshBoundaryItemId(c), 80)
                 + " sinceSendMs=" + sinceSendMs(c)
                 + " reportFile=" + reportFileName(c);
     }

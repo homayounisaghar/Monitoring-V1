@@ -37,6 +37,8 @@ public class LabAccessibilityService extends AccessibilityService {
     private static final Pattern HEX32_FIND = Pattern.compile("(?i)(?<![0-9a-f])[0-9a-f]{32}(?![0-9a-f])");
     private static final int MAX_VERIFY_CANDIDATES = 8;
     private static final int MAX_METADATA_NODES = 1400;
+    private static final String HISTORY_ITEM_PREFIX = "chatgpt.history.item.";
+    private static final String HISTORY_ACTIONS_PREFIX = "chatgpt.history.actions.";
 
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final Runnable runCurrentStepRunnable = new Runnable() {
@@ -72,6 +74,8 @@ public class LabAccessibilityService extends AccessibilityService {
             tryVerifyNeutralThenCandidate(expectedStep);
         } else if ("WAITING_VERIFY_CANDIDATE".equals(state)) {
             tryVerifyCandidate(expectedStep);
+        } else if (state.startsWith("WAITING_HISTORY_BOUNDARY_CALIBRATION_")) {
+            tryHistoryBoundaryCalibration(expectedStep);
         } else if (state.startsWith("WAITING_HISTORY_RECENT_")) {
             tryHistoryRecentBinding(expectedStep);
         } else if (state.startsWith("WAITING_HISTORY_REFRESH")) {
@@ -169,6 +173,13 @@ public class LabAccessibilityService extends AccessibilityService {
                     break;
                 case "global_search_binding":
                     opGlobalSearchBinding(step, i);
+                    break;
+                case "history_boundary_calibration":
+                    opHistoryBoundaryCalibration(step, i);
+                    break;
+                case "reset_after_calibration":
+                    LabStore.resetAfterCalibration(this);
+                    completeStep(i);
                     break;
                 case "history_recent_binding":
                     opHistoryRecentBinding(step, i);
@@ -741,8 +752,298 @@ public class LabAccessibilityService extends AccessibilityService {
         completeStep(expectedStep);
     }
 
+    private void opHistoryBoundaryCalibration(JSONObject step, int stepIndex) {
+        if (!isCurrentStep(stepIndex)) return;
+        LabStore.clearCandidates(this);
+        LabStore.setCalibrationMode(this, true);
+        LabStore.setState(this, "WAITING_HISTORY_BOUNDARY_CALIBRATION_OPEN");
+        LabStore.append(this, "HISTORY_BOUNDARY_CALIBRATION_ARMED knownMarkerVerified="
+                + LabStore.searchBindingVerified(this) + " marker=" + LabStore.marker(this));
+        armTimeout(step.optLong("timeoutMs", 12000L), "HISTORY_BOUNDARY_CALIBRATION_TIMEOUT", stepIndex);
+        handler.postDelayed(() -> tryHistoryBoundaryCalibration(stepIndex), 200L);
+    }
+
+    private void tryHistoryBoundaryCalibration(int expectedStep) {
+        if (!isCurrentStep(expectedStep)) return;
+        String state = LabStore.state(this);
+        if (!state.startsWith("WAITING_HISTORY_BOUNDARY_CALIBRATION_")) return;
+        List<AccessibilityNodeInfo> roots = chatGptRoots();
+        if (roots.isEmpty()) return;
+
+        if (!(isRuntimeHistoryDrawer(roots) || anyHistoryDrawerScreen(roots))) {
+            if ("WAITING_HISTORY_BOUNDARY_CALIBRATION_WAIT_DRAWER".equals(state)) return;
+            AccessibilityNodeInfo historyEntry = findUniqueHistoryEntryAcrossRoots(roots);
+            if (historyEntry == null) return;
+            LabStore.setState(this, "WAITING_HISTORY_BOUNDARY_CALIBRATION_WAIT_DRAWER");
+            if (!performBoundedNavigation(historyEntry, "HISTORY_BOUNDARY_CALIBRATION_OPEN",
+                    "Open conversation history", "Open sidebar", "Open navigation",
+                    "Open navigation menu", "Navigation menu", "Menu")) {
+                failRun("HISTORY_BOUNDARY_CALIBRATION_OPEN_ACTION_FALSE");
+                return;
+            }
+            handler.postDelayed(() -> tryHistoryBoundaryCalibration(expectedStep), 280L);
+            return;
+        }
+
+        List<String> baselineIds = historyBoundaryItemIds(roots);
+        LabStore.setHistoryBaselineItemIds(this, joinLines(baselineIds));
+        recordHistoryBoundaryEvidence("known_baseline", roots);
+
+        List<AccessibilityNodeInfo> rows = historyConversationRows(roots);
+        AccessibilityNodeInfo currentRow = uniqueStructurallyCurrentHistoryRow(rows);
+        if (LabStore.searchBindingVerified(this) && currentRow != null) {
+            MetadataStats stats = harvestAccessibilityMetadata(currentRow);
+            String rowTree = normalizedTree(currentRow, LabStore.marker(this), 180, 8);
+            LabStore.append(this, "HISTORY_BOUNDARY_CALIBRATION_ROW correlatedBy=unique_selected_or_focused"
+                    + " viewId=" + LabStore.abbrev(firstHistoryItemViewId(currentRow), 220)
+                    + " metadataNodes=" + stats.nodes
+                    + " extras=" + stats.extras
+                    + " candidateMatches=" + stats.candidateMatches
+                    + " rowTree=" + LabStore.abbrev(rowTree, 12000));
+        } else {
+            LabStore.append(this, "HISTORY_BOUNDARY_CALIBRATION_NO_CORRELATED_ROW knownMarkerVerified="
+                    + LabStore.searchBindingVerified(this)
+                    + " structurallyCurrentRows=" + countStructurallyCurrentHistoryRows(rows)
+                    + " action=no_row_candidate_verification");
+        }
+        cancelTimeout();
+        completeStep(expectedStep);
+    }
+
+    private int countStructurallyCurrentHistoryRows(List<AccessibilityNodeInfo> rows) {
+        int count = 0;
+        for (AccessibilityNodeInfo row : rows) if (isStructurallyCurrentHistoryRow(row)) count++;
+        return count;
+    }
+
+    private AccessibilityNodeInfo uniqueStructurallyCurrentHistoryRow(List<AccessibilityNodeInfo> rows) {
+        AccessibilityNodeInfo found = null;
+        for (AccessibilityNodeInfo row : rows) {
+            if (!isStructurallyCurrentHistoryRow(row)) continue;
+            if (found != null && !found.equals(row)) return null;
+            found = row;
+        }
+        return found;
+    }
+
+    private boolean isStructurallyCurrentHistoryRow(AccessibilityNodeInfo row) {
+        if (row == null) return false;
+        return row.isSelected() || row.isFocused() || row.isAccessibilityFocused() || row.isChecked();
+    }
+
+    private void recordHistoryBoundaryEvidence(String phase, List<AccessibilityNodeInfo> roots) {
+        List<String> ids = historyBoundaryItemIds(roots);
+        String dump = historyBoundaryDump(roots, 96);
+        LabStore.append(this, "HISTORY_A11Y_BOUNDARY phase=" + phase
+                + " itemCount=" + ids.size()
+                + " itemIds=" + LabStore.abbrev(joinForReport(ids), 12000)
+                + " nodes=" + LabStore.abbrev(dump, 26000));
+    }
+
+    private List<String> historyBoundaryItemIds(List<AccessibilityNodeInfo> roots) {
+        List<String> out = new ArrayList<>();
+        if (roots == null) return out;
+        for (AccessibilityNodeInfo root : roots) collectHistoryBoundaryItemIds(root, out, 0);
+        return out;
+    }
+
+    private void collectHistoryBoundaryItemIds(AccessibilityNodeInfo node, List<String> out, int depth) {
+        if (node == null || depth > 32 || out.size() >= 120) return;
+        String id = node.getViewIdResourceName();
+        if (id != null && id.contains(HISTORY_ITEM_PREFIX) && !out.contains(id)) out.add(id);
+        for (int i = 0; i < node.getChildCount(); i++) {
+            collectHistoryBoundaryItemIds(node.getChild(i), out, depth + 1);
+            if (out.size() >= 120) return;
+        }
+    }
+
+    private String historyBoundaryDump(List<AccessibilityNodeInfo> roots, int maxNodes) {
+        StringBuilder out = new StringBuilder();
+        int[] count = {0};
+        if (roots != null) {
+            for (AccessibilityNodeInfo root : roots) {
+                appendHistoryBoundaryDump(root, out, count, maxNodes, 0);
+                if (count[0] >= maxNodes) break;
+            }
+        }
+        return out.toString();
+    }
+
+    private void appendHistoryBoundaryDump(AccessibilityNodeInfo node, StringBuilder out,
+                                           int[] count, int maxNodes, int depth) {
+        if (node == null || depth > 32 || count[0] >= maxNodes) return;
+        String id = node.getViewIdResourceName();
+        if (id != null && (id.contains(HISTORY_ITEM_PREFIX) || id.contains(HISTORY_ACTIONS_PREFIX))) {
+            count[0]++;
+            if (out.length() > 0) out.append(" || ");
+            String prefix = id.contains(HISTORY_ITEM_PREFIX) ? HISTORY_ITEM_PREFIX : HISTORY_ACTIONS_PREFIX;
+            out.append("kind=").append(prefix == HISTORY_ITEM_PREFIX ? "item" : "actions")
+                    .append(" viewId=").append(id)
+                    .append(" suffix=").append(historyBoundarySuffix(id, prefix))
+                    .append(" class=").append(String.valueOf(node.getClassName()))
+                    .append(" click=").append(node.isClickable())
+                    .append(" long=").append(node.isLongClickable())
+                    .append(" selected=").append(node.isSelected())
+                    .append(" focused=").append(node.isFocused())
+                    .append(" a11yFocused=").append(node.isAccessibilityFocused())
+                    .append(" checked=").append(node.isChecked())
+                    .append(" actions=").append(accessibilityActionSet(node))
+                    .append(" parentChain=").append(parentViewIdChain(node, 4))
+                    .append(" children=").append(directChildViewIds(node));
+        }
+        for (int i = 0; i < node.getChildCount(); i++) {
+            appendHistoryBoundaryDump(node.getChild(i), out, count, maxNodes, depth + 1);
+            if (count[0] >= maxNodes) return;
+        }
+    }
+
+    private String accessibilityActionSet(AccessibilityNodeInfo node) {
+        StringBuilder out = new StringBuilder();
+        try {
+            List<AccessibilityNodeInfo.AccessibilityAction> actions = node.getActionList();
+            if (actions != null) {
+                for (AccessibilityNodeInfo.AccessibilityAction action : actions) {
+                    if (out.length() > 0) out.append(',');
+                    out.append(action.getId());
+                    CharSequence label = action.getLabel();
+                    if (label != null && label.length() > 0) out.append(':').append(label);
+                }
+            }
+        } catch (Throwable ignored) {}
+        return out.toString();
+    }
+
+    private String parentViewIdChain(AccessibilityNodeInfo node, int maxUp) {
+        StringBuilder out = new StringBuilder();
+        AccessibilityNodeInfo p = node == null ? null : node.getParent();
+        for (int i = 0; p != null && i < maxUp; i++) {
+            if (out.length() > 0) out.append(" <- ");
+            String id = p.getViewIdResourceName();
+            out.append(id == null || id.isEmpty() ? String.valueOf(p.getClassName()) : id);
+            p = p.getParent();
+        }
+        return out.toString();
+    }
+
+    private String directChildViewIds(AccessibilityNodeInfo node) {
+        StringBuilder out = new StringBuilder();
+        if (node == null) return "";
+        for (int i = 0; i < node.getChildCount() && i < 16; i++) {
+            AccessibilityNodeInfo child = node.getChild(i);
+            if (child == null) continue;
+            if (out.length() > 0) out.append(',');
+            String id = child.getViewIdResourceName();
+            out.append(id == null || id.isEmpty() ? String.valueOf(child.getClassName()) : id);
+        }
+        return out.toString();
+    }
+
+    private String historyBoundarySuffix(String raw, String prefix) {
+        if (raw == null || prefix == null) return "";
+        int at = raw.indexOf(prefix);
+        if (at < 0) return "";
+        return raw.substring(at + prefix.length()).trim();
+    }
+
+    private String firstHistoryItemViewId(AccessibilityNodeInfo node) {
+        if (node == null) return "";
+        String id = node.getViewIdResourceName();
+        if (id != null && id.contains(HISTORY_ITEM_PREFIX)) return id;
+        for (int i = 0; i < node.getChildCount(); i++) {
+            String found = firstHistoryItemViewId(node.getChild(i));
+            if (!found.isEmpty()) return found;
+        }
+        return "";
+    }
+
+    private String joinLines(List<String> values) {
+        StringBuilder out = new StringBuilder();
+        for (String value : values) {
+            if (value == null || value.trim().isEmpty()) continue;
+            if (out.length() > 0) out.append('\n');
+            out.append(value.trim());
+        }
+        return out.toString();
+    }
+
+    private String joinForReport(List<String> values) {
+        StringBuilder out = new StringBuilder();
+        for (String value : values) {
+            if (value == null || value.trim().isEmpty()) continue;
+            if (out.length() > 0) out.append(" | ");
+            out.append(value.trim());
+        }
+        return out.toString();
+    }
+
+    private List<String> baselineHistoryItemIds() {
+        List<String> out = new ArrayList<>();
+        String raw = LabStore.historyBaselineItemIds(this);
+        if (raw == null || raw.trim().isEmpty()) return out;
+        for (String line : raw.split("\\n")) {
+            String value = line.trim();
+            if (!value.isEmpty() && !out.contains(value)) out.add(value);
+        }
+        return out;
+    }
+
+    private List<String> newHistoryBoundaryItemIds(List<AccessibilityNodeInfo> roots) {
+        List<String> baseline = baselineHistoryItemIds();
+        List<String> current = historyBoundaryItemIds(roots);
+        List<String> out = new ArrayList<>();
+        for (String value : current) if (!baseline.contains(value) && !out.contains(value)) out.add(value);
+        return out;
+    }
+
+    private void observeFreshBoundaryCandidate(String phase, List<AccessibilityNodeInfo> roots) {
+        List<String> baseline = baselineHistoryItemIds();
+        List<String> current = historyBoundaryItemIds(roots);
+        List<String> added = newHistoryBoundaryItemIds(roots);
+        LabStore.append(this, "HISTORY_A11Y_DIFF phase=" + phase
+                + " baseline=" + baseline.size()
+                + " current=" + current.size()
+                + " added=" + added.size()
+                + " addedIds=" + LabStore.abbrev(joinForReport(added), 8000));
+        String existing = LabStore.freshBoundaryItemId(this);
+        if (added.size() == 1) {
+            String candidate = added.get(0);
+            if (existing.isEmpty() || existing.equals(candidate)) {
+                LabStore.setFreshBoundaryItemId(this, candidate);
+                LabStore.append(this, "HISTORY_A11Y_FRESH_ITEM_UNIQUE phase=" + phase
+                        + " viewId=" + candidate
+                        + " suffix=" + historyBoundarySuffix(candidate, HISTORY_ITEM_PREFIX));
+            } else {
+                LabStore.append(this, "HISTORY_A11Y_FRESH_ITEM_CONFLICT existing=" + existing
+                        + " observed=" + candidate);
+                LabStore.setFreshBoundaryItemId(this, "");
+            }
+        }
+    }
+
+    private AccessibilityNodeInfo rowForHistoryBoundaryId(List<AccessibilityNodeInfo> rows, String id) {
+        if (id == null || id.isEmpty()) return null;
+        AccessibilityNodeInfo found = null;
+        for (AccessibilityNodeInfo row : rows) {
+            if (!historyRowContainsBoundaryId(row, id)) continue;
+            if (found != null && !found.equals(row)) return null;
+            found = row;
+        }
+        return found;
+    }
+
+    private boolean historyRowContainsBoundaryId(AccessibilityNodeInfo node, String id) {
+        if (node == null) return false;
+        if (id.equals(node.getViewIdResourceName())) return true;
+        for (int i = 0; i < node.getChildCount(); i++) {
+            if (historyRowContainsBoundaryId(node.getChild(i), id)) return true;
+        }
+        return false;
+    }
+
     private void opHistoryRecentBinding(JSONObject step, int stepIndex) {
         if (!isCurrentStep(stepIndex)) return;
+        LabStore.clearCandidates(this);
+        LabStore.setFreshBoundaryItemId(this, "");
         LabStore.setState(this, "WAITING_HISTORY_RECENT_OPEN_INITIAL");
         LabStore.append(this, "HISTORY_RECENT_BINDING_ARMED marker=" + LabStore.marker(this));
         armTimeout(step.optLong("timeoutMs", 20000L), "HISTORY_RECENT_BINDING_TIMEOUT", stepIndex);
@@ -863,17 +1164,24 @@ public class LabAccessibilityService extends AccessibilityService {
     }
 
     private void switchAwayFromFreshThread(int expectedStep, List<AccessibilityNodeInfo> roots) {
-        int newChatCount = countExactSemanticAcrossRoots(roots, "New chat");
-        LabStore.append(this, "HISTORY_RECENT_NEW_CHAT_EXACT_MATCHES=" + newChatCount);
-        if (newChatCount != 1) {
-            failRun("HISTORY_RECENT_NEW_CHAT_NOT_UNIQUE count=" + newChatCount);
+        List<AccessibilityNodeInfo> semanticLeaves = new ArrayList<>();
+        List<AccessibilityNodeInfo> actionableTargets = new ArrayList<>();
+        for (AccessibilityNodeInfo root : roots) {
+            List<AccessibilityNodeInfo> one = new ArrayList<>();
+            collectExactSemanticNodes(root, "New chat", one, 0);
+            for (AccessibilityNodeInfo leaf : one) {
+                addUniqueNode(semanticLeaves, leaf);
+                AccessibilityNodeInfo target = firstActionClickAncestor(leaf, 8);
+                if (target != null) addUniqueNode(actionableTargets, target);
+            }
+        }
+        LabStore.append(this, "HISTORY_RECENT_NEW_CHAT_RESOLUTION semanticLeaves=" + semanticLeaves.size()
+                + " actionableTargets=" + actionableTargets.size());
+        if (actionableTargets.size() != 1) {
+            failRun("HISTORY_RECENT_NEW_CHAT_ACTIONABLE_NOT_UNIQUE count=" + actionableTargets.size());
             return;
         }
-        AccessibilityNodeInfo newChat = findUniqueExactSemanticAcrossRoots(roots, "New chat");
-        if (newChat == null) {
-            failRun("HISTORY_RECENT_NEW_CHAT_MISSING");
-            return;
-        }
+        AccessibilityNodeInfo newChat = actionableTargets.get(0);
         LabStore.setState(this, "WAITING_HISTORY_RECENT_SWITCH_AWAY");
         if (!performBoundedNavigation(newChat, "HISTORY_RECENT_SWITCH_AWAY", "New chat")) {
             failRun("HISTORY_RECENT_SWITCH_AWAY_ACTION_FALSE");
@@ -912,13 +1220,26 @@ public class LabAccessibilityService extends AccessibilityService {
             return;
         }
 
-        AccessibilityNodeInfo row = rows.get(0);
+        observeFreshBoundaryCandidate("settled_after_switch_away", roots);
+        String boundaryId = LabStore.freshBoundaryItemId(this);
+        AccessibilityNodeInfo row = rowForHistoryBoundaryId(rows, boundaryId);
+        if (boundaryId.isEmpty() || row == null) {
+            cancelTimeout();
+            LabStore.append(this, "HISTORY_RECENT_NO_UNIQUE_APK_DERIVED_ROW boundaryId="
+                    + LabStore.abbrev(boundaryId, 220)
+                    + " action=observation_only_no_unrelated_row_click");
+            completeStep(expectedStep);
+            return;
+        }
         String title = historyRowTitle(row);
         LabStore.clearCandidates(this);
         LabStore.setHistoryCandidateTitle(this, title);
         MetadataStats stats = harvestAccessibilityMetadata(row);
         String rowTree = normalizedTree(row, LabStore.marker(this), 180, 7);
-        LabStore.append(this, "HISTORY_RECENT_SELECTED_ROW index=0 title=" + LabStore.abbrev(title, 180)
+        LabStore.append(this, "HISTORY_RECENT_SELECTED_ROW source=unique_new_history_accessibility_id"
+                + " boundaryId=" + LabStore.abbrev(boundaryId, 260)
+                + " suffix=" + LabStore.abbrev(historyBoundarySuffix(boundaryId, HISTORY_ITEM_PREFIX), 180)
+                + " title=" + LabStore.abbrev(title, 180)
                 + " metadataNodes=" + stats.nodes
                 + " extras=" + stats.extras
                 + " candidateMatches=" + stats.candidateMatches
@@ -936,6 +1257,8 @@ public class LabAccessibilityService extends AccessibilityService {
     private void recordHistoryRecentDrawer(String phase, List<AccessibilityNodeInfo> roots) {
         String snapshot = roots.isEmpty() ? "<no ChatGPT roots>"
                 : normalizedTree(roots.get(0), LabStore.marker(this), 520, 14);
+        recordHistoryBoundaryEvidence("fresh_" + phase, roots);
+        observeFreshBoundaryCandidate(phase, roots);
         LabStore.append(this, "HISTORY_RECENT_DRAWER phase=" + phase
                 + " rows=" + historyConversationRows(roots).size()
                 + " controlCensus=" + LabStore.abbrev(controlCensus(roots, 360), 26000)
@@ -1131,8 +1454,13 @@ public class LabAccessibilityService extends AccessibilityService {
         MarkerCounts counts = countMarkerNodes(root, LabStore.marker(this));
         if (counts.nonEditable >= 1) {
             cancelTimeout();
-            LabStore.markVerified(this, verifyingCandidate);
-            launchLabForeground();
+            if (LabStore.calibrationMode(this)) {
+                LabStore.markCalibrationVerified(this, verifyingCandidate);
+                completeStep(expectedStep);
+            } else {
+                LabStore.markVerified(this, verifyingCandidate);
+                launchLabForeground();
+            }
         }
     }
 
