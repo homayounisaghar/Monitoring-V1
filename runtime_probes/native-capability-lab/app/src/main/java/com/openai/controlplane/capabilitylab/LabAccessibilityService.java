@@ -356,7 +356,7 @@ public class LabAccessibilityService extends AccessibilityService {
             if (historyEntry == null) return;
             LabStore.setState(this, "WAITING_GLOBAL_SEARCH_DRAWER");
             if (!performBoundedNavigation(historyEntry, "GLOBAL_SEARCH_HISTORY_ENTRY",
-                    "Open conversation history", "Open sidebar", "Open navigation", "Navigation menu")) {
+                    "Open conversation history", "Open sidebar", "Open navigation", "Open navigation menu", "Navigation menu", "Menu")) {
                 failRun("GLOBAL_SEARCH_HISTORY_ENTRY_ACTION_FALSE");
                 return;
             }
@@ -370,20 +370,33 @@ public class LabAccessibilityService extends AccessibilityService {
                 handler.postDelayed(() -> tryGlobalSearchBinding(expectedStep), 120L);
                 return;
             }
-            AccessibilityNodeInfo historyRoot = findHistoryDrawerRoot(roots);
-            if (historyRoot == null) return;
 
-            // Some exact-build layouts expose the editable Search chats field immediately
-            // when the drawer opens; do not require a redundant Search toggle in that case.
-            AccessibilityNodeInfo alreadyVisibleField = findHistorySearchField(historyRoot);
+            // v0.8 runtime exposed the real conversation opener as a visible semantic child
+            // labelled exactly "Menu" with ACTION_CLICK on its parent. Once that official
+            // menu is opened, do not require the drawer root itself to expose the static
+            // `chatgpt.history.drawer` identifier: look directly for first-party Search
+            // controls/fields across the ChatGPT windows.
+            AccessibilityNodeInfo directSearch = findUniqueGlobalSearchEntryAcrossRoots(roots);
+            if (directSearch != null) {
+                LabStore.setState(this, "WAITING_GLOBAL_SEARCH_FIELD");
+                if (!performBoundedNavigation(directSearch, "GLOBAL_SEARCH_DRAWER_DIRECT_SEARCH",
+                        "Search chats, files, and projects", "Search ChatGPT")) {
+                    failRun("GLOBAL_SEARCH_DRAWER_DIRECT_SEARCH_ACTION_FALSE");
+                    return;
+                }
+                handler.postDelayed(() -> tryGlobalSearchBinding(expectedStep), 300L);
+                return;
+            }
+
+            AccessibilityNodeInfo alreadyVisibleField = findHistorySearchFieldAcrossRoots(roots);
             if (alreadyVisibleField != null) {
-                LabStore.append(this, "GLOBAL_SEARCH_HISTORY_FIELD already_visible=true");
+                LabStore.append(this, "GLOBAL_SEARCH_HISTORY_FIELD already_visible=true source=across_roots");
                 LabStore.setState(this, "WAITING_GLOBAL_SEARCH_FIELD");
                 handler.postDelayed(() -> tryGlobalSearchBinding(expectedStep), 80L);
                 return;
             }
 
-            AccessibilityNodeInfo historySearch = findUniqueHistorySearchEntry(historyRoot);
+            AccessibilityNodeInfo historySearch = findUniqueHistorySearchEntryAcrossRoots(roots);
             if (historySearch == null) return;
             LabStore.setState(this, "WAITING_GLOBAL_SEARCH_FIELD");
             if (!performBoundedNavigation(historySearch, "GLOBAL_SEARCH_HISTORY_SEARCH",
@@ -404,11 +417,8 @@ public class LabAccessibilityService extends AccessibilityService {
                 surface = "global";
             }
             if (field == null) {
-                AccessibilityNodeInfo historyRoot = findHistoryDrawerRoot(roots);
-                if (historyRoot != null) {
-                    field = findHistorySearchField(historyRoot);
-                    surface = "history";
-                }
+                field = findHistorySearchFieldAcrossRoots(roots);
+                if (field != null) surface = "history";
             }
             if (field == null) return;
             Bundle args = new Bundle();
@@ -428,6 +438,7 @@ public class LabAccessibilityService extends AccessibilityService {
         if ("WAITING_GLOBAL_SEARCH_RESULT".equals(state)) {
             AccessibilityNodeInfo surfaceRoot = findGlobalSearchRoot(roots);
             boolean globalSurface = surfaceRoot != null;
+            if (surfaceRoot == null) surfaceRoot = findRootWithHistorySearchFieldEquals(roots, marker);
             if (surfaceRoot == null) surfaceRoot = findHistoryDrawerRoot(roots);
             boolean historySurface = !globalSurface && surfaceRoot != null;
             if (surfaceRoot == null) return;
@@ -830,6 +841,34 @@ public class LabAccessibilityService extends AccessibilityService {
         return found.size() == 1 ? found.get(0) : null;
     }
 
+    private AccessibilityNodeInfo findUniqueHistorySearchEntryAcrossRoots(List<AccessibilityNodeInfo> roots) {
+        List<AccessibilityNodeInfo> found = new ArrayList<>();
+        for (AccessibilityNodeInfo root : roots) {
+            AccessibilityNodeInfo n = findUniqueHistorySearchEntry(root);
+            if (n != null) addUniqueNode(found, n);
+        }
+        return found.size() == 1 ? found.get(0) : null;
+    }
+
+    private AccessibilityNodeInfo findHistorySearchFieldAcrossRoots(List<AccessibilityNodeInfo> roots) {
+        List<AccessibilityNodeInfo> found = new ArrayList<>();
+        for (AccessibilityNodeInfo root : roots) {
+            AccessibilityNodeInfo n = findHistorySearchField(root);
+            if (n != null) addUniqueNode(found, n);
+        }
+        return found.size() == 1 ? found.get(0) : null;
+    }
+
+    private AccessibilityNodeInfo findRootWithHistorySearchFieldEquals(List<AccessibilityNodeInfo> roots, String marker) {
+        AccessibilityNodeInfo match = null;
+        for (AccessibilityNodeInfo root : roots) {
+            if (!historySearchFieldEquals(root, marker)) continue;
+            if (match != null && !match.equals(root)) return null;
+            match = root;
+        }
+        return match;
+    }
+
     private MarkerCounts countMarkerNodesAcrossRoots(List<AccessibilityNodeInfo> roots, String marker) {
         MarkerCounts total = new MarkerCounts();
         for (AccessibilityNodeInfo root : roots) {
@@ -1008,7 +1047,7 @@ public class LabAccessibilityService extends AccessibilityService {
             }
         }
         if (filtered.size() == 1) return filtered.get(0);
-        String[] aliases = new String[]{"Open sidebar", "Open navigation", "Open navigation menu", "Navigation menu"};
+        String[] aliases = new String[]{"Open sidebar", "Open navigation", "Open navigation menu", "Navigation menu", "Menu"};
         for (String alias : aliases) {
             List<AccessibilityNodeInfo> aliasNodes = new ArrayList<>();
             collectSemanticNodes(root, alias, aliasNodes, 0);
