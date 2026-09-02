@@ -1,0 +1,58 @@
+name: Apply Capability Lab v0.17b Fresh History Binding
+
+on:
+  push:
+    branches: [build/pebble-chat-bridge-v019]
+    paths:
+      - '.github/workflows/apply-capability-lab-v17b.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: build/pebble-chat-bridge-v019
+          fetch-depth: 0
+      - name: Apply corrected v0.17 patch
+        run: python3 build_tools/apply_capability_lab_v17b_fresh_history_binding.py
+      - name: Verify patch invariants
+        run: |
+          git diff --check
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          root=Path('runtime_probes/native-capability-lab')
+          svc=(root/'app/src/main/java/com/openai/controlplane/capabilitylab/LabAccessibilityService.java').read_text()
+          store=(root/'app/src/main/java/com/openai/controlplane/capabilitylab/LabStore.java').read_text()
+          main=(root/'app/src/main/java/com/openai/controlplane/capabilitylab/MainActivity.java').read_text()
+          plan=json.loads((root/'plans/default.json').read_text())
+          assert plan['suite']=='conversation_history_binding_v12_fresh_recent_reopen'
+          assert [x['op'] for x in plan['steps']].count('history_recent_binding')==1
+          assert 'HISTORY_RECENT_REOPEN_VERIFIED' in svc
+          assert 'markHistoryBindingVerified' in store
+          assert 'DOWNLOAD FULL REPORT' in main
+          assert 'MediaStore.Downloads.EXTERNAL_CONTENT_URI' in main
+          assert 'Intent.createChooser' not in main
+          assert svc.count('performAction(AccessibilityNodeInfo.ACTION_CLICK)')==2
+          assert svc.count('performAction(AccessibilityNodeInfo.ACTION_SET_TEXT')==1
+          for forbidden in ('getBoundsInScreen','dispatchGesture','GLOBAL_ACTION_'):
+              assert forbidden not in svc
+          print('v0.17 corrected patch invariants OK')
+          PY
+      - name: Commit runtime v0.17
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add runtime_probes/native-capability-lab .github/workflows/native-capability-lab.yml
+          if git diff --cached --quiet; then
+            echo 'No runtime changes to commit'
+          else
+            git commit -m 'Add fresh History recent binding proof and direct report download'
+            git push origin HEAD:build/pebble-chat-bridge-v019
+          fi
