@@ -32,9 +32,15 @@ import java.io.OutputStream;
 
 public class MainActivity extends Activity {
     private static final String SCREEN_DESCRIPTION =
-            "Stable v0.17 tests a fresh History binding that does not depend on Global Search indexing. It creates one synthetic marker chat, sends exactly once with the proven CLAIM/no-replay Send contract, opens official History, deliberately switches away through the exact New chat control, reopens History, selects only the first semantic conversation row, harvests that row metadata, and requires the exact marker on the reopened thread.
+            "Stable v0.17 tests a fresh History binding that does not depend on Global Search indexing. "
+          + "It creates one synthetic marker chat, sends exactly once with the proven CLAIM/no-replay Send contract, "
+          + "opens official History, deliberately switches away through the exact New chat control, reopens History, "
+          + "selects only the first semantic conversation row, harvests that row metadata, and requires the exact marker on the reopened thread.
 
-The full report file remains authoritative and captures the relevant ChatGPT Accessibility surfaces. DOWNLOAD FULL REPORT saves it directly to Android Downloads with one tap and no share sheet. No private ChatGPT API is called, no credentials are extracted, and no coordinate writes, gestures, or global actions are used.";
+"
+          + "The full report file remains authoritative and captures the relevant ChatGPT Accessibility surfaces. "
+          + "DOWNLOAD FULL REPORT saves it directly to Android Downloads with one tap and no share sheet. "
+          + "No private ChatGPT API is called, no credentials are extracted, and no coordinate writes, gestures, or global actions are used.";
 
     private final Handler handler = new Handler(Looper.getMainLooper());
     private TextView runBanner;
