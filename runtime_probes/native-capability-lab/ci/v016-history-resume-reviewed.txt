@@ -1,0 +1,3 @@
+Capability Lab v0.16 history-resume calibration review trigger.
+Expected runtime source includes GLOBAL_SEARCH_ENTRY already_history_drawer=true.
+This file exists only to force the full public Capability Lab CI after the workflow-generated source patch.
