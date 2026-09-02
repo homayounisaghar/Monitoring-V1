@@ -71,6 +71,8 @@ public class LabAccessibilityService extends AccessibilityService {
             tryVerifyNeutralThenCandidate(expectedStep);
         } else if ("WAITING_VERIFY_CANDIDATE".equals(state)) {
             tryVerifyCandidate(expectedStep);
+        } else if (state.startsWith("WAITING_GLOBAL_SEARCH_")) {
+            tryGlobalSearchBinding(expectedStep);
         }
     }
 
@@ -160,6 +162,9 @@ public class LabAccessibilityService extends AccessibilityService {
                 case "capture_tree":
                     opCaptureTree(step, i);
                     break;
+                case "global_search_binding":
+                    opGlobalSearchBinding(step, i);
+                    break;
                 case "verify_candidates":
                     opVerifyCandidates(step, i);
                     break;
@@ -178,8 +183,10 @@ public class LabAccessibilityService extends AccessibilityService {
                 case "finish":
                     if (!LabStore.verifiedConversationId(this).isEmpty()) {
                         LabStore.finish(this, "PASS_VERIFIED_CONVERSATION_ID");
+                    } else if (LabStore.searchBindingVerified(this)) {
+                        LabStore.finish(this, "PASS_VERIFIED_SEARCH_BINDING");
                     } else {
-                        finishWithoutVerifiedId("INCONCLUSIVE_NO_VERIFIED_CONVERSATION_ID");
+                        finishWithoutVerifiedId("INCONCLUSIVE_NO_VERIFIED_BINDING");
                     }
                     launchLabForeground();
                     break;
@@ -300,6 +307,115 @@ public class LabAccessibilityService extends AccessibilityService {
                 + " candidateMatches=" + metadata.candidateMatches);
         LabStore.append(this, "TREE_CAPTURE markerEditable=" + counts.editable + " markerNonEditable=" + counts.nonEditable + " snapshot=" + LabStore.abbrev(snapshot, 28000));
         completeStep(expectedStep);
+    }
+
+    private void opGlobalSearchBinding(JSONObject step, int stepIndex) {
+        if (!isCurrentStep(stepIndex)) return;
+        LabStore.setState(this, "WAITING_GLOBAL_SEARCH_ENTRY");
+        LabStore.append(this, "GLOBAL_SEARCH_BINDING_ARMED marker=" + LabStore.marker(this));
+        armTimeout(step.optLong("timeoutMs", 30000L), "GLOBAL_SEARCH_BINDING_TIMEOUT", stepIndex);
+        handler.postDelayed(() -> tryGlobalSearchBinding(stepIndex), 300L);
+    }
+
+    private void tryGlobalSearchBinding(int expectedStep) {
+        if (!isCurrentStep(expectedStep)) return;
+        AccessibilityNodeInfo root = getRootInActiveWindow();
+        if (root == null || !isChatGptRoot(root)) return;
+        String marker = LabStore.marker(this);
+        if (marker.isEmpty()) {
+            failRun("GLOBAL_SEARCH_MARKER_MISSING");
+            return;
+        }
+
+        String state = LabStore.state(this);
+        if ("WAITING_GLOBAL_SEARCH_ENTRY".equals(state)) {
+            if (isGlobalSearchScreen(root)) {
+                LabStore.setState(this, "WAITING_GLOBAL_SEARCH_FIELD");
+                handler.postDelayed(() -> tryGlobalSearchBinding(expectedStep), 120L);
+                return;
+            }
+            AccessibilityNodeInfo entry = findUniqueGlobalSearchEntry(root);
+            if (entry == null) return;
+            AccessibilityNodeInfo clickTarget = firstClickableAncestor(entry, 4);
+            if (clickTarget == null) {
+                failRun("GLOBAL_SEARCH_ENTRY_NOT_CLICKABLE");
+                return;
+            }
+            LabStore.setState(this, "WAITING_GLOBAL_SEARCH_FIELD");
+            boolean clicked = clickTarget.performAction(AccessibilityNodeInfo.ACTION_CLICK);
+            LabStore.append(this, "GLOBAL_SEARCH_ENTRY ACTION_CLICK returned=" + clicked);
+            if (!clicked) {
+                failRun("GLOBAL_SEARCH_ENTRY_CLICK_FALSE");
+                return;
+            }
+            handler.postDelayed(() -> tryGlobalSearchBinding(expectedStep), 300L);
+            return;
+        }
+
+        if ("WAITING_GLOBAL_SEARCH_FIELD".equals(state)) {
+            if (!isGlobalSearchScreen(root)) return;
+            AccessibilityNodeInfo field = findGlobalSearchField(root);
+            if (field == null) return;
+            Bundle args = new Bundle();
+            args.putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, marker);
+            LabStore.setState(this, "WAITING_GLOBAL_SEARCH_RESULT");
+            boolean set = field.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args);
+            LabStore.append(this, "GLOBAL_SEARCH_QUERY ACTION_SET_TEXT returned=" + set + " marker=" + marker);
+            if (!set) {
+                failRun("GLOBAL_SEARCH_SET_TEXT_FALSE");
+                return;
+            }
+            handler.postDelayed(() -> tryGlobalSearchBinding(expectedStep), 350L);
+            return;
+        }
+
+        if ("WAITING_GLOBAL_SEARCH_RESULT".equals(state)) {
+            if (!isGlobalSearchScreen(root)) return;
+            List<AccessibilityNodeInfo> markerNodes = new ArrayList<>();
+            collectNonEditableMarkerNodes(root, marker, markerNodes, 0);
+            if (markerNodes.isEmpty()) return;
+
+            List<AccessibilityNodeInfo> resultTargets = new ArrayList<>();
+            for (AccessibilityNodeInfo markerNode : markerNodes) {
+                AccessibilityNodeInfo candidate = firstClickableAncestor(markerNode, 8);
+                if (candidate != null) addUniqueNode(resultTargets, candidate);
+            }
+            if (resultTargets.size() > 1) {
+                failRun("GLOBAL_SEARCH_RESULT_NOT_UNIQUE count=" + resultTargets.size());
+                return;
+            }
+            if (resultTargets.size() != 1) return;
+
+            AccessibilityNodeInfo resultTarget = resultTargets.get(0);
+            MetadataStats metadata = harvestAccessibilityMetadata(resultTarget);
+            String snapshot = normalizedTree(resultTarget, marker, 220, 12);
+            LabStore.append(this, "GLOBAL_SEARCH_RESULT markerNodes=" + markerNodes.size()
+                    + " clickableResults=" + resultTargets.size()
+                    + " metadataNodes=" + metadata.nodes
+                    + " extras=" + metadata.extras
+                    + " candidateMatches=" + metadata.candidateMatches
+                    + " snapshot=" + LabStore.abbrev(snapshot, 16000));
+
+            LabStore.setState(this, "WAITING_GLOBAL_SEARCH_REOPEN");
+            boolean clicked = resultTarget.performAction(AccessibilityNodeInfo.ACTION_CLICK);
+            LabStore.append(this, "GLOBAL_SEARCH_RESULT ACTION_CLICK returned=" + clicked);
+            if (!clicked) {
+                failRun("GLOBAL_SEARCH_RESULT_CLICK_FALSE");
+                return;
+            }
+            handler.postDelayed(() -> tryGlobalSearchBinding(expectedStep), 300L);
+            return;
+        }
+
+        if ("WAITING_GLOBAL_SEARCH_REOPEN".equals(state)) {
+            if (isGlobalSearchScreen(root)) return;
+            MarkerCounts counts = countMarkerNodes(root, marker);
+            if (counts.editable != 0 || counts.nonEditable < 1) return;
+            LabStore.append(this, "GLOBAL_SEARCH_REOPEN_VERIFIED markerEditable=" + counts.editable
+                    + " markerNonEditable=" + counts.nonEditable);
+            LabStore.markSearchBindingVerified(this);
+            completeStep(expectedStep);
+        }
     }
 
     private void opVerifyCandidates(JSONObject step, int stepIndex) {
@@ -570,6 +686,120 @@ public class LabAccessibilityService extends AccessibilityService {
         return pkg != null && ProfileGuard.CHATGPT_PACKAGE.contentEquals(pkg);
     }
 
+    private boolean isGlobalSearchScreen(AccessibilityNodeInfo root) {
+        return containsSemantic(root, "chatgpt-global-search", 0)
+                || countEditableSearchFields(root, true) == 1;
+    }
+
+    private AccessibilityNodeInfo findUniqueGlobalSearchEntry(AccessibilityNodeInfo root) {
+        List<AccessibilityNodeInfo> exactId = new ArrayList<>();
+        collectSemanticNodes(root, "chatgpt.global-search", exactId, 0);
+        if (exactId.size() == 1) return exactId.get(0);
+
+        List<AccessibilityNodeInfo> labels = new ArrayList<>();
+        collectSemanticNodes(root, "Search chats, files, and projects", labels, 0);
+        if (labels.size() == 1) return labels.get(0);
+
+        labels.clear();
+        collectSemanticNodes(root, "Search chats", labels, 0);
+        return labels.size() == 1 ? labels.get(0) : null;
+    }
+
+    private AccessibilityNodeInfo findGlobalSearchField(AccessibilityNodeInfo root) {
+        List<AccessibilityNodeInfo> preferred = new ArrayList<>();
+        collectEditableSearchFields(root, true, preferred, 0);
+        if (preferred.size() == 1) return preferred.get(0);
+        List<AccessibilityNodeInfo> any = new ArrayList<>();
+        collectEditableSearchFields(root, false, any, 0);
+        return any.size() == 1 ? any.get(0) : null;
+    }
+
+    private int countEditableSearchFields(AccessibilityNodeInfo root, boolean requireSearchSemantic) {
+        List<AccessibilityNodeInfo> out = new ArrayList<>();
+        collectEditableSearchFields(root, requireSearchSemantic, out, 0);
+        return out.size();
+    }
+
+    private void collectEditableSearchFields(AccessibilityNodeInfo n, boolean requireSearchSemantic,
+                                             List<AccessibilityNodeInfo> out, int depth) {
+        if (n == null || depth > 40 || out.size() > 6) return;
+        if (n.isEditable() && n.isVisibleToUser() && n.isEnabled()
+                && hasAction(n, AccessibilityNodeInfo.ACTION_SET_TEXT)) {
+            String semantic = semanticValue(n).toLowerCase(Locale.US);
+            if (!requireSearchSemantic || semantic.contains("search chatgpt") || semantic.contains("chatgpt-global-search")) {
+                out.add(n);
+            }
+        }
+        for (int i = 0; i < n.getChildCount(); i++) {
+            collectEditableSearchFields(n.getChild(i), requireSearchSemantic, out, depth + 1);
+        }
+    }
+
+    private boolean containsSemantic(AccessibilityNodeInfo n, String token, int depth) {
+        if (n == null || depth > 40) return false;
+        if (semanticValue(n).toLowerCase(Locale.US).contains(token.toLowerCase(Locale.US))) return true;
+        for (int i = 0; i < n.getChildCount(); i++) {
+            if (containsSemantic(n.getChild(i), token, depth + 1)) return true;
+        }
+        return false;
+    }
+
+    private void collectSemanticNodes(AccessibilityNodeInfo n, String token, List<AccessibilityNodeInfo> out, int depth) {
+        if (n == null || depth > 40 || out.size() > 8) return;
+        if (semanticValue(n).toLowerCase(Locale.US).contains(token.toLowerCase(Locale.US))
+                && n.isVisibleToUser() && n.isEnabled()) {
+            out.add(n);
+        }
+        for (int i = 0; i < n.getChildCount(); i++) {
+            collectSemanticNodes(n.getChild(i), token, out, depth + 1);
+        }
+    }
+
+    private String semanticValue(AccessibilityNodeInfo n) {
+        if (n == null) return "";
+        StringBuilder b = new StringBuilder();
+        appendSemanticPart(b, n.getViewIdResourceName());
+        appendSemanticPart(b, n.getText());
+        appendSemanticPart(b, n.getContentDescription());
+        try { appendSemanticPart(b, n.getHintText()); } catch (Throwable ignored) {}
+        try { appendSemanticPart(b, n.getPaneTitle()); } catch (Throwable ignored) {}
+        return b.toString();
+    }
+
+    private static void appendSemanticPart(StringBuilder b, Object value) {
+        if (value == null) return;
+        if (b.length() > 0) b.append(' ');
+        b.append(String.valueOf(value));
+    }
+
+    private AccessibilityNodeInfo firstClickableAncestor(AccessibilityNodeInfo start, int maxUp) {
+        AccessibilityNodeInfo n = start;
+        for (int i = 0; n != null && i <= maxUp; i++) {
+            if (n.isVisibleToUser() && n.isEnabled() && n.isClickable()
+                    && hasAction(n, AccessibilityNodeInfo.ACTION_CLICK)) {
+                return n;
+            }
+            n = n.getParent();
+        }
+        return null;
+    }
+
+    private void collectNonEditableMarkerNodes(AccessibilityNodeInfo n, String marker,
+                                               List<AccessibilityNodeInfo> out, int depth) {
+        if (n == null || depth > 40 || out.size() > 12) return;
+        if (!n.isEditable() && n.isVisibleToUser() && nodeText(n).contains(marker)) out.add(n);
+        for (int i = 0; i < n.getChildCount(); i++) {
+            collectNonEditableMarkerNodes(n.getChild(i), marker, out, depth + 1);
+        }
+    }
+
+    private static void addUniqueNode(List<AccessibilityNodeInfo> out, AccessibilityNodeInfo candidate) {
+        for (AccessibilityNodeInfo existing : out) {
+            if (existing.equals(candidate)) return;
+        }
+        out.add(candidate);
+    }
+
     private static boolean hasAction(AccessibilityNodeInfo n, int action) {
         return n != null && (n.getActions() & action) != 0;
     }
@@ -647,6 +877,8 @@ public class LabAccessibilityService extends AccessibilityService {
                 || lower.contains("stop generating")
                 || lower.equals("retry")
                 || lower.equals("regenerate")
+                || lower.equals("search chatgpt")
+                || lower.contains("search chats")
                 || lower.contains("voice")) {
             return "\"" + LabStore.abbrev(one, 180) + "\"";
         }
