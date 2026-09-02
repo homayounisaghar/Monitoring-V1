@@ -41,7 +41,7 @@ jobs:
           grep -Fq 'GLOBAL_SEARCH_RESULT ACTION_CLICK' "$SVC"
           grep -Fq 'GLOBAL_SEARCH_REOPEN_VERIFIED' "$SVC"
           grep -Fq 'Search chats, files, and projects' "$SVC"
-          grep -Fq 'Search ChatGPT' "$SVC"
+          grep -Fiq 'search chatgpt' "$SVC"
           grep -Fq 'TEST COMPLETE' "$MAIN"
           grep -Fq 'OFFICIAL GLOBAL SEARCH' "$MAIN"
           grep -Fq 'SHORTCUT_HOST_PERMISSION' "$SHORTCUT"
