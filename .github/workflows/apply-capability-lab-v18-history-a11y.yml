@@ -30,8 +30,9 @@ jobs:
           git status --short
       - name: Commit runtime v0.18
         run: |
+          git restore .github/workflows/native-capability-lab.yml
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add runtime_probes/native-capability-lab .github/workflows/native-capability-lab.yml
+          git add runtime_probes/native-capability-lab
           git commit -m 'Add static-first History accessibility boundary proof v0.18'
           git push origin HEAD:build/pebble-chat-bridge-v019
