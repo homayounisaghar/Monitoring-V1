@@ -318,6 +318,7 @@ public class LabAccessibilityService extends AccessibilityService {
                 + " windows=" + roots.size());
         LabStore.append(this, "GLOBAL_SEARCH_ENTRY_CONTROL_CENSUS "
                 + LabStore.abbrev(controlCensus(roots, 180), 14000));
+        LabStore.append(this, "GLOBAL_SEARCH_MENU_EXACT_MATCHES=" + countExactSemanticAcrossRoots(roots, "Menu"));
         armTimeout(step.optLong("timeoutMs", 35000L), "GLOBAL_SEARCH_BINDING_TIMEOUT", stepIndex);
         handler.postDelayed(() -> tryGlobalSearchBinding(stepIndex), 300L);
     }
@@ -869,6 +870,16 @@ public class LabAccessibilityService extends AccessibilityService {
         return match;
     }
 
+    private int countExactSemanticAcrossRoots(List<AccessibilityNodeInfo> roots, String exact) {
+        List<AccessibilityNodeInfo> found = new ArrayList<>();
+        for (AccessibilityNodeInfo root : roots) {
+            List<AccessibilityNodeInfo> one = new ArrayList<>();
+            collectExactSemanticNodes(root, exact, one, 0);
+            for (AccessibilityNodeInfo n : one) addUniqueNode(found, n);
+        }
+        return found.size();
+    }
+
     private MarkerCounts countMarkerNodesAcrossRoots(List<AccessibilityNodeInfo> roots, String marker) {
         MarkerCounts total = new MarkerCounts();
         for (AccessibilityNodeInfo root : roots) {
@@ -1050,7 +1061,11 @@ public class LabAccessibilityService extends AccessibilityService {
         String[] aliases = new String[]{"Open sidebar", "Open navigation", "Open navigation menu", "Navigation menu", "Menu"};
         for (String alias : aliases) {
             List<AccessibilityNodeInfo> aliasNodes = new ArrayList<>();
-            collectSemanticNodes(root, alias, aliasNodes, 0);
+            // Runtime v0.9 proved that substring matching is too broad for the generic
+            // label "Menu": unrelated/redacted controls can contain that token and make
+            // an otherwise unique official Menu look ambiguous. Navigation aliases are
+            // therefore matched against the node's complete semantic value exactly.
+            collectExactSemanticNodes(root, alias, aliasNodes, 0);
             if (aliasNodes.size() == 1) return aliasNodes.get(0);
         }
         return null;
@@ -1163,6 +1178,18 @@ public class LabAccessibilityService extends AccessibilityService {
         }
         for (int i = 0; i < n.getChildCount(); i++) {
             collectSemanticNodes(n.getChild(i), token, out, depth + 1);
+        }
+    }
+
+    private void collectExactSemanticNodes(AccessibilityNodeInfo n, String exact,
+                                           List<AccessibilityNodeInfo> out, int depth) {
+        if (n == null || depth > 40 || out.size() > 8) return;
+        String value = semanticValue(n).trim();
+        if (value.equalsIgnoreCase(exact) && n.isVisibleToUser() && n.isEnabled()) {
+            out.add(n);
+        }
+        for (int i = 0; i < n.getChildCount(); i++) {
+            collectExactSemanticNodes(n.getChild(i), exact, out, depth + 1);
         }
     }
 
