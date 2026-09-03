@@ -1,0 +1,86 @@
+name: ChatGPT WebView Observability v0.2 APK
+
+on:
+  push:
+    branches:
+      - project/chatgpt-webview-poc
+    paths:
+      - '.github/workflows/chatgpt-webview-observability-v02-build.yml'
+      - 'runtime_probes/chatgpt-webview-observability-poc/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Contract prechecks
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT=runtime_probes/chatgpt-webview-observability-poc
+          MAIN="$ROOT/app/src/main/java/com/openai/controlplane/webviewprobe/MainActivity.java"
+          MAN="$ROOT/app/src/main/AndroidManifest.xml"
+          GRADLE="$ROOT/app/build.gradle"
+          grep -Fq 'evaluateJavascript' "$MAIN"
+          grep -Fq 'CONVERSATION_ID' "$MAIN"
+          grep -Fq 'COPY REPORT' "$MAIN"
+          grep -Fq 'android.permission.INTERNET' "$MAN"
+          grep -Fq "applicationId 'com.openai.controlplane.webviewprobe'" "$GRADLE"
+          grep -Fq "versionCode 2" "$GRADLE"
+          grep -Fq "versionName '0.2-readonly-observability-poc'" "$GRADLE"
+          ! grep -R -n -E 'addJavascriptInterface|api\.openai\.com|Authorization: Bearer|access_token|refresh_token' "$ROOT"
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          sdkmanager "platforms;android-35" "build-tools;35.0.0"
+          echo "sdk.dir=$ANDROID_SDK_ROOT" > runtime_probes/chatgpt-webview-observability-poc/local.properties
+
+      - name: Build installable debug APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsSL https://services.gradle.org/distributions/gradle-8.10.2-bin.zip -o /tmp/gradle.zip
+          unzip -q /tmp/gradle.zip -d /tmp
+          cd runtime_probes/chatgpt-webview-observability-poc
+          /tmp/gradle-8.10.2/bin/gradle --no-daemon :app:assembleDebug --stacktrace
+          test -f app/build/outputs/apk/debug/app-debug.apk
+          mkdir -p ../../ci/out
+          cp app/build/outputs/apk/debug/app-debug.apk ../../ci/out/chatgpt-webview-observability-poc-v02.apk
+          sha256sum ../../ci/out/chatgpt-webview-observability-poc-v02.apk > ../../ci/out/WEBVIEW_V02_SHA256.txt
+
+      - name: Verify APK metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          AAPT="$ANDROID_SDK_ROOT/build-tools/35.0.0/aapt"
+          "$AAPT" dump badging ci/out/chatgpt-webview-observability-poc-v02.apk | tee ci/out/WEBVIEW_V02_BADGING.txt
+          grep -Fq "package: name='com.openai.controlplane.webviewprobe' versionCode='2' versionName='0.2-readonly-observability-poc'" ci/out/WEBVIEW_V02_BADGING.txt
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: chatgpt-webview-observability-poc-v02
+          path: |
+            ci/out/chatgpt-webview-observability-poc-v02.apk
+            ci/out/WEBVIEW_V02_SHA256.txt
+            ci/out/WEBVIEW_V02_BADGING.txt
+          if-no-files-found: error
+          retention-days: 30
