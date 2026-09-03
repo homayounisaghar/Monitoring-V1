@@ -1,0 +1,209 @@
+name: ChatGPT WebView Stable v0.23 One-Tap Bounded Dictation E2E Release Kit
+
+on:
+  push:
+    branches:
+      - project/chatgpt-webview-poc
+    paths:
+      - '.github/workflows/chatgpt-webview-stable-v23-build.yml'
+      - 'runtime_probes/chatgpt-webview-stable-probe/app/src/main/AndroidManifest.xml'
+      - 'runtime_probes/chatgpt-webview-stable-probe/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/OrchestratorAutonomousV23Activity.java'
+      - 'runtime_probes/chatgpt-webview-stable-probe/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/DictationLifecycleAdapterV23.java'
+      - 'runtime_probes/chatgpt-webview-stable-probe/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/TelemetryConfigV23.java'
+      - 'runtime_probes/chatgpt-webview-stable-probe/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/OrchestratorFoundationV18Activity.java'
+      - 'runtime_probes/chatgpt-webview-stable-probe/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/OrchestratorFoundationV17Activity.java'
+      - 'runtime_probes/chatgpt-webview-stable-probe/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/OrchestratorFoundationV16Activity.java'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Create ephemeral telemetry collector and inject explicit config
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT=runtime_probes/chatgpt-webview-stable-probe
+          CFG="$ROOT/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/TelemetryConfigV23.java"
+          mkdir -p ci/v23-telemetry
+          token_json="$(curl -fsS -X POST https://webhook.site/token -H 'Accept: application/json' -H 'Content-Type: application/json' -d '{"default_status":200,"default_content":"OK","default_content_type":"text/plain"}')"
+          token_id="$(TOKEN_JSON="$token_json" python3 - <<'PY'
+          import json, os
+          obj=json.loads(os.environ['TOKEN_JSON'])
+          token=obj.get('uuid')
+          if not token: raise SystemExit('webhook.site did not return uuid')
+          print(token)
+          PY
+          )"
+          endpoint="https://webhook.site/$token_id"
+          read_url="https://webhook.site/token/$token_id/requests?sorting=newest"
+          python3 - "$CFG" "$endpoint" "$GITHUB_SHA" "$token_id" <<'PY'
+          from pathlib import Path
+          import re, sys
+          p=Path(sys.argv[1])
+          endpoint,sha,collector=sys.argv[2],sys.argv[3],sys.argv[4]
+          text=p.read_text()
+          text=re.sub(r'static final String WEBHOOK_URL = ".*?";',f'static final String WEBHOOK_URL = "{endpoint}";',text)
+          text=re.sub(r'static final String SOURCE_REF = ".*?";',f'static final String SOURCE_REF = "{sha}";',text)
+          text=re.sub(r'static final String COLLECTOR_ID = ".*?";',f'static final String COLLECTOR_ID = "{collector}";',text)
+          text=re.sub(r'static final boolean CONFIGURED = false;','static final boolean CONFIGURED = true;',text)
+          p.write_text(text)
+          PY
+          grep -Fq "static final String WEBHOOK_URL = \"$endpoint\";" "$CFG"
+          grep -Fq "static final String SOURCE_REF = \"$GITHUB_SHA\";" "$CFG"
+          grep -Fq 'static final boolean CONFIGURED = true;' "$CFG"
+          grep -Fq 'return CONFIGURED && WEBHOOK_URL.startsWith("https://webhook.site/")' "$CFG"
+          ! grep -Fq 'contains("__WEBHOOK_URL__")' "$CFG"
+          printf '%s\n' "$token_id" > ci/v23-telemetry/collector-id.txt
+          printf '%s\n' "$endpoint" > ci/v23-telemetry/receiver-url.txt
+          printf '%s\n' "$read_url" > ci/v23-telemetry/read-url.txt
+          printf '%s\n' "$GITHUB_SHA" > ci/v23-telemetry/source-ref.txt
+          printf '{"kind":"BUILD_SMOKE","schema_version":"cp-autonomous-runtime-v2","scenario_id":"dictation-one-tap-bounded-e2e","source_ref":"%s"}\n' "$GITHUB_SHA" > ci/v23-telemetry/build-smoke.json
+          curl -fsS -X POST "$endpoint" -H 'Content-Type: application/json' --data-binary @ci/v23-telemetry/build-smoke.json >/dev/null
+          ok=0
+          for i in 1 2 3 4 5; do
+            sleep 1
+            if curl -fsS "$read_url" | python3 -c 'import json,sys; o=json.load(sys.stdin); d=o.get("data",[]); raise SystemExit(0 if len(d)>=1 else 1)'; then ok=1; break; fi
+          done
+          test "$ok" -eq 1
+          echo 'v0.23 collector build smoke confirmed'
+
+      - name: Prepare v0.23 metadata and contract prechecks
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT=runtime_probes/chatgpt-webview-stable-probe
+          ACT="$ROOT/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/OrchestratorAutonomousV23Activity.java"
+          ADAPTER="$ROOT/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/DictationLifecycleAdapterV23.java"
+          CFG="$ROOT/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/TelemetryConfigV23.java"
+          GRADLE="$ROOT/app/build.gradle"
+          MAN="$ROOT/app/src/main/AndroidManifest.xml"
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          p=Path('runtime_probes/chatgpt-webview-stable-probe/app/build.gradle')
+          s=p.read_text()
+          s=re.sub(r'versionCode\s+\d+','versionCode 23',s)
+          s=re.sub(r"versionName\s+'[^']+'","versionName '0.23-stable-one-tap-bounded-dictation-e2e'",s)
+          p.write_text(s)
+          PY
+          grep -Fq "applicationId 'com.homayounisaghar.chatgptwebviewprobe'" "$GRADLE"
+          grep -Fq 'versionCode 23' "$GRADLE"
+          grep -Fq "versionName '0.23-stable-one-tap-bounded-dictation-e2e'" "$GRADLE"
+          grep -Fq 'OrchestratorAutonomousV23Activity' "$MAN"
+          grep -Fq 'android.permission.INTERNET' "$MAN"
+          grep -Fq 'android.permission.RECORD_AUDIO' "$MAN"
+          grep -Fq 'android.permission.MODIFY_AUDIO_SETTINGS' "$MAN"
+          test "$(grep -c '<uses-permission' "$MAN")" -eq 3
+          grep -Fq 'RUN FULL TEST' "$ACT"
+          grep -Fq 'SPEAK NOW' "$ACT"
+          grep -Fq 'GLOBAL_WATCHDOG_MS' "$ACT"
+          grep -Fq 'EVAL_CALLBACK_TIMEOUT' "$ACT"
+          grep -Fq 'TELEMETRY_PREFLIGHT' "$ACT"
+          grep -Fq 'CANCEL_RESULT' "$ACT"
+          grep -Fq 'TRANSCRIPT_RESULT' "$ACT"
+          grep -Fq 'DICTATION_SEND_RESULT' "$ACT"
+          grep -Fq 'BLOCKED_EXISTING_DRAFT' "$ACT"
+          grep -Fq 'raw_transcript_uploaded' "$ACT"
+          grep -Fq 'Submit dictation' "$ADAPTER"
+          grep -Fq 'Cancel dictation' "$ADAPTER"
+          grep -Fq 'SCAN_BUDGET_EXCEEDED' "$ADAPTER"
+          grep -Fq 'raw_composer_text_returned:false' "$ADAPTER"
+          grep -Fq 'static final boolean CONFIGURED = true;' "$CFG"
+          grep -Fq 'https://webhook.site/' "$CFG"
+          ! grep -R -n -E 'api\.openai\.com|Authorization: Bearer|access_token|refresh_token|Cookie:' "$ACT" "$ADAPTER" "$CFG"
+          echo 'stable v0.23 contract prechecks OK'
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          sdkmanager "platforms;android-35" "build-tools;35.0.0"
+          echo "sdk.dir=$ANDROID_SDK_ROOT" > runtime_probes/chatgpt-webview-stable-probe/local.properties
+
+      - name: Build unsigned release APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsSL https://services.gradle.org/distributions/gradle-8.10.2-bin.zip -o /tmp/gradle.zip
+          unzip -q /tmp/gradle.zip -d /tmp
+          cd runtime_probes/chatgpt-webview-stable-probe
+          /tmp/gradle-8.10.2/bin/gradle --no-daemon :app:assembleRelease --stacktrace
+          test -f app/build/outputs/apk/release/app-release-unsigned.apk
+          mkdir -p ../../ci/out/signing-tools/lib ../../ci/out/signing-tools/lib64
+          cp app/build/outputs/apk/release/app-release-unsigned.apk ../../ci/out/chatgpt-webview-stable-v23-unsigned.apk
+          cp "$ANDROID_SDK_ROOT/build-tools/35.0.0/apksigner" ../../ci/out/signing-tools/apksigner
+          cp "$ANDROID_SDK_ROOT/build-tools/35.0.0/lib/apksigner.jar" ../../ci/out/signing-tools/lib/apksigner.jar
+          cp "$ANDROID_SDK_ROOT/build-tools/35.0.0/zipalign" ../../ci/out/signing-tools/zipalign
+          cp "$ANDROID_SDK_ROOT/build-tools/35.0.0/aapt" ../../ci/out/signing-tools/aapt
+          LIBCPP=$(find "$ANDROID_SDK_ROOT/build-tools/35.0.0" -type f -name 'libc++.so' | head -n 1)
+          test -n "$LIBCPP"
+          cp "$LIBCPP" ../../ci/out/signing-tools/lib64/libc++.so
+
+      - name: Verify final unsigned artifact contains v0.23 one-tap config
+        shell: bash
+        run: |
+          set -euo pipefail
+          AAPT="$ANDROID_SDK_ROOT/build-tools/35.0.0/aapt"
+          APK=ci/out/chatgpt-webview-stable-v23-unsigned.apk
+          "$AAPT" dump badging "$APK" | tee ci/out/badging.txt
+          grep -Fq "package: name='com.homayounisaghar.chatgptwebviewprobe' versionCode='23' versionName='0.23-stable-one-tap-bounded-dictation-e2e'" ci/out/badging.txt
+          grep -Fq "launchable-activity: name='com.homayounisaghar.chatgptwebviewprobe.OrchestratorAutonomousV23Activity'" ci/out/badging.txt
+          "$AAPT" dump permissions "$APK" | tee ci/out/permissions.txt
+          grep -Fq 'android.permission.INTERNET' ci/out/permissions.txt
+          grep -Fq 'android.permission.RECORD_AUDIO' ci/out/permissions.txt
+          grep -Fq 'android.permission.MODIFY_AUDIO_SETTINGS' ci/out/permissions.txt
+          test "$(grep -c '^uses-permission:' ci/out/permissions.txt)" -eq 3
+          unzip -p "$APK" classes.dex | strings > ci/out/classes-strings.txt
+          grep -Fq 'RUN FULL TEST' ci/out/classes-strings.txt
+          grep -Fq 'dictation-one-tap-bounded-e2e' ci/out/classes-strings.txt
+          grep -Fq 'Submit dictation' ci/out/classes-strings.txt
+          grep -Fq 'Cancel dictation' ci/out/classes-strings.txt
+          grep -Fq 'GLOBAL_TIMEOUT_AT_' ci/out/classes-strings.txt
+          grep -Fq 'EVAL_CALLBACK_TIMEOUT' ci/out/classes-strings.txt
+          grep -Fq 'SCAN_BUDGET_EXCEEDED' ci/out/classes-strings.txt
+          grep -Fq 'https://webhook.site/' ci/out/classes-strings.txt
+          sha256sum "$APK" | tee ci/out/UNSIGNED_SHA256.txt
+          printf '%s\n' "$GITHUB_SHA" > ci/out/SOURCE_REF.txt
+
+      - name: Upload release signing kit
+        uses: actions/upload-artifact@v4
+        with:
+          name: chatgpt-webview-stable-v23-signing-kit
+          path: |
+            ci/out/chatgpt-webview-stable-v23-unsigned.apk
+            ci/out/UNSIGNED_SHA256.txt
+            ci/out/badging.txt
+            ci/out/permissions.txt
+            ci/out/SOURCE_REF.txt
+            ci/out/signing-tools/apksigner
+            ci/out/signing-tools/lib/apksigner.jar
+            ci/out/signing-tools/zipalign
+            ci/out/signing-tools/aapt
+            ci/out/signing-tools/lib64/libc++.so
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload telemetry collector provenance
+        uses: actions/upload-artifact@v4
+        with:
+          name: chatgpt-webview-stable-v23-telemetry-collector
+          path: ci/v23-telemetry
+          if-no-files-found: error
+          retention-days: 30
