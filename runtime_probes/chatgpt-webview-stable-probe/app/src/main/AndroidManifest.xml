@@ -1,5 +1,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <application android:theme="@style/AppTheme" android:label="ChatGPT WebView Probe Stable" android:usesCleartextTraffic="false">
         <activity android:name=".MainActivity" android:exported="false" />
         <activity android:name=".CapabilitySuiteActivity" android:exported="false" />
@@ -7,7 +8,8 @@
         <activity android:name=".DirectAttachmentActivity" android:exported="false" />
         <activity android:name=".ResourceSuiteActivity" android:exported="false" />
         <activity android:name=".ResourceSuiteV10Activity" android:exported="false" />
-        <activity android:name=".ResourceSuiteV10FinalActivity" android:exported="true">
+        <activity android:name=".ResourceSuiteV10FinalActivity" android:exported="false" />
+        <activity android:name=".AudioModelSuiteV11Activity" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
