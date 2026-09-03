@@ -3,7 +3,8 @@
     <application android:theme="@style/AppTheme" android:label="ChatGPT WebView Probe Stable" android:usesCleartextTraffic="false">
         <activity android:name=".MainActivity" android:exported="false" />
         <activity android:name=".CapabilitySuiteActivity" android:exported="false" />
-        <activity android:name=".AttachmentSendActivity" android:exported="true">
+        <activity android:name=".AttachmentSendActivity" android:exported="false" />
+        <activity android:name=".DirectAttachmentActivity" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
