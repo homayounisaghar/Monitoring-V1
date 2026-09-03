@@ -29,67 +29,127 @@ import java.util.Date;
 import java.util.Locale;
 import java.util.UUID;
 
-/** Stable v0.18 - Audio Capability Adapter V2 + hard recovery. */
-public class OrchestratorFoundationV18Activity extends OrchestratorFoundationV16Activity {
-    private static final String PREFS18 = "stable_v18_audio_adapter_v2";
+/**
+ * Stable v0.18 - Orchestrator snapshot + dictation-stop repair.
+ *
+ * Real-device REPORT17 proved:
+ * - Dictation Start itself was confirmed after a trusted WebAudio grant.
+ * - Dictation Stop then reached the resolver and aborted with MATCHES_0.
+ * - v0.16 snapshot polling never produced a usable snapshot.
+ *
+ * Source review found a deterministic JavaScript bug in v0.16 snapshotJs():
+ * SHARED_JS declares `const C` as the semantic classifier and snapshotJs declares
+ * a second `const C` as a count helper in the same function scope. That is a
+ * JavaScript SyntaxError, so evaluateJavascript returns no JSON object and the
+ * parent logs SNAPSHOT_PARSE_FAIL_IllegalStateException forever.
+ *
+ * v0.18 does not rely on that broken parent snapshot. It adds a clean observer,
+ * resolves Dictation.Stop against the active STOP control first with a bounded
+ * fallback to the dictation toggle, makes Dictation.Send use the fresh composer
+ * snapshot, and makes Session End an unconditional supervisor escape hatch.
+ * No coordinates, XPath, private ChatGPT APIs, credentials, cookies or tokens.
+ */
+public class OrchestratorFoundationV18Activity extends OrchestratorFoundationV17Activity {
+    private static final String PREFS18 = "stable_v18_orchestrator_repair";
+    private static final String PREFS16 = "stable_v16_orchestrator";
+
     private final Handler h18 = new Handler(Looper.getMainLooper());
     private final StringBuilder events18 = new StringBuilder();
     private WebView web18;
     private TextView status18;
     private SharedPreferences prefs18;
-    private boolean playbackGestureBypass = false;
-    private String adapterAction = "NONE";
-    private String adapterStatus = "NOT_RUN";
-    private int adapterMatches = -1;
-    private int adapterVisible = -1;
-    private String adapterStrategy = "-";
-    private int forcedRecoveries = 0;
-    private int reversibleDispatches = 0;
+    private SharedPreferences prefs16;
 
-    private final Runnable tick18 = new Runnable() {
+    private boolean snapOk = false;
+    private int snapOkCount = 0;
+    private int snapFailCount = 0;
+    private int dictationCount = 0;
+    private int stopCount = 0;
+    private int sendCount = 0;
+    private int cancelCount = 0;
+    private int voiceStartCount = 0;
+    private int voiceEndCount = 0;
+    private int muteCount = 0;
+    private int unmuteCount = 0;
+    private int composerLen = 0;
+    private String composerHash = "-";
+    private int userCount = 0;
+    private int assistantCount = 0;
+    private int assistantLen = 0;
+    private String assistantHash = "-";
+    private boolean runStop = false;
+    private String runState18 = "IDLE";
+    private long assistantChangedAt = 0L;
+    private boolean runCycleSeen = false;
+
+    private Pending18 pending18;
+    private String last18Action = "NONE";
+    private String last18Status = "NOT_RUN";
+    private int lastResolverMatches = -1;
+    private int lastResolverVisibleButtons = -1;
+    private String lastResolverKinds = "-";
+    private int forcedSessionEnds = 0;
+    private boolean lastSessionEndReloaded = false;
+
+    private final Runnable poller18 = new Runnable() {
         @Override public void run() {
+            pollSnapshot18();
             render18();
-            h18.postDelayed(this, 350L);
+            h18.postDelayed(this, 300L);
         }
     };
 
     @Override public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         prefs18 = getSharedPreferences(PREFS18, MODE_PRIVATE);
+        prefs16 = getSharedPreferences(PREFS16, MODE_PRIVATE);
         web18 = findWeb18(getWindow().getDecorView());
         if (web18 == null) return;
         web18.setMinimumHeight(Math.max(1, getResources().getDisplayMetrics().heightPixels / 2));
-        applyPlaybackBypass();
-        hideV16Status(getWindow().getDecorView());
-        retargetButtons(getWindow().getDecorView());
-        addStatusPanel();
-        ev18("V18_READY_AUDIO_ADAPTER_V2_HARD_RECOVERY");
-        h18.post(tick18);
+        try { web18.getSettings().setMediaPlaybackRequiresUserGesture(false); } catch (Exception ignored) { }
+        installV18PanelAndRetarget();
+        ev18("V18_READY_SNAPSHOT_AND_DICTATION_STOP_REPAIR");
+        h18.post(poller18);
         render18();
     }
 
-    private void applyPlaybackBypass() {
-        try {
-            web18.getSettings().setMediaPlaybackRequiresUserGesture(false);
-            playbackGestureBypass = !web18.getSettings().getMediaPlaybackRequiresUserGesture();
-        } catch (Exception e) {
-            playbackGestureBypass = false;
-            ev18("PLAYBACK_BYPASS_FAIL_" + e.getClass().getSimpleName());
-        }
+    private void installV18PanelAndRetarget() {
+        hideOldStatus(getWindow().getDecorView());
+        retarget(getWindow().getDecorView());
+
+        View content = findViewById(android.R.id.content);
+        if (!(content instanceof ViewGroup)) return;
+        ViewGroup cg = (ViewGroup) content;
+        if (cg.getChildCount() == 0 || !(cg.getChildAt(0) instanceof LinearLayout)) return;
+        LinearLayout root = (LinearLayout) cg.getChildAt(0);
+        int wi = root.indexOfChild(web18);
+        if (wi < 0) wi = 0;
+
+        status18 = new TextView(this);
+        status18.setTextSize(8.2f);
+        status18.setTextIsSelectable(true);
+        status18.setPadding(dp18(7), dp18(2), dp18(7), dp18(2));
+        ScrollView sv = new ScrollView(this);
+        sv.addView(status18, new ScrollView.LayoutParams(
+                ScrollView.LayoutParams.MATCH_PARENT, ScrollView.LayoutParams.WRAP_CONTENT));
+        root.addView(sv, wi, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, dp18(112)));
     }
 
-    private void hideV16Status(View v) {
+    private void hideOldStatus(View v) {
         if (v instanceof TextView && !(v instanceof Button)) {
             String t = String.valueOf(((TextView) v).getText());
-            if (t.startsWith("v0.16 ORCHESTRATOR")) v.setVisibility(View.GONE);
+            if (t.startsWith("v0.16 ORCHESTRATOR") || t.startsWith("v0.17 ORCHESTRATOR")) {
+                v.setVisibility(View.GONE);
+            }
         }
         if (v instanceof ViewGroup) {
             ViewGroup g = (ViewGroup) v;
-            for (int i = 0; i < g.getChildCount(); i++) hideV16Status(g.getChildAt(i));
+            for (int i = 0; i < g.getChildCount(); i++) hideOldStatus(g.getChildAt(i));
         }
     }
 
-    private void retargetButtons(View v) {
+    private void retarget(View v) {
         if (v instanceof Button) {
             Button b = (Button) v;
             String t = String.valueOf(b.getText());
@@ -98,224 +158,502 @@ public class OrchestratorFoundationV18Activity extends OrchestratorFoundationV16
                 case "SESSION END":
                     b.setOnClickListener(x -> sessionToggle18());
                     break;
-                case "D START": b.setOnClickListener(x -> audioAction18("DICTATION_START")); break;
-                case "D STOP": b.setOnClickListener(x -> audioAction18("DICTATION_STOP")); break;
-                case "D CANCEL": b.setOnClickListener(x -> audioAction18("DICTATION_CANCEL")); break;
-                case "V START": b.setOnClickListener(x -> audioAction18("VOICE_START")); break;
-                case "V MUTE": b.setOnClickListener(x -> audioAction18("VOICE_MUTE")); break;
-                case "V UNMUTE": b.setOnClickListener(x -> audioAction18("VOICE_UNMUTE")); break;
-                case "V END": b.setOnClickListener(x -> audioAction18("VOICE_END")); break;
-                case "STATE":
-                    b.setOnClickListener(x -> { invokeParentNoArg("pollSnapshot"); render18(); });
+                case "D STOP":
+                    b.setOnClickListener(x -> dictationStop18());
                     break;
-                case "REPORT16":
+                case "D SEND":
+                    b.setOnClickListener(x -> dictationSend18());
+                    break;
+                case "D CANCEL":
+                    b.setOnClickListener(x -> dictationCancel18());
+                    break;
+                case "STATE":
+                    b.setOnClickListener(x -> pollSnapshot18());
+                    break;
+                case "REPORT17":
                     b.setText("REPORT18");
                     b.setOnClickListener(x -> saveReport18());
                     break;
-                default: break;
+                default:
+                    break;
             }
         }
         if (v instanceof ViewGroup) {
             ViewGroup g = (ViewGroup) v;
-            for (int i = 0; i < g.getChildCount(); i++) retargetButtons(g.getChildAt(i));
+            for (int i = 0; i < g.getChildCount(); i++) retarget(g.getChildAt(i));
         }
-    }
-
-    private void addStatusPanel() {
-        View content = findViewById(android.R.id.content);
-        if (!(content instanceof ViewGroup)) return;
-        ViewGroup cg = (ViewGroup) content;
-        if (cg.getChildCount() == 0 || !(cg.getChildAt(0) instanceof LinearLayout)) return;
-        LinearLayout root = (LinearLayout) cg.getChildAt(0);
-        int wi = root.indexOfChild(web18);
-        if (wi < 0) wi = 0;
-        status18 = new TextView(this);
-        status18.setTextSize(8.3f);
-        status18.setTextIsSelectable(true);
-        status18.setPadding(dp18(7), dp18(2), dp18(7), dp18(2));
-        ScrollView sv = new ScrollView(this);
-        sv.addView(status18, new ScrollView.LayoutParams(ScrollView.LayoutParams.MATCH_PARENT, ScrollView.LayoutParams.WRAP_CONTENT));
-        root.addView(sv, wi, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp18(102)));
     }
 
     private void sessionToggle18() {
-        String state = strParent("sessionState");
+        String state = parentString("sessionState");
         if (!"ACTIVE".equals(state)) {
-            adapterAction = "SESSION_START";
-            adapterStatus = "PARENT_START_REQUESTED";
-            invokeParentNoArg("toggleSession");
+            try {
+                invokeV16("toggleSession", new Class<?>[0], new Object[0]);
+                last18Action = "SESSION_START";
+                last18Status = "PARENT_START_REQUESTED";
+                ev18("SESSION_START_PARENT_REQUESTED");
+            } catch (Exception e) {
+                last18Action = "SESSION_START";
+                last18Status = "START_REFLECTION_FAIL_" + e.getClass().getSimpleName();
+                ev18(last18Status);
+            }
             render18();
             return;
         }
-        adapterAction = "SESSION_END";
-        adapterStatus = "FORCE_RECOVERY_STARTED";
-        forcedRecoveries++;
-        ev18("SESSION_END_FORCE_RECOVERY lease=" + strParent("micLeaseMode") + " pending=" + pendingAction18());
-        if ("DICTATION".equals(strParent("micLeaseMode"))) bestEffortTeardown18("DICTATION_STOP");
-        else if ("LIVE".equals(strParent("micLeaseMode"))) bestEffortTeardown18("VOICE_END");
-        else stopTrackedAudio18();
-        clearParentPending18("SESSION_END_FORCE_RECOVERY");
-        invokeParentPrivateQuiet("revokeLease", new Class<?>[]{String.class}, new Object[]{"V18_FORCE_SESSION_END"});
-        setParentQuiet("uncertainBlockedAction", "NONE");
-        invokeParentNoArg("toggleSession");
-        adapterStatus = "FORCE_RECOVERY_SESSION_END_REQUESTED";
+        hardEndSession18();
+    }
+
+    private void hardEndSession18() {
+        boolean hadLease = !"NONE".equals(parentString("micLeaseMode"));
+        boolean hadPending = parentPendingAction() != null;
+        try {
+            setV16Field("pending", null);
+            setV16Field("uncertainBlockedAction", "NONE");
+            setV16Field("micLeaseMode", "NONE");
+            setV16Field("micLeaseUntil", 0L);
+            setV16Field("sessionState", "IDLE");
+            setV16Field("sessionId", "-");
+            setV16Field("runState", "IDLE");
+            setV16Field("runCycleSeen", false);
+            setV16Field("lastAction", "SESSION_END");
+            setV16Field("lastActionStatus", "CONFIRMED_ESCAPE_HATCH_V18");
+            prefs16.edit().putString("claim_status", "ABANDONED_BY_SESSION_END").commit();
+            if (pending18 != null) {
+                prefs18.edit().putString("claim_status", "ABANDONED_BY_SESSION_END").commit();
+                pending18 = null;
+            }
+            forcedSessionEnds++;
+            last18Action = "SESSION_END";
+            last18Status = "CONFIRMED_ESCAPE_HATCH";
+            lastSessionEndReloaded = hadLease || hadPending;
+            ev18("SESSION_END_ESCAPE hadLease=" + hadLease + " hadPending=" + hadPending
+                    + " reload=" + lastSessionEndReloaded);
+            if (lastSessionEndReloaded && web18 != null) web18.reload();
+        } catch (Exception e) {
+            last18Action = "SESSION_END";
+            last18Status = "ESCAPE_FAIL_" + e.getClass().getSimpleName();
+            ev18(last18Status);
+        }
         render18();
     }
 
-    private void audioAction18(String action) {
-        if (!"ACTIVE".equals(strParent("sessionState"))) { blocked18(action, "SESSION_NOT_ACTIVE"); return; }
-        if (!trustedUrl18(web18.getUrl())) { blocked18(action, "UNTRUSTED_ORIGIN"); return; }
-        String lease = strParent("micLeaseMode");
-        if (("DICTATION_START".equals(action) || "VOICE_START".equals(action)) && !"NONE".equals(lease)) {
-            blocked18(action, "MIC_ALREADY_LEASED_" + lease); return;
+    private void dictationStop18() {
+        if (!"ACTIVE".equals(parentString("sessionState"))) {
+            block18("DICTATION_STOP", "SESSION_NOT_ACTIVE");
+            return;
         }
-        if (("DICTATION_STOP".equals(action) || "DICTATION_CANCEL".equals(action)) && !"DICTATION".equals(lease)) {
-            blocked18(action, "NO_DICTATION_LEASE"); return;
+        if (!"DICTATION".equals(parentString("micLeaseMode"))) {
+            block18("DICTATION_STOP", "NO_DICTATION_LEASE");
+            return;
         }
-        if (("VOICE_MUTE".equals(action) || "VOICE_UNMUTE".equals(action) || "VOICE_END".equals(action)) && !"LIVE".equals(lease)) {
-            blocked18(action, "NO_LIVE_LEASE"); return;
+        if (pending18 != null) {
+            block18("DICTATION_STOP", "V18_ACTION_PENDING_" + pending18.action);
+            return;
         }
-        clearStaleAudioStartPending18(action);
-        if ("DICTATION_START".equals(action)) {
-            invokeParentPrivateQuiet("acquireLease", new Class<?>[]{String.class, long.class}, new Object[]{"DICTATION", 2L * 60L * 1000L});
-        } else if ("VOICE_START".equals(action)) {
-            applyPlaybackBypass();
-            invokeParentPrivateQuiet("acquireLease", new Class<?>[]{String.class, long.class}, new Object[]{"LIVE", 10L * 60L * 1000L});
-        }
-        String claimId = action + "_" + System.currentTimeMillis() + "_" + UUID.randomUUID().toString().substring(0, 8);
-        boolean durable = prefs18.edit().putString("claim_id", claimId).putString("claim_action", action).putString("claim_status", "CLAIMED").commit();
-        if (!durable) {
-            if (action.endsWith("START")) invokeParentPrivateQuiet("revokeLease", new Class<?>[]{String.class}, new Object[]{"V18_CLAIM_FAIL"});
-            blocked18(action, "CLAIM_WRITE_FAIL"); return;
-        }
-        adapterAction = action;
-        adapterStatus = "RESOLVING_CURRENT_SEMANTIC_CONTROL";
-        adapterMatches = -1; adapterVisible = -1; adapterStrategy = "-";
-        render18();
-        web18.evaluateJavascript(audioResolverJs18(action, true), value -> {
+        releaseParentStartIfPresent("DICTATION_START");
+        Pending18 op = claim18("DICTATION_STOP");
+        if (op == null) return;
+        op.baselineComposerLen = composerLen;
+        op.baselineComposerHash = composerHash;
+        op.baselineUserCount = userCount;
+        op.deadlineAt = System.currentTimeMillis() + 12000L;
+
+        web18.evaluateJavascript(resolveClickJs18("DICTATION_STOP"), value -> {
             try {
                 JSONObject o = jsonObject18(value);
-                int matches = o.optInt("matches", -1);
-                int visible = o.optInt("visible", -1);
+                lastResolverMatches = o.optInt("matches", -1);
+                lastResolverVisibleButtons = o.optInt("visibleButtons", -1);
+                lastResolverKinds = safe18(o.optString("kinds", "-"));
                 boolean clicked = o.optBoolean("clicked", false);
-                String strategy = tok18(o.optString("strategy", "-"));
-                adapterMatches = matches; adapterVisible = visible; adapterStrategy = strategy;
-                if (matches == 1 && clicked) {
-                    reversibleDispatches++;
-                    prefs18.edit().putString("claim_status", "DISPATCHED_REVERSIBLE").commit();
-                    adapterStatus = "DISPATCHED_REVERSIBLE_NO_GLOBAL_LOCK";
-                    ev18(action + " DISPATCHED strategy=" + strategy + " visible=" + visible);
-                    if ("DICTATION_STOP".equals(action) || "DICTATION_CANCEL".equals(action)) {
-                        h18.postDelayed(() -> {
-                            invokeParentPrivateQuiet("revokeLease", new Class<?>[]{String.class}, new Object[]{"V18_DICTATION_FINISHED"});
-                            adapterStatus = "DISPATCHED_STOP_LEASE_RELEASED";
-                            invokeParentNoArg("pollSnapshot");
-                            render18();
-                        }, 450L);
-                    } else if ("VOICE_END".equals(action)) {
-                        h18.postDelayed(() -> {
-                            invokeParentPrivateQuiet("revokeLease", new Class<?>[]{String.class}, new Object[]{"V18_VOICE_ENDED"});
-                            adapterStatus = "DISPATCHED_END_LEASE_RELEASED";
-                            render18();
-                        }, 450L);
-                    }
-                    render18(); return;
+                if (lastResolverMatches != 1 || !clicked) {
+                    abort18(op, "MATCHES_" + lastResolverMatches + "_KINDS_" + lastResolverKinds);
+                    return;
                 }
-                prefs18.edit().putString("claim_status", "ABORTED_NO_SIDE_EFFECT").commit();
-                adapterStatus = matches == 0 ? "ABORTED_NO_MATCH" : "ABORTED_AMBIGUOUS_MATCHES_" + matches;
-                ev18(action + " " + adapterStatus + " strategy=" + strategy + " visible=" + visible);
-                if (action.endsWith("START")) invokeParentPrivateQuiet("revokeLease", new Class<?>[]{String.class}, new Object[]{"V18_START_NOT_DISPATCHED"});
+                op.dispatched = true;
+                op.dispatchedAt = System.currentTimeMillis();
+                last18Status = "DISPATCHED_WAITING_RECEIPT";
+                prefs18.edit().putString("claim_status", "DISPATCHED").commit();
+                ev18("DICTATION_STOP SINGLE_SEMANTIC_CLICK kinds=" + lastResolverKinds);
                 render18();
             } catch (Exception e) {
-                prefs18.edit().putString("claim_status", "ABORTED_PARSE_NO_SIDE_EFFECT").commit();
-                adapterStatus = "ABORTED_PARSE_" + e.getClass().getSimpleName();
-                if (action.endsWith("START")) invokeParentPrivateQuiet("revokeLease", new Class<?>[]{String.class}, new Object[]{"V18_PARSE_FAIL"});
-                render18();
+                abort18(op, "PARSE_" + e.getClass().getSimpleName());
             }
         });
     }
 
-    private void clearStaleAudioStartPending18(String nextAction) {
-        try {
-            Object p = getParentField18("pending");
-            if (p == null) return;
-            String a = String.valueOf(getObjectField18(p, "action"));
-            if (!"DICTATION_START".equals(a) && !"VOICE_START".equals(a)) return;
-            setParentField18("pending", null);
-            setParentField18("lastAction", a);
-            setParentField18("lastActionStatus", "ACCEPTED_REVERSIBLE_START_SUPERSEDED_V18");
-            ev18("CLEARED_STALE_AUDIO_START pending=" + a + " next=" + nextAction);
-        } catch (Exception e) { ev18("CLEAR_STALE_AUDIO_START_FAIL_" + e.getClass().getSimpleName()); }
-    }
-
-    private void clearParentPending18(String reason) {
-        try {
-            Object p = getParentField18("pending");
-            if (p != null) {
-                String a = String.valueOf(getObjectField18(p, "action"));
-                setParentField18("pending", null);
-                ev18("PARENT_PENDING_CLEARED action=" + a + " reason=" + reason);
+    private void dictationSend18() {
+        if (!"ACTIVE".equals(parentString("sessionState"))) {
+            block18("DICTATION_SEND", "SESSION_NOT_ACTIVE");
+            return;
+        }
+        if (pending18 != null) {
+            block18("DICTATION_SEND", "V18_ACTION_PENDING_" + pending18.action);
+            return;
+        }
+        pollSnapshotThen(() -> {
+            if (composerLen <= 0) {
+                block18("DICTATION_SEND", "COMPOSER_EMPTY");
+                return;
             }
-        } catch (Exception e) { ev18("PARENT_PENDING_CLEAR_FAIL_" + e.getClass().getSimpleName()); }
+            Pending18 op = claim18("DICTATION_SEND");
+            if (op == null) return;
+            op.baselineComposerLen = composerLen;
+            op.baselineComposerHash = composerHash;
+            op.baselineUserCount = userCount;
+            op.deadlineAt = System.currentTimeMillis() + 10000L;
+            web18.evaluateJavascript(resolveClickJs18("DICTATION_SEND"), value -> {
+                try {
+                    JSONObject o = jsonObject18(value);
+                    lastResolverMatches = o.optInt("matches", -1);
+                    lastResolverVisibleButtons = o.optInt("visibleButtons", -1);
+                    lastResolverKinds = safe18(o.optString("kinds", "-"));
+                    boolean clicked = o.optBoolean("clicked", false);
+                    if (lastResolverMatches != 1 || !clicked) {
+                        abort18(op, "MATCHES_" + lastResolverMatches + "_KINDS_" + lastResolverKinds);
+                        return;
+                    }
+                    op.dispatched = true;
+                    op.dispatchedAt = System.currentTimeMillis();
+                    last18Status = "DISPATCHED_WAITING_RECEIPT";
+                    prefs18.edit().putString("claim_status", "DISPATCHED").commit();
+                    ev18("DICTATION_SEND SINGLE_SEMANTIC_CLICK");
+                    render18();
+                } catch (Exception e) {
+                    abort18(op, "PARSE_" + e.getClass().getSimpleName());
+                }
+            });
+        });
     }
 
-    private void bestEffortTeardown18(String action) {
+    private void dictationCancel18() {
+        if (!"ACTIVE".equals(parentString("sessionState"))) {
+            block18("DICTATION_CANCEL", "SESSION_NOT_ACTIVE");
+            return;
+        }
+        releaseParentStartIfPresent("DICTATION_START");
+        Pending18 op = claim18("DICTATION_CANCEL");
+        if (op == null) return;
+        op.deadlineAt = System.currentTimeMillis() + 7000L;
+        web18.evaluateJavascript(resolveClickJs18("DICTATION_CANCEL"), value -> {
+            try {
+                JSONObject o = jsonObject18(value);
+                lastResolverMatches = o.optInt("matches", -1);
+                lastResolverVisibleButtons = o.optInt("visibleButtons", -1);
+                lastResolverKinds = safe18(o.optString("kinds", "-"));
+                boolean clicked = o.optBoolean("clicked", false);
+                if (lastResolverMatches != 1 || !clicked) {
+                    abort18(op, "MATCHES_" + lastResolverMatches + "_KINDS_" + lastResolverKinds);
+                    return;
+                }
+                op.dispatched = true;
+                op.dispatchedAt = System.currentTimeMillis();
+                last18Status = "DISPATCHED_WAITING_RECEIPT";
+                prefs18.edit().putString("claim_status", "DISPATCHED").commit();
+                ev18("DICTATION_CANCEL SINGLE_SEMANTIC_CLICK");
+                render18();
+            } catch (Exception e) {
+                abort18(op, "PARSE_" + e.getClass().getSimpleName());
+            }
+        });
+    }
+
+    private Pending18 claim18(String action) {
+        Pending18 op = new Pending18();
+        op.action = action;
+        op.claimId = action + "_" + System.currentTimeMillis() + "_" + UUID.randomUUID().toString().substring(0, 8);
+        boolean ok = prefs18.edit()
+                .putString("claim_id", op.claimId)
+                .putString("claim_action", action)
+                .putString("claim_status", "CLAIMED")
+                .commit();
+        if (!ok) {
+            block18(action, "DURABLE_CLAIM_WRITE_FAIL");
+            return null;
+        }
+        pending18 = op;
+        last18Action = action;
+        last18Status = "DURABLE_CLAIMED";
+        ev18(action + " DURABLE_CLAIMED");
+        return op;
+    }
+
+    private void abort18(Pending18 op, String reason) {
+        if (pending18 != op) return;
+        pending18 = null;
+        last18Action = op.action;
+        last18Status = "ABORTED_NO_SIDE_EFFECT_" + safe18(reason);
+        prefs18.edit().putString("claim_status", "ABORTED_NO_SIDE_EFFECT").commit();
+        ev18(op.action + " ABORTED_NO_SIDE_EFFECT " + safe18(reason));
+        render18();
+    }
+
+    private void confirm18(String receipt) {
+        if (pending18 == null) return;
+        String action = pending18.action;
+        pending18 = null;
+        last18Action = action;
+        last18Status = "CONFIRMED_" + safe18(receipt);
+        prefs18.edit().putString("claim_status", "CONFIRMED")
+                .putString("claim_receipt", safe18(receipt)).commit();
+        if ("DICTATION_STOP".equals(action) || "DICTATION_CANCEL".equals(action)) {
+            try { invokeV16("revokeLease", new Class<?>[]{String.class}, new Object[]{"V18_" + action}); }
+            catch (Exception e) {
+                try { setV16Field("micLeaseMode", "NONE"); setV16Field("micLeaseUntil", 0L); }
+                catch (Exception ignored) { }
+            }
+        }
+        ev18(action + " CONFIRMED " + safe18(receipt));
+        render18();
+    }
+
+    private void uncertain18(String reason) {
+        if (pending18 == null) return;
+        String action = pending18.action;
+        pending18 = null;
+        last18Action = action;
+        last18Status = "UNCERTAIN_" + safe18(reason);
+        prefs18.edit().putString("claim_status", "UNCERTAIN")
+                .putString("claim_receipt", safe18(reason)).commit();
+        ev18(action + " UNCERTAIN_NO_REPLAY " + safe18(reason));
+        render18();
+    }
+
+    private void block18(String action, String reason) {
+        last18Action = action;
+        last18Status = "BLOCKED_" + safe18(reason);
+        ev18(action + " BLOCKED " + safe18(reason));
+        render18();
+    }
+
+    private void pollSnapshotThen(Runnable next) {
+        if (web18 == null) return;
+        web18.evaluateJavascript(snapshotJs18(), value -> {
+            consumeSnapshot18(value);
+            if (next != null) next.run();
+        });
+    }
+
+    private void pollSnapshot18() {
+        if (web18 == null) return;
+        String url = web18.getUrl();
+        if (url == null || !url.startsWith("https://chatgpt.com")) return;
+        web18.evaluateJavascript(snapshotJs18(), this::consumeSnapshot18);
+    }
+
+    private void consumeSnapshot18(String value) {
         try {
-            web18.evaluateJavascript(audioResolverJs18(action, true), value -> {
-                ev18("FORCE_TEARDOWN_CLICK_RESULT action=" + action + " value=" + tok18(String.valueOf(value)));
-                stopTrackedAudio18();
-            });
+            JSONObject o = jsonObject18(value);
+            if (o.has("error")) throw new IllegalStateException(o.optString("error"));
+            snapOk = true;
+            snapOkCount++;
+
+            int oldUser = userCount;
+            int oldAssistantCount = assistantCount;
+            int oldAssistantLen = assistantLen;
+            String oldAssistantHash = assistantHash;
+
+            dictationCount = o.optInt("dictationCount", 0);
+            stopCount = o.optInt("stopCount", 0);
+            sendCount = o.optInt("sendCount", 0);
+            cancelCount = o.optInt("cancelCount", 0);
+            voiceStartCount = o.optInt("voiceStartCount", 0);
+            voiceEndCount = o.optInt("voiceEndCount", 0);
+            muteCount = o.optInt("muteCount", 0);
+            unmuteCount = o.optInt("unmuteCount", 0);
+            composerLen = o.optInt("composerLen", 0);
+            composerHash = safe18(o.optString("composerHash", "-"));
+            userCount = o.optInt("userCount", 0);
+            assistantCount = o.optInt("assistantCount", 0);
+            assistantLen = o.optInt("assistantLen", 0);
+            assistantHash = safe18(o.optString("assistantHash", "-"));
+            runStop = o.optBoolean("runStop", false);
+
+            long now = System.currentTimeMillis();
+            if (userCount > oldUser) {
+                runCycleSeen = true;
+                runState18 = "ACTIVE";
+                ev18("RUN_USER_TURN count=" + userCount);
+            }
+            boolean assistantChanged = assistantCount != oldAssistantCount
+                    || assistantLen != oldAssistantLen || !assistantHash.equals(oldAssistantHash);
+            if (assistantChanged) {
+                assistantChangedAt = now;
+                if (runCycleSeen || runStop) runState18 = "STREAMING";
+            }
+            if (runStop) {
+                runCycleSeen = true;
+                runState18 = assistantChanged || (assistantChangedAt > 0 && now - assistantChangedAt < 2500L)
+                        ? "STREAMING" : "ACTIVE";
+            } else if (runCycleSeen && assistantChangedAt > 0 && now - assistantChangedAt > 2800L) {
+                runState18 = "COMPLETE";
+                runCycleSeen = false;
+            }
+
+            checkPending18(now);
         } catch (Exception e) {
-            ev18("FORCE_TEARDOWN_CLICK_FAIL_" + e.getClass().getSimpleName());
-            stopTrackedAudio18();
+            snapOk = false;
+            snapFailCount++;
+            if (snapFailCount <= 6 || snapFailCount % 20 == 0) {
+                ev18("SNAPSHOT18_FAIL_" + e.getClass().getSimpleName());
+            }
+        }
+        render18();
+    }
+
+    private void checkPending18(long now) {
+        if (pending18 == null || !pending18.dispatched) return;
+        Pending18 op = pending18;
+        long age = now - op.dispatchedAt;
+        if ("DICTATION_STOP".equals(op.action)) {
+            if (composerLen > 0 && (composerLen != op.baselineComposerLen
+                    || !composerHash.equals(op.baselineComposerHash))) {
+                confirm18("TRANSCRIPT_IN_COMPOSER");
+                return;
+            }
+            if (age > 450L && stopCount == 0 && dictationCount == 1) {
+                confirm18("STOP_CONTROL_GONE_READY_DICTATION_RETURNED");
+                return;
+            }
+        } else if ("DICTATION_SEND".equals(op.action)) {
+            if (userCount > op.baselineUserCount && composerLen == 0) {
+                confirm18("USER_TURN_RECEIPT");
+                return;
+            }
+        } else if ("DICTATION_CANCEL".equals(op.action)) {
+            if (age > 450L && cancelCount == 0 && stopCount == 0) {
+                confirm18("CANCEL_CONTROL_GONE");
+                return;
+            }
+        }
+        if (now > op.deadlineAt) uncertain18("RECEIPT_TIMEOUT");
+    }
+
+    private String resolveClickJs18(String action) {
+        return "(function(){try{"
+                + rootsJs18()
+                + "const A='" + js18(action) + "';"
+                + "const C=e=>{const x=M(e);"
+                + "if(/unmute|turn microphone on|mic on|microphone on/.test(x))return 'UNMUTE';"
+                + "if(/(^|[^a-z])mute([^a-z]|$)|turn microphone off|mic off|microphone off/.test(x))return 'MUTE';"
+                + "if(/end voice|leave voice|exit voice|close voice|end call|hang up|disconnect/.test(x))return 'VOICE_END';"
+                + "if(/voice mode|start voice|open voice|advanced voice/.test(x))return 'VOICE_START';"
+                + "if(/cancel|discard/.test(x))return 'CANCEL';"
+                + "if(/stop recording|finish recording|end recording|stop dictation|stop listening|(^|[^a-z])stop([^a-z]|$)/.test(x)&&!/stop generating|stop response/.test(x))return 'STOP';"
+                + "if(/send prompt|send message|submit|(^|[^a-z])send([^a-z]|$)/.test(x))return 'SEND';"
+                + "if(/microphone|dictat|voice input|record audio|record message/.test(x))return 'DICTATION_MIC';"
+                + "return 'OTHER';};"
+                + "const tagged=els.map(e=>({e:e,c:C(e)}));let xs=[];"
+                + "if(A==='DICTATION_STOP'){const p=tagged.filter(x=>x.c==='STOP');xs=p.length?p:tagged.filter(x=>x.c==='DICTATION_MIC');}"
+                + "else if(A==='DICTATION_SEND')xs=tagged.filter(x=>x.c==='SEND');"
+                + "else if(A==='DICTATION_CANCEL')xs=tagged.filter(x=>x.c==='CANCEL');"
+                + "const ks=['DICTATION_MIC','STOP','SEND','CANCEL','VOICE_START','VOICE_END','MUTE','UNMUTE'].map(k=>k+':'+tagged.filter(x=>x.c===k).length).join(',');"
+                + "let did=false;if(xs.length===1){xs[0].e.click();did=true;}"
+                + "return JSON.stringify({matches:xs.length,clicked:did,visibleButtons:els.length,kinds:ks});"
+                + "}catch(e){return JSON.stringify({matches:-1,clicked:false,visibleButtons:-1,kinds:'ERR',error:String(e&&e.name||'ERR')});}})();";
+    }
+
+    private String snapshotJs18() {
+        return "(function(){try{"
+                + rootsJs18()
+                + "const C=e=>{const x=M(e);"
+                + "if(/unmute|turn microphone on|mic on|microphone on/.test(x))return 'UNMUTE';"
+                + "if(/(^|[^a-z])mute([^a-z]|$)|turn microphone off|mic off|microphone off/.test(x))return 'MUTE';"
+                + "if(/end voice|leave voice|exit voice|close voice|end call|hang up|disconnect/.test(x))return 'VOICE_END';"
+                + "if(/voice mode|start voice|open voice|advanced voice/.test(x))return 'VOICE_START';"
+                + "if(/cancel|discard/.test(x))return 'CANCEL';"
+                + "if(/stop recording|finish recording|end recording|stop dictation|stop listening|(^|[^a-z])stop([^a-z]|$)/.test(x)&&!/stop generating|stop response/.test(x))return 'STOP';"
+                + "if(/send prompt|send message|submit|(^|[^a-z])send([^a-z]|$)/.test(x))return 'SEND';"
+                + "if(/microphone|dictat|voice input|record audio|record message/.test(x))return 'DICTATION_MIC';return 'OTHER';};"
+                + "const cs=els.map(e=>C(e));const CNT=k=>cs.filter(x=>x===k).length;"
+                + "const ed=[...document.querySelectorAll('#prompt-textarea,textarea,[contenteditable=true]')].filter(V);const ce=ed.length?ed[ed.length-1]:null;"
+                + "const ct=ce?N(typeof ce.value==='string'?ce.value:(ce.innerText||ce.textContent||'')):'';"
+                + "const us=[...document.querySelectorAll('[data-message-author-role=user]')];const as=[...document.querySelectorAll('[data-message-author-role=assistant]')];"
+                + "let al=0,ah='-';if(as.length){const t=N(as[as.length-1].innerText||as[as.length-1].textContent||'');al=t.length;ah=H(t);}"
+                + "const rs=els.some(e=>/stop generating|stop response|stop-button|stop_response/.test(M(e)));"
+                + "return JSON.stringify({dictationCount:CNT('DICTATION_MIC'),stopCount:CNT('STOP'),sendCount:CNT('SEND'),cancelCount:CNT('CANCEL'),voiceStartCount:CNT('VOICE_START'),voiceEndCount:CNT('VOICE_END'),muteCount:CNT('MUTE'),unmuteCount:CNT('UNMUTE'),composerLen:ct.length,composerHash:ct?H(ct):'-',userCount:us.length,assistantCount:as.length,assistantLen:al,assistantHash:ah,runStop:rs});"
+                + "}catch(e){return JSON.stringify({error:String(e&&e.name||'ERR')});}})();";
+    }
+
+    private String rootsJs18() {
+        return "const N=x=>String(x||'').replace(/\\s+/g,' ').trim();"
+                + "const H=s=>{let x=2166136261>>>0;for(let i=0;i<s.length;i++){x^=s.charCodeAt(i);x=Math.imul(x,16777619)>>>0;}return('00000000'+x.toString(16)).slice(-8);};"
+                + "const V=e=>{try{const r=e.getBoundingClientRect();const w=e.ownerDocument&&e.ownerDocument.defaultView;const s=w?w.getComputedStyle(e):getComputedStyle(e);return r.width>0&&r.height>0&&s.display!=='none'&&s.visibility!=='hidden';}catch(_){return false;}};"
+                + "const M=e=>{let z='';try{z+=' '+N(e.getAttribute('aria-label'))+' '+N(e.getAttribute('title'))+' '+N(e.getAttribute('data-testid'))+' '+N(e.getAttribute('name'))+' '+N(e.getAttribute('id'))+' '+N(e.getAttribute('data-state'))+' '+N(e.innerText||e.textContent||'');const st=e.querySelector&&e.querySelector('svg title');if(st)z+=' '+N(st.textContent||'');}catch(_){}return N(z).toLowerCase();};"
+                + "const roots=[document],seenRoots=new Set(),seenEls=new Set(),els=[];for(let q=0;q<roots.length&&q<64;q++){const r=roots[q];if(!r||seenRoots.has(r))continue;seenRoots.add(r);let all=[];try{all=[...r.querySelectorAll('*')];}catch(_){}for(const e of all){try{if(e.shadowRoot)roots.push(e.shadowRoot);if(e.tagName==='IFRAME'&&e.contentDocument)roots.push(e.contentDocument);}catch(_){}}let bs=[];try{bs=[...r.querySelectorAll('button,[role=button],[aria-label],[data-testid]')];}catch(_){}for(const e of bs){if(!seenEls.has(e)&&V(e)){seenEls.add(e);els.push(e);}}}";
+    }
+
+    private void releaseParentStartIfPresent(String action) {
+        try {
+            Object p = getV16Field("pending");
+            if (p == null) return;
+            Field af = p.getClass().getDeclaredField("action");
+            af.setAccessible(true);
+            String pa = String.valueOf(af.get(p));
+            if (!action.equals(pa)) return;
+            Field df = p.getClass().getDeclaredField("dispatched");
+            df.setAccessible(true);
+            boolean dispatched = df.getBoolean(p);
+            if (!dispatched) return;
+            setV16Field("pending", null);
+            setV16Field("lastAction", action);
+            setV16Field("lastActionStatus", "ACCEPTED_REVERSIBLE_START_FOR_V18_INVERSE");
+            prefs16.edit().putString("claim_status", "ACCEPTED_REVERSIBLE_START").commit();
+            ev18(action + " RELEASED_FOR_SAFE_INVERSE");
+        } catch (Exception e) {
+            ev18("RELEASE_PARENT_START_FAIL_" + e.getClass().getSimpleName());
         }
     }
 
-    private void stopTrackedAudio18() {
-        if (web18 == null) return;
-        web18.evaluateJavascript("(function(){try{let n=0;const o=window.__cp16Media;if(o&&o.tracks){for(const t of [...o.tracks]){try{if(t&&t.readyState==='live'){t.stop();n++;}}catch(_){}}}return String(n);}catch(e){return 'ERR';}})();", value -> ev18("FORCE_TRACK_STOP_RESULT=" + tok18(String.valueOf(value))));
+    private String parentPendingAction() {
+        try {
+            Object p = getV16Field("pending");
+            if (p == null) return null;
+            Field f = p.getClass().getDeclaredField("action");
+            f.setAccessible(true);
+            return String.valueOf(f.get(p));
+        } catch (Exception e) { return "ERR"; }
     }
 
-    private String audioResolverJs18(String action, boolean click) {
-        return "(function(){try{"
-                + "const A='" + js18(action) + "',DO=" + (click ? "true" : "false") + ";"
-                + "const N=x=>String(x||'').replace(/\\s+/g,' ').trim();"
-                + "const V=e=>{try{const r=e.getBoundingClientRect();const w=e.ownerDocument&&e.ownerDocument.defaultView;const s=w?w.getComputedStyle(e):getComputedStyle(e);return r.width>0&&r.height>0&&s.display!=='none'&&s.visibility!=='hidden';}catch(_){return false;}};"
-                + "const M=e=>{let z='';try{for(const k of ['aria-label','title','data-testid','name','id','data-state'])z+=' '+N(e.getAttribute&&e.getAttribute(k));z+=' '+N(e.innerText||e.textContent||'');const st=e.querySelector&&e.querySelector('svg title');if(st)z+=' '+N(st.textContent||'');}catch(_){}return N(z).toLowerCase();};"
-                + "const roots=[document],sr=new Set(),se=new Set(),els=[];for(let q=0;q<roots.length&&q<80;q++){const r=roots[q];if(!r||sr.has(r))continue;sr.add(r);let all=[];try{all=[...r.querySelectorAll('*')];}catch(_){}for(const e of all){try{if(e.shadowRoot)roots.push(e.shadowRoot);if(e.tagName==='IFRAME'&&e.contentDocument)roots.push(e.contentDocument);}catch(_){}}let bs=[];try{bs=[...r.querySelectorAll('button,[role=button],[aria-label],[data-testid]')];}catch(_){}for(const e of bs){if(!se.has(e)&&V(e)){se.add(e);els.push(e);}}}"
-                + "const isStopResponse=x=>/stop generating|stop response|stop-button|stop_response/.test(x);"
-                + "const startDict=x=>/dictat|voice input|record audio|record message|start recording|microphone/.test(x)&&!/mute|unmute|voice mode|advanced voice|end voice|leave voice/.test(x);"
-                + "const stopDict=x=>!isStopResponse(x)&&(/stop recording|finish recording|end recording|recording stop|stop dictat|stop voice input|finish dictat/.test(x)||(/^stop$/.test(x)));"
-                + "const cancelDict=x=>/cancel recording|discard recording|cancel dictat|discard dictat|cancel voice input/.test(x)||(/^cancel$/.test(x));"
-                + "const voiceStart=x=>/voice mode|start voice|open voice|advanced voice/.test(x);"
-                + "const voiceMute=x=>/(^|[^a-z])mute([^a-z]|$)|turn microphone off|mic off|microphone off/.test(x)&&!/unmute/.test(x);"
-                + "const voiceUnmute=x=>/unmute|turn microphone on|mic on|microphone on/.test(x);"
-                + "const voiceEnd=x=>/end voice|leave voice|exit voice|close voice|end call|hang up|disconnect/.test(x)||(/^close$/.test(x));"
-                + "let primary=[],fallback=[],strategy='primary';for(const e of els){const x=M(e);if(A==='DICTATION_START'&&startDict(x))primary.push(e);else if(A==='DICTATION_STOP'){if(stopDict(x))primary.push(e);else if(startDict(x))fallback.push(e);}else if(A==='DICTATION_CANCEL'&&cancelDict(x))primary.push(e);else if(A==='VOICE_START'&&voiceStart(x))primary.push(e);else if(A==='VOICE_MUTE'&&voiceMute(x))primary.push(e);else if(A==='VOICE_UNMUTE'&&voiceUnmute(x))primary.push(e);else if(A==='VOICE_END'&&voiceEnd(x))primary.push(e);}"
-                + "let xs=primary;if(A==='DICTATION_STOP'&&primary.length===0&&fallback.length===1){xs=fallback;strategy='dictation_toggle_fallback';}"
-                + "let did=false;if(DO&&xs.length===1){xs[0].click();did=true;}return JSON.stringify({matches:xs.length,clicked:did,visible:els.length,strategy:strategy,primary:primary.length,fallback:fallback.length});"
-                + "}catch(e){return JSON.stringify({matches:-1,clicked:false,visible:-1,strategy:'error',error:String(e&&e.name||'ERR')});}})();";
+    private Object invokeV16(String name, Class<?>[] sig, Object[] args) throws Exception {
+        Method m = OrchestratorFoundationV16Activity.class.getDeclaredMethod(name, sig);
+        m.setAccessible(true);
+        return m.invoke(this, args);
     }
 
-    private void blocked18(String action, String reason) {
-        adapterAction = action;
-        adapterStatus = "BLOCKED_" + tok18(reason);
-        ev18(action + " " + adapterStatus);
-        render18();
+    private Object getV16Field(String name) throws Exception {
+        Field f = OrchestratorFoundationV16Activity.class.getDeclaredField(name);
+        f.setAccessible(true);
+        return f.get(this);
+    }
+
+    private void setV16Field(String name, Object value) throws Exception {
+        Field f = OrchestratorFoundationV16Activity.class.getDeclaredField(name);
+        f.setAccessible(true);
+        f.set(this, value);
+    }
+
+    private String parentString(String name) {
+        try { return String.valueOf(getV16Field(name)); }
+        catch (Exception e) { return "ERR"; }
     }
 
     private void render18() {
         if (status18 == null) return;
-        status18.setText("v0.18 ORCHESTRATOR - AUDIO ADAPTER V2 + HARD RECOVERY\n"
-                + "Session=" + strParent("sessionState") + " MicLease=PHONE/" + strParent("micLeaseMode") + " PlaybackGestureRequired=" + !playbackGestureBypass + "\n"
-                + "ParentPending=" + pendingAction18() + " ParentAction=" + strParent("lastAction") + " ParentStatus=" + strParent("lastActionStatus") + "\n"
-                + "AudioAdapter=" + adapterAction + " status=" + adapterStatus + "\n"
-                + "matches=" + adapterMatches + " strategy=" + adapterStrategy + " visible=" + adapterVisible + " reversibleDispatches=" + reversibleDispatches + " recoveries=" + forcedRecoveries);
+        status18.setText("v0.18 ORCHESTRATOR - SNAPSHOT + DICTATION STOP REPAIR\n"
+                + "Session=" + parentString("sessionState") + " MicLease=PHONE/" + parentString("micLeaseMode")
+                + " Snapshot=" + (snapOk ? "OK" : "FAIL") + " ok/fail=" + snapOkCount + "/" + snapFailCount + "\n"
+                + "Controls D=" + dictationCount + " Stop=" + stopCount + " Send=" + sendCount + " Cancel=" + cancelCount
+                + " Vstart=" + voiceStartCount + " Vend=" + voiceEndCount + " M=" + muteCount + " U=" + unmuteCount + "\n"
+                + "ComposerLen=" + composerLen + " RunState=" + runState18 + " ParentPending="
+                + (parentPendingAction() == null ? "NONE" : parentPendingAction()) + "\n"
+                + "Action=" + last18Action + " status=" + last18Status
+                + " resolverMatches=" + lastResolverMatches + " visibleBtns=" + lastResolverVisibleButtons);
     }
 
     private void saveReport18() {
         try {
-            String name = "chatgpt-webview-v18-audio-adapter-" + new SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).format(new Date()) + ".txt";
+            String name = "chatgpt-webview-v18-orchestrator-repair-"
+                    + new SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).format(new Date()) + ".txt";
             ContentValues cv = new ContentValues();
             cv.put(MediaStore.MediaColumns.DISPLAY_NAME, name);
             cv.put(MediaStore.MediaColumns.MIME_TYPE, "text/plain");
@@ -327,58 +665,111 @@ public class OrchestratorFoundationV18Activity extends OrchestratorFoundationV16
                 out.write(reportText18().getBytes(StandardCharsets.UTF_8));
             }
             Toast.makeText(this, "v0.18 report saved to Downloads", Toast.LENGTH_LONG).show();
-        } catch (Exception e) { Toast.makeText(this, "REPORT18 failed: " + e.getClass().getSimpleName(), Toast.LENGTH_LONG).show(); }
+        } catch (Exception e) {
+            Toast.makeText(this, "REPORT18 failed: " + e.getClass().getSimpleName(), Toast.LENGTH_LONG).show();
+        }
     }
 
     private String reportText18() {
         StringBuilder r = new StringBuilder();
-        r.append("CHATGPT_WEBVIEW_STABLE_V18_AUDIO_ADAPTER_V2_HARD_RECOVERY\n");
-        r.append("V17_DEVICE_FINDING=D_START_STILL_LEFT_UI_EFFECTIVELY_LOCKED_AND_SESSION_END_BLOCKED\n");
-        r.append("AUDIO_LIFECYCLE_GLOBAL_PENDING_LOCK=false\n");
-        r.append("SESSION_END_HARD_RECOVERY=true\n");
-        r.append("MEDIA_PLAYBACK_REQUIRES_USER_GESTURE=").append(!playbackGestureBypass).append('\n');
-        r.append("SESSION_STATE=").append(tok18(strParent("sessionState"))).append('\n');
-        r.append("MIC_LEASE_MODE=").append(tok18(strParent("micLeaseMode"))).append('\n');
-        r.append("PARENT_PENDING_ACTION=").append(tok18(pendingAction18())).append('\n');
-        r.append("LAST_AUDIO_ADAPTER_ACTION=").append(tok18(adapterAction)).append('\n');
-        r.append("LAST_AUDIO_ADAPTER_STATUS=").append(tok18(adapterStatus)).append('\n');
-        r.append("LAST_AUDIO_ADAPTER_MATCHES=").append(adapterMatches).append('\n');
-        r.append("LAST_AUDIO_ADAPTER_STRATEGY=").append(tok18(adapterStrategy)).append('\n');
-        r.append("LAST_AUDIO_ADAPTER_VISIBLE_COUNT=").append(adapterVisible).append('\n');
-        r.append("REVERSIBLE_AUDIO_DISPATCH_COUNT=").append(reversibleDispatches).append('\n');
-        r.append("FORCED_SESSION_RECOVERY_COUNT=").append(forcedRecoveries).append('\n');
-        r.append("SHADOW_AND_SAME_ORIGIN_FRAME_TRAVERSAL=true\n");
-        r.append("SEMANTIC_COORDINATES_USED=false\nPRIVATE_CHATGPT_API_USED=false\n");
-        r.append("RAW_AUDIO_RETAINED=false\nRAW_SPEECH_RETAINED=false\nRAW_CHAT_TEXT_RETAINED=false\n");
+        r.append("CHATGPT_WEBVIEW_STABLE_V18_ORCHESTRATOR_SNAPSHOT_DICTATION_REPAIR\n");
+        r.append("REPORT17_FACT_D_START_CONFIRMED=true\n");
+        r.append("REPORT17_FACT_D_STOP_MATCHES_0=true\n");
+        r.append("REPORT17_FACT_PARENT_SNAPSHOT_PARSE_FAIL_REPEATED=true\n");
+        r.append("V16_SNAPSHOT_SOURCE_BUG=DUPLICATE_CONST_C_IN_SAME_FUNCTION_SCOPE\n");
+        r.append("V18_USES_INDEPENDENT_FIXED_SNAPSHOT=true\n");
+        r.append("V18_DICTATION_STOP_RESOLVER=STOP_FIRST_THEN_DICTATION_TOGGLE_FALLBACK\n");
+        r.append("SESSION_END_ESCAPE_HATCH=true\n");
+        r.append("SESSION_STATE=").append(parentString("sessionState")).append('\n');
+        r.append("MIC_LEASE_MODE=").append(parentString("micLeaseMode")).append('\n');
+        r.append("SNAPSHOT_OK=").append(snapOk).append('\n');
+        r.append("SNAPSHOT_OK_COUNT=").append(snapOkCount).append('\n');
+        r.append("SNAPSHOT_FAIL_COUNT=").append(snapFailCount).append('\n');
+        r.append("CONTROL_DICTATION_COUNT=").append(dictationCount).append('\n');
+        r.append("CONTROL_STOP_COUNT=").append(stopCount).append('\n');
+        r.append("CONTROL_SEND_COUNT=").append(sendCount).append('\n');
+        r.append("CONTROL_CANCEL_COUNT=").append(cancelCount).append('\n');
+        r.append("CONTROL_VOICE_START_COUNT=").append(voiceStartCount).append('\n');
+        r.append("CONTROL_VOICE_END_COUNT=").append(voiceEndCount).append('\n');
+        r.append("CONTROL_MUTE_COUNT=").append(muteCount).append('\n');
+        r.append("CONTROL_UNMUTE_COUNT=").append(unmuteCount).append('\n');
+        r.append("COMPOSER_LENGTH=").append(composerLen).append('\n');
+        r.append("COMPOSER_HASH=").append(composerHash).append('\n');
+        r.append("USER_TURN_COUNT=").append(userCount).append('\n');
+        r.append("ASSISTANT_TURN_COUNT=").append(assistantCount).append('\n');
+        r.append("LAST_ASSISTANT_LENGTH=").append(assistantLen).append('\n');
+        r.append("LAST_ASSISTANT_HASH=").append(assistantHash).append('\n');
+        r.append("RUN_STATE=").append(runState18).append('\n');
+        r.append("RUN_STOP_PRESENT=").append(runStop).append('\n');
+        r.append("V18_PENDING_ACTION=").append(pending18 == null ? "NONE" : safe18(pending18.action)).append('\n');
+        r.append("PARENT_PENDING_ACTION=").append(parentPendingAction() == null ? "NONE" : safe18(parentPendingAction())).append('\n');
+        r.append("LAST_ACTION=").append(safe18(last18Action)).append('\n');
+        r.append("LAST_ACTION_STATUS=").append(safe18(last18Status)).append('\n');
+        r.append("LAST_RESOLVER_MATCHES=").append(lastResolverMatches).append('\n');
+        r.append("LAST_RESOLVER_VISIBLE_BUTTONS=").append(lastResolverVisibleButtons).append('\n');
+        r.append("LAST_RESOLVER_KINDS=").append(safe18(lastResolverKinds)).append('\n');
+        r.append("FORCED_SESSION_END_COUNT=").append(forcedSessionEnds).append('\n');
+        r.append("LAST_SESSION_END_RELOADED=").append(lastSessionEndReloaded).append('\n');
+        r.append("SEMANTIC_SHADOW_AND_SAME_ORIGIN_FRAME_FALLBACK=true\n");
+        r.append("COORDINATE_ACTIONS_USED=false\n");
+        r.append("PRIVATE_CHATGPT_API_USED=false\n");
+        r.append("RAW_AUDIO_RETAINED=false\n");
+        r.append("RAW_SPEECH_RETAINED=false\n");
+        r.append("RAW_CHAT_TEXT_RETAINED=false\n");
         r.append("--- V18 EVENT LOG ---\n").append(events18);
         return r.toString();
     }
 
-    private String pendingAction18() {
-        try { Object p = getParentField18("pending"); return p == null ? "NONE" : String.valueOf(getObjectField18(p, "action")); }
-        catch (Exception e) { return "ERR"; }
+    private static JSONObject jsonObject18(String value) throws Exception {
+        Object x = new JSONTokener(value == null ? "null" : value).nextValue();
+        if (x instanceof String) x = new JSONTokener((String) x).nextValue();
+        if (!(x instanceof JSONObject)) throw new IllegalStateException("not_object");
+        return (JSONObject) x;
     }
 
-    private Object invokeParentPrivate18(String method, Class<?>[] sig, Object[] args) throws Exception {
-        Method m = OrchestratorFoundationV16Activity.class.getDeclaredMethod(method, sig);
-        m.setAccessible(true);
-        return m.invoke(this, args);
+    private WebView findWeb18(View v) {
+        if (v instanceof WebView) return (WebView) v;
+        if (!(v instanceof ViewGroup)) return null;
+        ViewGroup g = (ViewGroup) v;
+        for (int i = 0; i < g.getChildCount(); i++) {
+            WebView w = findWeb18(g.getChildAt(i));
+            if (w != null) return w;
+        }
+        return null;
     }
-    private void invokeParentPrivateQuiet(String method, Class<?>[] sig, Object[] args) {
-        try { invokeParentPrivate18(method, sig, args); } catch (Exception e) { ev18(method + "_REFLECTION_FAIL_" + e.getClass().getSimpleName()); }
+
+    private void ev18(String s) {
+        if (events18.length() < 30000) {
+            events18.append(new SimpleDateFormat("HH:mm:ss.SSS", Locale.US).format(new Date()))
+                    .append(" | ").append(safe18(s)).append('\n');
+        }
     }
-    private void invokeParentNoArg(String method) { invokeParentPrivateQuiet(method, new Class<?>[0], new Object[0]); }
-    private Object getParentField18(String name) throws Exception { Field f = OrchestratorFoundationV16Activity.class.getDeclaredField(name); f.setAccessible(true); return f.get(this); }
-    private void setParentField18(String name, Object value) throws Exception { Field f = OrchestratorFoundationV16Activity.class.getDeclaredField(name); f.setAccessible(true); f.set(this, value); }
-    private void setParentQuiet(String name, Object value) { try { setParentField18(name, value); } catch (Exception e) { ev18("SET_PARENT_" + name + "_FAIL_" + e.getClass().getSimpleName()); } }
-    private static Object getObjectField18(Object obj, String name) throws Exception { Field f = obj.getClass().getDeclaredField(name); f.setAccessible(true); return f.get(obj); }
-    private String strParent(String name) { try { return String.valueOf(getParentField18(name)); } catch (Exception e) { return "-"; } }
-    private boolean trustedUrl18(String s) { try { Uri u = Uri.parse(s == null ? "" : s); return "https".equalsIgnoreCase(u.getScheme()) && "chatgpt.com".equalsIgnoreCase(u.getHost()); } catch (Exception e) { return false; } }
-    private WebView findWeb18(View v) { if (v instanceof WebView) return (WebView) v; if (!(v instanceof ViewGroup)) return null; ViewGroup g = (ViewGroup) v; for (int i=0;i<g.getChildCount();i++){ WebView w=findWeb18(g.getChildAt(i)); if(w!=null)return w;} return null; }
-    private static JSONObject jsonObject18(String value) throws Exception { Object x = new JSONTokener(value == null ? "null" : value).nextValue(); if (x instanceof String) x = new JSONTokener((String)x).nextValue(); if (!(x instanceof JSONObject)) throw new IllegalStateException("not_object"); return (JSONObject)x; }
-    private void ev18(String s) { if (events18.length() < 30000) events18.append(new SimpleDateFormat("HH:mm:ss.SSS", Locale.US).format(new Date())).append(" | ").append(tok18(s)).append('\n'); }
-    private static String tok18(String s) { String x=s==null?"-":s.replaceAll("[^A-Za-z0-9_.:+/@= -]","_"); return x.length()>240?x.substring(0,240):x; }
-    private static String js18(String s) { return (s==null?"":s).replace("\\","\\\\").replace("'","\\'").replace("\n","\\n").replace("\r","\\r"); }
+
+    private static String safe18(String s) {
+        String x = s == null ? "-" : s.replaceAll("[^A-Za-z0-9_.:+/@=, -]", "_");
+        return x.length() > 260 ? x.substring(0, 260) : x;
+    }
+
+    private static String js18(String s) {
+        return (s == null ? "" : s).replace("\\", "\\\\").replace("'", "\\'")
+                .replace("\n", "\\n").replace("\r", "\\r");
+    }
+
     private int dp18(int v) { return Math.round(v * getResources().getDisplayMetrics().density); }
-    @Override protected void onDestroy() { h18.removeCallbacksAndMessages(null); super.onDestroy(); }
+
+    @Override protected void onDestroy() {
+        h18.removeCallbacksAndMessages(null);
+        super.onDestroy();
+    }
+
+    private static final class Pending18 {
+        String action;
+        String claimId;
+        boolean dispatched;
+        long dispatchedAt;
+        long deadlineAt;
+        int baselineComposerLen;
+        String baselineComposerHash = "-";
+        int baselineUserCount;
+    }
 }
