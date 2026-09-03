@@ -18,7 +18,8 @@
         <activity android:name=".OrchestratorFoundationV15Activity" android:exported="false" />
         <activity android:name=".OrchestratorFoundationV16Activity" android:exported="false" />
         <activity android:name=".OrchestratorFoundationV17Activity" android:exported="false" />
-        <activity android:name=".OrchestratorFoundationV18Activity" android:exported="true">
+        <activity android:name=".OrchestratorFoundationV18Activity" android:exported="false" />
+        <activity android:name=".OrchestratorAutonomousV19Activity" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
