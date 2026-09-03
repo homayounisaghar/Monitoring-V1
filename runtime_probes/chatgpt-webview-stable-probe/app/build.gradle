@@ -1,0 +1,14 @@
+plugins { id 'com.android.application' }
+
+android {
+    namespace 'com.homayounisaghar.chatgptwebviewprobe'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'com.homayounisaghar.chatgptwebviewprobe'
+        minSdk 29
+        targetSdk 35
+        versionCode 3
+        versionName '0.3-stable-download-observability'
+    }
+}
