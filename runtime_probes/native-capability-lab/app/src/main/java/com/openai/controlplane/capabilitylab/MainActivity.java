@@ -32,9 +32,9 @@ import java.io.OutputStream;
 
 public class MainActivity extends Activity {
     private static final String SCREEN_DESCRIPTION =
-            "Stable v0.21 tests the final HistoryTitleBinding chain after the accessibility-ID boundary closed negative on v0.20. "
+            "Stable v0.22 tests a temporal History-title set-difference before the existing bounded rename/reopen chain. "
           + "It creates one fresh synthetic marker chat, sends exactly once under the proven CLAIM/no-replay contract, then opens official History. "
-          + "The row may be touched only when it is uniquely correlated to the currently open conversation by structural current-row state, with a unique run-specific title seed as a bounded fallback. "
+          + "Before creating the fresh chat it records a read-only History title baseline. After Send, a row may be touched only when History has exactly one additional row and exactly one current title is absent from that baseline; structurally-current row state remains an independent stronger signal when present. "
           + "It long-clicks only that History row, requires a unique Rename action and one editable title field, sets a synthetic unique title, persists a separate durable RENAME_CLAIM before the single commit action, and requires the renamed title to appear exactly once as the mutation receipt. "
           + "Finally it opens only that uniquely renamed row and requires the original synthetic chat marker to be present before declaring PASS. No unrelated History row is walked. "
           + "No private ChatGPT API is called, no credentials are extracted, and no coordinate writes, gestures, or global actions are used.";
@@ -117,7 +117,7 @@ public class MainActivity extends Activity {
         shizukuGrantButton = button("Optional Shizuku permission", v -> requestShizukuPermission());
         root.addView(shizukuGrantButton);
 
-        runButton = button("RUN HISTORY TITLE BINDING PROOF", v -> startSuite());
+        runButton = button("RUN HISTORY TITLE DIFF BINDING PROOF", v -> startSuite());
         root.addView(runButton);
         resetButton = button("Reset Lab run state", v -> {
             if ("RUNNING".equals(LabStore.status(this))) return;
@@ -334,7 +334,7 @@ public class MainActivity extends Activity {
         } else if (!aLive || !nLive) {
             styleBanner("SETUP REQUIRED — follow the BLUE button", AMBER);
         } else if (starting) {
-            styleBanner("STARTING HISTORY TITLE BINDING PROOF…", BLUE);
+            styleBanner("STARTING HISTORY TITLE DIFF BINDING PROOF…", BLUE);
         } else if (running) {
             styleBanner("TEST RUNNING — step " + LabStore.step(this) + "\nDo not operate ChatGPT.", AMBER);
         } else if (finished && runStatus.startsWith("PASS")) {
@@ -359,7 +359,7 @@ public class MainActivity extends Activity {
         b.append("Full report file: ").append(LabStore.reportFileName(this).isEmpty() ? "<created when run starts>" : LabStore.reportFileName(this)).append('\n');
         if (!exact) b.append("\nBLOCKED: exact official ChatGPT profile is required.\n");
         else if (!aLive || !nLive) b.append("\nSETUP: grant both Lab services and return here.\n");
-        else if (running || starting) b.append("\nRUNNING: the Lab is executing one bounded HistoryTitleBinding rename/reopen proof. No screenshots are expected; the report file captures the evidence.\n");
+        else if (running || starting) b.append("\nRUNNING: the Lab is executing one bounded temporal History-title diff plus rename/reopen proof. No screenshots are expected; the report file captures the evidence.\n");
         else if (finished) b.append("\nFINISHED: tap DOWNLOAD FULL REPORT and send the .txt file. COPY FINAL REPORT remains a fallback. Reset only before a deliberate new run.\n");
         else b.append("\nREADY: one tap creates one synthetic chat, switches away, reopens History, and verifies the newest semantic row. Do not manually operate ChatGPT while the run is active.\n");
 
@@ -382,7 +382,7 @@ public class MainActivity extends Activity {
                 shizukuReady ? "✓ Optional Shizuku permission granted" : "Optional: Grant Shizuku permission",
                 shizukuReady ? GREEN : GRAY, true);
         styleButton(runButton,
-                running ? "HISTORY TITLE BINDING PROOF RUNNING…" : "RUN HISTORY TITLE BINDING PROOF",
+                running ? "HISTORY TITLE DIFF BINDING PROOF RUNNING…" : "RUN HISTORY TITLE DIFF BINDING PROOF",
                 readyToRun ? BLUE : GRAY, readyToRun);
         styleButton(resetButton,
                 finished ? "Reset completed run" : "Reset Lab run state",

@@ -78,6 +78,8 @@ public class LabAccessibilityService extends AccessibilityService {
             tryHistoryBoundaryCalibration(expectedStep);
         } else if (state.startsWith("WAITING_HISTORY_RECENT_")) {
             tryHistoryRecentBinding(expectedStep);
+        } else if (state.startsWith("WAITING_HISTORY_TITLE_BASELINE_")) {
+            tryHistoryTitleBaseline(expectedStep);
         } else if (state.startsWith("WAITING_HISTORY_TITLE_")) {
             tryHistoryTitleBinding(expectedStep);
         } else if (state.startsWith("WAITING_HISTORY_REFRESH")) {
@@ -186,6 +188,9 @@ public class LabAccessibilityService extends AccessibilityService {
                 case "history_recent_binding":
                     opHistoryRecentBinding(step, i);
                     break;
+                case "history_title_baseline":
+                    opHistoryTitleBaseline(step, i);
+                    break;
                 case "history_title_binding":
                     opHistoryTitleBinding(step, i);
                     break;
@@ -244,7 +249,7 @@ public class LabAccessibilityService extends AccessibilityService {
             marker = "LAB_CID_" + UUID.randomUUID().toString().replace("-", "").substring(0, 16).toUpperCase(Locale.US);
             LabStore.setMarker(this, marker);
         }
-        String prompt = step.optString("prompt", "Capability Lab proof {{marker}}").replace("{{marker}}", marker).replace("{{titleSeed}}", titleSeedForMarker(marker));
+        String prompt = step.optString("prompt", "Capability Lab proof {{marker}}").replace("{{marker}}", marker);
         Uri uri = Uri.parse("https://chatgpt.com/c").buildUpon().appendQueryParameter("prompt", prompt).build();
         Intent i = new Intent(Intent.ACTION_VIEW, uri);
         i.setComponent(new ComponentName(ProfileGuard.CHATGPT_PACKAGE, ProfileGuard.CHATGPT_DEEPLINK));
@@ -1047,6 +1052,128 @@ public class LabAccessibilityService extends AccessibilityService {
         return false;
     }
 
+    private void opHistoryTitleBaseline(JSONObject step, int stepIndex) {
+        if (!isCurrentStep(stepIndex)) return;
+        LabStore.setState(this, "WAITING_HISTORY_TITLE_BASELINE_OPEN");
+        LabStore.append(this, "HISTORY_TITLE_BASELINE_ARMED");
+        armTimeout(step.optLong("timeoutMs", 20000L), "HISTORY_TITLE_BASELINE_TIMEOUT", stepIndex);
+        handler.postDelayed(() -> tryHistoryTitleBaseline(stepIndex), 200L);
+    }
+
+    private void tryHistoryTitleBaseline(int expectedStep) {
+        if (!isCurrentStep(expectedStep)) return;
+        String state = LabStore.state(this);
+        if (!state.startsWith("WAITING_HISTORY_TITLE_BASELINE_")) return;
+        List<AccessibilityNodeInfo> roots = chatGptRoots();
+        if (roots.isEmpty()) return;
+
+        if ("WAITING_HISTORY_TITLE_BASELINE_OPEN".equals(state)) {
+            if (isRuntimeHistoryDrawer(roots) || anyHistoryDrawerScreen(roots)) {
+                armHistoryTitleBaselineSettle(expectedStep);
+                return;
+            }
+            AccessibilityNodeInfo historyEntry = findUniqueHistoryEntryAcrossRoots(roots);
+            if (historyEntry == null) return;
+            LabStore.setState(this, "WAITING_HISTORY_TITLE_BASELINE_DRAWER");
+            if (!performBoundedNavigation(historyEntry, "HISTORY_TITLE_BASELINE_OPEN",
+                    "Open conversation history", "Open sidebar", "Open navigation",
+                    "Open navigation menu", "Navigation menu", "Menu")) {
+                failRun("HISTORY_TITLE_BASELINE_OPEN_ACTION_FALSE");
+                return;
+            }
+            handler.postDelayed(() -> tryHistoryTitleBaseline(expectedStep), 280L);
+            return;
+        }
+
+        if ("WAITING_HISTORY_TITLE_BASELINE_DRAWER".equals(state)) {
+            if (!(isRuntimeHistoryDrawer(roots) || anyHistoryDrawerScreen(roots))) return;
+            armHistoryTitleBaselineSettle(expectedStep);
+            return;
+        }
+
+        if ("WAITING_HISTORY_TITLE_BASELINE_SETTLE".equals(state)) {
+            if (!(isRuntimeHistoryDrawer(roots) || anyHistoryDrawerScreen(roots))) return;
+            long remaining = LabStore.waitUntil(this) - System.currentTimeMillis();
+            if (remaining > 0L) {
+                handler.postDelayed(() -> tryHistoryTitleBaseline(expectedStep), Math.min(remaining, 250L));
+                return;
+            }
+            List<AccessibilityNodeInfo> rows = historyConversationRows(roots);
+            String baseline = serializeHistoryTitleBaseline(rows);
+            LabStore.setHistoryTitleBaseline(this, baseline);
+            LabStore.append(this, "HISTORY_TITLE_BASELINE_CAPTURED rowCount=" + rows.size()
+                    + " titledCount=" + countSerializedBaselineTitles(baseline)
+                    + " baseline=" + LabStore.abbrev(baseline.replace('\n', '|'), 12000));
+            cancelTimeout();
+            completeStep(expectedStep);
+        }
+    }
+
+    private void armHistoryTitleBaselineSettle(int expectedStep) {
+        long settle = 1400L;
+        try {
+            JSONObject step = steps().getJSONObject(expectedStep);
+            settle = Math.max(300L, Math.min(step.optLong("settleMs", 1400L), 5000L));
+        } catch (Throwable ignored) {}
+        LabStore.setWaitUntil(this, System.currentTimeMillis() + settle);
+        LabStore.setState(this, "WAITING_HISTORY_TITLE_BASELINE_SETTLE");
+        LabStore.append(this, "HISTORY_TITLE_BASELINE_SETTLE ms=" + settle);
+        handler.postDelayed(() -> tryHistoryTitleBaseline(expectedStep), Math.min(settle, 300L));
+    }
+
+    private String normalizeHistoryTitle(String raw) {
+        if (raw == null) return "";
+        return raw.trim().toLowerCase(Locale.US).replaceAll("\\s+", " ");
+    }
+
+    private String serializeHistoryTitleBaseline(List<AccessibilityNodeInfo> rows) {
+        StringBuilder b = new StringBuilder();
+        int count = rows == null ? 0 : rows.size();
+        b.append("#rows=").append(count);
+        if (rows != null) {
+            for (AccessibilityNodeInfo row : rows) {
+                String title = normalizeHistoryTitle(historyRowTitle(row));
+                if (!title.isEmpty()) b.append('\n').append(title);
+            }
+        }
+        return b.toString();
+    }
+
+    private int baselineHistoryRowCount(String baseline) {
+        if (baseline == null) return -1;
+        String[] lines = baseline.split("\\n");
+        if (lines.length == 0 || !lines[0].startsWith("#rows=")) return -1;
+        try { return Integer.parseInt(lines[0].substring(6)); }
+        catch (Throwable ignored) { return -1; }
+    }
+
+    private int countSerializedBaselineTitles(String baseline) {
+        if (baseline == null || baseline.isEmpty()) return 0;
+        int count = 0;
+        for (String line : baseline.split("\\n")) {
+            if (!line.isEmpty() && !line.startsWith("#rows=")) count++;
+        }
+        return count;
+    }
+
+    private int countBaselineTitle(String baseline, String normalizedTitle) {
+        if (baseline == null || normalizedTitle == null || normalizedTitle.isEmpty()) return 0;
+        int count = 0;
+        for (String line : baseline.split("\\n")) {
+            if (normalizedTitle.equals(line)) count++;
+        }
+        return count;
+    }
+
+    private int countCurrentNormalizedTitle(List<AccessibilityNodeInfo> rows, String normalizedTitle) {
+        if (rows == null || normalizedTitle == null || normalizedTitle.isEmpty()) return 0;
+        int count = 0;
+        for (AccessibilityNodeInfo row : rows) {
+            if (normalizedTitle.equals(normalizeHistoryTitle(historyRowTitle(row)))) count++;
+        }
+        return count;
+    }
+
     private String titleSeedForMarker(String marker) {
         String x = marker == null ? "" : marker.replace("LAB_CID_", "").trim();
         if (x.length() > 10) x = x.substring(0, 10);
@@ -1063,7 +1190,7 @@ public class LabAccessibilityService extends AccessibilityService {
         if (!isCurrentStep(stepIndex)) return;
         LabStore.setState(this, "WAITING_HISTORY_TITLE_OPEN");
         LabStore.append(this, "HISTORY_TITLE_BINDING_ARMED marker=" + LabStore.marker(this)
-                + " titleSeed=" + titleSeedForMarker(LabStore.marker(this))
+                + " baselineRows=" + baselineHistoryRowCount(LabStore.historyTitleBaseline(this))
                 + " renameTitle=" + renameTitleForMarker(LabStore.marker(this)));
         armTimeout(step.optLong("timeoutMs", 36000L), "HISTORY_TITLE_BINDING_TIMEOUT", stepIndex);
         handler.postDelayed(() -> tryHistoryTitleBinding(stepIndex), 200L);
@@ -1112,9 +1239,22 @@ public class LabAccessibilityService extends AccessibilityService {
                     + " rows=" + LabStore.abbrev(historyTitleRowStateCensus(rows), 18000));
             AccessibilityNodeInfo row = uniqueFreshRowForRename(rows);
             if (row == null) {
+                long waitMax = 15000L;
+                try {
+                    JSONObject step = steps().getJSONObject(expectedStep);
+                    waitMax = Math.max(1500L, Math.min(step.optLong("correlationWaitMs", 15000L), 25000L));
+                } catch (Throwable ignored) {}
+                long sinceSend = LabStore.sinceSendMs(this);
+                if (sinceSend >= 0L && sinceSend < waitMax) {
+                    LabStore.append(this, "HISTORY_TITLE_CORRELATION_WAIT sinceSendMs=" + sinceSend
+                            + " maxMs=" + waitMax
+                            + " action=read_only_retry_no_row_mutation");
+                    handler.postDelayed(() -> tryHistoryTitleBinding(expectedStep), 750L);
+                    return;
+                }
                 LabStore.append(this, "HISTORY_TITLE_NO_SAFE_FRESH_ROW currentRows="
                         + countStructurallyCurrentHistoryRows(rows)
-                        + " seed=" + titleSeedForMarker(LabStore.marker(this))
+                        + " baselineRows=" + baselineHistoryRowCount(LabStore.historyTitleBaseline(this))
                         + " action=observation_only_no_row_mutation");
                 cancelTimeout();
                 completeStep(expectedStep);
@@ -1257,18 +1397,37 @@ public class LabAccessibilityService extends AccessibilityService {
             LabStore.append(this, "HISTORY_TITLE_ROW_CORRELATION source=unique_structurally_current");
             return current;
         }
-        String seed = titleSeedForMarker(LabStore.marker(this)).toLowerCase(Locale.US);
-        AccessibilityNodeInfo found = null;
-        int count = 0;
-        for (AccessibilityNodeInfo row : rows) {
-            String title = historyRowTitle(row).toLowerCase(Locale.US);
-            if (!title.contains(seed)) continue;
-            count++;
-            if (found == null) found = row;
+
+        String baseline = LabStore.historyTitleBaseline(this);
+        int baselineRows = baselineHistoryRowCount(baseline);
+        if (baselineRows < 0) {
+            LabStore.append(this, "HISTORY_TITLE_ROW_CORRELATION source=temporal_title_diff baseline=missing");
+            return null;
         }
-        LabStore.append(this, "HISTORY_TITLE_ROW_CORRELATION source=title_seed seed=" + seed
-                + " matches=" + count);
-        return count == 1 ? found : null;
+        boolean rowDeltaOne = rows != null && rows.size() == baselineRows + 1;
+        AccessibilityNodeInfo found = null;
+        int candidateCount = 0;
+        StringBuilder added = new StringBuilder();
+        if (rows != null) {
+            for (AccessibilityNodeInfo row : rows) {
+                String title = normalizeHistoryTitle(historyRowTitle(row));
+                if (title.isEmpty()) continue;
+                int before = countBaselineTitle(baseline, title);
+                int now = countCurrentNormalizedTitle(rows, title);
+                if (before != 0 || now != 1) continue;
+                candidateCount++;
+                found = row;
+                if (added.length() > 0) added.append(" || ");
+                added.append(title);
+            }
+        }
+        LabStore.append(this, "HISTORY_TITLE_ROW_CORRELATION source=temporal_title_diff"
+                + " baselineRows=" + baselineRows
+                + " currentRows=" + (rows == null ? 0 : rows.size())
+                + " rowDeltaOne=" + rowDeltaOne
+                + " candidates=" + candidateCount
+                + " addedTitles=" + LabStore.abbrev(added.toString(), 1200));
+        return rowDeltaOne && candidateCount == 1 ? found : null;
     }
 
     private String historyTitleRowStateCensus(List<AccessibilityNodeInfo> rows) {

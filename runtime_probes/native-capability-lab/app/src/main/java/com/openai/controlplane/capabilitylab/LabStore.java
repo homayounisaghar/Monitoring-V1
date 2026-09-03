@@ -74,6 +74,7 @@ final class LabStore {
                 .putBoolean("historyBindingVerified", false)
                 .putString("historyCandidateTitle", "")
                 .putString("historyVerifiedTitle", "")
+                .putString("historyTitleBaseline", "")
                 .putBoolean("calibrationMode", false)
                 .putString("calibrationVerifiedId", "")
                 .putString("historyBaselineItemIds", "")
@@ -124,6 +125,7 @@ final class LabStore {
     static boolean historyTitleBindingVerified(Context c) { return p(c).getBoolean("historyTitleBindingVerified", false); }
     static String historyCandidateTitle(Context c) { return p(c).getString("historyCandidateTitle", ""); }
     static String historyVerifiedTitle(Context c) { return p(c).getString("historyVerifiedTitle", ""); }
+    static String historyTitleBaseline(Context c) { return p(c).getString("historyTitleBaseline", ""); }
     static boolean calibrationMode(Context c) { return p(c).getBoolean("calibrationMode", false); }
     static String calibrationVerifiedId(Context c) { return p(c).getString("calibrationVerifiedId", ""); }
     static String historyBaselineItemIds(Context c) { return p(c).getString("historyBaselineItemIds", ""); }
@@ -146,6 +148,9 @@ final class LabStore {
     static void setCandidateIndex(Context c, int value) { p(c).edit().putInt("candidateIndex", value).apply(); }
     static void setHistoryCandidateTitle(Context c, String value) {
         p(c).edit().putString("historyCandidateTitle", value == null ? "" : value).apply();
+    }
+    static void setHistoryTitleBaseline(Context c, String value) {
+        p(c).edit().putString("historyTitleBaseline", value == null ? "" : value).commit();
     }
     static void setCalibrationMode(Context c, boolean value) { p(c).edit().putBoolean("calibrationMode", value).apply(); }
     static void setHistoryBaselineItemIds(Context c, String value) {
