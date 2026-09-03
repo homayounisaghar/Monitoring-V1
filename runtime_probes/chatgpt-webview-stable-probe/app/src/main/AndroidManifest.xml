@@ -1,6 +1,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
     <application android:theme="@style/AppTheme" android:label="ChatGPT WebView Probe Stable" android:usesCleartextTraffic="false">
         <activity android:name=".MainActivity" android:exported="false" />
         <activity android:name=".CapabilitySuiteActivity" android:exported="false" />
@@ -12,7 +13,8 @@
         <activity android:name=".AudioModelSuiteV11Activity" android:exported="false" />
         <activity android:name=".AudioModelSuiteV11FinalActivity" android:exported="false" />
         <activity android:name=".AudioCaptureDiagV12Activity" android:exported="false" />
-        <activity android:name=".AudioEarlyTraceV13Activity" android:exported="true">
+        <activity android:name=".AudioEarlyTraceV13Activity" android:exported="false" />
+        <activity android:name=".AudioFixVisibleActivityV14Activity" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
