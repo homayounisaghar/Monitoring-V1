@@ -10,7 +10,8 @@
         <activity android:name=".ResourceSuiteV10Activity" android:exported="false" />
         <activity android:name=".ResourceSuiteV10FinalActivity" android:exported="false" />
         <activity android:name=".AudioModelSuiteV11Activity" android:exported="false" />
-        <activity android:name=".AudioModelSuiteV11FinalActivity" android:exported="true">
+        <activity android:name=".AudioModelSuiteV11FinalActivity" android:exported="false" />
+        <activity android:name=".AudioCaptureDiagV12Activity" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
