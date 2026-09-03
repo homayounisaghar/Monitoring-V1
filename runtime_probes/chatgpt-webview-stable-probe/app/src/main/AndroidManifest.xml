@@ -14,7 +14,8 @@
         <activity android:name=".AudioModelSuiteV11FinalActivity" android:exported="false" />
         <activity android:name=".AudioCaptureDiagV12Activity" android:exported="false" />
         <activity android:name=".AudioEarlyTraceV13Activity" android:exported="false" />
-        <activity android:name=".AudioFixVisibleActivityV14Activity" android:exported="true">
+        <activity android:name=".AudioFixVisibleActivityV14Activity" android:exported="false" />
+        <activity android:name=".OrchestratorFoundationV15Activity" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
