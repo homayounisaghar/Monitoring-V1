@@ -23,7 +23,8 @@
         <activity android:name=".OrchestratorSemanticFingerprintV20Activity" android:exported="false" />
         <activity android:name=".OrchestratorAutonomousV21Activity" android:exported="false" />
         <activity android:name=".OrchestratorAutonomousV22Activity" android:exported="false" />
-        <activity android:name=".OrchestratorAutonomousV23Activity" android:exported="true">
+        <activity android:name=".OrchestratorAutonomousV23Activity" android:exported="false" />
+        <activity android:name=".OrchestratorAutonomousV24Activity" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
