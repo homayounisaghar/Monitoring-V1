@@ -1,4 +1,4 @@
-name: ChatGPT WebView Stable v0.18 Audio Adapter V2 Hard Recovery Release Kit
+name: ChatGPT WebView Stable v0.18 Snapshot Dictation Repair Release Kit
 
 on:
   push:
@@ -8,6 +8,7 @@ on:
       - '.github/workflows/chatgpt-webview-stable-v18-build.yml'
       - 'runtime_probes/chatgpt-webview-stable-probe/app/src/main/AndroidManifest.xml'
       - 'runtime_probes/chatgpt-webview-stable-probe/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/OrchestratorFoundationV18Activity.java'
+      - 'runtime_probes/chatgpt-webview-stable-probe/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/OrchestratorFoundationV17Activity.java'
       - 'runtime_probes/chatgpt-webview-stable-probe/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/OrchestratorFoundationV16Activity.java'
       - 'runtime_probes/chatgpt-webview-stable-probe/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/AudioFixVisibleActivityV14Activity.java'
       - 'runtime_probes/chatgpt-webview-stable-probe/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/AudioEarlyTraceV13Activity.java'
@@ -39,23 +40,25 @@ jobs:
           p = Path('runtime_probes/chatgpt-webview-stable-probe/app/build.gradle')
           s = p.read_text()
           s = re.sub(r'versionCode\s+\d+', 'versionCode 18', s)
-          s = re.sub(r"versionName\s+'[^']+'", "versionName '0.18-stable-audio-adapter-v2-hard-recovery'", s)
+          s = re.sub(r"versionName\s+'[^']+'", "versionName '0.18-stable-snapshot-dictation-repair'", s)
           p.write_text(s)
           PY
 
           grep -Fq "applicationId 'com.homayounisaghar.chatgptwebviewprobe'" "$GRADLE"
           grep -Fq 'versionCode 18' "$GRADLE"
-          grep -Fq "versionName '0.18-stable-audio-adapter-v2-hard-recovery'" "$GRADLE"
+          grep -Fq "versionName '0.18-stable-snapshot-dictation-repair'" "$GRADLE"
           grep -Fq 'OrchestratorFoundationV18Activity' "$MAN"
           grep -Fq 'android.permission.INTERNET' "$MAN"
           grep -Fq 'android.permission.RECORD_AUDIO' "$MAN"
           grep -Fq 'android.permission.MODIFY_AUDIO_SETTINGS' "$MAN"
           test "$(grep -c '<uses-permission' "$MAN")" -eq 3
-          grep -Fq 'AUDIO_LIFECYCLE_GLOBAL_PENDING_LOCK=false' "$ACT"
-          grep -Fq 'SESSION_END_HARD_RECOVERY=true' "$ACT"
-          grep -Fq 'dictation_toggle_fallback' "$ACT"
+          grep -Fq 'V16_SNAPSHOT_SOURCE_BUG=DUPLICATE_CONST_C_IN_SAME_FUNCTION_SCOPE' "$ACT"
+          grep -Fq 'V18_USES_INDEPENDENT_FIXED_SNAPSHOT=true' "$ACT"
+          grep -Fq 'V18_DICTATION_STOP_RESOLVER=STOP_FIRST_THEN_DICTATION_TOGGLE_FALLBACK' "$ACT"
+          grep -Fq 'SESSION_END_ESCAPE_HATCH=true' "$ACT"
+          grep -Fq 'const CNT=k=>' "$ACT"
           grep -Fq 'setMediaPlaybackRequiresUserGesture(false)' "$ACT"
-          grep -Fq 'SEMANTIC_COORDINATES_USED=false' "$ACT"
+          grep -Fq 'COORDINATE_ACTIONS_USED=false' "$ACT"
           ! grep -Fq 'dispatchGesture' "$ACT"
           ! grep -Fq 'getBoundsInScreen' "$ACT"
           ! grep -R -n -E 'api\.openai\.com|Authorization: Bearer|access_token|refresh_token' "$ROOT"
@@ -102,7 +105,7 @@ jobs:
           set -euo pipefail
           AAPT="$ANDROID_SDK_ROOT/build-tools/35.0.0/aapt"
           "$AAPT" dump badging ci/out/chatgpt-webview-stable-v18-unsigned.apk | tee ci/out/badging.txt
-          grep -Fq "package: name='com.homayounisaghar.chatgptwebviewprobe' versionCode='18' versionName='0.18-stable-audio-adapter-v2-hard-recovery'" ci/out/badging.txt
+          grep -Fq "package: name='com.homayounisaghar.chatgptwebviewprobe' versionCode='18' versionName='0.18-stable-snapshot-dictation-repair'" ci/out/badging.txt
           "$AAPT" dump permissions ci/out/chatgpt-webview-stable-v18-unsigned.apk | tee ci/out/permissions.txt
           grep -Fq 'android.permission.INTERNET' ci/out/permissions.txt
           grep -Fq 'android.permission.RECORD_AUDIO' ci/out/permissions.txt
