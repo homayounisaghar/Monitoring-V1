@@ -39,242 +39,223 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
 
-/**
- * Stable v0.12 layered microphone diagnostic.
+/** Stable v0.12 layered microphone diagnostic.
  *
- * It deliberately separates four questions that v0.11 could not distinguish:
- * 1) Android runtime/AppOps/global microphone privacy state.
- * 2) Native AudioRecord capture from this app process.
- * 3) Web Permissions API state for microphone on https://chatgpt.com.
- * 4) A real same-origin navigator.mediaDevices.getUserMedia({audio:true}) self-test.
- *
- * The JavaScript probe stores only API/result metadata. It never retains PCM,
- * speech, chat text, device identifiers, device labels, cookies, or tokens.
+ * Separates Android process capture from Web getUserMedia. No PCM, speech,
+ * chat text, device ids/labels, cookies or tokens are retained.
  */
 public class AudioCaptureDiagV12Activity extends AudioModelSuiteV11FinalActivity {
     private static final int REQ_V12_AUDIO = 1201;
-    private static final long DIAG_MAX_MS = 10L * 60L * 1000L;
+    private static final long LEASE_MS = 10L * 60L * 1000L;
 
-    private final Handler diagHandler = new Handler(Looper.getMainLooper());
-    private final StringBuilder diagEvents = new StringBuilder();
-
-    private WebView diagWeb;
-    private TextView diagStatusView;
+    private final Handler h = new Handler(Looper.getMainLooper());
+    private final StringBuilder events12 = new StringBuilder();
+    private WebView w;
+    private TextView status12;
     private Button diagButton;
-
-    private boolean diagActive = false;
-    private long diagStartedAt = 0L;
-    private long lastEnsureProbeAt = 0L;
+    private boolean active = false;
+    private long startedAt = 0L;
+    private long lastEnsure = 0L;
 
     private String androidPermission = "NOT_CHECKED";
-    private String appOpsRecordAudio = "NOT_CHECKED";
-    private String globalMicPrivacy = "NOT_CHECKED";
-    private String audioManagerMicMute = "NOT_CHECKED";
-    private String nativeMicSelftest = "NOT_RUN";
-    private String jsProbeStatus = "NOT_RUN";
-    private String permissionsApiMic = "NOT_RUN";
-    private String enumerateDevicesSummary = "NOT_RUN";
-    private String directGumSelftest = "NOT_RUN";
+    private String appOps = "NOT_CHECKED";
+    private String audioManagerMute = "NOT_CHECKED";
+    private String micToggleSupport = "NOT_CHECKED";
+    private String nativeMic = "NOT_RUN";
+    private String probeInstall = "NOT_RUN";
+    private String permissionApi = "NOT_RUN";
+    private String deviceCensus = "NOT_RUN";
+    private String directGum = "NOT_RUN";
     private String lastGumError = "-";
     private int gumCalls = 0;
     private int gumResolves = 0;
     private int gumRejects = 0;
     private int trackEvents = 0;
-    private int drainedJsEvents = 0;
 
-    private final Runnable diagPoller = new Runnable() {
+    private final Runnable poller = new Runnable() {
         @Override public void run() {
-            if (!diagActive || diagWeb == null) return;
-            if (System.currentTimeMillis() - diagStartedAt > DIAG_MAX_MS) {
-                diagActive = false;
-                localEvent("DIAG_AUTO_STOP_LEASE_EXPIRED");
-                renderDiag();
+            if (!active || w == null) return;
+            if (System.currentTimeMillis() - startedAt > LEASE_MS) {
+                active = false;
+                ev("DIAG_AUTO_STOP_LEASE_EXPIRED");
+                render12();
                 return;
             }
             long now = System.currentTimeMillis();
-            if (now - lastEnsureProbeAt > 500L) {
-                lastEnsureProbeAt = now;
+            if (now - lastEnsure > 500L && trusted(w.getUrl())) {
+                lastEnsure = now;
                 installProbe(false, null);
             }
-            drainJsEvents();
-            renderDiag();
-            diagHandler.postDelayed(this, 140L);
+            drain();
+            render12();
+            h.postDelayed(this, 140L);
         }
     };
 
-    @Override public void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        diagWeb = findWebViewV12(getWindow().getDecorView());
-        if (diagWeb == null) return;
-        diagWeb.setMinimumHeight(Math.max(1, getResources().getDisplayMetrics().heightPixels / 2));
-        installDiagPanel();
-        localEvent("V12_READY");
-        renderDiag();
+    @Override public void onCreate(Bundle b) {
+        super.onCreate(b);
+        w = findWeb(getWindow().getDecorView());
+        if (w == null) return;
+        w.setMinimumHeight(Math.max(1, getResources().getDisplayMetrics().heightPixels / 2));
+        addPanel();
+        ev("V12_READY");
+        render12();
     }
 
-    private void installDiagPanel() {
-        View content = findViewById(android.R.id.content);
-        if (!(content instanceof ViewGroup)) return;
-        ViewGroup cg = (ViewGroup) content;
+    private void addPanel() {
+        View c = findViewById(android.R.id.content);
+        if (!(c instanceof ViewGroup)) return;
+        ViewGroup cg = (ViewGroup) c;
         if (cg.getChildCount() == 0 || !(cg.getChildAt(0) instanceof LinearLayout)) return;
         LinearLayout root = (LinearLayout) cg.getChildAt(0);
-        int webIndex = root.indexOfChild(diagWeb);
-        if (webIndex < 0) webIndex = root.getChildCount();
+        int wi = root.indexOfChild(w);
+        if (wi < 0) wi = root.getChildCount();
 
         LinearLayout panel = new LinearLayout(this);
         panel.setOrientation(LinearLayout.VERTICAL);
-
         LinearLayout row = new LinearLayout(this);
         row.setOrientation(LinearLayout.HORIZONTAL);
+
         diagButton = new Button(this);
         diagButton.setText("AUDIO DIAG12");
-        diagButton.setTextSize(8.6f);
-        diagButton.setOnClickListener(v -> startDiagRequested());
-        row.addView(diagButton, new LinearLayout.LayoutParams(0, dp12(39), 1f));
+        diagButton.setTextSize(8.5f);
+        diagButton.setOnClickListener(v -> startRequested());
+        row.addView(diagButton, new LinearLayout.LayoutParams(0, dp(39), 1f));
 
         Button report = new Button(this);
         report.setText("REPORT12");
-        report.setTextSize(8.6f);
-        report.setOnClickListener(v -> downloadReport12());
-        row.addView(report, new LinearLayout.LayoutParams(0, dp12(39), 1f));
+        report.setTextSize(8.5f);
+        report.setOnClickListener(v -> saveReport());
+        row.addView(report, new LinearLayout.LayoutParams(0, dp(39), 1f));
         panel.addView(row, new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, dp12(39)));
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(39)));
 
-        diagStatusView = new TextView(this);
-        diagStatusView.setTextSize(8.8f);
-        diagStatusView.setTextIsSelectable(true);
-        diagStatusView.setPadding(dp12(7), dp12(2), dp12(7), dp12(2));
+        status12 = new TextView(this);
+        status12.setTextSize(8.8f);
+        status12.setTextIsSelectable(true);
+        status12.setPadding(dp(7), dp(2), dp(7), dp(2));
         ScrollView sv = new ScrollView(this);
-        sv.addView(diagStatusView, new ScrollView.LayoutParams(
+        sv.addView(status12, new ScrollView.LayoutParams(
                 ScrollView.LayoutParams.MATCH_PARENT, ScrollView.LayoutParams.WRAP_CONTENT));
         panel.addView(sv, new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, dp12(58)));
-
-        root.addView(panel, webIndex, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(60)));
+        root.addView(panel, wi, new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
     }
 
-    private void startDiagRequested() {
-        if (diagWeb == null || !isTrusted12(diagWeb.getUrl())) {
-            jsProbeStatus = "FAIL_NOT_TRUSTED_CHATGPT_ORIGIN";
-            renderDiag();
+    private void startRequested() {
+        if (w == null || !trusted(w.getUrl())) {
+            probeInstall = "FAIL_NOT_CHATGPT_HTTPS";
+            render12();
             return;
         }
         if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
             androidPermission = "WAITING_RUNTIME_PERMISSION";
             requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO}, REQ_V12_AUDIO);
-            renderDiag();
+            render12();
             return;
         }
-        beginDiag();
+        begin();
     }
 
-    @Override public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+    @Override public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] results) {
+        super.onRequestPermissionsResult(requestCode, permissions, results);
         if (requestCode != REQ_V12_AUDIO) return;
-        if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-            beginDiag();
-        } else {
+        if (results.length > 0 && results[0] == PackageManager.PERMISSION_GRANTED) begin();
+        else {
             androidPermission = "DENIED";
-            jsProbeStatus = "BLOCKED_ANDROID_PERMISSION_DENIED";
-            localEvent("ANDROID_RECORD_AUDIO_DENIED");
-            renderDiag();
+            probeInstall = "BLOCKED_ANDROID_PERMISSION_DENIED";
+            ev("ANDROID_RECORD_AUDIO_DENIED");
+            render12();
         }
     }
 
-    private void beginDiag() {
-        diagHandler.removeCallbacksAndMessages(null);
-        diagEvents.setLength(0);
-        diagActive = true;
-        diagStartedAt = System.currentTimeMillis();
-        lastEnsureProbeAt = 0L;
-        nativeMicSelftest = "RUNNING";
-        jsProbeStatus = "WAITING_NATIVE_SELFTEST";
-        permissionsApiMic = "NOT_RUN";
-        enumerateDevicesSummary = "NOT_RUN";
-        directGumSelftest = "NOT_RUN";
+    private void begin() {
+        h.removeCallbacksAndMessages(null);
+        events12.setLength(0);
+        active = true;
+        startedAt = System.currentTimeMillis();
+        lastEnsure = 0L;
+        permissionApi = "NOT_RUN";
+        deviceCensus = "NOT_RUN";
+        directGum = "NOT_RUN";
         lastGumError = "-";
-        gumCalls = gumResolves = gumRejects = trackEvents = drainedJsEvents = 0;
-        snapshotAndroidMicState();
-        invokeV11StartAudioWatch();
-        localEvent("DIAG_STARTED");
-        renderDiag();
+        gumCalls = gumResolves = gumRejects = trackEvents = 0;
+        snapshotAndroid();
+        armV11AudioLease();
+        nativeMic = "RUNNING";
+        probeInstall = "WAITING_NATIVE_SELFTEST";
+        ev("DIAG_STARTED");
+        render12();
 
         new Thread(() -> {
-            String result = runNativeMicSelftest();
+            String r = nativeSelftest();
             runOnUiThread(() -> {
-                nativeMicSelftest = result;
-                localEvent("NATIVE_MIC_SELFTEST " + safeToken12(result));
-                jsProbeStatus = "INSTALLING";
+                nativeMic = r;
+                ev("NATIVE_MIC_SELFTEST_" + tok(r));
+                probeInstall = "INSTALLING";
                 installProbe(true, () -> {
-                    jsProbeStatus = "INSTALLED_SELFTEST_RUNNING";
-                    runWebBaselineAndSelftest();
-                    diagHandler.post(diagPoller);
-                    renderDiag();
+                    directGum = "RUNNING";
+                    runSelftestJs();
+                    h.post(poller);
+                    render12();
                 });
             });
-        }, "v12-native-mic-selftest").start();
+        }, "v12-native-mic").start();
     }
 
-    private void snapshotAndroidMicState() {
+    private void snapshotAndroid() {
         androidPermission = checkSelfPermission(Manifest.permission.RECORD_AUDIO)
                 == PackageManager.PERMISSION_GRANTED ? "GRANTED" : "DENIED";
         try {
             AppOpsManager a = (AppOpsManager) getSystemService(APP_OPS_SERVICE);
             int mode = a.unsafeCheckOpNoThrow(AppOpsManager.OPSTR_RECORD_AUDIO,
                     Process.myUid(), getPackageName());
-            appOpsRecordAudio = appOpsMode(mode);
+            appOps = appOpsMode(mode);
         } catch (Exception e) {
-            appOpsRecordAudio = "ERROR_" + e.getClass().getSimpleName();
+            appOps = "ERROR_" + e.getClass().getSimpleName();
         }
         try {
             AudioManager am = (AudioManager) getSystemService(AUDIO_SERVICE);
-            audioManagerMicMute = am != null && am.isMicrophoneMute() ? "MUTED" : "NOT_MUTED";
+            audioManagerMute = am != null && am.isMicrophoneMute() ? "MUTED" : "NOT_MUTED";
         } catch (Exception e) {
-            audioManagerMicMute = "ERROR_" + e.getClass().getSimpleName();
+            audioManagerMute = "ERROR_" + e.getClass().getSimpleName();
         }
         if (Build.VERSION.SDK_INT >= 31) {
             try {
                 SensorPrivacyManager spm = getSystemService(SensorPrivacyManager.class);
-                if (spm == null) globalMicPrivacy = "UNAVAILABLE";
-                else if (!spm.supportsSensorToggle(SensorPrivacyManager.Sensors.MICROPHONE)) {
-                    globalMicPrivacy = "TOGGLE_UNSUPPORTED";
-                } else {
-                    globalMicPrivacy = spm.isSensorPrivacyEnabled(SensorPrivacyManager.Sensors.MICROPHONE)
-                            ? "PRIVACY_ON_BLOCKING" : "PRIVACY_OFF";
-                }
+                if (spm == null) micToggleSupport = "UNAVAILABLE";
+                else micToggleSupport = spm.supportsSensorToggle(SensorPrivacyManager.Sensors.MICROPHONE)
+                        ? "SUPPORTED_STATE_NOT_EXPOSED_BY_PUBLIC_API" : "UNSUPPORTED";
             } catch (Exception e) {
-                globalMicPrivacy = "ERROR_" + e.getClass().getSimpleName();
+                micToggleSupport = "ERROR_" + e.getClass().getSimpleName();
             }
-        } else {
-            globalMicPrivacy = "API_LT_31";
-        }
+        } else micToggleSupport = "API_LT_31";
     }
 
-    private String runNativeMicSelftest() {
+    private String nativeSelftest() {
         AudioRecord ar = null;
         try {
             int sr = 16000;
             int min = AudioRecord.getMinBufferSize(sr, AudioFormat.CHANNEL_IN_MONO,
                     AudioFormat.ENCODING_PCM_16BIT);
             if (min <= 0) return "FAIL_MIN_BUFFER_" + min;
-            int size = Math.max(min * 2, 4096);
             ar = new AudioRecord(MediaRecorder.AudioSource.MIC, sr,
-                    AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT, size);
+                    AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT,
+                    Math.max(min * 2, 4096));
             if (ar.getState() != AudioRecord.STATE_INITIALIZED) return "FAIL_NOT_INITIALIZED";
             ar.startRecording();
             short[] buf = new short[800];
             int frames = 0;
-            long nonZero = 0;
+            boolean nonZero = false;
             long deadline = System.currentTimeMillis() + 450L;
-            while (System.currentTimeMillis() < deadline) {
+            while (System.currentTimeMillis() < deadline && frames < 3200) {
                 int n = ar.read(buf, 0, buf.length, AudioRecord.READ_BLOCKING);
                 if (n < 0) return "FAIL_READ_" + n;
                 frames += n;
-                for (int i = 0; i < n; i++) if (buf[i] != 0) nonZero++;
-                if (frames >= 3200) break;
+                for (int i = 0; i < n; i++) if (buf[i] != 0) { nonZero = true; break; }
             }
-            return frames > 0 ? "PASS frames=" + frames + " nonzero=" + (nonZero > 0) : "FAIL_NO_FRAMES";
+            return frames > 0 ? "PASS_frames=" + frames + "_nonzero=" + nonZero : "FAIL_NO_FRAMES";
         } catch (SecurityException e) {
             return "FAIL_SECURITY_EXCEPTION";
         } catch (Exception e) {
@@ -287,189 +268,161 @@ public class AudioCaptureDiagV12Activity extends AudioModelSuiteV11FinalActivity
         }
     }
 
-    private void invokeV11StartAudioWatch() {
+    private void armV11AudioLease() {
         try {
             Method m = AudioModelSuiteV11Activity.class.getDeclaredMethod("startAudioWatch");
             m.setAccessible(true);
             m.invoke(this);
-            localEvent("V11_AUDIO_WATCH_ARMED_BY_V12");
+            ev("V11_AUDIO_LEASE_ARMED_BY_V12");
         } catch (Exception e) {
-            localEvent("V11_AUDIO_WATCH_ARM_FAIL_" + e.getClass().getSimpleName());
+            ev("V11_AUDIO_LEASE_ARM_FAIL_" + e.getClass().getSimpleName());
         }
     }
 
-    private void installProbe(boolean reportResult, Runnable after) {
-        if (diagWeb == null || !isTrusted12(diagWeb.getUrl())) {
-            if (reportResult) jsProbeStatus = "FAIL_NOT_TRUSTED_ORIGIN";
-            if (after != null) after.run();
+    private void installProbe(boolean report, Runnable done) {
+        if (w == null || !trusted(w.getUrl())) {
+            if (report) probeInstall = "FAIL_NOT_CHATGPT_HTTPS";
+            if (done != null) done.run();
             return;
         }
-        diagWeb.evaluateJavascript(INSTALL_JS, value -> {
-            if (reportResult) {
+        w.evaluateJavascript(INSTALL_JS, value -> {
+            if (report) {
                 String x = jsString(value);
-                jsProbeStatus = x.isEmpty() ? "INSTALLED" : safeToken12(x);
-                localEvent("JS_PROBE_INSTALL " + safeToken12(jsProbeStatus));
+                probeInstall = x.isEmpty() ? "INSTALLED" : tok(x);
+                ev("JS_PROBE_" + probeInstall);
             }
-            if (after != null) after.run();
+            if (done != null) done.run();
         });
     }
 
-    private void runWebBaselineAndSelftest() {
-        if (diagWeb == null) return;
-        directGumSelftest = "RUNNING";
-        diagWeb.evaluateJavascript(SELFTEST_JS, value -> {
-            localEvent("WEB_SELFTEST_SCRIPT_DISPATCHED");
-            renderDiag();
+    private void runSelftestJs() {
+        w.evaluateJavascript(SELFTEST_JS, value -> {
+            ev("WEB_SELFTEST_DISPATCHED");
+            render12();
         });
     }
 
-    private void drainJsEvents() {
-        if (diagWeb == null || !isTrusted12(diagWeb.getUrl())) return;
-        diagWeb.evaluateJavascript(DRAIN_JS, value -> {
+    private void drain() {
+        if (w == null || !trusted(w.getUrl())) return;
+        w.evaluateJavascript(DRAIN_JS, value -> {
             try {
-                String raw = jsString(value);
-                if (raw.isEmpty()) return;
-                JSONObject root = new JSONObject(raw);
-                JSONArray arr = root.optJSONArray("events");
-                if (arr == null) return;
-                for (int i = 0; i < arr.length(); i++) {
-                    JSONObject e = arr.optJSONObject(i);
-                    if (e == null) continue;
-                    consumeJsEvent(e);
+                String s = jsString(value);
+                if (s.isEmpty()) return;
+                JSONObject root = new JSONObject(s);
+                JSONArray a = root.optJSONArray("events");
+                if (a == null) return;
+                for (int i = 0; i < a.length(); i++) {
+                    JSONObject e = a.optJSONObject(i);
+                    if (e != null) consume(e);
                 }
             } catch (Exception ignored) { }
         });
     }
 
-    private void consumeJsEvent(JSONObject e) {
-        String type = safeToken12(e.optString("type", "UNKNOWN"));
+    private void consume(JSONObject e) {
+        String type = tok(e.optString("type", "UNKNOWN"));
         JSONObject d = e.optJSONObject("data");
         if (d == null) d = new JSONObject();
-        drainedJsEvents++;
         switch (type) {
-            case "PERM_QUERY_RESOLVE":
-            case "PERM_BASELINE":
-            case "PERM_POST_GUM":
-                permissionsApiMic = safeToken12(d.optString("state", "UNKNOWN"));
-                break;
-            case "ENUM_RESOLVE":
-            case "ENUM_BASELINE":
-            case "ENUM_POST_GUM":
-                enumerateDevicesSummary = "total=" + d.optInt("total", -1)
-                        + " audioIn=" + d.optInt("audioinput", -1)
-                        + " labels=" + d.optInt("labelsPresent", -1);
+            case "PERM": permissionApi = tok(d.optString("state", "UNKNOWN")); break;
+            case "ENUM":
+                deviceCensus = "total=" + d.optInt("total", -1)
+                        + "_audioIn=" + d.optInt("audioIn", -1)
+                        + "_labelsPresent=" + d.optInt("labels", -1);
                 break;
             case "GUM_CALL": gumCalls++; break;
-            case "GUM_RESOLVE": gumResolves++; break;
-            case "GUM_REJECT":
+            case "GUM_OK": gumResolves++; break;
+            case "GUM_FAIL":
                 gumRejects++;
-                lastGumError = safeToken12(d.optString("name", "UNKNOWN")) + ":"
-                        + safeToken12(d.optString("message", ""));
+                lastGumError = tok(d.optString("name", "UNKNOWN"));
                 break;
             case "TRACK_MUTE":
             case "TRACK_UNMUTE":
             case "TRACK_ENDED": trackEvents++; break;
-            case "SELFTEST_OK": directGumSelftest = "PASS"; break;
+            case "SELFTEST_OK": directGum = "PASS"; break;
             case "SELFTEST_FAIL":
-                directGumSelftest = "FAIL_" + safeToken12(d.optString("name", "UNKNOWN"));
-                lastGumError = safeToken12(d.optString("name", "UNKNOWN")) + ":"
-                        + safeToken12(d.optString("message", ""));
+                directGum = "FAIL_" + tok(d.optString("name", "UNKNOWN"));
+                lastGumError = tok(d.optString("name", "UNKNOWN"));
                 break;
             default: break;
         }
-        if (diagEvents.length() < 24000) {
-            diagEvents.append(new SimpleDateFormat("HH:mm:ss.SSS", Locale.US).format(new Date()))
-                    .append(" | JS_").append(type)
-                    .append(" | ").append(safeJsonSummary(d)).append('\n');
+        if (events12.length() < 22000) {
+            events12.append(stamp()).append(" | JS_").append(type)
+                    .append(" | ").append(safeEventData(d)).append('\n');
         }
     }
 
-    private void localEvent(String s) {
-        if (diagEvents.length() < 24000) {
-            diagEvents.append(new SimpleDateFormat("HH:mm:ss.SSS", Locale.US).format(new Date()))
-                    .append(" | ").append(safeToken12(s)).append('\n');
-        }
-    }
-
-    private void renderDiag() {
-        if (diagStatusView == null) return;
+    private void render12() {
+        if (status12 == null) return;
         StringBuilder s = new StringBuilder();
-        s.append("v0.12 AUDIO CAPTURE DIAG  active=").append(diagActive).append('\n');
+        s.append("v0.12 AUDIO CAPTURE DIAG active=").append(active).append('\n');
         s.append("Android=").append(androidPermission)
-                .append(" AppOps=").append(appOpsRecordAudio)
-                .append(" Privacy=").append(globalMicPrivacy)
-                .append(" Mute=").append(audioManagerMicMute).append('\n');
-        s.append("NativeMic=").append(nativeMicSelftest)
-                .append("  DirectGUM=").append(directGumSelftest).append('\n');
-        s.append("PermissionsAPI=").append(permissionsApiMic)
-                .append("  Devices=").append(enumerateDevicesSummary).append('\n');
-        s.append("GUM calls/resolves/rejects=").append(gumCalls).append('/')
-                .append(gumResolves).append('/').append(gumRejects)
-                .append(" lastErr=").append(lastGumError);
-        diagStatusView.setText(s.toString());
-        if (diagButton != null) diagButton.setText(diagActive ? "DIAG ACTIVE" : "AUDIO DIAG12");
+                .append(" AppOps=").append(appOps)
+                .append(" SysMute=").append(audioManagerMute).append('\n');
+        s.append("NativeMic=").append(nativeMic)
+                .append(" DirectGUM=").append(directGum).append('\n');
+        s.append("PermissionsAPI=").append(permissionApi)
+                .append(" Devices=").append(deviceCensus).append('\n');
+        s.append("GUM ").append(gumCalls).append('/').append(gumResolves).append('/')
+                .append(gumRejects).append(" lastErr=").append(lastGumError);
+        status12.setText(s.toString());
+        if (diagButton != null) diagButton.setText(active ? "DIAG ACTIVE" : "AUDIO DIAG12");
     }
 
-    private void downloadReport12() {
-        drainJsEvents();
-        diagHandler.postDelayed(() -> {
+    private void saveReport() {
+        drain();
+        h.postDelayed(() -> {
             try {
-                String report = buildReport12();
-                String stamp = new SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).format(new Date());
-                String name = "chatgpt-webview-v12-audio-capture-report-" + stamp + ".txt";
+                String name = "chatgpt-webview-v12-audio-capture-report-"
+                        + new SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).format(new Date()) + ".txt";
                 ContentValues cv = new ContentValues();
                 cv.put(MediaStore.MediaColumns.DISPLAY_NAME, name);
                 cv.put(MediaStore.MediaColumns.MIME_TYPE, "text/plain");
                 cv.put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS);
                 Uri u = getContentResolver().insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, cv);
-                if (u == null) throw new IllegalStateException("insert null");
+                if (u == null) throw new IllegalStateException("insert");
                 try (OutputStream out = getContentResolver().openOutputStream(u)) {
-                    if (out == null) throw new IllegalStateException("stream null");
-                    out.write(report.getBytes(StandardCharsets.UTF_8));
+                    if (out == null) throw new IllegalStateException("stream");
+                    out.write(reportText().getBytes(StandardCharsets.UTF_8));
                 }
                 Toast.makeText(this, "v0.12 report saved to Downloads", Toast.LENGTH_LONG).show();
             } catch (Exception e) {
-                Toast.makeText(this, "Report failed: " + e.getClass().getSimpleName(), Toast.LENGTH_LONG).show();
+                Toast.makeText(this, "REPORT12 failed: " + e.getClass().getSimpleName(), Toast.LENGTH_LONG).show();
             }
         }, 260L);
     }
 
-    private String buildReport12() {
+    private String reportText() {
         StringBuilder r = new StringBuilder();
         r.append("CHATGPT_WEBVIEW_STABLE_V12_AUDIO_CAPTURE_DIAGNOSTIC\n");
-        r.append("CURRENT_URL=").append(sanitizeUrl12(diagWeb == null ? "-" : diagWeb.getUrl())).append('\n');
+        r.append("CURRENT_URL=").append(sanitize(w == null ? "-" : w.getUrl())).append('\n');
         r.append("ANDROID_RECORD_AUDIO_PERMISSION=").append(androidPermission).append('\n');
-        r.append("ANDROID_RECORD_AUDIO_APPOPS=").append(appOpsRecordAudio).append('\n');
-        r.append("ANDROID_GLOBAL_MIC_PRIVACY=").append(globalMicPrivacy).append('\n');
-        r.append("ANDROID_AUDIO_MANAGER_MIC_MUTE=").append(audioManagerMicMute).append('\n');
-        r.append("NATIVE_AUDIORECORD_SELFTEST=").append(nativeMicSelftest).append('\n');
-        r.append("JS_PROBE_STATUS=").append(jsProbeStatus).append('\n');
-        r.append("WEB_PERMISSIONS_API_MIC_STATE=").append(permissionsApiMic).append('\n');
-        r.append("WEB_ENUMERATE_DEVICES=").append(enumerateDevicesSummary).append('\n');
-        r.append("WEB_DIRECT_GUM_SELFTEST=").append(directGumSelftest).append('\n');
+        r.append("ANDROID_RECORD_AUDIO_APPOPS=").append(appOps).append('\n');
+        r.append("ANDROID_AUDIO_MANAGER_MIC_MUTE=").append(audioManagerMute).append('\n');
+        r.append("ANDROID_MIC_TOGGLE_SUPPORT=").append(micToggleSupport).append('\n');
+        r.append("NATIVE_AUDIORECORD_SELFTEST=").append(nativeMic).append('\n');
+        r.append("JS_PROBE_INSTALL=").append(probeInstall).append('\n');
+        r.append("WEB_PERMISSIONS_API_MIC_STATE=").append(permissionApi).append('\n');
+        r.append("WEB_ENUMERATE_DEVICES=").append(deviceCensus).append('\n');
+        r.append("WEB_DIRECT_GUM_SELFTEST=").append(directGum).append('\n');
         r.append("WEB_GUM_CALLS=").append(gumCalls).append('\n');
         r.append("WEB_GUM_RESOLVES=").append(gumResolves).append('\n');
         r.append("WEB_GUM_REJECTS=").append(gumRejects).append('\n');
         r.append("WEB_GUM_LAST_ERROR=").append(lastGumError).append('\n');
         r.append("WEB_TRACK_EVENTS=").append(trackEvents).append('\n');
-        r.append("V11_WEB_PERMISSION_STATUS=").append(v11Field("audioPermissionStatus", "-")).append('\n');
-        r.append("V11_WEB_PERMISSION_ORIGIN=").append(v11Field("audioPermissionOrigin", "-")).append('\n');
-        r.append("V11_WEB_PERMISSION_REQUEST_COUNT=").append(v11Field("audioPermissionRequestCount", "-")).append('\n');
-        r.append("V11_AUDIO_STATE=").append(v11Field("audioState", "-")).append('\n');
-        r.append("RAW_AUDIO_RETAINED=false\n");
-        r.append("RAW_CHAT_TEXT_RETAINED=false\n");
-        r.append("DEVICE_IDS_RETAINED=false\n");
-        r.append("DEVICE_LABELS_RETAINED=false\n");
+        r.append("V11_WEB_PERMISSION_STATUS=").append(parentField("audioPermissionStatus")).append('\n');
+        r.append("V11_WEB_PERMISSION_ORIGIN=").append(parentField("audioPermissionOrigin")).append('\n');
+        r.append("V11_WEB_PERMISSION_REQUEST_COUNT=").append(parentField("audioPermissionRequestCount")).append('\n');
+        r.append("RAW_AUDIO_RETAINED=false\nRAW_CHAT_TEXT_RETAINED=false\n");
+        r.append("DEVICE_IDS_RETAINED=false\nDEVICE_LABELS_RETAINED=false\n");
         r.append("CHATGPT_COOKIES_EXTRACTED=false\n");
-        r.append("--- V12 EVENT LOG ---\n").append(diagEvents);
-        Object ev = v11FieldObject("events");
-        if (ev instanceof StringBuilder) {
-            r.append("--- V11 EVENT LOG ---\n").append(ev.toString());
-        }
+        r.append("--- V12 EVENT LOG ---\n").append(events12);
+        Object x = parentObject("events");
+        if (x instanceof StringBuilder) r.append("--- V11 EVENT LOG ---\n").append(x.toString());
         return r.toString();
     }
 
-    private Object v11FieldObject(String name) {
+    private Object parentObject(String name) {
         try {
             Field f = AudioModelSuiteV11Activity.class.getDeclaredField(name);
             f.setAccessible(true);
@@ -477,9 +430,17 @@ public class AudioCaptureDiagV12Activity extends AudioModelSuiteV11FinalActivity
         } catch (Exception e) { return null; }
     }
 
-    private String v11Field(String name, String fallback) {
-        Object x = v11FieldObject(name);
-        return x == null ? fallback : safeToken12(String.valueOf(x));
+    private String parentField(String name) {
+        Object x = parentObject(name);
+        return x == null ? "-" : tok(String.valueOf(x));
+    }
+
+    private void ev(String s) {
+        if (events12.length() < 22000) events12.append(stamp()).append(" | ").append(tok(s)).append('\n');
+    }
+
+    private static String stamp() {
+        return new SimpleDateFormat("HH:mm:ss.SSS", Locale.US).format(new Date());
     }
 
     private static String appOpsMode(int mode) {
@@ -491,33 +452,33 @@ public class AudioCaptureDiagV12Activity extends AudioModelSuiteV11FinalActivity
         return "MODE_" + mode;
     }
 
-    private static String jsString(String value) {
-        if (value == null || "null".equals(value)) return "";
+    private static String jsString(String v) {
+        if (v == null || "null".equals(v)) return "";
         try {
-            Object x = new JSONTokener(value).nextValue();
+            Object x = new JSONTokener(v).nextValue();
             return x instanceof String ? (String) x : String.valueOf(x);
-        } catch (Exception e) { return value; }
+        } catch (Exception e) { return v; }
     }
 
-    private static String safeJsonSummary(JSONObject d) {
-        String x = d == null ? "{}" : d.toString();
-        x = x.replaceAll("[^A-Za-z0-9_{}\\[\\]\\\":.,+/-]", "_");
-        return x.length() > 420 ? x.substring(0, 420) : x;
-    }
-
-    private static String safeToken12(String s) {
+    private static String tok(String s) {
         String x = s == null ? "-" : s.replaceAll("[^A-Za-z0-9_.:+/=-]", "_");
         return x.length() > 180 ? x.substring(0, 180) : x;
     }
 
-    private static boolean isTrusted12(String raw) {
+    private static String safeEventData(JSONObject d) {
+        String x = d == null ? "{}" : d.toString();
+        x = x.replaceAll("[^A-Za-z0-9_{}\\[\\]\\\":.,+/-]", "_");
+        return x.length() > 300 ? x.substring(0, 300) : x;
+    }
+
+    private static boolean trusted(String raw) {
         try {
             URI u = URI.create(raw == null ? "" : raw);
             return "https".equalsIgnoreCase(u.getScheme()) && "chatgpt.com".equalsIgnoreCase(u.getHost());
         } catch (Exception e) { return false; }
     }
 
-    private static String sanitizeUrl12(String raw) {
+    private static String sanitize(String raw) {
         try {
             URI u = URI.create(raw == null ? "" : raw);
             if (u.getScheme() == null || u.getHost() == null) return "-";
@@ -525,53 +486,39 @@ public class AudioCaptureDiagV12Activity extends AudioModelSuiteV11FinalActivity
         } catch (Exception e) { return "-"; }
     }
 
-    private int dp12(int v) {
-        return Math.round(v * getResources().getDisplayMetrics().density);
-    }
+    private int dp(int v) { return Math.round(v * getResources().getDisplayMetrics().density); }
 
-    private WebView findWebViewV12(View v) {
+    private WebView findWeb(View v) {
         if (v instanceof WebView) return (WebView) v;
         if (!(v instanceof ViewGroup)) return null;
         ViewGroup g = (ViewGroup) v;
         for (int i = 0; i < g.getChildCount(); i++) {
-            WebView w = findWebViewV12(g.getChildAt(i));
-            if (w != null) return w;
+            WebView z = findWeb(g.getChildAt(i));
+            if (z != null) return z;
         }
         return null;
     }
 
     @Override protected void onDestroy() {
-        diagActive = false;
-        diagHandler.removeCallbacksAndMessages(null);
+        active = false;
+        h.removeCallbacksAndMessages(null);
         super.onDestroy();
     }
 
     private static final String INSTALL_JS =
-            "(function(){try{"
-            + "if(window.__cpAudioDiag12&&window.__cpAudioDiag12.installed)return 'ALREADY_INSTALLED';"
-            + "const D={installed:true,events:[],seq:0};"
-            + "D.clean=x=>String(x||'').replace(/[^A-Za-z0-9_.:+/ -]/g,'_').slice(0,140);"
-            + "D.push=(type,data)=>{try{D.events.push({seq:++D.seq,t:performance.now(),type:type,data:data||{}});if(D.events.length>120)D.events.shift();}catch(_){}};"
-            + "D.sumConstraints=c=>{const a=c&&c.audio;let keys=[];if(a&&typeof a==='object')keys=Object.keys(a).filter(k=>['echoCancellation','noiseSuppression','autoGainControl','sampleRate','channelCount','deviceId'].includes(k));return{audio:!!a,video:!!(c&&c.video),audioKeys:keys.join(','),deviceIdConstraint:keys.includes('deviceId')};};"
-            + "D.sumDevices=arr=>{let ai=0,ao=0,vi=0,lab=0;(arr||[]).forEach(x=>{if(x.kind==='audioinput')ai++;else if(x.kind==='audiooutput')ao++;else if(x.kind==='videoinput')vi++;if(x.label)lab++;});return{total:(arr||[]).length,audioinput:ai,audiooutput:ao,videoinput:vi,labelsPresent:lab};};"
-            + "D.track=t=>({kind:D.clean(t&&t.kind),readyState:D.clean(t&&t.readyState),enabled:!!(t&&t.enabled),muted:!!(t&&t.muted)});"
-            + "D.push('ENV',{secure:!!window.isSecureContext,visibility:D.clean(document.visibilityState),hasMediaDevices:!!navigator.mediaDevices,hasPermissions:!!navigator.permissions});"
+            "(function(){try{if(window.__cp12&&window.__cp12.installed)return 'ALREADY_INSTALLED';"
+            + "const D={installed:true,e:[]};D.p=(t,d)=>{D.e.push({type:t,data:d||{}});if(D.e.length>100)D.e.shift();};"
+            + "D.clean=x=>String(x||'').replace(/[^A-Za-z0-9_.:+/-]/g,'_').slice(0,80);"
             + "const md=navigator.mediaDevices;"
-            + "if(md&&md.getUserMedia){try{const orig=md.getUserMedia.bind(md);md.getUserMedia=function(c){D.push('GUM_CALL',D.sumConstraints(c));let p;try{p=orig(c);}catch(e){D.push('GUM_REJECT',{name:D.clean(e&&e.name),message:D.clean(e&&e.message),sync:true});throw e;}return Promise.resolve(p).then(s=>{const ts=s&&s.getAudioTracks?s.getAudioTracks():[];D.push('GUM_RESOLVE',{audioTracks:ts.length,tracks:ts.map(D.track)});ts.forEach((t,i)=>{try{t.addEventListener('mute',()=>D.push('TRACK_MUTE',{i:i,state:D.clean(t.readyState)}));t.addEventListener('unmute',()=>D.push('TRACK_UNMUTE',{i:i,state:D.clean(t.readyState)}));t.addEventListener('ended',()=>D.push('TRACK_ENDED',{i:i,state:D.clean(t.readyState)}));}catch(_){}});return s;},e=>{D.push('GUM_REJECT',{name:D.clean(e&&e.name),message:D.clean(e&&e.message),sync:false});throw e;});};}catch(e){D.push('PATCH_GUM_FAIL',{name:D.clean(e&&e.name)});}}"
-            + "if(md&&md.enumerateDevices){try{const origE=md.enumerateDevices.bind(md);md.enumerateDevices=function(){D.push('ENUM_CALL',{});return Promise.resolve(origE()).then(a=>{D.push('ENUM_RESOLVE',D.sumDevices(a));return a;},e=>{D.push('ENUM_REJECT',{name:D.clean(e&&e.name),message:D.clean(e&&e.message)});throw e;});};}catch(e){D.push('PATCH_ENUM_FAIL',{name:D.clean(e&&e.name)});}}"
-            + "if(navigator.permissions&&navigator.permissions.query){try{const origP=navigator.permissions.query.bind(navigator.permissions);navigator.permissions.query=function(desc){const n=desc&&desc.name?String(desc.name):'';if(n==='microphone')D.push('PERM_QUERY_CALL',{name:'microphone'});let p;try{p=origP(desc);}catch(e){if(n==='microphone')D.push('PERM_QUERY_REJECT',{name:D.clean(e&&e.name),message:D.clean(e&&e.message),sync:true});throw e;}return Promise.resolve(p).then(r=>{if(n==='microphone'){D.push('PERM_QUERY_RESOLVE',{state:D.clean(r&&r.state)});try{r.addEventListener('change',()=>D.push('PERM_QUERY_CHANGE',{state:D.clean(r.state)}));}catch(_){}}return r;},e=>{if(n==='microphone')D.push('PERM_QUERY_REJECT',{name:D.clean(e&&e.name),message:D.clean(e&&e.message),sync:false});throw e;});};}catch(e){D.push('PATCH_PERM_FAIL',{name:D.clean(e&&e.name)});}}"
-            + "D.push('PROBE_INSTALLED',{});return 'INSTALLED';}catch(e){return 'INSTALL_FAIL_'+String(e&&e.name||'Error');}})()";
+            + "if(md&&md.getUserMedia){const o=md.getUserMedia.bind(md);md.getUserMedia=function(c){D.p('GUM_CALL',{audio:!!(c&&c.audio),video:!!(c&&c.video)});let q;try{q=o(c);}catch(x){D.p('GUM_FAIL',{name:D.clean(x&&x.name)});throw x;}return Promise.resolve(q).then(s=>{const a=s&&s.getAudioTracks?s.getAudioTracks():[];D.p('GUM_OK',{audioTracks:a.length,state:a[0]?D.clean(a[0].readyState):'-',muted:a[0]?!!a[0].muted:false});a.forEach(t=>{try{t.addEventListener('mute',()=>D.p('TRACK_MUTE',{state:D.clean(t.readyState)}));t.addEventListener('unmute',()=>D.p('TRACK_UNMUTE',{state:D.clean(t.readyState)}));t.addEventListener('ended',()=>D.p('TRACK_ENDED',{state:D.clean(t.readyState)}));}catch(_){}});return s;},x=>{D.p('GUM_FAIL',{name:D.clean(x&&x.name)});throw x;});};}"
+            + "D.p('PROBE_INSTALLED',{secure:!!window.isSecureContext,media:!!navigator.mediaDevices});return 'INSTALLED';}catch(e){return 'INSTALL_FAIL_'+String(e&&e.name||'Error');}})()";
 
     private static final String SELFTEST_JS =
-            "(async function(){const D=window.__cpAudioDiag12;if(!D)return 'NO_PROBE';"
-            + "try{if(navigator.permissions&&navigator.permissions.query){try{const p=await navigator.permissions.query({name:'microphone'});D.push('PERM_BASELINE',{state:D.clean(p&&p.state)});}catch(e){D.push('PERM_BASELINE_FAIL',{name:D.clean(e&&e.name),message:D.clean(e&&e.message)});}}"
-            + "if(navigator.mediaDevices&&navigator.mediaDevices.enumerateDevices){try{const a=await navigator.mediaDevices.enumerateDevices();D.push('ENUM_BASELINE',D.sumDevices(a));}catch(e){D.push('ENUM_BASELINE_FAIL',{name:D.clean(e&&e.name)});}}"
-            + "D.push('SELFTEST_BEGIN',{});"
-            + "try{const s=await navigator.mediaDevices.getUserMedia({audio:true,video:false});const ts=s.getAudioTracks();D.push('SELFTEST_OK',{audioTracks:ts.length,tracks:ts.map(D.track)});await new Promise(r=>setTimeout(r,650));ts.forEach(t=>{try{t.stop();}catch(_){}});D.push('SELFTEST_STOP',{audioTracks:ts.length});}catch(e){D.push('SELFTEST_FAIL',{name:D.clean(e&&e.name),message:D.clean(e&&e.message)});}"
-            + "if(navigator.permissions&&navigator.permissions.query){try{const p2=await navigator.permissions.query({name:'microphone'});D.push('PERM_POST_GUM',{state:D.clean(p2&&p2.state)});}catch(e){D.push('PERM_POST_GUM_FAIL',{name:D.clean(e&&e.name)});}}"
-            + "if(navigator.mediaDevices&&navigator.mediaDevices.enumerateDevices){try{const b=await navigator.mediaDevices.enumerateDevices();D.push('ENUM_POST_GUM',D.sumDevices(b));}catch(e){D.push('ENUM_POST_GUM_FAIL',{name:D.clean(e&&e.name)});}}"
-            + "return 'DONE';}catch(e){D.push('SELFTEST_SCRIPT_FAIL',{name:D.clean(e&&e.name),message:D.clean(e&&e.message)});return 'FAIL';}})()";
+            "(async function(){const D=window.__cp12;if(!D)return 'NO_PROBE';"
+            + "try{if(navigator.permissions&&navigator.permissions.query){try{const p=await navigator.permissions.query({name:'microphone'});D.p('PERM',{state:D.clean(p&&p.state)});}catch(x){D.p('PERM',{state:'ERROR_'+D.clean(x&&x.name)});}}else D.p('PERM',{state:'UNSUPPORTED'});"
+            + "if(navigator.mediaDevices&&navigator.mediaDevices.enumerateDevices){try{const a=await navigator.mediaDevices.enumerateDevices();let ai=0,l=0;a.forEach(x=>{if(x.kind==='audioinput')ai++;if(x.label)l++;});D.p('ENUM',{total:a.length,audioIn:ai,labels:l});}catch(x){D.p('ENUM',{total:-1,audioIn:-1,labels:-1});}}"
+            + "try{const s=await navigator.mediaDevices.getUserMedia({audio:true,video:false});const a=s.getAudioTracks();D.p('SELFTEST_OK',{audioTracks:a.length,state:a[0]?D.clean(a[0].readyState):'-',muted:a[0]?!!a[0].muted:false});await new Promise(r=>setTimeout(r,650));a.forEach(t=>{try{t.stop();}catch(_){}});}catch(x){D.p('SELFTEST_FAIL',{name:D.clean(x&&x.name)});}return 'DONE';}catch(x){D.p('SELFTEST_FAIL',{name:D.clean(x&&x.name)});return 'FAIL';}})()";
 
     private static final String DRAIN_JS =
-            "(function(){try{const D=window.__cpAudioDiag12;if(!D)return JSON.stringify({ok:false,events:[]});const a=D.events.splice(0,D.events.length);return JSON.stringify({ok:true,events:a});}catch(e){return JSON.stringify({ok:false,events:[]});}})()";
+            "(function(){try{const D=window.__cp12;if(!D)return JSON.stringify({events:[]});const a=D.e.splice(0,D.e.length);return JSON.stringify({events:a});}catch(e){return JSON.stringify({events:[]});}})()";
 }
