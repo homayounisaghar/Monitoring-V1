@@ -6,7 +6,8 @@
         <activity android:name=".AttachmentSendActivity" android:exported="false" />
         <activity android:name=".DirectAttachmentActivity" android:exported="false" />
         <activity android:name=".ResourceSuiteActivity" android:exported="false" />
-        <activity android:name=".ResourceSuiteV10Activity" android:exported="true">
+        <activity android:name=".ResourceSuiteV10Activity" android:exported="false" />
+        <activity android:name=".ResourceSuiteV10FinalActivity" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
