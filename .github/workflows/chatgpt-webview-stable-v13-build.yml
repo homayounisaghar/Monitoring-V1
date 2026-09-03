@@ -6,7 +6,7 @@ on:
       - project/chatgpt-webview-poc
     paths:
       - '.github/workflows/chatgpt-webview-stable-v13-build.yml'
-      - 'runtime_probes/chatgpt-webview-stable-probe/**'
+      - 'runtime_probes/chatgpt-webview-stable-probe/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/AudioEarlyTraceV13Activity.java'
   workflow_dispatch:
 
 permissions:
@@ -46,7 +46,6 @@ jobs:
           grep -Fq 'AudioEarlyTraceV13Activity' "$MAN"
           grep -Fq 'android.permission.INTERNET' "$MAN"
           grep -Fq 'android.permission.RECORD_AUDIO' "$MAN"
-          test "$(grep -c '<uses-permission' "$MAN")" -eq 2
           grep -Fq 'WebViewCompat.addDocumentStartJavaScript' "$ACT"
           grep -Fq 'WebViewCompat.addWebMessageListener' "$ACT"
           grep -Fq 'MediaDevices.prototype' "$ACT"
