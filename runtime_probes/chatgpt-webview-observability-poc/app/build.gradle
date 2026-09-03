@@ -1,0 +1,13 @@
+plugins { id 'com.android.application' }
+
+android {
+    namespace 'com.openai.controlplane.webviewprobe'
+    compileSdk 35
+    defaultConfig {
+        applicationId 'com.openai.controlplane.webviewprobe'
+        minSdk 26
+        targetSdk 35
+        versionCode 2
+        versionName '0.2-readonly-observability-poc'
+    }
+}
