@@ -1,0 +1,135 @@
+name: ChatGPT WebView Stable v0.15 Orchestrator Foundation Release Kit
+
+on:
+  push:
+    branches:
+      - project/chatgpt-webview-poc
+    paths:
+      - '.github/workflows/chatgpt-webview-stable-v15-build.yml'
+      - 'runtime_probes/chatgpt-webview-stable-probe/app/src/main/AndroidManifest.xml'
+      - 'runtime_probes/chatgpt-webview-stable-probe/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/OrchestratorFoundationV15Activity.java'
+      - 'runtime_probes/chatgpt-webview-stable-probe/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/AudioFixVisibleActivityV14Activity.java'
+      - 'runtime_probes/chatgpt-webview-stable-probe/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/AudioEarlyTraceV13Activity.java'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Prepare v0.15 metadata and contract prechecks
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT=runtime_probes/chatgpt-webview-stable-probe
+          ACT="$ROOT/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/OrchestratorFoundationV15Activity.java"
+          GRADLE="$ROOT/app/build.gradle"
+          MAN="$ROOT/app/src/main/AndroidManifest.xml"
+
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          p = Path('runtime_probes/chatgpt-webview-stable-probe/app/build.gradle')
+          s = p.read_text()
+          s = re.sub(r'versionCode\s+\d+', 'versionCode 15', s)
+          s = re.sub(r"versionName\s+'[^']+'", "versionName '0.15-stable-orchestrator-foundation'", s)
+          p.write_text(s)
+          PY
+
+          grep -Fq "applicationId 'com.homayounisaghar.chatgptwebviewprobe'" "$GRADLE"
+          grep -Fq 'versionCode 15' "$GRADLE"
+          grep -Fq "versionName '0.15-stable-orchestrator-foundation'" "$GRADLE"
+          grep -Fq "implementation 'androidx.webkit:webkit:1.16.0'" "$GRADLE"
+          grep -Fq 'OrchestratorFoundationV15Activity' "$MAN"
+          grep -Fq 'android.permission.INTERNET' "$MAN"
+          grep -Fq 'android.permission.RECORD_AUDIO' "$MAN"
+          grep -Fq 'android.permission.MODIFY_AUDIO_SETTINGS' "$MAN"
+          test "$(grep -c '<uses-permission' "$MAN")" -eq 3
+          grep -Fq 'SUPERVISOR_NOT_DASHBOARD' "$ACT"
+          grep -Fq 'NONE_DETERMINISTIC' "$ACT"
+          grep -Fq 'LOCAL_FAIL_CLOSED' "$ACT"
+          grep -Fq 'UI_TAP' "$ACT"
+          grep -Fq 'MIC_LEASE_MODE=' "$ACT"
+          grep -Fq 'RUN_STATE=' "$ACT"
+          grep -Fq 'DASHBOARD_ROLE=UI_CLIENT_ONLY' "$ACT"
+          grep -Fq 'SEMANTIC_COORDINATES_USED=false' "$ACT"
+          grep -Fq 'HIDDEN_CHAIN_OF_THOUGHT_ACCESSED=false' "$ACT"
+          ! grep -Fq 'dispatchGesture' "$ACT"
+          ! grep -Fq 'getBoundsInScreen' "$ACT"
+          ! grep -Fq 'XPath' "$ACT"
+          ! grep -R -n -F 'addJavascriptInterface' "$ROOT/app/src/main/java"
+          ! grep -R -n -E 'api\.openai\.com|Authorization: Bearer|access_token|refresh_token' "$ROOT"
+          echo 'stable v0.15 contract prechecks OK'
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          sdkmanager "platforms;android-35" "build-tools;35.0.0"
+          echo "sdk.dir=$ANDROID_SDK_ROOT" > runtime_probes/chatgpt-webview-stable-probe/local.properties
+
+      - name: Build unsigned release APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsSL https://services.gradle.org/distributions/gradle-8.10.2-bin.zip -o /tmp/gradle.zip
+          unzip -q /tmp/gradle.zip -d /tmp
+          cd runtime_probes/chatgpt-webview-stable-probe
+          /tmp/gradle-8.10.2/bin/gradle --no-daemon :app:assembleRelease --stacktrace
+          test -f app/build/outputs/apk/release/app-release-unsigned.apk
+          mkdir -p ../../ci/out/signing-tools/lib ../../ci/out/signing-tools/lib64
+          cp app/build/outputs/apk/release/app-release-unsigned.apk ../../ci/out/chatgpt-webview-stable-v15-unsigned.apk
+          cp "$ANDROID_SDK_ROOT/build-tools/35.0.0/apksigner" ../../ci/out/signing-tools/apksigner
+          cp "$ANDROID_SDK_ROOT/build-tools/35.0.0/lib/apksigner.jar" ../../ci/out/signing-tools/lib/apksigner.jar
+          cp "$ANDROID_SDK_ROOT/build-tools/35.0.0/zipalign" ../../ci/out/signing-tools/zipalign
+          cp "$ANDROID_SDK_ROOT/build-tools/35.0.0/aapt" ../../ci/out/signing-tools/aapt
+          LIBCPP=$(find "$ANDROID_SDK_ROOT/build-tools/35.0.0" -type f -name 'libc++.so' | head -n 1)
+          test -n "$LIBCPP"
+          cp "$LIBCPP" ../../ci/out/signing-tools/lib64/libc++.so
+
+      - name: Verify unsigned package metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          AAPT="$ANDROID_SDK_ROOT/build-tools/35.0.0/aapt"
+          "$AAPT" dump badging ci/out/chatgpt-webview-stable-v15-unsigned.apk | tee ci/out/badging.txt
+          grep -Fq "package: name='com.homayounisaghar.chatgptwebviewprobe' versionCode='15' versionName='0.15-stable-orchestrator-foundation'" ci/out/badging.txt
+          "$AAPT" dump permissions ci/out/chatgpt-webview-stable-v15-unsigned.apk | tee ci/out/permissions.txt
+          grep -Fq 'android.permission.INTERNET' ci/out/permissions.txt
+          grep -Fq 'android.permission.RECORD_AUDIO' ci/out/permissions.txt
+          grep -Fq 'android.permission.MODIFY_AUDIO_SETTINGS' ci/out/permissions.txt
+          sha256sum ci/out/chatgpt-webview-stable-v15-unsigned.apk | tee ci/out/UNSIGNED_SHA256.txt
+          printf '%s\n' "$GITHUB_SHA" > ci/out/SOURCE_REF.txt
+
+      - name: Upload release signing kit
+        uses: actions/upload-artifact@v4
+        with:
+          name: chatgpt-webview-stable-v15-signing-kit
+          path: |
+            ci/out/chatgpt-webview-stable-v15-unsigned.apk
+            ci/out/UNSIGNED_SHA256.txt
+            ci/out/badging.txt
+            ci/out/permissions.txt
+            ci/out/SOURCE_REF.txt
+            ci/out/signing-tools/apksigner
+            ci/out/signing-tools/lib/apksigner.jar
+            ci/out/signing-tools/zipalign
+            ci/out/signing-tools/aapt
+            ci/out/signing-tools/lib64/libc++.so
+          if-no-files-found: error
+          retention-days: 30
