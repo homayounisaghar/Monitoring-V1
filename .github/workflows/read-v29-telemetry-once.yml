@@ -15,41 +15,30 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Read and classify latest v0.29 telemetry
+      - name: Read nested v0.29 census
         env:
           READ_URL: https://webhook.site/token/1bd16553-d888-4ced-8476-0d15b3e88375/requests?sorting=oldest&per_page=100
         run: |
           set -euo pipefail
           python3 - <<'PY'
-          import json, os, urllib.request, collections
-          SOURCE='56312bf61c152d29d4ba7e3be9612cd30a49c222'
-          SCHEMA='cp-v29-voice-post-start-census-v1'
-          req=urllib.request.Request(os.environ['READ_URL'],headers={'Accept':'application/json','User-Agent':'cp29-readback'})
-          with urllib.request.urlopen(req,timeout=20) as r:
-              root=json.load(r)
+          import json, os, urllib.request
+          SOURCE='56312bf61c152d29d4ba7e3be9612cd30a49c222'; SCHEMA='cp-v29-voice-post-start-census-v1'
+          req=urllib.request.Request(os.environ['READ_URL'],headers={'Accept':'application/json','User-Agent':'cp29-nested'})
+          with urllib.request.urlopen(req,timeout=20) as r: root=json.load(r)
           rows=root.get('data',root if isinstance(root,list) else [])
-          parsed=[]
+          ps=[]
           for row in rows:
-              raw=row.get('content','') if isinstance(row,dict) else ''
-              try: p=json.loads(raw)
+              try: p=json.loads(row.get('content',''))
               except Exception: continue
-              if p.get('schema_version')==SCHEMA and p.get('source_ref')==SOURCE:
-                  parsed.append(p)
-          print('API_ROWS',len(rows),'PARSED_MATCH',len(parsed),'TOTAL',root.get('total'))
-          tests=collections.defaultdict(list); build=[]
-          for p in parsed:
-              tid=str(p.get('test_id','-'))
-              (tests[tid] if tid.startswith('cp29-') else build).append(p)
-          print('BUILD_ROWS',[(p.get('kind'),p.get('phase'),p.get('classification')) for p in build])
-          if not tests: raise SystemExit('NO_CP29_TEST_FOUND')
-          def rank(ps): return max((p.get('timestamp_epoch_ms') or 0) for p in ps)
-          tid,ps=max(tests.items(),key=lambda kv:rank(kv[1]))
-          ps=sorted(ps,key=lambda p:((p.get('timestamp_epoch_ms') or 0),(p.get('seq') or 0)))
-          print('LATEST_TEST',tid,'ROWS',len(ps),'MAXSEQ',max((p.get('seq') or 0) for p in ps))
-          keys=['session_state','mic_lease_mode','voice_start_count','voice_end_count','mute_count','unmute_count','visible_control_count','dialog_control_count','relevant_candidate_count','scan_complete','scan_budget_exceeded','scan_truncated','semantic_fingerprint','candidate_fingerprint','active_audio_tracks','gum_calls','gum_resolves','gum_rejects','media_permission_grants','media_permission_denials','claim_status','dispatched_side_effects','sample_ms','voice_feature_count','mic_feature_count','mute_feature_count','unmute_feature_count','audio_feature_count','call_feature_count','end_feature_count','close_feature_count','leave_feature_count','exit_feature_count','disconnect_feature_count','stop_feature_count','settings_feature_count','camera_feature_count','video_feature_count']
+              if p.get('schema_version')==SCHEMA and p.get('source_ref')==SOURCE and str(p.get('test_id','')).startswith('cp29-'): ps.append(p)
+          if not ps: raise SystemExit('NO_CP29_ROWS')
+          tid=max({str(p.get('test_id')) for p in ps},key=lambda t:max((x.get('timestamp_epoch_ms') or 0) for x in ps if str(x.get('test_id'))==t))
+          ps=sorted([p for p in ps if str(p.get('test_id'))==tid],key=lambda p:((p.get('timestamp_epoch_ms') or 0),(p.get('seq') or 0)))
+          print('LATEST_TEST',tid,'ROWS',len(ps))
           for p in ps:
-              s=p.get('state') or {}
-              keep={k:s.get(k) for k in keys if k in s}
-              print('ROW',p.get('seq'),p.get('phase'),p.get('classification'),json.dumps(keep,sort_keys=True,separators=(',',':')))
-          print('FINALS',[(p.get('classification'),p.get('state')) for p in ps if p.get('phase')=='FINAL'])
+              if not str(p.get('phase','')).startswith('POST_START_CENSUS_'): continue
+              scan=(p.get('state') or {}).get('scan') or {}
+              out={k:scan.get(k) for k in ['success','complete','budget_exceeded','truncated','nodes','roots','visible_controls','dialog_control_count','voice_start_count','voice_end_count','mute_count','unmute_count','semantic_set_hash','relevant_count','candidate_overflow','candidate_set_hash','target_matches','clicked'] if k in scan}
+              out['candidates']=[{k:v for k,v in c.items() if k in ['c','h','tag','is_button','role_button','state','meta_len','aria_len','aria_present','features']} for c in (scan.get('candidates') or [])[:12] if isinstance(c,dict)]
+              print('SNAP',p.get('phase'),p.get('classification'),json.dumps(out,sort_keys=True,separators=(',',':')))
           PY
