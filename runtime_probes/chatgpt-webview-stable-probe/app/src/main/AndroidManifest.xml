@@ -41,7 +41,8 @@
         <activity android:name=".OrchestratorPaidModelDirectRadioV38Activity" android:exported="false" />
         <activity android:name=".OrchestratorPaidModelEffortCensusV39Activity" android:exported="false" />
         <activity android:name=".OrchestratorPaidModelEffortPopupV40Activity" android:exported="false" />
-        <activity android:name=".OrchestratorPaidModelEffortPopupCensusV41Activity" android:exported="true">
+        <activity android:name=".OrchestratorPaidModelEffortPopupCensusV41Activity" android:exported="false" />
+        <activity android:name=".OrchestratorPaidModelEffortPointerCensusV42Activity" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
