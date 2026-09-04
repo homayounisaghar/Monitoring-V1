@@ -1,0 +1,20 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.najme.perplexityprobe'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'com.najme.perplexityprobe'
+        minSdk 26
+        targetSdk 35
+        versionCode 19
+        versionName '1.9'
+    }
+}
+
+dependencies {
+    implementation 'com.squareup.okhttp3:okhttp:4.12.0'
+}

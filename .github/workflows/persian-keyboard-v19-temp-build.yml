@@ -1,0 +1,121 @@
+name: Persian Keyboard Android v1.9 Test APK
+
+on:
+  push:
+    branches:
+      - persian-keyboard-v19-temp-build
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout exact commit
+        uses: actions/checkout@v6
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android API 35
+        run: sdkmanager "platforms;android-35" "build-tools;35.0.0" "platform-tools"
+
+      - name: Set up Gradle 8.9
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          gradle-version: '8.9'
+
+      - name: Restore persistent signing key
+        id: signing-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.android/debug.keystore
+          key: persian-keyboard-public-test-signing-v1
+
+      - name: Create persistent signing key
+        if: steps.signing-cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p "$HOME/.android"
+          keytool -genkeypair -v \
+            -keystore "$HOME/.android/debug.keystore" \
+            -storepass android \
+            -alias androiddebugkey \
+            -keypass android \
+            -dname "CN=Persian Keyboard Android Test,O=Capability Fabric,C=DE" \
+            -keyalg RSA -keysize 2048 -validity 10000
+
+      - name: Apply v1.8 speech patch then v1.9 UI patch
+        working-directory: android/persian-keyboard-v19
+        run: |
+          set -euo pipefail
+          python3 tools/apply_v18_keyboard_patch.py
+          python3 tools/apply_v19_layout_floating_patch.py
+
+      - name: Verify v1.9 source invariants
+        working-directory: android/persian-keyboard-v19
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          src = Path('app/src/main/java/com/najme/perplexityprobe/PersianKeyboardService.java').read_text()
+          gradle = Path('app/build.gradle').read_text()
+          required = [
+              'Configuration.ORIENTATION_LANDSCAPE',
+              'FrameLayout center = new FrameLayout(this);',
+              'Button floating = toolbarButton("▱", v -> setCollapsed(true));',
+              'new LinearLayout.LayoutParams(dp(148), dp(50))',
+              'enable_endpoint_detection",false',
+              'language_hints_strict",true',
+              'versionCode 19',
+              "versionName '1.9'",
+          ]
+          text = src + '\n' + gradle
+          for needle in required:
+              if needle not in text:
+                  raise SystemExit(f'Missing v1.9 invariant: {needle}')
+          for needle in ['Floating mode: next build','MAX_CAPTURE_MS','new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(14))']:
+              if needle in src:
+                  raise SystemExit(f'Forbidden old behavior remains: {needle}')
+          print('v1.9 source invariants OK')
+          PY
+
+      - name: Build Android v1.9 debug APK
+        run: gradle -p android/persian-keyboard-v19 --no-daemon assembleDebug --stacktrace
+
+      - name: Verify APK and capture metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK='android/persian-keyboard-v19/app/build/outputs/apk/debug/app-debug.apk'
+          test -f "$APK"
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$APK" | tee apk-signing.txt
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | head -n 30 | tee apk-badging.txt
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump xmltree "$APK" AndroidManifest.xml > apk-manifest.txt
+          grep -q "package: name='com.najme.perplexityprobe' versionCode='19' versionName='1.9'" apk-badging.txt
+          grep -q 'PersianKeyboardService' apk-manifest.txt
+          grep -q 'android.permission.BIND_INPUT_METHOD' apk-manifest.txt
+          grep -q 'android.view.InputMethod' apk-manifest.txt
+          sha256sum "$APK" | tee apk-sha256.txt
+          cp "$APK" Persian-keyboard-Android-v1.9.apk
+
+      - name: Upload verified APK and evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: Persian-keyboard-Android-v1.9-stable-signed
+          path: |
+            Persian-keyboard-Android-v1.9.apk
+            apk-signing.txt
+            apk-badging.txt
+            apk-manifest.txt
+            apk-sha256.txt
+          if-no-files-found: error
+          retention-days: 30
