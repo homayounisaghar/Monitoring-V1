@@ -57,10 +57,14 @@ jobs:
           t=re.sub(r"versionName\s+'[^']+'","versionName '0.34-paid-model-roundtrip'",t)
           g.write_text(t)
           p=Path(picker); s=p.read_text()
-          old="const hp=!!(e.getAttribute('aria-haspopup')||e.getAttribute('data-state'));return a.includes('model selector')||a==='switch model'||a.includes('model picker')||(hp&&/^(chatgpt|gpt[ -]?|o[0-9])/i.test(t)&&t.length<80);"
-          new="const hp=!!(e.getAttribute('aria-haspopup')||e.getAttribute('data-state'));const title=L(e.getAttribute('title'));const paidEvidence=e.hasAttribute('data-state')&&!e.hasAttribute('aria-haspopup')&&!e.hasAttribute('aria-expanded')&&!a&&!title&&tl.includes('model')&&t.length>=17&&t.length<=80;return a.includes('model selector')||a==='switch model'||a.includes('model picker')||(hp&&/^(chatgpt|gpt[ -]?|o[0-9])/i.test(t)&&t.length<80)||paidEvidence;"
-          if old not in s: raise SystemExit('expected v0.31 trigger resolver fragment not found')
-          s=s.replace(old,new,1)
+          needle="hp=!!(e.getAttribute('aria-haspopup')||e.getAttribute('data-state'));return"
+          replacement="hp=!!(e.getAttribute('aria-haspopup')||e.getAttribute('data-state'));const title=L(e.getAttribute('title'));const paidEvidence=e.hasAttribute('data-state')&&!e.hasAttribute('aria-haspopup')&&!e.hasAttribute('aria-expanded')&&!a&&!title&&tl.includes('model')&&t.length>=17&&t.length<=80;return"
+          if needle not in s: raise SystemExit('expected v0.31 trigger resolver insertion point not found')
+          s=s.replace(needle,replacement,1)
+          oldtail="(hp&&/^(chatgpt|gpt[ -]?|o[0-9])/i.test(t)&&t.length<80);});"
+          newtail="(hp&&/^(chatgpt|gpt[ -]?|o[0-9])/i.test(t)&&t.length<80)||paidEvidence;});"
+          if oldtail not in s: raise SystemExit('expected v0.31 trigger resolver tail not found')
+          s=s.replace(oldtail,newtail,1)
           p.write_text(s)
           PY
           mkdir -p ci/v36-telemetry
@@ -96,6 +100,7 @@ jobs:
           grep -Fq "!e.hasAttribute('aria-haspopup')" "$PICKER"
           grep -Fq "!e.hasAttribute('aria-expanded')" "$PICKER"
           grep -Fq "tl.includes('model')" "$PICKER"
+          grep -Fq "||paidEvidence" "$PICKER"
           grep -Fq "count:c.length" "$PICKER"
           grep -Fq 'durableClaim31("MODEL_SELECT_TARGET"' "$PICKER"
           grep -Fq 'durableClaim31("MODEL_RESTORE_ORIGINAL"' "$PICKER"
