@@ -1,0 +1,26 @@
+name: Relay Codemagic webhook once
+
+on:
+  push:
+    branches:
+      - build/pebble-chat-bridge-v019
+    paths:
+      - .github/workflows/codemagic-webhook-relay-once.yml
+
+permissions:
+  contents: read
+
+jobs:
+  relay:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Forward exact GitHub push payload to Codemagic
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsS --retry 2 --retry-delay 2 \
+            -X POST \
+            -H 'Content-Type: application/json' \
+            -H 'X-GitHub-Event: push' \
+            --data-binary "@$GITHUB_EVENT_PATH" \
+            'https://api.codemagic.io/hooks/6a94f84e7f154662c83c49df'
