@@ -1,5 +1,5 @@
 workflows:
-  android-rotation-tile-v100:
+  pebble-bridge-v031:
     name: Android Rotation Tile v1.0.0
     instance_type: mac_mini_m2
     max_build_duration: 30
