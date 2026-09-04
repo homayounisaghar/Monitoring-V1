@@ -1,0 +1,46 @@
+name: Patch Stable v0.31 Source Once
+
+on:
+  push:
+    branches:
+      - project/chatgpt-webview-poc
+    paths:
+      - '.github/workflows/patch-v31-source-once.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: project/chatgpt-webview-poc
+      - name: Remove textual baseline fallback and commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          ACT='runtime_probes/chatgpt-webview-stable-probe/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/OrchestratorCapabilityPickerV31Activity.java'
+          python3 - "$ACT" <<'PY'
+          from pathlib import Path
+          import sys
+          p=Path(sys.argv[1]); s=p.read_text()
+          old=s
+          for line in [
+              '            ModelOpt31 fallbackMatch = null;\n',
+              '                if (triggerMatches31(triggerLabel31, x.label)) fallbackMatch = x;\n',
+              '            if (selectedCount == 0 && fallbackMatch != null) { selectedCount = 1; selected = fallbackMatch; }\n',
+          ]:
+              s=s.replace(line,'')
+          if s==old: raise SystemExit('expected fallback lines not found or already removed')
+          if 'fallbackMatch' in s: raise SystemExit('fallbackMatch still present')
+          p.write_text(s)
+          PY
+          ! grep -Fq 'fallbackMatch' "$ACT"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add "$ACT"
+          git commit -m 'Harden Stable v0.31 selected-model baseline'
+          git push origin HEAD:project/chatgpt-webview-poc
