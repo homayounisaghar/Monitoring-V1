@@ -30,7 +30,8 @@
         <activity android:name=".OrchestratorAutonomousV27Activity" android:exported="false" />
         <activity android:name=".OrchestratorAutonomousV28Activity" android:exported="false" />
         <activity android:name=".OrchestratorVoicePostStartCensusV29Activity" android:exported="false" />
-        <activity android:name=".OrchestratorVoiceSupervisorV30Activity" android:exported="true">
+        <activity android:name=".OrchestratorVoiceSupervisorV30Activity" android:exported="false" />
+        <activity android:name=".OrchestratorCapabilityPickerV31Activity" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
