@@ -27,7 +27,8 @@
         <activity android:name=".OrchestratorAutonomousV24Activity" android:exported="false" />
         <activity android:name=".OrchestratorReadyStartCensusV25Activity" android:exported="false" />
         <activity android:name=".OrchestratorAutonomousV26Activity" android:exported="false" />
-        <activity android:name=".OrchestratorAutonomousV27Activity" android:exported="true">
+        <activity android:name=".OrchestratorAutonomousV27Activity" android:exported="false" />
+        <activity android:name=".OrchestratorAutonomousV28Activity" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
