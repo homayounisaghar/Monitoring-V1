@@ -55,17 +55,22 @@ jobs:
             -keysize 2048 \
             -validity 10000
 
-      - name: Build debug APK
-        run: gradle -p android/mouse-button-toggle :app:assembleDebug --stacktrace
+      - name: Build signed release APK
+        run: gradle -p android/mouse-button-toggle :app:assembleRelease --stacktrace
 
       - name: Verify APK and capture metadata
         shell: bash
         run: |
           set -euo pipefail
-          APK='android/mouse-button-toggle/app/build/outputs/apk/debug/app-debug.apk'
+          APK='android/mouse-button-toggle/app/build/outputs/apk/release/app-release.apk'
           test -f "$APK"
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$APK" | tee apk-signing.txt
+          grep -q 'CN=Mouse Button Toggle Test' apk-signing.txt
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | head -n 20 | tee apk-badging.txt
+          if grep -q 'application-debuggable' apk-badging.txt; then
+            echo 'Release APK must not be debuggable' >&2
+            exit 1
+          fi
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump xmltree "$APK" AndroidManifest.xml > apk-manifest.txt
           grep -q 'MouseToggleTileService' apk-manifest.txt
           grep -q 'BIND_QUICK_SETTINGS_TILE' apk-manifest.txt
@@ -76,7 +81,7 @@ jobs:
       - name: Upload verified APK and evidence
         uses: actions/upload-artifact@v4
         with:
-          name: MouseButtonToggle-v1.0.0-stable-signed
+          name: MouseButtonToggle-v1.0.0-stable-signed-release
           path: |
             MouseButtonToggle-v1.0.0.apk
             apk-signing.txt
