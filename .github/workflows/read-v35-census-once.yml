@@ -10,49 +10,36 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Read and summarize v0.33 census telemetry
+      - name: Cross-check current census and old free trigger telemetry
         shell: bash
         env:
-          READ_URL: 'https://webhook.site/token/62004e07-0444-40d2-987b-0e9ecb2efa7b/requests?sorting=oldest&per_page=100'
+          CUR_URL: 'https://webhook.site/token/62004e07-0444-40d2-987b-0e9ecb2efa7b/requests?sorting=oldest&per_page=100'
+          OLD_URL: 'https://webhook.site/token/bd863081-6608-44f8-a60f-a043b8463faa/requests?sorting=oldest&per_page=100'
         run: |
           set -euo pipefail
           python3 - <<'PY'
-          import json, os, urllib.request, collections
-          with urllib.request.urlopen(os.environ['READ_URL'], timeout=20) as r:
-              o=json.load(r)
-          data=o.get('data',[])
+          import json,os,urllib.request
+          def load(url):
+              with urllib.request.urlopen(url,timeout=20) as r:return json.load(r)
           def parse(x):
               for k in ('content','body'):
                   v=x.get(k)
-                  if isinstance(v,dict): return v
+                  if isinstance(v,dict):return v
                   if isinstance(v,str):
-                      try: return json.loads(v)
-                      except Exception: pass
-              return None
-          parsed=[p for x in data if isinstance((p:=parse(x)),dict)]
-          print('API_ROWS',len(data),'TOTAL',o.get('total',o.get('total_count','?')),'PARSED',len(parsed))
-          tests=collections.defaultdict(list)
-          for p in parsed:
-              tid=p.get('test_id') or p.get('scenario_id') or p.get('kind') or 'NO_ID'
-              tests[tid].append(p)
-          for tid,rows in tests.items():
-              print('TEST',tid,'ROWS',len(rows))
-              rows=sorted(rows,key=lambda p:(p.get('timestamp_epoch_ms',0),p.get('seq',-1)))
-              for p in rows:
-                  phase=p.get('phase') or p.get('kind') or '-'
-                  cls=p.get('classification') or '-'
-                  st=p.get('state') if isinstance(p.get('state'),dict) else {}
-                  if phase=='MODEL_TRIGGER_SNAPSHOT':
-                      cands=st.get('candidates') or []
-                      slim=[]
-                      for c in cands:
-                          if not isinstance(c,dict): continue
-                          slim.append({k:c.get(k) for k in (
-                              'fp','tag','role','top_band','headerish','has_popup','popup_hash','has_expanded','expanded_true','has_controls','has_data_state','data_state_open','disabled','has_svg','text_len_bucket','aria_len_bucket','title_len_bucket','sem_model','sem_gpt','sem_chatgpt','sem_auto','sem_instant','sem_thinking','sem_pro','sem_o_series','acc_hash','testid_hash','x_bucket','y_bucket','w_bucket','h_bucket')})
-                      print(json.dumps({'seq':p.get('seq'),'phase':phase,'classification':cls,'snapshot_index':st.get('snapshot_index'),'complete':st.get('complete'),'visited_nodes':st.get('visited_nodes'),'visible_control_count':st.get('visible_control_count'),'candidate_count':st.get('candidate_count'),'top_band_control_count':st.get('top_band_control_count'),'popup_control_count':st.get('popup_control_count'),'semantic_modelish_count':st.get('semantic_modelish_count'),'candidate_set_hash':st.get('candidate_set_hash'),'candidates':slim},sort_keys=True))
-                  elif phase=='FINAL':
-                      keep={k:st.get(k) for k in ('snapshots_ok','snapshots_complete','max_candidate_count','max_visible_control_count','runtime_ms','dom_clicks','capability_dispatches','raw_text_uploaded','raw_html_uploaded','cookies_tokens_accessed')}
-                      print(json.dumps({'seq':p.get('seq'),'phase':phase,'classification':cls,'state':keep},sort_keys=True))
-                  else:
-                      print(json.dumps({'seq':p.get('seq'),'phase':phase,'classification':cls},sort_keys=True))
+                      try:return json.loads(v)
+                      except:pass
+          for label,url in [('CUR',os.environ['CUR_URL']),('OLD',os.environ['OLD_URL'])]:
+              o=load(url); ps=[p for x in o.get('data',[]) if isinstance((p:=parse(x)),dict)]
+              print('===',label,'ROWS',len(ps),'TOTAL',o.get('total',o.get('total_count','?')),'===')
+              for p in sorted(ps,key=lambda q:(q.get('timestamp_epoch_ms',0),q.get('seq',-1))):
+                  ph=p.get('phase') or p.get('kind') or '-'; st=p.get('state') if isinstance(p.get('state'),dict) else {}
+                  if label=='OLD' and ph in ('MODEL_TRIGGER_CENSUS','MODEL_OPTIONS_CENSUS','FINAL'):
+                      keep={k:st.get(k) for k in ('model_trigger_count','model_trigger_hash','model_option_count','model_enabled_count','model_selected_count','model_set_hash','selection_clicks') if k in st}
+                      print(json.dumps({'phase':ph,'classification':p.get('classification'),'state':keep},sort_keys=True))
+                  if label=='CUR' and ph=='MODEL_TRIGGER_SNAPSHOT':
+                      cs=st.get('candidates') or []
+                      model=[{k:c.get(k) for k in ('fp','acc_hash','testid_hash','has_data_state','has_expanded','has_popup','role','tag','sem_model','sem_gpt','sem_chatgpt','sem_auto','sem_instant','sem_thinking','sem_pro','sem_o_series','text_len_bucket','aria_len_bucket','title_len_bucket','headerish','top_band')} for c in cs if isinstance(c,dict) and c.get('sem_model')]
+                      print(json.dumps({'phase':ph,'snapshot_index':st.get('snapshot_index'),'candidate_set_hash':st.get('candidate_set_hash'),'semantic_model_candidates':model},sort_keys=True))
+                  if label=='CUR' and ph=='FINAL':
+                      print(json.dumps({'phase':ph,'classification':p.get('classification'),'state':{k:st.get(k) for k in ('snapshots_ok','snapshots_complete','dom_clicks','capability_dispatches')}},sort_keys=True))
           PY
