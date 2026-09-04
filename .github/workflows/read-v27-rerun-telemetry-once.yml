@@ -1,0 +1,55 @@
+name: Read Stable v0.27 Rerun Telemetry Once
+
+on:
+  push:
+    branches:
+      - project/chatgpt-webview-poc
+    paths:
+      - '.github/workflows/read-v27-rerun-telemetry-once.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  read:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Fetch and sanitize latest v0.27 rerun telemetry
+        env:
+          READ_URL: https://webhook.site/token/9c9162c0-1826-4f61-a47c-eb621549e421/requests?sorting=oldest
+        run: |
+          python - <<'PY'
+          import json, os, urllib.request
+          SOURCE='ca31a80d93a347f09cbc56aab080ce223b3ba6b3'
+          schemas={'cp-v27-speech-cue-v1','cp-v26-ready-start-gate-v1','cp-autonomous-runtime-v2','cp-v24-script-diagnostic-v1'}
+          req=urllib.request.Request(os.environ['READ_URL'],headers={'Accept':'application/json','User-Agent':'cp27-rerun-readback'})
+          with urllib.request.urlopen(req,timeout=20) as r: root=json.load(r)
+          rows=root.get('data',root if isinstance(root,list) else [])
+          parsed=[]
+          for row in rows:
+            raw=row.get('content','') if isinstance(row,dict) else ''
+            try: p=json.loads(raw)
+            except: continue
+            if p.get('schema_version') not in schemas: continue
+            if p.get('source_ref')!=SOURCE: continue
+            parsed.append(p)
+          runtime=[p for p in parsed if p.get('schema_version')=='cp-autonomous-runtime-v2' and str(p.get('test_id','')).startswith('cp23-')]
+          runtime.sort(key=lambda p:p.get('timestamp_epoch_ms',0))
+          latest=runtime[-1].get('test_id') if runtime else None
+          print('LATEST_TEST',latest)
+          keep_phases={'RUN_GATE_READY','START_GATE_READY','SPEECH_CUE_EMITTED','SPEECH_CUE_EXIT','CANCEL_RESULT','SPEAK_WINDOW_STARTED','DICTATION_STOP_RESULT','TRANSCRIPT_RESULT','TRANSCRIPT_SCRIPT_CLASS','SEND_RECEIPT_V24','DICTATION_SEND_RESULT','ASSISTANT_SCRIPT_CLASS','RECOVERY_RESULT','FINAL'}
+          allow={'session_state','mic_lease_mode','composer_len','user_turn_count','cancel_classification','stop_classification','transcript_classification','send_classification','final_classification','recovered','transcript_len','script_class','language_hint','arabic_persian_letters','latin_letters','persian_markers','arabic_markers','total_letters','text_length','user_turn_advanced','composer_cleared','v18_receipt_confirmed','v18_status_class','send_replayed','receipt_basis','assistant_count','assistant_len','raw_text_uploaded','raw_audio_uploaded','raw_speech_uploaded','raw_transcript_uploaded','raw_chat_text_uploaded','haptic_result','media_tone_attempted','media_stream','visual_status_banner','visual_button_banner','cue_visible_ms','matches','enabled','aria_label','root_found','prompt_visible','consecutive_exact_ready'}
+          def scrub(v):
+            if not isinstance(v,dict): return {}
+            return {k:x for k,x in v.items() if k in allow}
+          out=[]
+          for p in parsed:
+            tid=p.get('test_id')
+            if latest and str(tid).startswith('cp23-') and tid!=latest: continue
+            if p.get('phase') not in keep_phases: continue
+            out.append({k:p.get(k) for k in ['schema_version','test_id','seq','phase','classification','app_version','elapsed_ms','timestamp_epoch_ms']} | {'state':scrub(p.get('state'))})
+          out.sort(key=lambda p:(p.get('timestamp_epoch_ms') or 0,p.get('schema_version') or '',p.get('seq') or 0))
+          print('MATCHING',len(out))
+          for x in out: print('ROW',json.dumps(x,ensure_ascii=False,sort_keys=True,separators=(',',':')))
+          PY
