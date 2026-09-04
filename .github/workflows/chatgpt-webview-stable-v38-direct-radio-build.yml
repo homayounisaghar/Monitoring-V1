@@ -1,0 +1,136 @@
+name: ChatGPT WebView Stable v0.36 Direct Radio Roundtrip
+
+on:
+  push:
+    branches:
+      - project/chatgpt-webview-poc
+    paths:
+      - '.github/workflows/chatgpt-webview-stable-v38-direct-radio-build.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create fresh direct-radio collector
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT=runtime_probes/chatgpt-webview-stable-probe
+          CFG="$ROOT/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/TelemetryConfigV38.java"
+          GRADLE="$ROOT/app/build.gradle"
+          TOKEN=$(curl -fsS -X POST https://webhook.site/token \
+            -H 'Accept: application/json' -H 'Content-Type: application/json' \
+            -d '{"default_status":200,"default_content":"OK","default_content_type":"text/plain"}' \
+            | python3 -c 'import json,sys;x=json.load(sys.stdin).get("uuid"); assert x; print(x)')
+          ENDPOINT="https://webhook.site/$TOKEN"
+          READ="https://webhook.site/token/$TOKEN/requests?sorting=oldest&per_page=100"
+          python3 - "$CFG" "$ENDPOINT" "$GITHUB_SHA" "$TOKEN" "$GRADLE" <<'PY'
+          from pathlib import Path
+          import re,sys
+          cfg,ep,sha,cid,gradle=sys.argv[1:]
+          p=Path(cfg); s=p.read_text()
+          s=re.sub(r'static final String WEBHOOK_URL = ".*?";',f'static final String WEBHOOK_URL = "{ep}";',s)
+          s=re.sub(r'static final String SOURCE_REF = ".*?";',f'static final String SOURCE_REF = "{sha}";',s)
+          s=re.sub(r'static final String COLLECTOR_ID = ".*?";',f'static final String COLLECTOR_ID = "{cid}";',s)
+          s=s.replace('static final boolean CONFIGURED = false;','static final boolean CONFIGURED = true;')
+          p.write_text(s)
+          g=Path(gradle); t=g.read_text()
+          t=re.sub(r'versionCode\s+\d+','versionCode 39',t)
+          t=re.sub(r"versionName\s+'[^']+'","versionName '0.36-paid-model-direct-radio-roundtrip'",t)
+          g.write_text(t)
+          PY
+          mkdir -p ci/v38-telemetry
+          printf '%s\n' "$TOKEN" > ci/v38-telemetry/collector-id.txt
+          printf '%s\n' "$READ" > ci/v38-telemetry/read-url.txt
+          printf '%s\n' "$GITHUB_SHA" > ci/v38-telemetry/source-ref.txt
+          printf '%s\n' 'one guarded paid direct-radio roundtrip; fail closed unless exact Light/Medium pair resolves' > ci/v38-telemetry/usage.txt
+          printf '{"kind":"BUILD_SMOKE","schema_version":"cp-v38-paid-model-direct-radio-v1","scenario_id":"paid-model-direct-radio-guarded-roundtrip","source_ref":"%s"}\n' "$GITHUB_SHA" > ci/v38-telemetry/smoke.json
+          curl -fsS -X POST "$ENDPOINT" -H 'Content-Type: application/json' --data-binary @ci/v38-telemetry/smoke.json >/dev/null
+          sleep 2
+          curl -fsS "$READ" | python3 -c 'import json,sys;o=json.load(sys.stdin);assert len(o.get("data",[]))>=1'
+
+      - name: Verify guarded direct-radio contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT=runtime_probes/chatgpt-webview-stable-probe
+          SRC="$ROOT/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/OrchestratorPaidModelDirectRadioV38Activity.java"
+          MAN="$ROOT/app/src/main/AndroidManifest.xml"
+          GRADLE="$ROOT/app/build.gradle"
+          grep -Fq 'OrchestratorPaidModelDirectRadioV38Activity' "$MAN"
+          grep -Fq 'extends OrchestratorAuthModeV34Activity' "$SRC"
+          grep -Fq "versionCode 39" "$GRADLE"
+          grep -Fq "versionName '0.36-paid-model-direct-radio-roundtrip'" "$GRADLE"
+          test "$(grep -c '<uses-permission' "$MAN")" -eq 3
+          grep -Fq "la.includes('light')" "$SRC"
+          grep -Fq "la.includes('medium')" "$SRC"
+          grep -Fq 'radioCount == 2' "$SRC"
+          grep -Fq 'selectedCount == 1' "$SRC"
+          grep -Fq 'durableClaim38("MODEL_RADIO_SELECT_TARGET"' "$SRC"
+          grep -Fq 'durableClaim38("MODEL_RADIO_RESTORE_ORIGINAL"' "$SRC"
+          grep -Fq 'UNCERTAIN_NO_REPLAY' "$SRC"
+          grep -Fq 'PASS_DIRECT_RADIO_MODEL_ROUNDTRIP_RESTORED' "$SRC"
+          ! grep -Fq 'openModelMenu31' "$SRC"
+          ! grep -Fq 'modelTriggerJs31' "$SRC"
+          ! grep -Fq 'getCookie(' "$SRC"
+          echo 'v0.36 guarded direct-radio contract OK'
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+
+      - name: Build and verify unsigned APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          sdkmanager "platforms;android-35" "build-tools;35.0.0"
+          echo "sdk.dir=$ANDROID_SDK_ROOT" > runtime_probes/chatgpt-webview-stable-probe/local.properties
+          curl -fsSL https://services.gradle.org/distributions/gradle-8.10.2-bin.zip -o /tmp/gradle.zip
+          unzip -q /tmp/gradle.zip -d /tmp
+          cd runtime_probes/chatgpt-webview-stable-probe
+          /tmp/gradle-8.10.2/bin/gradle --no-daemon :app:assembleRelease --stacktrace
+          cd ../..
+          mkdir -p ci/out/signing-tools/lib ci/out/signing-tools/lib64
+          cp runtime_probes/chatgpt-webview-stable-probe/app/build/outputs/apk/release/app-release-unsigned.apk ci/out/chatgpt-webview-stable-v38-direct-radio-unsigned.apk
+          cp "$ANDROID_SDK_ROOT/build-tools/35.0.0/apksigner" ci/out/signing-tools/apksigner
+          cp "$ANDROID_SDK_ROOT/build-tools/35.0.0/lib/apksigner.jar" ci/out/signing-tools/lib/apksigner.jar
+          cp "$ANDROID_SDK_ROOT/build-tools/35.0.0/zipalign" ci/out/signing-tools/zipalign
+          cp "$ANDROID_SDK_ROOT/build-tools/35.0.0/aapt" ci/out/signing-tools/aapt
+          LIBCPP=$(find "$ANDROID_SDK_ROOT/build-tools/35.0.0" -type f -name 'libc++.so' | head -n 1)
+          cp "$LIBCPP" ci/out/signing-tools/lib64/libc++.so
+          AAPT="$ANDROID_SDK_ROOT/build-tools/35.0.0/aapt"
+          "$AAPT" dump badging ci/out/chatgpt-webview-stable-v38-direct-radio-unsigned.apk > ci/out/badging.txt
+          "$AAPT" dump permissions ci/out/chatgpt-webview-stable-v38-direct-radio-unsigned.apk > ci/out/permissions.txt
+          grep -Fq "versionCode='39' versionName='0.36-paid-model-direct-radio-roundtrip'" ci/out/badging.txt
+          grep -Fq "launchable-activity: name='com.homayounisaghar.chatgptwebviewprobe.OrchestratorPaidModelDirectRadioV38Activity'" ci/out/badging.txt
+          test "$(grep -c '^uses-permission:' ci/out/permissions.txt)" -eq 3
+          unzip -p ci/out/chatgpt-webview-stable-v38-direct-radio-unsigned.apk classes.dex | strings > ci/out/classes-strings.txt
+          grep -Fq 'RUN GUARDED MODEL ROUND-TRIP' ci/out/classes-strings.txt
+          grep -Fq 'PASS_DIRECT_RADIO_MODEL_ROUNDTRIP_RESTORED' ci/out/classes-strings.txt
+          grep -Fq 'MODEL_RADIO_SELECT_TARGET' ci/out/classes-strings.txt
+          grep -Fq 'MODEL_RADIO_RESTORE_ORIGINAL' ci/out/classes-strings.txt
+          sha256sum ci/out/chatgpt-webview-stable-v38-direct-radio-unsigned.apk > ci/out/UNSIGNED_SHA256.txt
+          printf '%s\n' "$GITHUB_SHA" > ci/out/SOURCE_REF.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: chatgpt-webview-stable-v38-direct-radio-signing-kit
+          path: ci/out
+          if-no-files-found: error
+          retention-days: 30
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: chatgpt-webview-stable-v38-direct-radio-telemetry
+          path: ci/v38-telemetry
+          if-no-files-found: error
+          retention-days: 30
