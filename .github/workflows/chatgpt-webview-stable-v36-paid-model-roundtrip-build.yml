@@ -1,0 +1,158 @@
+name: ChatGPT WebView Stable v0.34 Paid Model Roundtrip
+
+on:
+  push:
+    branches:
+      - project/chatgpt-webview-poc
+    paths:
+      - '.github/workflows/chatgpt-webview-stable-v36-paid-model-roundtrip-build.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create fresh auth and model collectors
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT=runtime_probes/chatgpt-webview-stable-probe
+          CFG31="$ROOT/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/TelemetryConfigV31.java"
+          CFG32="$ROOT/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/TelemetryConfigV32.java"
+          GRADLE="$ROOT/app/build.gradle"
+          PICKER="$ROOT/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/OrchestratorCapabilityPickerV31Activity.java"
+          make_token() {
+            curl -fsS -X POST https://webhook.site/token \
+              -H 'Accept: application/json' -H 'Content-Type: application/json' \
+              -d '{"default_status":200,"default_content":"OK","default_content_type":"text/plain"}' \
+              | python3 -c 'import json,sys;x=json.load(sys.stdin).get("uuid"); assert x; print(x)'
+          }
+          AUTH_TOKEN="$(make_token)"
+          MODEL_TOKEN="$(make_token)"
+          AUTH_ENDPOINT="https://webhook.site/$AUTH_TOKEN"
+          MODEL_ENDPOINT="https://webhook.site/$MODEL_TOKEN"
+          AUTH_READ="https://webhook.site/token/$AUTH_TOKEN/requests?sorting=oldest&per_page=100"
+          MODEL_READ="https://webhook.site/token/$MODEL_TOKEN/requests?sorting=oldest&per_page=100"
+          python3 - "$CFG31" "$MODEL_ENDPOINT" "$GITHUB_SHA" "$MODEL_TOKEN" "$CFG32" "$AUTH_ENDPOINT" "$AUTH_TOKEN" "$GRADLE" "$PICKER" <<'PY'
+          from pathlib import Path
+          import re,sys
+          cfg31,model_ep,sha,model_id,cfg32,auth_ep,auth_id,gradle,picker=sys.argv[1:]
+          def patch_cfg(path, endpoint, cid):
+              p=Path(path); s=p.read_text()
+              s=re.sub(r'static final String WEBHOOK_URL = ".*?";',f'static final String WEBHOOK_URL = "{endpoint}";',s)
+              s=re.sub(r'static final String SOURCE_REF = ".*?";',f'static final String SOURCE_REF = "{sha}";',s)
+              s=re.sub(r'static final String COLLECTOR_ID = ".*?";',f'static final String COLLECTOR_ID = "{cid}";',s)
+              s=s.replace('static final boolean CONFIGURED = false;','static final boolean CONFIGURED = true;')
+              p.write_text(s)
+          patch_cfg(cfg31,model_ep,model_id)
+          patch_cfg(cfg32,auth_ep,auth_id)
+          g=Path(gradle); t=g.read_text()
+          t=re.sub(r'versionCode\s+\d+','versionCode 37',t)
+          t=re.sub(r"versionName\s+'[^']+'","versionName '0.34-paid-model-roundtrip'",t)
+          g.write_text(t)
+          p=Path(picker); s=p.read_text()
+          old="const hp=!!(e.getAttribute('aria-haspopup')||e.getAttribute('data-state'));return a.includes('model selector')||a==='switch model'||a.includes('model picker')||(hp&&/^(chatgpt|gpt[ -]?|o[0-9])/i.test(t)&&t.length<80);"
+          new="const hp=!!(e.getAttribute('aria-haspopup')||e.getAttribute('data-state'));const title=L(e.getAttribute('title'));const paidEvidence=e.hasAttribute('data-state')&&!e.hasAttribute('aria-haspopup')&&!e.hasAttribute('aria-expanded')&&!a&&!title&&tl.includes('model')&&t.length>=17&&t.length<=80;return a.includes('model selector')||a==='switch model'||a.includes('model picker')||(hp&&/^(chatgpt|gpt[ -]?|o[0-9])/i.test(t)&&t.length<80)||paidEvidence;"
+          if old not in s: raise SystemExit('expected v0.31 trigger resolver fragment not found')
+          s=s.replace(old,new,1)
+          p.write_text(s)
+          PY
+          mkdir -p ci/v36-telemetry
+          printf '%s\n' "$AUTH_TOKEN" > ci/v36-telemetry/auth-collector-id.txt
+          printf '%s\n' "$AUTH_READ" > ci/v36-telemetry/auth-read-url.txt
+          printf '%s\n' "$MODEL_TOKEN" > ci/v36-telemetry/model-collector-id.txt
+          printf '%s\n' "$MODEL_READ" > ci/v36-telemetry/model-read-url.txt
+          printf '%s\n' "$GITHUB_SHA" > ci/v36-telemetry/source-ref.txt
+          printf '%s\n' 'one signed-in paid-account guarded model roundtrip proof; independent auth/model collectors' > ci/v36-telemetry/usage.txt
+          printf '{"kind":"BUILD_SMOKE","schema_version":"cp-v32-auth-mode-v1","scenario_id":"controlled-google-oauth-webview","source_ref":"%s"}\n' "$GITHUB_SHA" > ci/v36-telemetry/auth-smoke.json
+          printf '{"kind":"BUILD_SMOKE","schema_version":"cp-v31-capability-picker-v1","scenario_id":"paid-model-roundtrip-census-derived-resolver","source_ref":"%s"}\n' "$GITHUB_SHA" > ci/v36-telemetry/model-smoke.json
+          curl -fsS -X POST "$AUTH_ENDPOINT" -H 'Content-Type: application/json' --data-binary @ci/v36-telemetry/auth-smoke.json >/dev/null
+          curl -fsS -X POST "$MODEL_ENDPOINT" -H 'Content-Type: application/json' --data-binary @ci/v36-telemetry/model-smoke.json >/dev/null
+          sleep 2
+          curl -fsS "$AUTH_READ" | python3 -c 'import json,sys;o=json.load(sys.stdin);assert len(o.get("data",[]))>=1'
+          curl -fsS "$MODEL_READ" | python3 -c 'import json,sys;o=json.load(sys.stdin);assert len(o.get("data",[]))>=1'
+
+      - name: Verify census-derived paid resolver contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT=runtime_probes/chatgpt-webview-stable-probe
+          PICKER="$ROOT/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/OrchestratorCapabilityPickerV31Activity.java"
+          WRAP="$ROOT/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/OrchestratorPaidModelRoundtripV36Activity.java"
+          MAN="$ROOT/app/src/main/AndroidManifest.xml"
+          GRADLE="$ROOT/app/build.gradle"
+          grep -Fq 'OrchestratorPaidModelRoundtripV36Activity' "$MAN"
+          grep -Fq 'extends OrchestratorAuthModeV34Activity' "$WRAP"
+          grep -Fq "versionCode 37" "$GRADLE"
+          grep -Fq "versionName '0.34-paid-model-roundtrip'" "$GRADLE"
+          test "$(grep -c '<uses-permission' "$MAN")" -eq 3
+          grep -Fq "const paidEvidence=e.hasAttribute('data-state')" "$PICKER"
+          grep -Fq "!e.hasAttribute('aria-haspopup')" "$PICKER"
+          grep -Fq "!e.hasAttribute('aria-expanded')" "$PICKER"
+          grep -Fq "tl.includes('model')" "$PICKER"
+          grep -Fq "count:c.length" "$PICKER"
+          grep -Fq 'durableClaim31("MODEL_SELECT_TARGET"' "$PICKER"
+          grep -Fq 'durableClaim31("MODEL_RESTORE_ORIGINAL"' "$PICKER"
+          grep -Fq 'UNCERTAIN_NO_REPLAY' "$PICKER"
+          grep -Fq 'PASS_MODEL_TOOL_ENUMERATION_AND_GUARDED_MODEL_ROUNDTRIP' "$PICKER"
+          ! grep -Fq 'getCookie(' "$PICKER"
+          echo 'v0.34 census-derived paid resolver contract OK'
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+
+      - name: Build and verify unsigned APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          sdkmanager "platforms;android-35" "build-tools;35.0.0"
+          echo "sdk.dir=$ANDROID_SDK_ROOT" > runtime_probes/chatgpt-webview-stable-probe/local.properties
+          curl -fsSL https://services.gradle.org/distributions/gradle-8.10.2-bin.zip -o /tmp/gradle.zip
+          unzip -q /tmp/gradle.zip -d /tmp
+          cd runtime_probes/chatgpt-webview-stable-probe
+          /tmp/gradle-8.10.2/bin/gradle --no-daemon :app:assembleRelease --stacktrace
+          cd ../..
+          mkdir -p ci/out/signing-tools/lib ci/out/signing-tools/lib64
+          cp runtime_probes/chatgpt-webview-stable-probe/app/build/outputs/apk/release/app-release-unsigned.apk ci/out/chatgpt-webview-stable-v36-paid-model-roundtrip-unsigned.apk
+          cp "$ANDROID_SDK_ROOT/build-tools/35.0.0/apksigner" ci/out/signing-tools/apksigner
+          cp "$ANDROID_SDK_ROOT/build-tools/35.0.0/lib/apksigner.jar" ci/out/signing-tools/lib/apksigner.jar
+          cp "$ANDROID_SDK_ROOT/build-tools/35.0.0/zipalign" ci/out/signing-tools/zipalign
+          cp "$ANDROID_SDK_ROOT/build-tools/35.0.0/aapt" ci/out/signing-tools/aapt
+          LIBCPP=$(find "$ANDROID_SDK_ROOT/build-tools/35.0.0" -type f -name 'libc++.so' | head -n 1)
+          cp "$LIBCPP" ci/out/signing-tools/lib64/libc++.so
+          AAPT="$ANDROID_SDK_ROOT/build-tools/35.0.0/aapt"
+          "$AAPT" dump badging ci/out/chatgpt-webview-stable-v36-paid-model-roundtrip-unsigned.apk > ci/out/badging.txt
+          "$AAPT" dump permissions ci/out/chatgpt-webview-stable-v36-paid-model-roundtrip-unsigned.apk > ci/out/permissions.txt
+          grep -Fq "versionCode='37' versionName='0.34-paid-model-roundtrip'" ci/out/badging.txt
+          grep -Fq "launchable-activity: name='com.homayounisaghar.chatgptwebviewprobe.OrchestratorPaidModelRoundtripV36Activity'" ci/out/badging.txt
+          test "$(grep -c '^uses-permission:' ci/out/permissions.txt)" -eq 3
+          unzip -p ci/out/chatgpt-webview-stable-v36-paid-model-roundtrip-unsigned.apk classes.dex | strings > ci/out/classes-strings.txt
+          grep -Fq 'RUN PAID MODEL ROUND-TRIP' ci/out/classes-strings.txt
+          grep -Fq 'PASS_MODEL_TOOL_ENUMERATION_AND_GUARDED_MODEL_ROUNDTRIP' ci/out/classes-strings.txt
+          grep -Fq 'MODEL_TARGET_RECEIPT' ci/out/classes-strings.txt
+          grep -Fq 'MODEL_RESTORE_RECEIPT' ci/out/classes-strings.txt
+          sha256sum ci/out/chatgpt-webview-stable-v36-paid-model-roundtrip-unsigned.apk > ci/out/UNSIGNED_SHA256.txt
+          printf '%s\n' "$GITHUB_SHA" > ci/out/SOURCE_REF.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: chatgpt-webview-stable-v36-paid-model-roundtrip-signing-kit
+          path: ci/out
+          if-no-files-found: error
+          retention-days: 30
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: chatgpt-webview-stable-v36-paid-model-roundtrip-telemetry
+          path: ci/v36-telemetry
+          if-no-files-found: error
+          retention-days: 30
