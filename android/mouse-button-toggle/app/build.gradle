@@ -15,7 +15,7 @@ android {
     }
 
     signingConfigs {
-        debug {
+        stable {
             storeFile file(System.getProperty('user.home') + '/.android/debug.keystore')
             storePassword 'android'
             keyAlias 'androiddebugkey'
@@ -25,7 +25,12 @@ android {
 
     buildTypes {
         debug {
-            signingConfig signingConfigs.debug
+            signingConfig signingConfigs.stable
+        }
+        release {
+            signingConfig signingConfigs.stable
+            minifyEnabled false
+            shrinkResources false
         }
     }
 
