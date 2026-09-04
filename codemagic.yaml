@@ -1,0 +1,111 @@
+workflows:
+  android-rotation-tile-v100:
+    name: Android Rotation Tile v1.0.0
+    instance_type: mac_mini_m2
+    max_build_duration: 30
+    environment:
+      java: 17
+      android_signing:
+        - pebble_bridge
+      groups:
+        - codemagic_api
+      vars:
+        GRADLE_VERSION: "8.10.2"
+        ANDROID_PLATFORM: "35"
+        ANDROID_BUILD_TOOLS: "35.0.0"
+        EXPECTED_CERT_SHA256: "9aaac9cb3ff091aa5c362f0255129a97b8e3c34b8a73f520cbb6ba89ed31e5d3"
+        APK_BASENAME: "RotationTile-v1.0.0.apk"
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: "build/android-rotation-tile-v100"
+          include: true
+          source: true
+      cancel_previous_builds: true
+
+    scripts:
+      - name: Install Android toolchain and Gradle
+        script: |
+          #!/usr/bin/env bash
+          set -euo pipefail
+          yes | sdkmanager --sdk_root="$ANDROID_SDK_ROOT" "platforms;android-${ANDROID_PLATFORM}" "build-tools;${ANDROID_BUILD_TOOLS}"
+          curl -fsSL "https://services.gradle.org/distributions/gradle-${GRADLE_VERSION}-bin.zip" -o /tmp/gradle.zip
+          rm -rf "/tmp/gradle-${GRADLE_VERSION}"
+          unzip -q -o /tmp/gradle.zip -d /tmp
+          echo "sdk.dir=$ANDROID_SDK_ROOT" > android-rotation-tile/local.properties
+
+      - name: Build unsigned release APK
+        script: |
+          #!/usr/bin/env bash
+          set -euo pipefail
+          mkdir -p ci/out
+          cd android-rotation-tile
+          "/tmp/gradle-${GRADLE_VERSION}/bin/gradle" --no-daemon :app:assembleRelease --stacktrace
+          cp app/build/outputs/apk/release/app-release-unsigned.apk ../ci/out/RotationTile-v1.0.0-unsigned.apk
+
+      - name: Align sign and verify release
+        script: |
+          #!/usr/bin/env bash
+          set -euo pipefail
+          mkdir -p ci/out ci/verify
+          BT="$ANDROID_SDK_ROOT/build-tools/${ANDROID_BUILD_TOOLS}"
+          UNSIGNED="ci/out/RotationTile-v1.0.0-unsigned.apk"
+          ALIGNED="ci/out/RotationTile-v1.0.0-aligned.apk"
+          SIGNED="ci/out/${APK_BASENAME}"
+          "$BT/zipalign" -f 4 "$UNSIGNED" "$ALIGNED"
+          "$BT/apksigner" sign \
+            --ks "$CM_KEYSTORE_PATH" \
+            --ks-pass "env:CM_KEYSTORE_PASSWORD" \
+            --ks-key-alias "$CM_KEY_ALIAS" \
+            --key-pass "env:CM_KEY_PASSWORD" \
+            --out "$SIGNED" "$ALIGNED"
+          "$BT/apksigner" verify --verbose --print-certs "$SIGNED" | tee ci/verify/apksigner.txt
+          CERT="$(sed -n 's/^Signer #1 certificate SHA-256 digest: //p' ci/verify/apksigner.txt | head -n1 | tr 'A-F' 'a-f')"
+          test "$CERT" = "$EXPECTED_CERT_SHA256"
+          "$BT/zipalign" -c -v 4 "$SIGNED" > ci/verify/zipalign.txt
+          "$BT/aapt" dump badging "$SIGNED" > ci/verify/badging.txt
+          "$BT/aapt" dump permissions "$SIGNED" > ci/verify/permissions.txt
+          "$BT/aapt" dump xmltree "$SIGNED" AndroidManifest.xml > ci/verify/manifest.txt
+          grep -Fq "package: name='com.homayoun.rotationtile' versionCode='1' versionName='1.0.0'" ci/verify/badging.txt
+          ! grep -Fq "application-debuggable" ci/verify/badging.txt
+          grep -Fq "android.permission.SYSTEM_ALERT_WINDOW" ci/verify/permissions.txt
+          grep -Fq "android.permission.WRITE_SETTINGS" ci/verify/permissions.txt
+          grep -Fq "android.permission.BIND_QUICK_SETTINGS_TILE" ci/verify/manifest.txt
+          grep -Fq "com.homayoun.rotationtile.RotationTileService" ci/verify/manifest.txt
+          unzip -t "$SIGNED" > ci/verify/zip-integrity.txt
+          shasum -a 256 "$SIGNED" | tee ci/verify/APK_SHA256.txt
+          printf 'certificate_sha256=%s\n' "$CERT" | tee ci/verify/certificate.txt
+          rm -f "$UNSIGNED" "$ALIGNED"
+
+    artifacts:
+      - ci/out/RotationTile-v1.0.0.apk
+      - ci/verify/**
+
+    publishing:
+      scripts:
+        - name: Publish verified APK to GitHub release
+          script: |
+            #!/usr/bin/env bash
+            set -euo pipefail
+            OWNER="homayounisaghar"
+            REPO="Monitoring-V1"
+            API="https://api.github.com/repos/$OWNER/$REPO"
+            AUTH="Authorization: Bearer $GITHUB_TOKEN"
+            ACCEPT="Accept: application/vnd.github+json"
+            SHORT="$(printf '%s' "${CM_COMMIT:-unknown}" | cut -c1-12)"
+            TAG="rotation-tile-v1.0.0-$SHORT"
+            NAME="Rotation Tile v1.0.0 ($SHORT)"
+            SHA="$(awk '{print $1}' ci/verify/APK_SHA256.txt)"
+            CERT="$(sed -n 's/^certificate_sha256=//p' ci/verify/certificate.txt | head -1)"
+            BODY=$(jq -n --arg tag "$TAG" --arg target "${CM_COMMIT:-}" --arg name "$NAME" --arg sha "$SHA" --arg cert "$CERT" '{tag_name:$tag,target_commitish:$target,name:$name,body:("Verified Android Rotation Tile v1.0.0. APK SHA-256: "+$sha+". Signer certificate SHA-256: "+$cert+". Package com.homayoun.rotationtile, versionCode 1, versionName 1.0.0."),draft:false,prerelease:true}')
+            RELEASE=$(curl -fsS -X POST -H "$AUTH" -H "$ACCEPT" -H 'Content-Type: application/json' --data-binary "$BODY" "$API/releases")
+            RID=$(printf '%s' "$RELEASE" | jq -r '.id')
+            upload_asset() {
+              local file="$1"; local name="$2"; local ctype="$3"
+              curl -fsS -X POST -H "$AUTH" -H "Content-Type: $ctype" --data-binary "@$file" "https://uploads.github.com/repos/$OWNER/$REPO/releases/$RID/assets?name=$name" >/dev/null
+            }
+            upload_asset "ci/out/${APK_BASENAME}" "${APK_BASENAME}" "application/vnd.android.package-archive"
+            upload_asset "ci/verify/APK_SHA256.txt" "RotationTile-v1.0.0-SHA256.txt" "text/plain"
+            upload_asset "ci/verify/apksigner.txt" "RotationTile-v1.0.0-apksigner.txt" "text/plain"
+            upload_asset "ci/verify/badging.txt" "RotationTile-v1.0.0-badging.txt" "text/plain"
