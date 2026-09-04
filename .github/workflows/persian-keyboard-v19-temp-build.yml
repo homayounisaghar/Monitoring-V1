@@ -1,4 +1,4 @@
-name: Persian Keyboard Android v1.13 Test APK
+name: Persian Keyboard Android v1.14 Test APK
 
 on:
   push:
@@ -47,7 +47,7 @@ jobs:
           echo 'Expected persistent v1.9+ signing cache was not restored.' >&2
           exit 1
 
-      - name: Apply v1.8 through v1.13 patches
+      - name: Apply v1.8 through v1.14 patches
         working-directory: android/persian-keyboard-v19
         run: |
           set -euo pipefail
@@ -57,8 +57,9 @@ jobs:
           python3 tools/apply_v111_movable_full_keyboard_patch.py
           python3 tools/apply_v112_vertical_drag_compact_floating_patch.py
           python3 tools/apply_v113_narrow_floating_patch.py
+          python3 tools/apply_v114_preserve_floating_on_manual_key_patch.py
 
-      - name: Verify v1.13 source invariants
+      - name: Verify v1.14 source invariants
         working-directory: android/persian-keyboard-v19
         run: |
           set -euo pipefail
@@ -82,18 +83,20 @@ jobs:
               'shellLp.height = floating ? screenHeight : ViewGroup.LayoutParams.WRAP_CONTENT;',
               'attrs.gravity = floating ? (Gravity.TOP | Gravity.START) : Gravity.BOTTOM;',
               'moveFloatingKeyboard(dragStartLeft + dx, dragStartTop + dy);',
+              'hasComposingTail=false;\n        updateMicUi(); setStatus(readyText());',
               'Insets.TOUCHABLE_INSETS_REGION',
               'root.getLocationInWindow(loc);',
               'enable_endpoint_detection",false',
               'language_hints_strict",true',
-              'versionCode 23',
-              "versionName '1.13'",
+              'versionCode 24',
+              "versionName '1.14'",
           ]
           text = src + '\n' + gradle
           for needle in required:
               if needle not in text:
-                  raise SystemExit(f'Missing v1.13 invariant: {needle}')
+                  raise SystemExit(f'Missing v1.14 invariant: {needle}')
           forbidden = [
+              'setCollapsed(false); updateMicUi(); setStatus(readyText());',
               'int desired = Math.round(shortSide * 0.88f);',
               'float factor = isLandscape() ? 0.78f : 0.88f;',
               'int minWidth = dp(isLandscape() ? 420 : 300);',
@@ -103,16 +106,16 @@ jobs:
               'if (full != null) full.setVisibility(value ? View.GONE : View.VISIBLE);',
               'Floating mode: next build',
               'MAX_CAPTURE_MS',
-              'versionCode 22',
-              "versionName '1.12'",
+              'versionCode 23',
+              "versionName '1.13'",
           ]
           for needle in forbidden:
               if needle in text:
                   raise SystemExit(f'Forbidden old behavior remains: {needle}')
-          print('v1.13 source invariants OK')
+          print('v1.14 source invariants OK')
           PY
 
-      - name: Build Android v1.13 debug APK
+      - name: Build Android v1.14 debug APK
         run: gradle -p android/persian-keyboard-v19 --no-daemon assembleDebug --stacktrace
 
       - name: Verify APK, signer continuity, and metadata
@@ -125,19 +128,19 @@ jobs:
           grep -q 'Signer #1 certificate SHA-256 digest: c557bdc60de4100720d6f122789b51c2889661ef0b76886d5b08c1f44cf023cf' apk-signing.txt
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | head -n 30 | tee apk-badging.txt
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump xmltree "$APK" AndroidManifest.xml > apk-manifest.txt
-          grep -q "package: name='com.najme.perplexityprobe' versionCode='23' versionName='1.13'" apk-badging.txt
+          grep -q "package: name='com.najme.perplexityprobe' versionCode='24' versionName='1.14'" apk-badging.txt
           grep -q 'PersianKeyboardService' apk-manifest.txt
           grep -q 'android.permission.BIND_INPUT_METHOD' apk-manifest.txt
           grep -q 'android.view.InputMethod' apk-manifest.txt
           sha256sum "$APK" | tee apk-sha256.txt
-          cp "$APK" Persian-keyboard-Android-v1.13.apk
+          cp "$APK" Persian-keyboard-Android-v1.14.apk
 
       - name: Upload verified APK and evidence
         uses: actions/upload-artifact@v4
         with:
-          name: Persian-keyboard-Android-v1.13-stable-signed
+          name: Persian-keyboard-Android-v1.14-stable-signed
           path: |
-            Persian-keyboard-Android-v1.13.apk
+            Persian-keyboard-Android-v1.14.apk
             apk-signing.txt
             apk-badging.txt
             apk-manifest.txt
