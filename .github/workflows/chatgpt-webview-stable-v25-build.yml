@@ -1,0 +1,195 @@
+name: ChatGPT WebView Stable v0.25 Ready-Start Census Release Kit
+
+on:
+  push:
+    branches:
+      - project/chatgpt-webview-poc
+    paths:
+      - '.github/workflows/chatgpt-webview-stable-v25-build.yml'
+      - 'runtime_probes/chatgpt-webview-stable-probe/app/src/main/AndroidManifest.xml'
+      - 'runtime_probes/chatgpt-webview-stable-probe/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/OrchestratorReadyStartCensusV25Activity.java'
+      - 'runtime_probes/chatgpt-webview-stable-probe/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/TelemetryConfigV25.java'
+      - 'runtime_probes/chatgpt-webview-stable-probe/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/OrchestratorAutonomousV24Activity.java'
+      - 'runtime_probes/chatgpt-webview-stable-probe/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/OrchestratorAutonomousV23Activity.java'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Create ephemeral telemetry collector and inject v0.25 config
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT=runtime_probes/chatgpt-webview-stable-probe
+          CFG="$ROOT/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/TelemetryConfigV25.java"
+          mkdir -p ci/v25-telemetry
+          token_json="$(curl -fsS -X POST https://webhook.site/token -H 'Accept: application/json' -H 'Content-Type: application/json' -d '{"default_status":200,"default_content":"OK","default_content_type":"text/plain"}')"
+          token_id="$(TOKEN_JSON="$token_json" python3 - <<'PY'
+          import json, os
+          o=json.loads(os.environ['TOKEN_JSON'])
+          t=o.get('uuid')
+          if not t: raise SystemExit('collector uuid missing')
+          print(t)
+          PY
+          )"
+          endpoint="https://webhook.site/$token_id"
+          read_url="https://webhook.site/token/$token_id/requests?sorting=oldest"
+          python3 - "$CFG" "$endpoint" "$GITHUB_SHA" "$token_id" <<'PY'
+          from pathlib import Path
+          import re,sys
+          p=Path(sys.argv[1]); endpoint,sha,cid=sys.argv[2:5]
+          s=p.read_text()
+          s=re.sub(r'static final String WEBHOOK_URL = ".*?";',f'static final String WEBHOOK_URL = "{endpoint}";',s)
+          s=re.sub(r'static final String SOURCE_REF = ".*?";',f'static final String SOURCE_REF = "{sha}";',s)
+          s=re.sub(r'static final String COLLECTOR_ID = ".*?";',f'static final String COLLECTOR_ID = "{cid}";',s)
+          s=s.replace('static final boolean CONFIGURED = false;','static final boolean CONFIGURED = true;')
+          p.write_text(s)
+          PY
+          grep -Fq "static final String WEBHOOK_URL = \"$endpoint\";" "$CFG"
+          grep -Fq "static final String SOURCE_REF = \"$GITHUB_SHA\";" "$CFG"
+          grep -Fq 'static final boolean CONFIGURED = true;' "$CFG"
+          printf '%s\n' "$token_id" > ci/v25-telemetry/collector-id.txt
+          printf '%s\n' "$read_url" > ci/v25-telemetry/read-url.txt
+          printf '%s\n' "$GITHUB_SHA" > ci/v25-telemetry/source-ref.txt
+          printf '{"kind":"BUILD_SMOKE","schema_version":"cp-v25-ready-start-census-v1","scenario_id":"dictation-ready-start-census-v25","source_ref":"%s"}\n' "$GITHUB_SHA" > ci/v25-telemetry/build-smoke.json
+          curl -fsS -X POST "$endpoint" -H 'Content-Type: application/json' --data-binary @ci/v25-telemetry/build-smoke.json >/dev/null
+          ok=0
+          for i in 1 2 3 4 5; do
+            sleep 1
+            if curl -fsS "$read_url" | python3 -c 'import json,sys;o=json.load(sys.stdin);d=o.get("data",[]);raise SystemExit(0 if len(d)>=1 else 1)'; then ok=1; break; fi
+          done
+          test "$ok" -eq 1
+          echo 'v0.25 collector smoke confirmed'
+
+      - name: Prepare v0.25 metadata and contract prechecks
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT=runtime_probes/chatgpt-webview-stable-probe
+          ACT="$ROOT/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/OrchestratorReadyStartCensusV25Activity.java"
+          CFG="$ROOT/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/TelemetryConfigV25.java"
+          GRADLE="$ROOT/app/build.gradle"
+          MAN="$ROOT/app/src/main/AndroidManifest.xml"
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          p=Path('runtime_probes/chatgpt-webview-stable-probe/app/build.gradle')
+          s=p.read_text()
+          s=re.sub(r'versionCode\s+\d+','versionCode 25',s)
+          s=re.sub(r"versionName\s+'[^']+'","versionName '0.25-stable-ready-start-census'",s)
+          p.write_text(s)
+          PY
+          grep -Fq "applicationId 'com.homayounisaghar.chatgptwebviewprobe'" "$GRADLE"
+          grep -Fq 'versionCode 25' "$GRADLE"
+          grep -Fq "versionName '0.25-stable-ready-start-census'" "$GRADLE"
+          grep -Fq 'OrchestratorReadyStartCensusV25Activity' "$MAN"
+          grep -Fq 'android.permission.INTERNET' "$MAN"
+          grep -Fq 'android.permission.RECORD_AUDIO' "$MAN"
+          grep -Fq 'android.permission.MODIFY_AUDIO_SETTINGS' "$MAN"
+          test "$(grep -c '<uses-permission' "$MAN")" -eq 3
+          grep -Fq 'RUN START CENSUS' "$ACT"
+          grep -Fq 'MAXMS=180,MAXC=32' "$ACT"
+          grep -Fq 'SCAN_BUDGET_EXCEEDED' "$ACT"
+          grep -Fq 'old_resolver_matches' "$ACT"
+          grep -Fq 'svg_path_hash' "$ACT"
+          grep -Fq 'no_control_clicks:true' "$ACT"
+          grep -Fq 'composer_text_read:false' "$ACT"
+          grep -Fq 'chat_text_read:false' "$ACT"
+          grep -Fq 'raw_html_returned:false' "$ACT"
+          grep -Fq 'static final boolean CONFIGURED = true;' "$CFG"
+          ! grep -R -n -E 'api\.openai\.com|Authorization: Bearer|access_token|refresh_token|Cookie:' "$ACT" "$CFG"
+          echo 'stable v0.25 contract prechecks OK'
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          sdkmanager "platforms;android-35" "build-tools;35.0.0"
+          echo "sdk.dir=$ANDROID_SDK_ROOT" > runtime_probes/chatgpt-webview-stable-probe/local.properties
+
+      - name: Build unsigned release APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsSL https://services.gradle.org/distributions/gradle-8.10.2-bin.zip -o /tmp/gradle.zip
+          unzip -q /tmp/gradle.zip -d /tmp
+          cd runtime_probes/chatgpt-webview-stable-probe
+          /tmp/gradle-8.10.2/bin/gradle --no-daemon :app:assembleRelease --stacktrace
+          test -f app/build/outputs/apk/release/app-release-unsigned.apk
+          mkdir -p ../../ci/out/signing-tools/lib ../../ci/out/signing-tools/lib64
+          cp app/build/outputs/apk/release/app-release-unsigned.apk ../../ci/out/chatgpt-webview-stable-v25-unsigned.apk
+          cp "$ANDROID_SDK_ROOT/build-tools/35.0.0/apksigner" ../../ci/out/signing-tools/apksigner
+          cp "$ANDROID_SDK_ROOT/build-tools/35.0.0/lib/apksigner.jar" ../../ci/out/signing-tools/lib/apksigner.jar
+          cp "$ANDROID_SDK_ROOT/build-tools/35.0.0/zipalign" ../../ci/out/signing-tools/zipalign
+          cp "$ANDROID_SDK_ROOT/build-tools/35.0.0/aapt" ../../ci/out/signing-tools/aapt
+          LIBCPP=$(find "$ANDROID_SDK_ROOT/build-tools/35.0.0" -type f -name 'libc++.so' | head -n 1)
+          test -n "$LIBCPP"
+          cp "$LIBCPP" ../../ci/out/signing-tools/lib64/libc++.so
+
+      - name: Verify unsigned v0.25 artifact contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          AAPT="$ANDROID_SDK_ROOT/build-tools/35.0.0/aapt"
+          APK=ci/out/chatgpt-webview-stable-v25-unsigned.apk
+          "$AAPT" dump badging "$APK" | tee ci/out/badging.txt
+          grep -Fq "package: name='com.homayounisaghar.chatgptwebviewprobe' versionCode='25' versionName='0.25-stable-ready-start-census'" ci/out/badging.txt
+          grep -Fq "launchable-activity: name='com.homayounisaghar.chatgptwebviewprobe.OrchestratorReadyStartCensusV25Activity'" ci/out/badging.txt
+          "$AAPT" dump permissions "$APK" | tee ci/out/permissions.txt
+          grep -Fq 'android.permission.INTERNET' ci/out/permissions.txt
+          grep -Fq 'android.permission.RECORD_AUDIO' ci/out/permissions.txt
+          grep -Fq 'android.permission.MODIFY_AUDIO_SETTINGS' ci/out/permissions.txt
+          test "$(grep -c '^uses-permission:' ci/out/permissions.txt)" -eq 3
+          unzip -p "$APK" classes.dex | strings > ci/out/classes-strings.txt
+          grep -Fq 'RUN START CENSUS' ci/out/classes-strings.txt
+          grep -Fq 'dictation-ready-start-census-v25' ci/out/classes-strings.txt
+          grep -Fq 'PASS_READY_START_CENSUS_CAPTURED_NO_CLICK' ci/out/classes-strings.txt
+          grep -Fq 'SCAN_BUDGET_EXCEEDED' ci/out/classes-strings.txt
+          grep -Fq 'svg_path_hash' ci/out/classes-strings.txt
+          grep -Fq 'composer_chrome_allowlist_no_chat_or_composer_text_no_clicks' ci/out/classes-strings.txt
+          grep -Fq 'https://webhook.site/' ci/out/classes-strings.txt
+          sha256sum "$APK" | tee ci/out/UNSIGNED_SHA256.txt
+          printf '%s\n' "$GITHUB_SHA" > ci/out/SOURCE_REF.txt
+
+      - name: Upload release signing kit
+        uses: actions/upload-artifact@v4
+        with:
+          name: chatgpt-webview-stable-v25-signing-kit
+          path: |
+            ci/out/chatgpt-webview-stable-v25-unsigned.apk
+            ci/out/UNSIGNED_SHA256.txt
+            ci/out/badging.txt
+            ci/out/permissions.txt
+            ci/out/SOURCE_REF.txt
+            ci/out/signing-tools/apksigner
+            ci/out/signing-tools/lib/apksigner.jar
+            ci/out/signing-tools/zipalign
+            ci/out/signing-tools/aapt
+            ci/out/signing-tools/lib64/libc++.so
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload telemetry collector provenance
+        uses: actions/upload-artifact@v4
+        with:
+          name: chatgpt-webview-stable-v25-telemetry-collector
+          path: ci/v25-telemetry
+          if-no-files-found: error
+          retention-days: 30
