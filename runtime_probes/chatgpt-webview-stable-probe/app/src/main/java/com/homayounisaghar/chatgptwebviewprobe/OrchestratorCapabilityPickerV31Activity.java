@@ -229,14 +229,11 @@ public class OrchestratorCapabilityPickerV31Activity extends OrchestratorVoiceSu
             modelEnabledCount31 = 0;
             int selectedCount = 0;
             ModelOpt31 selected = null;
-            ModelOpt31 fallbackMatch = null;
             for (ModelOpt31 x : opts) {
                 if (x.enabled) modelEnabledCount31++;
                 if (x.selected) { selectedCount++; selected = x; }
-                if (triggerMatches31(triggerLabel31, x.label)) fallbackMatch = x;
             }
             modelSetHash31 = o.optString("set_hash", "-");
-            if (selectedCount == 0 && fallbackMatch != null) { selectedCount = 1; selected = fallbackMatch; }
 
             JSONObject s = baseState31();
             put31(s, "model_option_count", modelOptionCount31);
