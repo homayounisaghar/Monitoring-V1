@@ -1,0 +1,283 @@
+name: ChatGPT APK full capability census
+
+on:
+  push:
+    branches:
+      - build/pebble-chat-bridge-v019
+    paths:
+      - .github/workflows/chatgpt-apk-full-census.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  census:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: build/pebble-chat-bridge-v019
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Download exact APK from SwissTransfer
+        env:
+          LINK_ID: 01a05b9a-9f7f-73ef-8999-5507a44c3b73
+          EXPECTED_SHA256: 50e268c50255ab9aa48be49f0ba668c6f8ef97fd208f3826f19056698ea9f5a4
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib, json, os, pathlib, urllib.request
+          link_id = os.environ['LINK_ID']
+          expected_sha = os.environ['EXPECTED_SHA256']
+          ua = 'Mozilla/5.0 ChatGPT-ControlPlane-Census/1.0'
+          base = 'https://swisstransfer.infomaniak.com/api/1'
+          def get_json(url):
+              req = urllib.request.Request(url, headers={'User-Agent': ua, 'Accept':'application/json'})
+              with urllib.request.urlopen(req, timeout=45) as r:
+                  return json.loads(r.read().decode('utf-8'))
+          meta = get_json(f'{base}/links/{link_id}?with=transfer')
+          payload = meta.get('data', meta)
+          link_record_id = payload.get('id') or link_id
+          transfer = payload['transfer']
+          files = transfer['files']
+          selected = next((f for f in files if str(f.get('path','')).lower().endswith('.apk')), None)
+          if selected is None:
+              raise RuntimeError('APK not found in transfer')
+          file_id = selected['id']
+          expected_size = int(selected.get('size') or 0)
+          url = f'{base}/links/{link_record_id}/files/{file_id}?redirect=true'
+          req = urllib.request.Request(url, headers={'User-Agent': ua, 'Accept':'*/*'})
+          out = pathlib.Path('chatgpt.apk')
+          h = hashlib.sha256(); total = 0
+          with urllib.request.urlopen(req, timeout=120) as r, out.open('wb') as w:
+              while True:
+                  b = r.read(1024*1024)
+                  if not b: break
+                  w.write(b); h.update(b); total += len(b)
+          sha = h.hexdigest()
+          print('file=', selected.get('path'))
+          print('bytes=', total)
+          print('sha256=', sha)
+          if expected_size and total != expected_size:
+              raise RuntimeError(f'size mismatch {total} != {expected_size}')
+          if sha != expected_sha:
+              raise RuntimeError(f'SHA mismatch {sha} != {expected_sha}')
+          if out.read_bytes()[:2] != b'PK':
+              raise RuntimeError('not an APK/ZIP payload')
+          PY
+
+      - name: Install analysis tools
+        run: |
+          set -euo pipefail
+          python3 -m pip install --quiet androguard zstandard lxml
+          mkdir -p tools work output/analysis/chatgpt-1.2026.237/raw-census
+          python3 - <<'PY'
+          import json, pathlib, urllib.request
+          api='https://api.github.com/repos/skylot/jadx/releases/latest'
+          req=urllib.request.Request(api,headers={'User-Agent':'ChatGPT-ControlPlane-Census/1.0','Accept':'application/vnd.github+json'})
+          with urllib.request.urlopen(req,timeout=45) as r: rel=json.load(r)
+          assets=[a for a in rel.get('assets',[]) if a.get('name','').startswith('jadx-') and a.get('name','').endswith('.zip')]
+          if not assets: raise RuntimeError('No JADX zip asset found')
+          asset=assets[0]
+          print('jadx asset:',asset['name'])
+          urllib.request.urlretrieve(asset['browser_download_url'],'tools/jadx.zip')
+          PY
+          unzip -q tools/jadx.zip -d tools/jadx
+
+      - name: Decode manifest and extract binary inventory
+        run: |
+          set -euo pipefail
+          OUT=output/analysis/chatgpt-1.2026.237/raw-census
+          unzip -l chatgpt.apk > "$OUT/APK_ZIP_INVENTORY.txt"
+          python3 - <<'PY'
+          from pathlib import Path
+          from lxml import etree
+          from androguard.core.apk import APK
+          a=APK('chatgpt.apk')
+          x=a.get_android_manifest_xml()
+          if hasattr(x,'getroot'): x=x.getroot()
+          Path('output/analysis/chatgpt-1.2026.237/raw-census/AndroidManifest.decoded.xml').write_bytes(
+              etree.tostring(x,pretty_print=True,encoding='utf-8',xml_declaration=True)
+          )
+          PY
+          mkdir -p work/apk
+          unzip -q chatgpt.apk 'classes*.dex' 'assets/*.valdimodule' -d work/apk
+          find work/apk/assets -type f -name '*.valdimodule' -printf '%f\t%s\n' | sort > "$OUT/VALDI_MODULE_INDEX.txt"
+          find work/apk -maxdepth 1 -type f -name 'classes*.dex' -printf '%f\t%s\n' | sort > "$OUT/DEX_INDEX.txt"
+
+      - name: Decompile DEX with JADX
+        run: |
+          set -euo pipefail
+          mkdir -p work/jadx
+          set +e
+          timeout 900 tools/jadx/bin/jadx --no-res --threads-count 2 --comments-level none --show-bad-code -d work/jadx chatgpt.apk >work/jadx.stdout.txt 2>work/jadx.stderr.txt
+          rc=$?
+          set -e
+          echo "jadx_exit_code=$rc" > output/analysis/chatgpt-1.2026.237/raw-census/JADX_STATUS.txt
+          echo "source_files=$(find work/jadx -type f -name '*.java' | wc -l)" >> output/analysis/chatgpt-1.2026.237/raw-census/JADX_STATUS.txt
+          tail -n 80 work/jadx.stderr.txt >> output/analysis/chatgpt-1.2026.237/raw-census/JADX_STATUS.txt || true
+
+      - name: Decompress Valdi modules
+        run: |
+          set -euo pipefail
+          mkdir -p work/valdi-dec work/valdi-text
+          python3 - <<'PY'
+          import io, pathlib, shutil
+          import zstandard as zstd
+          src=pathlib.Path('work/apk/assets'); dec=pathlib.Path('work/valdi-dec')
+          for p in sorted(src.glob('*.valdimodule')):
+              out=dec/(p.name+'.bin')
+              data=p.read_bytes()
+              try:
+                  if data[:4] == b'\x28\xb5\x2f\xfd':
+                      with zstd.ZstdDecompressor().stream_reader(io.BytesIO(data)) as r, out.open('wb') as w:
+                          shutil.copyfileobj(r,w)
+                  else:
+                      out.write_bytes(data)
+              except Exception:
+                  out.write_bytes(data)
+          PY
+          for f in work/valdi-dec/*.bin; do
+            b=$(basename "$f" .valdimodule.bin)
+            strings -n 4 "$f" > "work/valdi-text/${b}.txt" || true
+          done
+
+      - name: Generate manifest census and targeted capability evidence
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import html, pathlib, re, xml.etree.ElementTree as ET
+          OUT=pathlib.Path('output/analysis/chatgpt-1.2026.237/raw-census')
+          manifest=OUT/'AndroidManifest.decoded.xml'
+          A='{http://schemas.android.com/apk/res/android}'
+          root=ET.parse(manifest).getroot()
+          app=root.find('application')
+          lines=['# Exact manifest census — ChatGPT Android 1.2026.237','',f'Package: `{root.get("package")}`','']
+          perms=[]
+          for e in root:
+              if e.tag in ('uses-permission','uses-permission-sdk-23','uses-permission-sdk-m'):
+                  n=e.get(A+'name')
+                  if n: perms.append(n)
+          lines += ['## Requested permissions','']+[f'- `{p}`' for p in sorted(set(perms))]+['']
+          lines += ['## Components and intent filters','']
+          share=[]; voice=[]; external=[]
+          def fdata(d):
+              attrs=[]
+              for k in ('scheme','host','port','path','pathPrefix','pathPattern','mimeType'):
+                  v=d.get(A+k)
+                  if v is not None: attrs.append(f'{k}={v}')
+              return ', '.join(attrs)
+          for typ in ('activity','activity-alias','service','receiver','provider'):
+              for e in app.findall(typ):
+                  name=e.get(A+'name','')
+                  exported=e.get(A+'exported','<unspecified>')
+                  enabled=e.get(A+'enabled','<default>')
+                  perm=e.get(A+'permission','')
+                  filters=[]
+                  for fil in e.findall('intent-filter'):
+                      acts=[x.get(A+'name','') for x in fil.findall('action')]
+                      cats=[x.get(A+'name','') for x in fil.findall('category')]
+                      datas=[fdata(x) for x in fil.findall('data')]
+                      filters.append((acts,cats,datas))
+                  lines += [f'### {typ}: `{name}`',f'- exported: `{exported}`; enabled: `{enabled}`'+(f'; permission: `{perm}`' if perm else '')]
+                  if not filters:
+                      lines.append('- intent filters: none')
+                  for i,(acts,cats,datas) in enumerate(filters,1):
+                      lines.append(f'- filter {i}:')
+                      lines.append('  - actions: '+(', '.join(f'`{x}`' for x in acts) if acts else '_none_'))
+                      lines.append('  - categories: '+(', '.join(f'`{x}`' for x in cats) if cats else '_none_'))
+                      lines.append('  - data: '+('; '.join(f'`{x}`' for x in datas) if datas else '_none_'))
+                      low=' '.join(acts+cats+datas+[name]).lower()
+                      if any(x in low for x in ('android.intent.action.send','send_multiple','process_text','share')): share.append((typ,name,exported,acts,cats,datas))
+                      if any(x in low for x in ('voice','assistant','speech','audio','quicktile','quick_tile')): voice.append((typ,name,exported,acts,cats,datas))
+                  if exported=='true': external.append((typ,name,filters,perm))
+                  lines.append('')
+          lines += ['## Exported components summary','']
+          for typ,name,filters,perm in external:
+              lines.append(f'- `{typ}` `{name}`'+(f' — permission `{perm}`' if perm else ''))
+          lines += ['','## Share / process-text candidates','']
+          if share:
+              for typ,name,exp,acts,cats,datas in share: lines.append(f'- `{typ}` `{name}` exported=`{exp}` actions={acts} data={datas}')
+          else: lines.append('- none found')
+          lines += ['','## Voice / assistant candidates','']
+          if voice:
+              for typ,name,exp,acts,cats,datas in voice: lines.append(f'- `{typ}` `{name}` exported=`{exp}` actions={acts} data={datas}')
+          else: lines.append('- none found')
+          queries=root.find('queries')
+          lines += ['','## Package visibility queries','']
+          if queries is None: lines.append('- none')
+          else:
+              for q in list(queries): lines.append(f'- `{q.tag}` '+str({k.split("}")[-1]:v for k,v in q.attrib.items()}))
+          (OUT/'MANIFEST_CENSUS.md').write_text('\n'.join(lines),encoding='utf-8')
+
+          topics={
+            'ATTACHMENT_SHARE': r'(?i)(ACTION_SEND_MULTIPLE|ACTION_SEND|EXTRA_STREAM|android\.intent\.extra\.STREAM|ClipData|share.?intent|incoming.?share|shared.?file|attachment|attachments|file.?picker|photo.?picker|image.?picker|upload|mime.?type|content://)',
+            'VOICE_AUDIO': r'(?i)(AssistantActivity|QuickTileService|voice.?mode|advanced.?voice|realtime|microphone|record.?audio|mute|unmute|audio.?session|speech)',
+            'CONVERSATION_ACTIONS': r'(?i)(rename.?conversation|archive.?conversation|delete.?conversation|share.?conversation|edit.?message|branch.?conversation|openConversation|conversation_id|conversationId)',
+            'GENERATION_MESSAGE_ACTIONS': r'(?i)(renderSendOrStopAction|sendCurrentDraft|handleChatSubmit|stop.?generation|cancel.?generation|retry|regenerate|copy.?message|feedback|edit.?message)',
+            'MODEL_TOOLS': r'(?i)(modelSelection|useAccountDefaultModel|model-selector|model.?selector|Choose Intelligence|tool.?choice|connector|web.?search|browse|image.?generation|image_gen|reasoning|intelligence)',
+            'ROUTES_INTENTS': r'(?i)(ChatGptDeeplinkActivity|EXTRA_ROUTES|getQueryParameter|scroll_to_bottom|autosend|allowWhenLoggedIn|/conversation/|/c/|chatgpt:|ACTION_VIEW)',
+            'CONVERSATION_ID_STATE': r'(?i)(conversationId|conversation_id|onConversationIdsChanged|syncActiveConversationIds|activeConversation|StatusBarNotification|NotificationManager\.notify|notification.?tag)'
+          }
+          def scan(rootdir, suffixes, outname, maxhits=240):
+              rootp=pathlib.Path(rootdir)
+              report=['# '+outname,'']
+              for topic,pat in topics.items():
+                  rx=re.compile(pat)
+                  report += [f'## {topic}','']
+                  hits=0
+                  for p in sorted(rootp.rglob('*')):
+                      if not p.is_file() or (suffixes and p.suffix not in suffixes): continue
+                      try: txt=p.read_text(encoding='utf-8',errors='ignore')
+                      except Exception: continue
+                      arr=txt.splitlines()
+                      for i,line in enumerate(arr):
+                          if not rx.search(line): continue
+                          lo=max(0,i-2); hi=min(len(arr),i+3)
+                          rel=p.relative_to(rootp)
+                          report.append(f'### `{rel}:{i+1}`')
+                          report.append('```text')
+                          report.extend(f'{j+1}: {arr[j][:500]}' for j in range(lo,hi))
+                          report.append('```')
+                          report.append('')
+                          hits += 1
+                          if hits>=maxhits: break
+                      if hits>=maxhits: break
+                  report.append(f'_Hits captured: {hits} (cap {maxhits})_')
+                  report.append('')
+              (OUT/outname).write_text('\n'.join(report),encoding='utf-8')
+          scan('work/jadx', {'.java'}, 'JADX_TARGETED_EVIDENCE.md', 180)
+          scan('work/valdi-text', {'.txt'}, 'VALDI_TARGETED_EVIDENCE.md', 220)
+          PY
+
+      - name: Raw DEX string index for capability terms
+        run: |
+          set -euo pipefail
+          OUT=output/analysis/chatgpt-1.2026.237/raw-census
+          : > "$OUT/DEX_TARGET_STRINGS.txt"
+          for f in work/apk/classes*.dex; do
+            echo "===== $(basename "$f") =====" >> "$OUT/DEX_TARGET_STRINGS.txt"
+            strings -n 5 "$f" | grep -Ei 'ACTION_SEND|EXTRA_STREAM|ClipData|attachment|upload|AssistantActivity|QuickTileService|voice|realtime|rename.*conversation|archive.*conversation|delete.*conversation|share.*conversation|edit.*message|stop.*generation|retry|regenerate|modelSelection|useAccountDefaultModel|Choose Intelligence|model-selector|connector|web.?search|conversationId|conversation_id|EXTRA_ROUTES|autosend|scroll_to_bottom' | sort -u | head -n 4000 >> "$OUT/DEX_TARGET_STRINGS.txt" || true
+          done
+
+      - name: Commit persistent text census
+        run: |
+          set -euo pipefail
+          rm -rf analysis/chatgpt-1.2026.237/raw-census
+          mkdir -p analysis/chatgpt-1.2026.237
+          cp -a output/analysis/chatgpt-1.2026.237/raw-census analysis/chatgpt-1.2026.237/
+          git config user.name 'chatgpt-control-plane-bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add analysis/chatgpt-1.2026.237/raw-census
+          if git diff --cached --quiet; then
+            echo 'No census changes to commit'
+          else
+            git commit -m 'persist full raw ChatGPT APK capability census'
+            git push origin HEAD:build/pebble-chat-bridge-v019
+          fi

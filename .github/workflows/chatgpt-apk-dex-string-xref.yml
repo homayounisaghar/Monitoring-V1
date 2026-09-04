@@ -1,0 +1,126 @@
+name: ChatGPT APK exact DEX string xref
+
+on:
+  push:
+    branches:
+      - build/pebble-chat-bridge-v019
+    paths:
+      - .github/workflows/chatgpt-apk-dex-string-xref.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  xref:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: build/pebble-chat-bridge-v019
+          fetch-depth: 0
+
+      - name: Download exact APK
+        env:
+          LINK_ID: 01a05b9a-9f7f-73ef-8999-5507a44c3b73
+          EXPECTED_SHA256: 50e268c50255ab9aa48be49f0ba668c6f8ef97fd208f3826f19056698ea9f5a4
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib,json,os,pathlib,urllib.request
+          base='https://swisstransfer.infomaniak.com/api/1'; lid=os.environ['LINK_ID']; ua='CP-DexStringXref/1.0'
+          def gj(u):
+            with urllib.request.urlopen(urllib.request.Request(u,headers={'User-Agent':ua,'Accept':'application/json'}),timeout=45) as r:return json.loads(r.read())
+          p=gj(f'{base}/links/{lid}?with=transfer')['data']; f=next(x for x in p['transfer']['files'] if x['path'].lower().endswith('.apk'))
+          u=f"{base}/links/{p.get('id') or lid}/files/{f['id']}?redirect=true"; h=hashlib.sha256(); out=pathlib.Path('chatgpt.apk')
+          with urllib.request.urlopen(urllib.request.Request(u,headers={'User-Agent':ua}),timeout=120) as r,out.open('wb') as w:
+            while True:
+              b=r.read(1048576)
+              if not b: break
+              w.write(b); h.update(b)
+          if h.hexdigest()!=os.environ['EXPECTED_SHA256']: raise RuntimeError('SHA mismatch')
+          print('verified',h.hexdigest(),out.stat().st_size)
+          PY
+
+      - name: Install androguard
+        run: python3 -m pip install --quiet androguard
+
+      - name: Exact instruction-level string xref
+        run: |
+          set -euo pipefail
+          mkdir -p output/analysis/chatgpt-1.2026.237/dex-string-xref
+          python3 - <<'PY'
+          from pathlib import Path
+          from zipfile import ZipFile
+          from androguard.core.dex import DEX
+          from loguru import logger
+          import re
+
+          logger.remove()
+          exact = [
+              'attachmentUri','attachmentAssetPointer','hasAttachedRouteAttachments',
+              'Share attachment wait timed out after','focusKeyboard',
+              'android.intent.action.SEND','android.intent.action.SEND_MULTIPLE','android.intent.extra.STREAM',
+              '/voice','?mode=voice','android_voice_entry_existing_chat_action','CHATGPT_COLD_START_DESTINATION_VOICE_MODE',
+              'conversationId','conversation_id','CONVERSATION_BUBBLE_CONVERSATION_ID',
+              'modelSelection','useAccountDefaultModel','scroll_to_bottom','autosend','allowWhenLoggedIn'
+          ]
+          needles=[x.lower() for x in exact]
+          rows=['# Exact DEX instruction-level string xref','',
+                'Matches are const-string/instruction output consumers from the exact APK DEX, with surrounding Dalvik instructions.','']
+          matches=0
+          with ZipFile('chatgpt.apk') as z:
+              dex_names=sorted([n for n in z.namelist() if re.fullmatch(r'classes\d*\.dex',n) or n=='classes.dex'])
+              for dn in dex_names:
+                  rows += [f'## `{dn}`','']
+                  d=DEX(z.read(dn))
+                  dex_hits=0
+                  for c in d.get_classes():
+                      for m in c.get_methods():
+                          code=m.get_code()
+                          if code is None: continue
+                          try: insns=list(code.get_bc().get_instructions())
+                          except Exception: continue
+                          hitidx=[]
+                          for i,ins in enumerate(insns):
+                              try: out=ins.get_output()
+                              except Exception: out=''
+                              low=(out or '').lower()
+                              if any(n in low for n in needles): hitidx.append(i)
+                          if not hitidx: continue
+                          used=[]
+                          for i in hitidx:
+                              if any(abs(i-u)<8 for u in used): continue
+                              used.append(i); dex_hits+=1; matches+=1
+                              rows += [
+                                  f'### `{m.get_class_name()}->{m.get_name()}{m.get_descriptor()}`',
+                                  f'- match instruction index: `{i}`',
+                                  '```smali-ish'
+                              ]
+                              lo=max(0,i-10); hi=min(len(insns),i+11)
+                              for j in range(lo,hi):
+                                  ins=insns[j]
+                                  try: out=ins.get_output()
+                                  except Exception: out=''
+                                  rows.append(f'{j:04d}: {ins.get_name()} {out}')
+                              rows += ['```','']
+                  rows += [f'_method neighborhoods captured: {dex_hits}_','']
+          rows += [f'## Total neighborhoods: {matches}','']
+          Path('output/analysis/chatgpt-1.2026.237/dex-string-xref/DEX_STRING_XREF.md').write_text('\n'.join(rows),encoding='utf-8')
+          PY
+
+      - name: Commit durable xref
+        run: |
+          set -euo pipefail
+          git config user.name 'chatgpt-control-plane-bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git pull --rebase origin build/pebble-chat-bridge-v019
+          rm -rf analysis/chatgpt-1.2026.237/dex-string-xref
+          mkdir -p analysis/chatgpt-1.2026.237
+          cp -a output/analysis/chatgpt-1.2026.237/dex-string-xref analysis/chatgpt-1.2026.237/
+          git add analysis/chatgpt-1.2026.237/dex-string-xref
+          if ! git diff --cached --quiet; then
+            git commit -m 'persist exact ChatGPT DEX route string xrefs'
+            git push origin HEAD:build/pebble-chat-bridge-v019
+          fi

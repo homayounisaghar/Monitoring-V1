@@ -1,0 +1,143 @@
+name: Capability Lab v0.19 History-only Release Build Kit
+
+on:
+  push:
+    branches: [build/pebble-chat-bridge-v019]
+    paths:
+      - '.github/workflows/native-capability-lab-v19-build.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: v0.19 safety and contract prechecks
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT=runtime_probes/native-capability-lab
+          SVC="$ROOT/app/src/main/java/com/openai/controlplane/capabilitylab/LabAccessibilityService.java"
+          STORE="$ROOT/app/src/main/java/com/openai/controlplane/capabilitylab/LabStore.java"
+          MAIN="$ROOT/app/src/main/java/com/openai/controlplane/capabilitylab/MainActivity.java"
+          LOADER="$ROOT/app/src/main/java/com/openai/controlplane/capabilitylab/PlanLoader.java"
+          MAN="$ROOT/app/src/main/AndroidManifest.xml"
+          PLAN="$ROOT/plans/default.json"
+
+          grep -Fq 'com.openai.chatgpt' "$ROOT/app/src/main/java/com/openai/controlplane/capabilitylab/ProfileGuard.java"
+          grep -Fq 'WRITE_CLAIM' "$STORE"
+          grep -Fq 'historyBaselineItemIds' "$STORE"
+          grep -Fq 'freshBoundaryItemId' "$STORE"
+          grep -Fq 'case "history_boundary_calibration"' "$SVC"
+          grep -Fq 'case "reset_after_calibration"' "$SVC"
+          grep -Fq 'HISTORY_ITEM_PREFIX = "chatgpt.history.item."' "$SVC"
+          grep -Fq 'HISTORY_ACTIONS_PREFIX = "chatgpt.history.actions."' "$SVC"
+          grep -Fq 'HISTORY_A11Y_BOUNDARY' "$SVC"
+          grep -Fq 'HISTORY_A11Y_DIFF' "$SVC"
+          grep -Fq 'HISTORY_A11Y_FRESH_ITEM_UNIQUE' "$SVC"
+          grep -Fq 'HISTORY_RECENT_NEW_CHAT_RESOLUTION' "$SVC"
+          grep -Fq 'source=unique_new_history_accessibility_id' "$SVC"
+          grep -Fq 'action=observation_only_no_unrelated_row_click' "$SVC"
+          grep -Fq 'DOWNLOAD FULL REPORT' "$MAIN"
+          grep -Fq 'Stable v0.19' "$MAIN"
+          grep -Fq 'conversation_history_accessibility_binding_v14_history_only' "$LOADER"
+          grep -Fq 'conversation_history_accessibility_binding_v14_history_only' "$PLAN"
+          grep -Fq 'android.permission.INTERNET' "$MAN"
+
+          ! grep -R -n -E 'api\.openai\.com|Authorization: Bearer|access_token|refresh_token' "$ROOT"
+          ! grep -Fq 'dispatchGesture' "$SVC"
+          ! grep -Fq 'getBoundsInScreen' "$SVC"
+          ! grep -Fq 'GLOBAL_ACTION_' "$SVC"
+          ! grep -Fq 'Intent.createChooser' "$MAIN"
+          ! grep -Fq 'FileProvider.getUriForFile' "$MAIN"
+
+          python3 - <<'PY'
+          from pathlib import Path
+          import json
+          root = Path('runtime_probes/native-capability-lab')
+          s = (root / 'app/src/main/java/com/openai/controlplane/capabilitylab/LabAccessibilityService.java').read_text()
+          assert s.count('performAction(AccessibilityNodeInfo.ACTION_CLICK)') == 2
+          assert s.count('performAction(AccessibilityNodeInfo.ACTION_SET_TEXT') == 1
+          gradle = (root / 'app/build.gradle').read_text()
+          assert "applicationId 'com.openai.controlplane.capabilitylab.stable'" in gradle
+          assert 'versionCode 19' in gradle
+          assert '0.19-native-capability-lab-stable-history-only-boundary' in gradle
+          data = json.loads((root / 'plans/default.json').read_text())
+          assert data['schema'] == 1
+          assert data['targetVersion'] == '1.2026.237'
+          assert data['suite'] == 'conversation_history_accessibility_binding_v14_history_only'
+          ops = [x['op'] for x in data['steps']]
+          assert ops[:4] == ['resume_chatgpt', 'wait', 'history_boundary_calibration', 'reset_after_calibration']
+          assert 'global_search_binding' not in ops
+          assert ops.count('launch_prompt') == 1
+          assert ops.count('semantic_send') == 1
+          assert ops.count('history_boundary_calibration') == 1
+          assert ops.count('history_recent_binding') == 1
+          assert ops.count('verify_candidates') == 1
+          assert data['steps'][-1]['inconclusiveStatus'] == 'INCONCLUSIVE_HISTORY_ACCESSIBILITY_BOUNDARY_NOT_VERIFIED'
+          print('v0.19 contract prechecks OK')
+          PY
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          sdkmanager "platforms;android-35" "build-tools;35.0.0"
+          echo "sdk.dir=$ANDROID_SDK_ROOT" > runtime_probes/native-capability-lab/local.properties
+
+      - name: Build unsigned release APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsSL https://services.gradle.org/distributions/gradle-8.10.2-bin.zip -o /tmp/gradle.zip
+          unzip -q /tmp/gradle.zip -d /tmp
+          cd runtime_probes/native-capability-lab
+          /tmp/gradle-8.10.2/bin/gradle --no-daemon :app:assembleRelease --stacktrace
+          test -f app/build/outputs/apk/release/app-release-unsigned.apk
+          mkdir -p ../../ci/out/signing-tools/lib ../../ci/out/signing-tools/lib64
+          cp app/build/outputs/apk/release/app-release-unsigned.apk ../../ci/out/chatgpt-capability-lab-v19-unsigned.apk
+          cp "$ANDROID_SDK_ROOT/build-tools/35.0.0/apksigner" ../../ci/out/signing-tools/apksigner
+          cp "$ANDROID_SDK_ROOT/build-tools/35.0.0/lib/apksigner.jar" ../../ci/out/signing-tools/lib/apksigner.jar
+          cp "$ANDROID_SDK_ROOT/build-tools/35.0.0/zipalign" ../../ci/out/signing-tools/zipalign
+          LIBCPP=$(find "$ANDROID_SDK_ROOT/build-tools/35.0.0" -type f -name 'libc++.so' | head -n 1)
+          test -n "$LIBCPP"
+          cp "$LIBCPP" ../../ci/out/signing-tools/lib64/libc++.so
+
+      - name: Verify unsigned package metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          AAPT="$ANDROID_SDK_ROOT/build-tools/35.0.0/aapt"
+          "$AAPT" dump badging ci/out/chatgpt-capability-lab-v19-unsigned.apk | tee ci/out/badging.txt
+          grep -Fq "package: name='com.openai.controlplane.capabilitylab.stable' versionCode='19' versionName='0.19-native-capability-lab-stable-history-only-boundary'" ci/out/badging.txt
+          sha256sum ci/out/chatgpt-capability-lab-v19-unsigned.apk | tee ci/out/UNSIGNED_SHA256.txt
+          printf '%s\n' "$GITHUB_SHA" > ci/out/SOURCE_REF.txt
+
+      - name: Upload release signing kit
+        uses: actions/upload-artifact@v4
+        with:
+          name: chatgpt-capability-lab-v19-signing-kit
+          path: |
+            ci/out/chatgpt-capability-lab-v19-unsigned.apk
+            ci/out/UNSIGNED_SHA256.txt
+            ci/out/badging.txt
+            ci/out/SOURCE_REF.txt
+            ci/out/signing-tools/apksigner
+            ci/out/signing-tools/lib/apksigner.jar
+            ci/out/signing-tools/zipalign
+            ci/out/signing-tools/lib64/libc++.so
