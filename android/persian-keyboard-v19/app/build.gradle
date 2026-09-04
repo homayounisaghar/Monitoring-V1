@@ -6,12 +6,27 @@ android {
     namespace 'com.najme.perplexityprobe'
     compileSdk 35
 
+    signingConfigs {
+        debug {
+            storeFile file(System.getProperty('user.home') + '/.android/debug.keystore')
+            storePassword 'android'
+            keyAlias 'androiddebugkey'
+            keyPassword 'android'
+        }
+    }
+
     defaultConfig {
         applicationId 'com.najme.perplexityprobe'
         minSdk 26
         targetSdk 35
         versionCode 19
         versionName '1.9'
+    }
+
+    buildTypes {
+        debug {
+            signingConfig signingConfigs.debug
+        }
     }
 }
 
