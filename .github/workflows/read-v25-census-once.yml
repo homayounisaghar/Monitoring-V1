@@ -1,0 +1,57 @@
+name: Read v0.25 Census Once
+
+on:
+  push:
+    branches:
+      - project/chatgpt-webview-poc
+    paths:
+      - '.github/workflows/read-v25-census-once.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  read:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fetch sanitized v0.25 census telemetry
+        env:
+          READ_URL: https://webhook.site/token/f1cb3cd6-3ea5-4404-8a8b-8f2a23fa6be3/requests?sorting=oldest
+        run: |
+          python - <<'PY'
+          import json, os, urllib.request
+          SOURCE='1663ee0e825a653d9900a333dcba6732b86190de'
+          req=urllib.request.Request(os.environ['READ_URL'],headers={'Accept':'application/json','User-Agent':'cp25-census-readback'})
+          with urllib.request.urlopen(req,timeout=20) as r: root=json.load(r)
+          rows=root.get('data',root if isinstance(root,list) else [])
+          keep_top=['schema_version','scenario_id','test_id','seq','phase','classification','elapsed_ms','app_version','source_ref']
+          keep_state={'success','reason','prompt_visible','root_found','root_tag','root_role','root_test_id','visible_control_count','root_control_count','control_count','old_resolver_matches','audio_like_count','truncated','budget_exceeded','scan_elapsed_ms','set_hash','max_controls','max_scan_ms','no_control_clicks','composer_text_read','chat_text_read','raw_html_returned','set_stable','first_set_hash','second_set_hash','final_classification'}
+          keep_ctl={'index','scope','tag','role','aria_label','title','test_id','name','type','data_state','data_slot','aria_pressed','aria_expanded','aria_has_popup','aria_controls','disabled','text_hint','svg_title','svg_aria_label','svg_test_id','svg_viewbox','svg_path_count','svg_path_hash','semantic_hint','parent','near_prompt','sibling_button_index','sibling_button_count','fingerprint_hash'}
+          def scrub_ctl(c):
+            if not isinstance(c,dict): return None
+            q={k:v for k,v in c.items() if k in keep_ctl}
+            if isinstance(q.get('parent'),dict):
+              q['parent']={k:v for k,v in q['parent'].items() if k in {'tag','role','test_id','data_state','data_slot','aria_label','title'}}
+            return q
+          def scrub_obj(o):
+            if not isinstance(o,dict): return o
+            q={k:v for k,v in o.items() if k in keep_state}
+            if isinstance(o.get('controls'),list): q['controls']=[x for x in (scrub_ctl(c) for c in o['controls']) if x is not None]
+            return q
+          out=[]
+          for row in rows:
+            raw=row.get('content','') if isinstance(row,dict) else ''
+            try:p=json.loads(raw)
+            except:continue
+            if p.get('schema_version')!='cp-v25-ready-start-census-v1': continue
+            if p.get('scenario_id')!='dictation-ready-start-census-v25': continue
+            if p.get('source_ref')!=SOURCE: continue
+            q={k:p.get(k) for k in keep_top if k in p}
+            s=p.get('state') if isinstance(p.get('state'),dict) else {}
+            if isinstance(s.get('first'),dict): q['first']=scrub_obj(s['first'])
+            if isinstance(s.get('second'),dict): q['second']=scrub_obj(s['second'])
+            q['state']=scrub_obj(s)
+            out.append(q)
+          print('MATCHING',len(out))
+          for x in out: print('ROW',json.dumps(x,sort_keys=True,separators=(',',':')))
+          PY
