@@ -1,0 +1,82 @@
+name: Mouse Button Toggle Test APK
+
+on:
+  push:
+    branches:
+      - mouse-button-toggle-temp-build
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout exact commit
+        uses: actions/checkout@v6
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android API 35
+        run: sdkmanager "platforms;android-35" "build-tools;35.0.0" "platform-tools"
+
+      - name: Set up Gradle 8.10.2
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          gradle-version: '8.10.2'
+
+      - name: Restore persistent signing key
+        id: signing-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.android/debug.keystore
+          key: mouse-button-toggle-public-test-signing-v1
+
+      - name: Create persistent signing key
+        if: steps.signing-cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p "$HOME/.android"
+          keytool -genkeypair -v \
+            -keystore "$HOME/.android/debug.keystore" \
+            -storepass android \
+            -alias androiddebugkey \
+            -keypass android \
+            -dname "CN=Mouse Button Toggle Test,O=Mouse Button Toggle,C=DE" \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 10000
+
+      - name: Build debug APK
+        run: gradle -p android/mouse-button-toggle :app:assembleDebug --stacktrace
+
+      - name: Verify APK and capture metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK='android/mouse-button-toggle/app/build/outputs/apk/debug/app-debug.apk'
+          test -f "$APK"
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$APK" | tee apk-signing.txt
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | head -n 20 | tee apk-badging.txt
+          sha256sum "$APK" | tee apk-sha256.txt
+          cp "$APK" MouseButtonToggle-v1.0.0.apk
+
+      - name: Upload verified APK and evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: MouseButtonToggle-v1.0.0-stable-signed
+          path: |
+            MouseButtonToggle-v1.0.0.apk
+            apk-signing.txt
+            apk-badging.txt
+            apk-sha256.txt
+          if-no-files-found: error
+          retention-days: 30
