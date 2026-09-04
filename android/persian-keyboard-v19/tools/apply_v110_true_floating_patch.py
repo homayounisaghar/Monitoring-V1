@@ -12,6 +12,11 @@ def replace_once(old, new, label):
         raise SystemExit(f'v1.10 patch: missing pattern: {label}')
     s = s.replace(old, new, 1)
 
+
+# v1.10 fixes the architectural defect in v1.9 floating mode: v1.9 only shrank
+# a child view inside a normal IME window. v1.10 makes the collapsed island an
+# overlay-like IME surface: it does not resize/pan the target app and only the
+# island itself is touchable; transparent space passes touches through.
 replace_once(
     '    private LinearLayout root;\n',
     '    private FrameLayout inputShell;\n    private LinearLayout root;\n',
@@ -149,6 +154,7 @@ replace_once(
         } catch (Exception ignored) {}
         if (windowHeight <= 0 && inputShell != null) windowHeight = inputShell.getHeight();
 
+        // No part of the transparent IME strip should resize/pan the target app.
         outInsets.contentTopInsets = Math.max(0, windowHeight);
         outInsets.visibleTopInsets = Math.max(0, windowHeight);
         outInsets.touchableInsets = Insets.TOUCHABLE_INSETS_REGION;
@@ -164,11 +170,14 @@ replace_once(
     'true floating window/insets behavior',
 )
 
+# Version bump is part of the patch so the canonical baseline remains reproducible.
 if 'versionCode 19' not in g or "versionName '1.9'" not in g:
     raise SystemExit('v1.10 patch: expected v1.9 version markers missing')
 g = g.replace('versionCode 19', 'versionCode 20', 1)
 g = g.replace("versionName '1.9'", "versionName '1.10'", 1)
 
+# Guardrails: the validated speech transport stays untouched and floating mode
+# must now be implemented at the IME insets/window layer, not just as a small child.
 required = [
     'enable_endpoint_detection",false',
     'language_hints_strict",true',
