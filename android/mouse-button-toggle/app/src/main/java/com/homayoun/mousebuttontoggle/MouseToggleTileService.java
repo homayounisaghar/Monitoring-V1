@@ -37,13 +37,17 @@ public final class MouseToggleTileService extends TileService {
         Tile tile = getQsTile();
         if (tile != null) {
             tile.setLabel("Mouse: switching…");
-            tile.setState(Tile.STATE_UNAVAILABLE);
+            if (Build.VERSION.SDK_INT >= 29) {
+                tile.setSubtitle("Checking Samsung input state");
+            }
+            tile.setState(Tile.STATE_INACTIVE);
             tile.updateTile();
         }
 
         ShizukuMouseBridge.toggle(this, (state, error) -> getMainExecutor().execute(() -> {
             if (error != null || state == null) {
                 showError(error);
+                openSetup();
             } else {
                 showState(state);
             }
@@ -56,7 +60,9 @@ public final class MouseToggleTileService extends TileService {
         boolean rightPrimary = swapped == 1;
         tile.setIcon(Icon.createWithResource(this, R.drawable.ic_mouse_toggle));
         tile.setLabel(rightPrimary ? "Mouse: Right" : "Mouse: Left");
-        tile.setSubtitle(rightPrimary ? "Right click is primary" : "Left click is primary");
+        if (Build.VERSION.SDK_INT >= 29) {
+            tile.setSubtitle(rightPrimary ? "Right click is primary" : "Left click is primary");
+        }
         tile.setState(rightPrimary ? Tile.STATE_ACTIVE : Tile.STATE_INACTIVE);
         tile.updateTile();
     }
@@ -66,17 +72,18 @@ public final class MouseToggleTileService extends TileService {
         if (tile == null) return;
         tile.setIcon(Icon.createWithResource(this, R.drawable.ic_mouse_toggle));
         tile.setLabel("Mouse: setup");
-        tile.setSubtitle("Grant Shizuku permission");
-        tile.setState(Tile.STATE_UNAVAILABLE);
+        if (Build.VERSION.SDK_INT >= 29) tile.setSubtitle("Tap to grant Shizuku permission");
+        tile.setState(Tile.STATE_INACTIVE);
         tile.updateTile();
     }
 
     private void showError(String error) {
         Tile tile = getQsTile();
         if (tile != null) {
+            tile.setIcon(Icon.createWithResource(this, R.drawable.ic_mouse_toggle));
             tile.setLabel("Mouse: error");
-            tile.setSubtitle("Open app for details");
-            tile.setState(Tile.STATE_UNAVAILABLE);
+            if (Build.VERSION.SDK_INT >= 29) tile.setSubtitle("Tap to open diagnostics");
+            tile.setState(Tile.STATE_INACTIVE);
             tile.updateTile();
         }
         Toast.makeText(this, "Mouse toggle failed: " + (error == null ? "unknown error" : error), Toast.LENGTH_LONG).show();
