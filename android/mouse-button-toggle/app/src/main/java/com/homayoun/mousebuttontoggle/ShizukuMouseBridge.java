@@ -13,6 +13,10 @@ public final class ShizukuMouseBridge {
         void onResult(Integer state, String error);
     }
 
+    public interface TextCallback {
+        void onResult(String text, String error);
+    }
+
     private ShizukuMouseBridge() {
     }
 
@@ -32,6 +36,48 @@ public final class ShizukuMouseBridge {
         execute(context, true, callback);
     }
 
+    public static void diagnostics(Context context, TextCallback callback) {
+        if (!hasPermission()) {
+            callback.onResult(null, "Shizuku permission is not granted");
+            return;
+        }
+
+        ComponentName component = new ComponentName(
+                context.getPackageName(), MouseSettingsUserService.class.getName());
+        Shizuku.UserServiceArgs args = userServiceArgs(component);
+        final ServiceConnection[] holder = new ServiceConnection[1];
+        holder[0] = new ServiceConnection() {
+            @Override
+            public void onServiceConnected(ComponentName name, IBinder binder) {
+                if (binder == null || !binder.pingBinder()) {
+                    callback.onResult(null, "Shizuku returned an invalid service binder");
+                    safeUnbind(args, holder[0]);
+                    return;
+                }
+                new Thread(() -> {
+                    try {
+                        IMouseSettingsService service = IMouseSettingsService.Stub.asInterface(binder);
+                        callback.onResult(service.getDiagnostics(), null);
+                    } catch (Throwable e) {
+                        callback.onResult(null, message(e));
+                    } finally {
+                        safeUnbind(args, holder[0]);
+                    }
+                }, "mouse-diagnostics-operation").start();
+            }
+
+            @Override
+            public void onServiceDisconnected(ComponentName name) {
+            }
+        };
+
+        try {
+            Shizuku.bindUserService(args, holder[0]);
+        } catch (Throwable e) {
+            callback.onResult(null, message(e));
+        }
+    }
+
     private static void execute(Context context, boolean toggle, Callback callback) {
         if (!hasPermission()) {
             callback.onResult(null, "Shizuku permission is not granted");
@@ -40,11 +86,7 @@ public final class ShizukuMouseBridge {
 
         ComponentName component = new ComponentName(
                 context.getPackageName(), MouseSettingsUserService.class.getName());
-        Shizuku.UserServiceArgs args = new Shizuku.UserServiceArgs(component)
-                .daemon(false)
-                .processNameSuffix("mouse_settings")
-                .debuggable(false)
-                .version(1);
+        Shizuku.UserServiceArgs args = userServiceArgs(component);
 
         final ServiceConnection[] holder = new ServiceConnection[1];
         holder[0] = new ServiceConnection() {
@@ -61,7 +103,7 @@ public final class ShizukuMouseBridge {
                         int state = toggle ? service.toggleSwapState() : service.getSwapState();
                         callback.onResult(state, null);
                     } catch (Throwable e) {
-                        callback.onResult(null, e.getMessage() == null ? e.toString() : e.getMessage());
+                        callback.onResult(null, message(e));
                     } finally {
                         safeUnbind(args, holder[0]);
                     }
@@ -76,8 +118,20 @@ public final class ShizukuMouseBridge {
         try {
             Shizuku.bindUserService(args, holder[0]);
         } catch (Throwable e) {
-            callback.onResult(null, e.getMessage() == null ? e.toString() : e.getMessage());
+            callback.onResult(null, message(e));
         }
+    }
+
+    private static Shizuku.UserServiceArgs userServiceArgs(ComponentName component) {
+        return new Shizuku.UserServiceArgs(component)
+                .daemon(false)
+                .processNameSuffix("mouse_settings")
+                .debuggable(false)
+                .version(2);
+    }
+
+    private static String message(Throwable e) {
+        return e.getMessage() == null ? e.toString() : e.getMessage();
     }
 
     private static void safeUnbind(Shizuku.UserServiceArgs args, ServiceConnection connection) {
