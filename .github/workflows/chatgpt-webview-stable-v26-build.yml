@@ -1,0 +1,224 @@
+name: ChatGPT WebView Stable v0.26 Exact Start Ready-Gated E2E Release Kit
+
+on:
+  push:
+    branches:
+      - project/chatgpt-webview-poc
+    paths:
+      - '.github/workflows/chatgpt-webview-stable-v26-build.yml'
+      - 'runtime_probes/chatgpt-webview-stable-probe/app/src/main/AndroidManifest.xml'
+      - 'runtime_probes/chatgpt-webview-stable-probe/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/OrchestratorAutonomousV26Activity.java'
+      - 'runtime_probes/chatgpt-webview-stable-probe/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/TelemetryConfigV26.java'
+      - 'runtime_probes/chatgpt-webview-stable-probe/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/OrchestratorAutonomousV24Activity.java'
+      - 'runtime_probes/chatgpt-webview-stable-probe/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/TelemetryConfigV24.java'
+      - 'runtime_probes/chatgpt-webview-stable-probe/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/OrchestratorAutonomousV23Activity.java'
+      - 'runtime_probes/chatgpt-webview-stable-probe/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/DictationLifecycleAdapterV23.java'
+      - 'runtime_probes/chatgpt-webview-stable-probe/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/TelemetryConfigV23.java'
+      - 'runtime_probes/chatgpt-webview-stable-probe/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/OrchestratorFoundationV18Activity.java'
+      - 'runtime_probes/chatgpt-webview-stable-probe/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/OrchestratorFoundationV16Activity.java'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Create ephemeral telemetry collector and inject v0.23 + v0.24 + v0.26 config
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT=runtime_probes/chatgpt-webview-stable-probe
+          CFG23="$ROOT/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/TelemetryConfigV23.java"
+          CFG24="$ROOT/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/TelemetryConfigV24.java"
+          CFG26="$ROOT/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/TelemetryConfigV26.java"
+          mkdir -p ci/v26-telemetry
+          token_json="$(curl -fsS -X POST https://webhook.site/token -H 'Accept: application/json' -H 'Content-Type: application/json' -d '{"default_status":200,"default_content":"OK","default_content_type":"text/plain"}')"
+          token_id="$(TOKEN_JSON="$token_json" python3 - <<'PY'
+          import json, os
+          obj=json.loads(os.environ['TOKEN_JSON'])
+          token=obj.get('uuid')
+          if not token: raise SystemExit('collector uuid missing')
+          print(token)
+          PY
+          )"
+          endpoint="https://webhook.site/$token_id"
+          read_url="https://webhook.site/token/$token_id/requests?sorting=oldest"
+          python3 - "$CFG23" "$CFG24" "$CFG26" "$endpoint" "$GITHUB_SHA" "$token_id" <<'PY'
+          from pathlib import Path
+          import re,sys
+          *files,endpoint,sha,cid=sys.argv[1:]
+          for name in files:
+              p=Path(name)
+              s=p.read_text()
+              s=re.sub(r'static final String WEBHOOK_URL = ".*?";',f'static final String WEBHOOK_URL = "{endpoint}";',s)
+              s=re.sub(r'static final String SOURCE_REF = ".*?";',f'static final String SOURCE_REF = "{sha}";',s)
+              s=re.sub(r'static final String COLLECTOR_ID = ".*?";',f'static final String COLLECTOR_ID = "{cid}";',s)
+              s=s.replace('static final boolean CONFIGURED = false;','static final boolean CONFIGURED = true;')
+              p.write_text(s)
+          PY
+          for CFG in "$CFG23" "$CFG24" "$CFG26"; do
+            grep -Fq "static final String WEBHOOK_URL = \"$endpoint\";" "$CFG"
+            grep -Fq "static final String SOURCE_REF = \"$GITHUB_SHA\";" "$CFG"
+            grep -Fq 'static final boolean CONFIGURED = true;' "$CFG"
+          done
+          printf '%s\n' "$token_id" > ci/v26-telemetry/collector-id.txt
+          printf '%s\n' "$read_url" > ci/v26-telemetry/read-url.txt
+          printf '%s\n' "$GITHUB_SHA" > ci/v26-telemetry/source-ref.txt
+          printf '{"kind":"BUILD_SMOKE","schema_version":"cp-v26-ready-start-gate-v1","scenario_id":"dictation-one-tap-ready-gated-v26","source_ref":"%s"}\n' "$GITHUB_SHA" > ci/v26-telemetry/build-smoke.json
+          curl -fsS -X POST "$endpoint" -H 'Content-Type: application/json' --data-binary @ci/v26-telemetry/build-smoke.json >/dev/null
+          ok=0
+          for i in 1 2 3 4 5; do
+            sleep 1
+            if curl -fsS "$read_url" | python3 -c 'import json,sys;o=json.load(sys.stdin);d=o.get("data",[]);raise SystemExit(0 if len(d)>=1 else 1)'; then ok=1; break; fi
+          done
+          test "$ok" -eq 1
+          echo 'v0.26 collector smoke confirmed'
+
+      - name: Prepare v0.26 metadata and contract prechecks
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT=runtime_probes/chatgpt-webview-stable-probe
+          ACT26="$ROOT/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/OrchestratorAutonomousV26Activity.java"
+          ACT24="$ROOT/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/OrchestratorAutonomousV24Activity.java"
+          ACT23="$ROOT/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/OrchestratorAutonomousV23Activity.java"
+          ADAPTER="$ROOT/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/DictationLifecycleAdapterV23.java"
+          CFG23="$ROOT/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/TelemetryConfigV23.java"
+          CFG24="$ROOT/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/TelemetryConfigV24.java"
+          CFG26="$ROOT/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/TelemetryConfigV26.java"
+          GRADLE="$ROOT/app/build.gradle"
+          MAN="$ROOT/app/src/main/AndroidManifest.xml"
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          p=Path('runtime_probes/chatgpt-webview-stable-probe/app/build.gradle')
+          s=p.read_text()
+          s=re.sub(r'versionCode\s+\d+','versionCode 26',s)
+          s=re.sub(r"versionName\s+'[^']+'","versionName '0.26-stable-exact-start-ready-gated-e2e'",s)
+          p.write_text(s)
+          PY
+          grep -Fq "applicationId 'com.homayounisaghar.chatgptwebviewprobe'" "$GRADLE"
+          grep -Fq 'versionCode 26' "$GRADLE"
+          grep -Fq "versionName '0.26-stable-exact-start-ready-gated-e2e'" "$GRADLE"
+          grep -Fq 'OrchestratorAutonomousV26Activity' "$MAN"
+          grep -Fq 'android.permission.INTERNET' "$MAN"
+          grep -Fq 'android.permission.RECORD_AUDIO' "$MAN"
+          grep -Fq 'android.permission.MODIFY_AUDIO_SETTINGS' "$MAN"
+          test "$(grep -c '<uses-permission' "$MAN")" -eq 3
+          grep -Fq 'PASS_TWO_CONSECUTIVE_EXACT_READY' "$ACT26"
+          grep -Fq 'Start dictation' "$ACT26"
+          grep -Fq 'RUN_READY_TIMEOUT_MS = 9000L' "$ACT26"
+          grep -Fq 'START_READY_TIMEOUT_MS = 2500L' "$ACT26"
+          grep -Fq 'invokeParentStart26' "$ACT26"
+          grep -Fq 'no_direct_dom_click' "$ACT26"
+          grep -Fq 'parent_claim_click_path_preserved' "$ACT26"
+          grep -Fq 'ccd4005b' "$ACT26"
+          grep -Fq '5170cd41' "$ACT26"
+          grep -Fq 'PASS_EXTERNAL_USER_TURN_COMPOSER_CLEAR' "$ACT24"
+          grep -Fq 'TRANSCRIPT_SCRIPT_CLASS' "$ACT24"
+          grep -Fq 'ASSISTANT_SCRIPT_CLASS' "$ACT24"
+          grep -Fq 'RUN FULL TEST' "$ACT23"
+          grep -Fq 'SPEAK NOW' "$ACT23"
+          grep -Fq 'Submit dictation' "$ADAPTER"
+          grep -Fq 'Cancel dictation' "$ADAPTER"
+          grep -Fq 'SCAN_BUDGET_EXCEEDED' "$ADAPTER"
+          grep -Fq 'static final boolean CONFIGURED = true;' "$CFG23"
+          grep -Fq 'static final boolean CONFIGURED = true;' "$CFG24"
+          grep -Fq 'static final boolean CONFIGURED = true;' "$CFG26"
+          ! grep -R -n -E 'api\.openai\.com|Authorization: Bearer|access_token|refresh_token|Cookie:' "$ACT26" "$ACT24" "$ACT23" "$ADAPTER" "$CFG23" "$CFG24" "$CFG26"
+          echo 'stable v0.26 contract prechecks OK'
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          sdkmanager "platforms;android-35" "build-tools;35.0.0"
+          echo "sdk.dir=$ANDROID_SDK_ROOT" > runtime_probes/chatgpt-webview-stable-probe/local.properties
+
+      - name: Build unsigned release APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsSL https://services.gradle.org/distributions/gradle-8.10.2-bin.zip -o /tmp/gradle.zip
+          unzip -q /tmp/gradle.zip -d /tmp
+          cd runtime_probes/chatgpt-webview-stable-probe
+          /tmp/gradle-8.10.2/bin/gradle --no-daemon :app:assembleRelease --stacktrace
+          test -f app/build/outputs/apk/release/app-release-unsigned.apk
+          mkdir -p ../../ci/out/signing-tools/lib ../../ci/out/signing-tools/lib64
+          cp app/build/outputs/apk/release/app-release-unsigned.apk ../../ci/out/chatgpt-webview-stable-v26-unsigned.apk
+          cp "$ANDROID_SDK_ROOT/build-tools/35.0.0/apksigner" ../../ci/out/signing-tools/apksigner
+          cp "$ANDROID_SDK_ROOT/build-tools/35.0.0/lib/apksigner.jar" ../../ci/out/signing-tools/lib/apksigner.jar
+          cp "$ANDROID_SDK_ROOT/build-tools/35.0.0/zipalign" ../../ci/out/signing-tools/zipalign
+          cp "$ANDROID_SDK_ROOT/build-tools/35.0.0/aapt" ../../ci/out/signing-tools/aapt
+          LIBCPP=$(find "$ANDROID_SDK_ROOT/build-tools/35.0.0" -type f -name 'libc++.so' | head -n 1)
+          test -n "$LIBCPP"
+          cp "$LIBCPP" ../../ci/out/signing-tools/lib64/libc++.so
+
+      - name: Verify unsigned v0.26 artifact contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          AAPT="$ANDROID_SDK_ROOT/build-tools/35.0.0/aapt"
+          APK=ci/out/chatgpt-webview-stable-v26-unsigned.apk
+          "$AAPT" dump badging "$APK" | tee ci/out/badging.txt
+          grep -Fq "package: name='com.homayounisaghar.chatgptwebviewprobe' versionCode='26' versionName='0.26-stable-exact-start-ready-gated-e2e'" ci/out/badging.txt
+          grep -Fq "launchable-activity: name='com.homayounisaghar.chatgptwebviewprobe.OrchestratorAutonomousV26Activity'" ci/out/badging.txt
+          "$AAPT" dump permissions "$APK" | tee ci/out/permissions.txt
+          grep -Fq 'android.permission.INTERNET' ci/out/permissions.txt
+          grep -Fq 'android.permission.RECORD_AUDIO' ci/out/permissions.txt
+          grep -Fq 'android.permission.MODIFY_AUDIO_SETTINGS' ci/out/permissions.txt
+          test "$(grep -c '^uses-permission:' ci/out/permissions.txt)" -eq 3
+          unzip -p "$APK" classes.dex | strings > ci/out/classes-strings.txt
+          grep -Fq 'PASS_TWO_CONSECUTIVE_EXACT_READY' ci/out/classes-strings.txt
+          grep -Fq 'Start dictation' ci/out/classes-strings.txt
+          grep -Fq 'PASS_EXTERNAL_USER_TURN_COMPOSER_CLEAR' ci/out/classes-strings.txt
+          grep -Fq 'TRANSCRIPT_SCRIPT_CLASS' ci/out/classes-strings.txt
+          grep -Fq 'ASSISTANT_SCRIPT_CLASS' ci/out/classes-strings.txt
+          grep -Fq 'Submit dictation' ci/out/classes-strings.txt
+          grep -Fq 'Cancel dictation' ci/out/classes-strings.txt
+          grep -Fq 'GLOBAL_TIMEOUT_AT_' ci/out/classes-strings.txt
+          grep -Fq 'SCAN_BUDGET_EXCEEDED' ci/out/classes-strings.txt
+          grep -Fq 'https://webhook.site/' ci/out/classes-strings.txt
+          sha256sum "$APK" | tee ci/out/UNSIGNED_SHA256.txt
+          printf '%s\n' "$GITHUB_SHA" > ci/out/SOURCE_REF.txt
+
+      - name: Upload release signing kit
+        uses: actions/upload-artifact@v4
+        with:
+          name: chatgpt-webview-stable-v26-signing-kit
+          path: |
+            ci/out/chatgpt-webview-stable-v26-unsigned.apk
+            ci/out/UNSIGNED_SHA256.txt
+            ci/out/badging.txt
+            ci/out/permissions.txt
+            ci/out/SOURCE_REF.txt
+            ci/out/signing-tools/apksigner
+            ci/out/signing-tools/lib/apksigner.jar
+            ci/out/signing-tools/zipalign
+            ci/out/signing-tools/aapt
+            ci/out/signing-tools/lib64/libc++.so
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload telemetry collector provenance
+        uses: actions/upload-artifact@v4
+        with:
+          name: chatgpt-webview-stable-v26-telemetry-collector
+          path: ci/v26-telemetry
+          if-no-files-found: error
+          retention-days: 30
