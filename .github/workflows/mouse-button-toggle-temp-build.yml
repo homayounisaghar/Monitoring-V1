@@ -66,6 +66,10 @@ jobs:
           test -f "$APK"
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$APK" | tee apk-signing.txt
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | head -n 20 | tee apk-badging.txt
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump xmltree "$APK" AndroidManifest.xml > apk-manifest.txt
+          grep -q 'MouseToggleTileService' apk-manifest.txt
+          grep -q 'BIND_QUICK_SETTINGS_TILE' apk-manifest.txt
+          grep -q 'ShizukuProvider' apk-manifest.txt
           sha256sum "$APK" | tee apk-sha256.txt
           cp "$APK" MouseButtonToggle-v1.0.0.apk
 
@@ -77,6 +81,7 @@ jobs:
             MouseButtonToggle-v1.0.0.apk
             apk-signing.txt
             apk-badging.txt
+            apk-manifest.txt
             apk-sha256.txt
           if-no-files-found: error
           retention-days: 30
