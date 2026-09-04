@@ -1,6 +1,6 @@
 workflows:
   pebble-bridge-v031:
-    name: Android Rotation Tile v1.0.0
+    name: Pebble Native Chat Adapter P1 — APK-derived Deep Link + Conversation ID Binding
     instance_type: mac_mini_m2
     max_build_duration: 30
     environment:
@@ -14,7 +14,7 @@ workflows:
         ANDROID_PLATFORM: "35"
         ANDROID_BUILD_TOOLS: "35.0.0"
         EXPECTED_CERT_SHA256: "9aaac9cb3ff091aa5c362f0255129a97b8e3c34b8a73f520cbb6ba89ed31e5d3"
-        APK_BASENAME: "RotationTile-v1.0.0.apk"
+        APK_BASENAME: "PebbleChatBridgePoC-native-adapter-p1.apk"
     triggering:
       events:
         - push
@@ -25,95 +25,144 @@ workflows:
       cancel_previous_builds: true
 
     scripts:
-      - name: Install Android toolchain and Gradle
+      - name: Reassemble v0.19 baseline source
         script: |
           #!/usr/bin/env bash
           set -euo pipefail
-          yes | sdkmanager --sdk_root="$ANDROID_SDK_ROOT" "platforms;android-${ANDROID_PLATFORM}" "build-tools;${ANDROID_BUILD_TOOLS}"
-          curl -fsSL "https://services.gradle.org/distributions/gradle-${GRADLE_VERSION}-bin.zip" -o /tmp/gradle.zip
-          rm -rf "/tmp/gradle-${GRADLE_VERSION}"
-          unzip -q -o /tmp/gradle.zip -d /tmp
-          echo "sdk.dir=$ANDROID_SDK_ROOT" > android-rotation-tile/local.properties
+          mkdir -p ci/src ci/out ci/delivery
+          cat v019_parts/part00.txt v019_parts/part01.txt v019_parts/part02.txt v019_parts/part03.txt > ci/source.tgz.b64
+          test "$(shasum -a 256 ci/source.tgz.b64 | awk '{print $1}')" = "76dfce144dd4e8126fdfb356e6fb3a6627f5bd629cf741798703847ec38d623a"
+          python3 - <<'PY'
+          import base64
+          from pathlib import Path
+          Path("ci/source.tgz").write_bytes(base64.b64decode(Path("ci/source.tgz.b64").read_bytes()))
+          PY
+          test "$(shasum -a 256 ci/source.tgz | awk '{print $1}')" = "c7485116b17dfe4f2aa9f61469ab01e1596efccdf0d43f3d7b560d3c474e6196"
+          tar -xzf ci/source.tgz -C ci/src
+          grep -Fq "processSessionRecovery" ci/src/app/src/main/java/com/pebblebridge/poc/NativeProbeAccessibilityService.java
+          grep -Fq "versionCode 19" ci/src/app/build.gradle
 
-      - name: Build unsigned release APK
+      - name: Apply legacy safety lineage then native-adapter P1
         script: |
           #!/usr/bin/env bash
           set -euo pipefail
-          mkdir -p ci/out
-          cd android-rotation-tile
-          "/tmp/gradle-${GRADLE_VERSION}/bin/gradle" --no-daemon :app:assembleRelease --stacktrace
-          cp app/build/outputs/apk/release/app-release-unsigned.apk ../ci/out/RotationTile-v1.0.0-unsigned.apk
+          python3 build_tools/apply_v027.py ci/src
+          python3 build_tools/apply_v028_incremental.py ci/src
+          python3 build_tools/apply_v029_diagnostic.py ci/src
+          python3 build_tools/apply_v030_calibrated_gesture.py ci/src
+          python3 build_tools/apply_v031_centered_gesture.py ci/src
+          python3 build_tools/apply_v032_native_adapter_p1.py ci/src
+          JAVA=ci/src/app/src/main/java/com/pebblebridge/poc/NativeProbeAccessibilityService.java
+          ACT=ci/src/app/src/main/java/com/pebblebridge/poc/NativeAdapterProofActivity.java
+          LIS=ci/src/app/src/main/java/com/pebblebridge/poc/NativeAdapterNotificationListenerService.java
+          MAN=ci/src/app/src/main/AndroidManifest.xml
+          grep -Fq "NATIVE_ADAPTER_P1_READ_ONLY_RECEIPT_OBSERVER" "$JAVA"
+          grep -Fq "ChatGptDeeplinkActivity" "$ACT"
+          grep -Fq "autosend" "$ACT"
+          grep -Fq "StatusBarNotification" "$LIS"
+          grep -Fq "getTag()" "$LIS"
+          grep -Fq "NativeAdapterNotificationListenerService" "$MAN"
+          grep -Fq "versionCode 32" ci/src/app/build.gradle
+          grep -Fq "0.32-native-adapter-p1" ci/src/app/build.gradle
 
-      - name: Align sign and verify release
+      - name: Build unsigned Android release
+        script: |
+          #!/usr/bin/env bash
+          set -uo pipefail
+          : > ci/full-build.log
+          {
+            set -x
+            echo "sdk.dir=$ANDROID_SDK_ROOT" > ci/src/local.properties
+            yes | sdkmanager --sdk_root="$ANDROID_SDK_ROOT" "platforms;android-${ANDROID_PLATFORM}" "build-tools;${ANDROID_BUILD_TOOLS}"
+            curl -fsSL "https://services.gradle.org/distributions/gradle-${GRADLE_VERSION}-bin.zip" -o /tmp/gradle.zip
+            rm -rf "/tmp/gradle-${GRADLE_VERSION}"
+            unzip -q -o /tmp/gradle.zip -d /tmp
+            cd ci/src
+            "/tmp/gradle-${GRADLE_VERSION}/bin/gradle" --no-daemon :app:assembleRelease --stacktrace
+          } 2>&1 | tee ci/full-build.log
+          rc=${PIPESTATUS[0]}
+          if [ "$rc" -ne 0 ]; then tail -n 220 ci/full-build.log; exit "$rc"; fi
+          cp ci/src/app/build/outputs/apk/release/app-release-unsigned.apk ci/out/PebbleChatBridgePoC-native-adapter-p1-unsigned.apk
+
+      - name: Sign verify and prepare handoff
         script: |
           #!/usr/bin/env bash
           set -euo pipefail
-          mkdir -p ci/out ci/verify
-          BT="$ANDROID_SDK_ROOT/build-tools/${ANDROID_BUILD_TOOLS}"
-          UNSIGNED="ci/out/RotationTile-v1.0.0-unsigned.apk"
-          ALIGNED="ci/out/RotationTile-v1.0.0-aligned.apk"
-          SIGNED="ci/out/${APK_BASENAME}"
-          "$BT/zipalign" -f 4 "$UNSIGNED" "$ALIGNED"
-          "$BT/apksigner" sign \
+          unsigned="ci/out/PebbleChatBridgePoC-native-adapter-p1-unsigned.apk"
+          signed="ci/out/${APK_BASENAME}"
+          apksigner_path="$(find "$ANDROID_SDK_ROOT/build-tools" -type f -name apksigner 2>/dev/null | sort | tail -n 1)"
+          test -n "$apksigner_path"
+          bash "$apksigner_path" sign \
             --ks "$CM_KEYSTORE_PATH" \
             --ks-pass "env:CM_KEYSTORE_PASSWORD" \
             --ks-key-alias "$CM_KEY_ALIAS" \
             --key-pass "env:CM_KEY_PASSWORD" \
-            --out "$SIGNED" "$ALIGNED"
-          "$BT/apksigner" verify --verbose --print-certs "$SIGNED" | tee ci/verify/apksigner.txt
-          CERT="$(sed -n 's/^Signer #1 certificate SHA-256 digest: //p' ci/verify/apksigner.txt | head -n1 | tr 'A-F' 'a-f')"
-          test "$CERT" = "$EXPECTED_CERT_SHA256"
-          "$BT/zipalign" -c -v 4 "$SIGNED" > ci/verify/zipalign.txt
-          "$BT/aapt" dump badging "$SIGNED" > ci/verify/badging.txt
-          "$BT/aapt" dump permissions "$SIGNED" > ci/verify/permissions.txt
-          "$BT/aapt" dump xmltree "$SIGNED" AndroidManifest.xml > ci/verify/manifest.txt
-          grep -Fq "package: name='com.homayoun.rotationtile' versionCode='1' versionName='1.0.0'" ci/verify/badging.txt
-          ! grep -Fq "application-debuggable" ci/verify/badging.txt
-          grep -Fq "android.permission.SYSTEM_ALERT_WINDOW" ci/verify/permissions.txt
-          grep -Fq "android.permission.WRITE_SETTINGS" ci/verify/permissions.txt
-          grep -Fq "android.permission.BIND_QUICK_SETTINGS_TILE" ci/verify/manifest.txt
-          grep -Fq "com.homayoun.rotationtile.RotationTileService" ci/verify/manifest.txt
-          unzip -t "$SIGNED" > ci/verify/zip-integrity.txt
-          shasum -a 256 "$SIGNED" | tee ci/verify/APK_SHA256.txt
-          printf 'certificate_sha256=%s\n' "$CERT" | tee ci/verify/certificate.txt
-          rm -f "$UNSIGNED" "$ALIGNED"
+            --out "$signed" "$unsigned"
+          bash "$apksigner_path" verify --verbose --print-certs "$signed" | tee ci/apksigner-verify.txt
+          actual_cert="$(sed -n 's/^Signer #1 certificate SHA-256 digest: //p' ci/apksigner-verify.txt | tr 'A-F' 'a-f' | head -n 1)"
+          test "$actual_cert" = "$EXPECTED_CERT_SHA256"
+          printf 'certificate_sha256=%s\n' "$actual_cert" > ci/certificate.txt
+          shasum -a 256 "$signed" | tee ci/APK_SHA256.txt
+          cp ci/src/app/src/main/AndroidManifest.xml ci/delivery/AndroidManifest.xml.txt
+          cp ci/src/app/src/main/java/com/pebblebridge/poc/NativeAdapterProofActivity.java ci/delivery/NativeAdapterProofActivity.java.txt
+          cp ci/src/app/src/main/java/com/pebblebridge/poc/NativeAdapterNotificationListenerService.java ci/delivery/NativeAdapterNotificationListenerService.java.txt
+          cp ci/src/app/src/main/java/com/pebblebridge/poc/NativeProbeAccessibilityService.java ci/delivery/NativeProbeAccessibilityService.java.txt
 
     artifacts:
-      - ci/out/RotationTile-v1.0.0.apk
-      - ci/verify/**
+      - ci/out/${APK_BASENAME}
+      - ci/APK_SHA256.txt
+      - ci/certificate.txt
+      - ci/apksigner-verify.txt
+      - ci/delivery/AndroidManifest.xml.txt
+      - ci/delivery/NativeAdapterProofActivity.java.txt
+      - ci/delivery/NativeAdapterNotificationListenerService.java.txt
+      - ci/delivery/NativeProbeAccessibilityService.java.txt
 
     publishing:
       scripts:
-        - name: Publish verified APK release and delivery pointer
+        - name: Publish native-adapter P1 release and latest pointer
           script: |
             #!/usr/bin/env bash
             set -euo pipefail
+            APK="$CM_BUILD_DIR/ci/out/${APK_BASENAME}"
             OWNER="homayounisaghar"
             REPO="Monitoring-V1"
             DELIVERY_BRANCH="ci/pebble-apk-delivery"
             API="https://api.github.com/repos/$OWNER/$REPO"
             AUTH="Authorization: Bearer $GITHUB_TOKEN"
             ACCEPT="Accept: application/vnd.github+json"
-            SHORT="$(printf '%s' "${CM_COMMIT:-unknown}" | cut -c1-12)"
-            TAG="rotation-tile-v1.0.0-$SHORT"
-            APK_NAME="RotationTile-v1.0.0-$SHORT.apk"
-            APK="$CM_BUILD_DIR/ci/out/${APK_BASENAME}"
-            SHA="$(awk '{print $1}' "$CM_BUILD_DIR/ci/verify/APK_SHA256.txt")"
-            CERT="$(sed -n 's/^certificate_sha256=//p' "$CM_BUILD_DIR/ci/verify/certificate.txt" | head -1)"
-            BODY=$(jq -n --arg tag "$TAG" --arg target "${CM_COMMIT:-}" --arg name "Rotation Tile v1.0.0 $SHORT" --arg sha "$SHA" --arg cert "$CERT" '{tag_name:$tag,target_commitish:$target,name:$name,body:("Verified Rotation Tile v1.0.0. APK SHA-256: "+$sha+". Signer SHA-256: "+$cert+"."),draft:false,prerelease:true}')
-            RELEASE=$(curl -fsS -X POST -H "$AUTH" -H "$ACCEPT" -H 'Content-Type: application/json' --data-binary "$BODY" "$API/releases")
-            RID=$(printf '%s' "$RELEASE" | jq -r '.id')
-            ASSET=$(curl -fsS -X POST -H "$AUTH" -H 'Content-Type: application/vnd.android.package-archive' --data-binary "@$APK" "https://uploads.github.com/repos/$OWNER/$REPO/releases/$RID/assets?name=$APK_NAME")
-            ASSET_URL=$(printf '%s' "$ASSET" | jq -r '.browser_download_url // empty')
-            test -n "$ASSET_URL"
-            POINTER=$(jq -n --arg event rotation_tile_apk_delivery --arg status SUCCESS --arg buildId "${CM_BUILD_ID:-}" --arg commit "${CM_COMMIT:-}" --arg tag "$TAG" --arg assetUrl "$ASSET_URL" --arg sha256 "$SHA" --arg signingFingerprint "$CERT" '{event:$event,status:$status,buildId:$buildId,commit:$commit,tag:$tag,assetUrl:$assetUrl,sha256:$sha256,signingFingerprint:$signingFingerprint}')
-            printf '%s\n' "$POINTER" > /tmp/latest-rotation-tile-build.json
-            current=$(curl -fsS -H "$AUTH" -H "$ACCEPT" "$API/contents/.ci/latest-rotation-tile-build.json?ref=ci%2Fpebble-apk-delivery" 2>/dev/null || true)
-            current_sha=$(printf '%s' "$current" | jq -r '.sha // empty')
-            content=$(base64 < /tmp/latest-rotation-tile-build.json | tr -d '\n')
-            if [ -n "$current_sha" ]; then
-              payload=$(jq -n --arg message "ci: update rotation tile delivery pointer" --arg content "$content" --arg branch "$DELIVERY_BRANCH" --arg sha "$current_sha" '{message:$message,content:$content,branch:$branch,sha:$sha}')
-            else
-              payload=$(jq -n --arg message "ci: create rotation tile delivery pointer" --arg content "$content" --arg branch "$DELIVERY_BRANCH" '{message:$message,content:$content,branch:$branch}')
+            SHORT_COMMIT="$(printf '%s' "${CM_COMMIT:-unknown}" | cut -c1-12)"
+            TAG="pebble-native-p1-$SHORT_COMMIT"
+            APK_NAME="pebble-chat-bridge-native-p1-$SHORT_COMMIT.apk"
+            release_json=$(curl -fsS -H "$AUTH" -H "$ACCEPT" "$API/releases/tags/$TAG" 2>/dev/null || true)
+            release_id=$(printf '%s' "$release_json" | jq -r '.id // empty')
+            if [ -z "$release_id" ]; then
+              body=$(jq -n --arg tag "$TAG" --arg target "${CM_COMMIT:-}" --arg name "Pebble Native Chat Adapter P1 $SHORT_COMMIT" '{tag_name:$tag,target_commitish:$target,name:$name,body:"First APK-derived native-adapter runtime proof. Uses the official ChatGPT exported deeplink activity for new-chat autosend and exact /c/<conversationId> reopening, captures the candidate conversationId read-only from ChatGPT StatusBarNotification.tag, and uses the existing Accessibility service only as a read-only unique-marker verifier. No Search drawer, coordinate tap, or write-side Accessibility action is part of this proof path.",draft:false,prerelease:true}')
+              release_json=$(curl -fsS -X POST -H "$AUTH" -H "$ACCEPT" -H 'Content-Type: application/json' --data-binary "$body" "$API/releases")
+              release_id=$(printf '%s' "$release_json" | jq -r '.id')
             fi
-            curl -fsS -X PUT -H "$AUTH" -H "$ACCEPT" -H 'Content-Type: application/json' --data-binary "$payload" "$API/contents/.ci/latest-rotation-tile-build.json" >/dev/null
+            asset_json=$(curl -fsS -X POST -H "$AUTH" -H 'Content-Type: application/vnd.android.package-archive' --data-binary "@$APK" "https://uploads.github.com/repos/$OWNER/$REPO/releases/$release_id/assets?name=$APK_NAME")
+            release_url=$(printf '%s' "$release_json" | jq -r '.html_url // empty')
+            asset_url=$(printf '%s' "$asset_json" | jq -r '.browser_download_url // empty')
+            apk_sha=$(awk '{print $1}' "$CM_BUILD_DIR/ci/APK_SHA256.txt")
+            cert=$(sed -n 's/^certificate_sha256=//p' "$CM_BUILD_DIR/ci/certificate.txt" | head -1)
+            pointer=$(jq -n --arg event pebble_apk_delivery --arg version native-adapter-p1 --arg status SUCCESS --arg buildId "${CM_BUILD_ID:-}" --arg commit "${CM_COMMIT:-}" --arg releaseUrl "$release_url" --arg releaseAssetUrl "$asset_url" --arg sha256 "$apk_sha" --arg signingFingerprint "$cert" '{event:$event,version:$version,status:$status,buildId:$buildId,commit:$commit,releaseUrl:$releaseUrl,releaseAssetUrl:$releaseAssetUrl,sha256:$sha256,signingFingerprint:$signingFingerprint}')
+            printf '%s\n' "$pointer" > ci/latest-pebble-build.json
+
+            put_content() {
+              path="$1"; local_file="$2"
+              current=$(curl -fsS -H "$AUTH" -H "$ACCEPT" "$API/contents/$path?ref=ci%2Fpebble-apk-delivery" 2>/dev/null || true)
+              sha=$(printf '%s' "$current" | jq -r '.sha // empty')
+              content=$(base64 < "$local_file" | tr -d '\n')
+              if [ -n "$sha" ]; then
+                payload=$(jq -n --arg message "ci: update $path for native-adapter-p1" --arg content "$content" --arg branch "$DELIVERY_BRANCH" --arg sha "$sha" '{message:$message,content:$content,branch:$branch,sha:$sha}')
+              else
+                payload=$(jq -n --arg message "ci: create $path for native-adapter-p1" --arg content "$content" --arg branch "$DELIVERY_BRANCH" '{message:$message,content:$content,branch:$branch}')
+              fi
+              curl -fsS -X PUT -H "$AUTH" -H "$ACCEPT" -H 'Content-Type: application/json' --data-binary "$payload" "$API/contents/$path" >/dev/null
+            }
+            put_content ".ci/latest-pebble-build.json" "ci/latest-pebble-build.json"
+            put_content ".ci/latest-native-adapter.AndroidManifest.xml.txt" "ci/delivery/AndroidManifest.xml.txt"
+            put_content ".ci/latest-native-adapter.NativeAdapterProofActivity.java.txt" "ci/delivery/NativeAdapterProofActivity.java.txt"
+            put_content ".ci/latest-native-adapter.NativeAdapterNotificationListenerService.java.txt" "ci/delivery/NativeAdapterNotificationListenerService.java.txt"
+            put_content ".ci/latest-pebble.NativeProbeAccessibilityService.java.txt" "ci/delivery/NativeProbeAccessibilityService.java.txt"

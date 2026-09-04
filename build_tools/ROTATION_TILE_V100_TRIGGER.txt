@@ -1,1 +1,0 @@
-trigger Rotation Tile v1.0.0 via proven Codemagic workflow id pebble-bridge-v031
