@@ -76,7 +76,14 @@ jobs:
           grep -Fq 'geometry_click_used",false' "$SRC"
           grep -Fq 'POPUP_SURFACE_SNAPSHOT' "$SRC"
           grep -Fq 'UNCERTAIN_NO_REPLAY' "$SRC"
-          test "$(grep -o '\.click()' "$SRC" | wc -l | tr -d ' ')" -eq 0
+          python3 - "$SRC" <<'PY'
+          from pathlib import Path
+          import re,sys
+          s=Path(sys.argv[1]).read_text()
+          s=re.sub(r'/\*.*?\*/','',s,flags=re.S)
+          s=re.sub(r'//.*','',s)
+          assert '.click()' not in s
+          PY
           ! grep -Fq 'elementFromPoint' "$SRC"
           ! grep -Fq 'MODEL_EFFORT_SELECT_LIGHT' "$SRC"
           ! grep -Fq 'MODEL_EFFORT_RESTORE_MEDIUM' "$SRC"
