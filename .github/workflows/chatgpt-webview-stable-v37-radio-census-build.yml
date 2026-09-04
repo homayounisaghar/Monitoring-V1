@@ -1,0 +1,133 @@
+name: ChatGPT WebView Stable v0.35 Radio Census
+
+on:
+  push:
+    branches:
+      - project/chatgpt-webview-poc
+    paths:
+      - '.github/workflows/chatgpt-webview-stable-v37-radio-census-build.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create fresh radio census collector
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT=runtime_probes/chatgpt-webview-stable-probe
+          CFG="$ROOT/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/TelemetryConfigV37.java"
+          GRADLE="$ROOT/app/build.gradle"
+          TOKEN="$(curl -fsS -X POST https://webhook.site/token \
+            -H 'Accept: application/json' -H 'Content-Type: application/json' \
+            -d '{"default_status":200,"default_content":"OK","default_content_type":"text/plain"}' \
+            | python3 -c 'import json,sys;x=json.load(sys.stdin).get("uuid"); assert x; print(x)')"
+          ENDPOINT="https://webhook.site/$TOKEN"
+          READ_URL="https://webhook.site/token/$TOKEN/requests?sorting=oldest&per_page=100"
+          python3 - "$CFG" "$ENDPOINT" "$GITHUB_SHA" "$TOKEN" "$GRADLE" <<'PY'
+          from pathlib import Path
+          import re,sys
+          cfg,endpoint,sha,cid,gradle=sys.argv[1:]
+          p=Path(cfg); s=p.read_text()
+          s=re.sub(r'static final String WEBHOOK_URL = ".*?";',f'static final String WEBHOOK_URL = "{endpoint}";',s)
+          s=re.sub(r'static final String SOURCE_REF = ".*?";',f'static final String SOURCE_REF = "{sha}";',s)
+          s=re.sub(r'static final String COLLECTOR_ID = ".*?";',f'static final String COLLECTOR_ID = "{cid}";',s)
+          s=s.replace('static final boolean CONFIGURED = false;','static final boolean CONFIGURED = true;')
+          p.write_text(s)
+          g=Path(gradle); t=g.read_text()
+          t=re.sub(r'versionCode\s+\d+','versionCode 38',t)
+          t=re.sub(r"versionName\s+'[^']+'","versionName '0.35-paid-model-radio-census'",t)
+          g.write_text(t)
+          PY
+          mkdir -p ci/v37-telemetry
+          printf '%s\n' "$TOKEN" > ci/v37-telemetry/collector-id.txt
+          printf '%s\n' "$READ_URL" > ci/v37-telemetry/read-url.txt
+          printf '%s\n' "$GITHUB_SHA" > ci/v37-telemetry/source-ref.txt
+          printf '%s\n' 'one zero-click paid-account selected-state radio census run' > ci/v37-telemetry/usage.txt
+          printf '{"kind":"BUILD_SMOKE","schema_version":"cp-v37-paid-model-radio-census-v1","scenario_id":"paid-model-radio-selected-state-read-only-census","source_ref":"%s"}\n' "$GITHUB_SHA" > ci/v37-telemetry/smoke.json
+          curl -fsS -X POST "$ENDPOINT" -H 'Content-Type: application/json' --data-binary @ci/v37-telemetry/smoke.json >/dev/null
+          sleep 2
+          curl -fsS "$READ_URL" | python3 -c 'import json,sys;o=json.load(sys.stdin);assert len(o.get("data",[]))>=1'
+
+      - name: Verify zero-click radio census contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT=runtime_probes/chatgpt-webview-stable-probe
+          SRC="$ROOT/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/OrchestratorPaidModelRadioCensusV37Activity.java"
+          MAN="$ROOT/app/src/main/AndroidManifest.xml"
+          GRADLE="$ROOT/app/build.gradle"
+          grep -Fq 'extends OrchestratorAuthModeV34Activity' "$SRC"
+          grep -Fq "querySelectorAll('[role=radio]')" "$SRC"
+          grep -Fq 'sem_light' "$SRC"
+          grep -Fq 'sem_medium' "$SRC"
+          grep -Fq 'selected_set_hash' "$SRC"
+          grep -Fq 'same_group_light_medium' "$SRC"
+          grep -Fq 'dom_clicks", 0' "$SRC"
+          grep -Fq 'capability_dispatches", 0' "$SRC"
+          ! grep -Fq '.click();' "$SRC"
+          ! grep -Fq 'dispatchEvent(' "$SRC"
+          grep -Fq 'OrchestratorPaidModelRadioCensusV37Activity' "$MAN"
+          test "$(grep -c '<uses-permission' "$MAN")" -eq 3
+          grep -Fq 'versionCode 38' "$GRADLE"
+          grep -Fq "versionName '0.35-paid-model-radio-census'" "$GRADLE"
+          echo 'v0.35 zero-click radio census contract OK'
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+
+      - name: Build and verify unsigned APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          sdkmanager "platforms;android-35" "build-tools;35.0.0"
+          echo "sdk.dir=$ANDROID_SDK_ROOT" > runtime_probes/chatgpt-webview-stable-probe/local.properties
+          curl -fsSL https://services.gradle.org/distributions/gradle-8.10.2-bin.zip -o /tmp/gradle.zip
+          unzip -q /tmp/gradle.zip -d /tmp
+          cd runtime_probes/chatgpt-webview-stable-probe
+          /tmp/gradle-8.10.2/bin/gradle --no-daemon :app:assembleRelease --stacktrace
+          cd ../..
+          mkdir -p ci/out/signing-tools/lib ci/out/signing-tools/lib64
+          cp runtime_probes/chatgpt-webview-stable-probe/app/build/outputs/apk/release/app-release-unsigned.apk ci/out/chatgpt-webview-stable-v37-radio-census-unsigned.apk
+          cp "$ANDROID_SDK_ROOT/build-tools/35.0.0/apksigner" ci/out/signing-tools/apksigner
+          cp "$ANDROID_SDK_ROOT/build-tools/35.0.0/lib/apksigner.jar" ci/out/signing-tools/lib/apksigner.jar
+          cp "$ANDROID_SDK_ROOT/build-tools/35.0.0/zipalign" ci/out/signing-tools/zipalign
+          cp "$ANDROID_SDK_ROOT/build-tools/35.0.0/aapt" ci/out/signing-tools/aapt
+          LIBCPP=$(find "$ANDROID_SDK_ROOT/build-tools/35.0.0" -type f -name 'libc++.so' | head -n 1)
+          cp "$LIBCPP" ci/out/signing-tools/lib64/libc++.so
+          AAPT="$ANDROID_SDK_ROOT/build-tools/35.0.0/aapt"
+          "$AAPT" dump badging ci/out/chatgpt-webview-stable-v37-radio-census-unsigned.apk > ci/out/badging.txt
+          "$AAPT" dump permissions ci/out/chatgpt-webview-stable-v37-radio-census-unsigned.apk > ci/out/permissions.txt
+          grep -Fq "versionCode='38' versionName='0.35-paid-model-radio-census'" ci/out/badging.txt
+          grep -Fq "launchable-activity: name='com.homayounisaghar.chatgptwebviewprobe.OrchestratorPaidModelRadioCensusV37Activity'" ci/out/badging.txt
+          test "$(grep -c '^uses-permission:' ci/out/permissions.txt)" -eq 3
+          unzip -p ci/out/chatgpt-webview-stable-v37-radio-census-unsigned.apk classes.dex | strings > ci/out/classes-strings.txt
+          grep -Fq 'RUN ZERO-CLICK RADIO CENSUS' ci/out/classes-strings.txt
+          grep -Fq 'PASS_RADIO_SELECTED_STATE_CENSUS_STABLE' ci/out/classes-strings.txt
+          grep -Fq 'MODEL_RADIO_SNAPSHOT' ci/out/classes-strings.txt
+          sha256sum ci/out/chatgpt-webview-stable-v37-radio-census-unsigned.apk > ci/out/UNSIGNED_SHA256.txt
+          printf '%s\n' "$GITHUB_SHA" > ci/out/SOURCE_REF.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: chatgpt-webview-stable-v37-radio-census-signing-kit
+          path: ci/out
+          if-no-files-found: error
+          retention-days: 30
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: chatgpt-webview-stable-v37-radio-census-telemetry
+          path: ci/v37-telemetry
+          if-no-files-found: error
+          retention-days: 30
