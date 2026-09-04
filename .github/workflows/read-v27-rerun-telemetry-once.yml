@@ -17,13 +17,13 @@ jobs:
     steps:
       - name: Fetch and sanitize latest v0.27 rerun telemetry
         env:
-          READ_URL: https://webhook.site/token/9c9162c0-1826-4f61-a47c-eb621549e421/requests?sorting=oldest
+          READ_URL: https://webhook.site/token/9c9162c0-1826-4f61-a47c-eb621549e421/requests?sorting=newest&per_page=100
         run: |
           python - <<'PY'
           import json, os, urllib.request
           SOURCE='ca31a80d93a347f09cbc56aab080ce223b3ba6b3'
           schemas={'cp-v27-speech-cue-v1','cp-v26-ready-start-gate-v1','cp-autonomous-runtime-v2','cp-v24-script-diagnostic-v1'}
-          req=urllib.request.Request(os.environ['READ_URL'],headers={'Accept':'application/json','User-Agent':'cp27-rerun-readback'})
+          req=urllib.request.Request(os.environ['READ_URL'],headers={'Accept':'application/json','User-Agent':'cp27-rerun-readback-newest'})
           with urllib.request.urlopen(req,timeout=20) as r: root=json.load(r)
           rows=root.get('data',root if isinstance(root,list) else [])
           parsed=[]
