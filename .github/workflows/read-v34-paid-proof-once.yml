@@ -1,0 +1,64 @@
+name: Read v0.32.2 Paid Proof Once
+on:
+  push:
+    branches: [project/chatgpt-webview-poc]
+    paths: ['.github/workflows/read-v34-paid-proof-once.yml']
+permissions:
+  contents: read
+jobs:
+  read:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Read and summarize auth + model telemetry
+        shell: bash
+        env:
+          AUTH_URL: 'https://webhook.site/token/b414e85a-ea90-476d-8c61-3ecf503da700/requests?sorting=oldest&per_page=100'
+          MODEL_URL: 'https://webhook.site/token/01ab04d6-7fd2-430b-9ad2-f75b10635c19/requests?sorting=oldest&per_page=100'
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, os, urllib.request
+          def load(url):
+              with urllib.request.urlopen(url, timeout=20) as r:
+                  return json.load(r)
+          def parse_payload(item):
+              for key in ('content','body'):
+                  v=item.get(key)
+                  if isinstance(v,dict): return v
+                  if isinstance(v,str):
+                      try: return json.loads(v)
+                      except Exception: pass
+              return None
+          def summarize(label,url):
+              o=load(url); data=o.get('data',[])
+              print(f'=== {label} API_ROWS={len(data)} TOTAL={o.get("total",o.get("total_count","?"))} ===')
+              parsed=[]
+              for i,x in enumerate(data):
+                  p=parse_payload(x)
+                  if isinstance(p,dict): parsed.append(p)
+              print(f'{label} PARSED={len(parsed)}')
+              bytest={}
+              for p in parsed:
+                  tid=p.get('test_id') or p.get('scenario_id') or p.get('kind') or 'NO_ID'
+                  bytest.setdefault(tid,[]).append(p)
+              for tid,rows in bytest.items():
+                  print(f'-- {label} TEST {tid} ROWS={len(rows)} --')
+                  rows=sorted(rows,key=lambda p:(p.get('timestamp_epoch_ms',0),p.get('seq',-1)))
+                  for p in rows:
+                      phase=p.get('phase') or p.get('kind') or '-'
+                      cls=p.get('classification') or '-'
+                      st=p.get('state') if isinstance(p.get('state'),dict) else {}
+                      keep={k:st.get(k) for k in (
+                          'auth_mode','auth_ready','nav_class','nav_events','popup_captures','external_blocks','authenticator_launches',
+                          'model_option_count','model_enabled_count','model_selected_count','selection_applicable','selection_clicks',
+                          'baseline_selected_count','alternate_candidate_count','receipt_selected_count','restore_receipt_selected_count',
+                          'model_roundtrip_result','menu_open_count','add_item_count','tools_trigger_count','send_replayed'
+                      ) if k in st}
+                      for k in ('selection_applicable','selection_clicks','baseline_model_hash','alternate_model_hash','selected_model_hash','restored_model_hash','receipt_basis','final_result'):
+                          if k in p: keep[k]=p[k]
+                      print(json.dumps({'seq':p.get('seq'),'phase':phase,'classification':cls,'state':keep},sort_keys=True))
+              print()
+          summarize('AUTH', os.environ['AUTH_URL'])
+          summarize('MODEL', os.environ['MODEL_URL'])
+          PY
