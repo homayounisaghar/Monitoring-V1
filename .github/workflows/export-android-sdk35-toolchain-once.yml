@@ -19,7 +19,11 @@ jobs:
         run: |
           set -euo pipefail
           SDK="${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}"
+          set +o pipefail
           yes | "$SDK/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$SDK" "platforms;android-35" "build-tools;35.0.0" >/dev/null
+          sdk_rc=${PIPESTATUS[1]}
+          set -o pipefail
+          test "$sdk_rc" -eq 0
           test -s "$SDK/platforms/android-35/android.jar"
           test -x "$SDK/build-tools/35.0.0/aapt"
           test -x "$SDK/build-tools/35.0.0/d8"
