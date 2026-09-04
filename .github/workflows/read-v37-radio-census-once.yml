@@ -1,0 +1,51 @@
+name: Read v0.35 Radio Census Once
+on:
+  push:
+    branches: [project/chatgpt-webview-poc]
+    paths: ['.github/workflows/read-v37-radio-census-once.yml']
+permissions:
+  contents: read
+jobs:
+  read:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Read and summarize v0.35 radio telemetry
+        shell: bash
+        env:
+          READ_URL: 'https://webhook.site/token/cd56b9ed-7888-4b21-8c14-c284bf45ff56/requests?sorting=oldest&per_page=100'
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, os, urllib.request, collections
+          with urllib.request.urlopen(os.environ['READ_URL'], timeout=20) as r:
+              o=json.load(r)
+          def parse(x):
+              for k in ('content','body'):
+                  v=x.get(k)
+                  if isinstance(v,dict): return v
+                  if isinstance(v,str):
+                      try:return json.loads(v)
+                      except Exception: pass
+              return None
+          ps=[p for x in o.get('data',[]) if isinstance((p:=parse(x)),dict)]
+          print('API_ROWS',len(o.get('data',[])),'TOTAL',o.get('total',o.get('total_count','?')),'PARSED',len(ps))
+          tests=collections.defaultdict(list)
+          for p in ps:
+              tid=p.get('test_id') or p.get('scenario_id') or p.get('kind') or 'NO_ID'
+              tests[tid].append(p)
+          for tid,rows in tests.items():
+              print('TEST',tid,'ROWS',len(rows))
+              for p in sorted(rows,key=lambda q:(q.get('timestamp_epoch_ms',0),q.get('seq',-1))):
+                  ph=p.get('phase') or p.get('kind') or '-'
+                  cls=p.get('classification') or '-'
+                  st=p.get('state') if isinstance(p.get('state'),dict) else {}
+                  keep={k:st.get(k) for k in (
+                      'snapshot_index','success','complete','radio_count','selected_count','enabled_count','header_radio_count',
+                      'light_count','medium_count','light_selected_count','medium_selected_count','same_group_light_medium',
+                      'radio_set_hash','selected_set_hash','snapshots_ok','snapshots_complete','stable_radio_set_count',
+                      'stable_selected_set_count','max_radio_count','max_selected_count','dom_clicks','capability_dispatches') if k in st}
+                  if ph=='MODEL_RADIO_SNAPSHOT':
+                      keep['radios']=st.get('radios',[])
+                  print(json.dumps({'seq':p.get('seq'),'phase':ph,'classification':cls,'state':keep},sort_keys=True))
+          PY
