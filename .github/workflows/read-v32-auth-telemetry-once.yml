@@ -1,0 +1,30 @@
+name: Read v0.32 Auth Telemetry Once
+on:
+  push:
+    branches: [project/chatgpt-webview-poc]
+    paths: ['.github/workflows/read-v32-auth-telemetry-once.yml']
+permissions:
+  contents: read
+jobs:
+  read:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fetch auth telemetry
+        shell: bash
+        run: |
+          set -euo pipefail
+          URL='https://webhook.site/token/d7663268-332b-4f79-9068-39ac7fb324b6/requests?sorting=oldest&per_page=100'
+          curl -fsS "$URL" -o /tmp/auth.json
+          python3 - <<'PY'
+          import json
+          o=json.load(open('/tmp/auth.json'))
+          rows=o.get('data',[])
+          print('ROWS',len(rows))
+          for r in rows:
+              c=r.get('content','')
+              try:
+                  x=json.loads(c)
+              except Exception:
+                  continue
+              print(json.dumps({k:x.get(k) for k in ['kind','phase','status','test_id','nav_class','auth_status','schema_version','scenario_id'] if k in x},sort_keys=True))
+          PY
