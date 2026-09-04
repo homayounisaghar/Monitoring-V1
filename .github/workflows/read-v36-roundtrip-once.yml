@@ -1,0 +1,47 @@
+name: Read v0.34 Roundtrip Once
+on:
+  push:
+    branches: [project/chatgpt-webview-poc]
+    paths: ['.github/workflows/read-v36-roundtrip-once.yml']
+permissions:
+  contents: read
+jobs:
+  read:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Read and summarize v0.34 model telemetry
+        shell: bash
+        env:
+          READ_URL: 'https://webhook.site/token/722f4117-9946-49be-b857-c1cd8fd881bb/requests?sorting=oldest&per_page=100'
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, os, urllib.request, collections
+          with urllib.request.urlopen(os.environ['READ_URL'], timeout=20) as r:
+              o=json.load(r)
+          data=o.get('data',[])
+          def parse(x):
+              for k in ('content','body'):
+                  v=x.get(k)
+                  if isinstance(v,dict): return v
+                  if isinstance(v,str):
+                      try: return json.loads(v)
+                      except Exception: pass
+              return None
+          parsed=[p for x in data if isinstance((p:=parse(x)),dict)]
+          print('API_ROWS',len(data),'TOTAL',o.get('total',o.get('total_count','?')),'PARSED',len(parsed))
+          tests=collections.defaultdict(list)
+          for p in parsed:
+              tid=p.get('test_id') or p.get('scenario_id') or p.get('kind') or 'NO_ID'
+              tests[tid].append(p)
+          keep_keys=('session_state','mic_lease_mode','claim_action','claim_status','selection_clicks','model_trigger_hash','original_model_hash','target_model_hash','model_option_count','model_enabled_count','model_selected_count','model_set_hash','add_item_count','tools_trigger_count','tool_surface_item_total')
+          for tid,rows in tests.items():
+              print('TEST',tid,'ROWS',len(rows))
+              for p in sorted(rows,key=lambda q:(q.get('timestamp_epoch_ms',0),q.get('seq',-1))):
+                  ph=p.get('phase') or p.get('kind') or '-'
+                  cls=p.get('classification') or '-'
+                  st=p.get('state') if isinstance(p.get('state'),dict) else {}
+                  slim={k:st.get(k) for k in keep_keys if k in st}
+                  print(json.dumps({'seq':p.get('seq'),'phase':ph,'classification':cls,'state':slim},sort_keys=True))
+          PY
