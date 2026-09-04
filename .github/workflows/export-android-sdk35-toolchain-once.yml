@@ -1,0 +1,40 @@
+name: Export Android SDK 35 toolchain once
+
+on:
+  push:
+    branches:
+      - build/android-rotation-tile-v100
+    paths:
+      - .github/workflows/export-android-sdk35-toolchain-once.yml
+
+permissions:
+  contents: read
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ensure Android 35 toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDK="${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}"
+          yes | "$SDK/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$SDK" "platforms;android-35" "build-tools;35.0.0" >/dev/null
+          test -s "$SDK/platforms/android-35/android.jar"
+          test -x "$SDK/build-tools/35.0.0/aapt"
+          test -x "$SDK/build-tools/35.0.0/d8"
+          test -x "$SDK/build-tools/35.0.0/apksigner"
+          test -x "$SDK/build-tools/35.0.0/zipalign"
+          mkdir -p /tmp/android-sdk35-kit/platforms/android-35 /tmp/android-sdk35-kit/build-tools
+          cp "$SDK/platforms/android-35/android.jar" /tmp/android-sdk35-kit/platforms/android-35/android.jar
+          cp -a "$SDK/build-tools/35.0.0" /tmp/android-sdk35-kit/build-tools/35.0.0
+          tar -C /tmp -czf /tmp/android-sdk35-minimal-toolchain.tar.gz android-sdk35-kit
+          sha256sum /tmp/android-sdk35-minimal-toolchain.tar.gz > /tmp/android-sdk35-minimal-toolchain.sha256
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-sdk35-minimal-toolchain
+          path: |
+            /tmp/android-sdk35-minimal-toolchain.tar.gz
+            /tmp/android-sdk35-minimal-toolchain.sha256
+          if-no-files-found: error
+          retention-days: 1
