@@ -1,0 +1,154 @@
+name: ChatGPT WebView Stable v0.32.2 Controlled Google OAuth
+
+on:
+  push:
+    branches:
+      - project/chatgpt-webview-poc
+    paths:
+      - '.github/workflows/chatgpt-webview-stable-v34-google-oauth-build.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create fresh auth and model collectors
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT=runtime_probes/chatgpt-webview-stable-probe
+          CFG31="$ROOT/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/TelemetryConfigV31.java"
+          CFG32="$ROOT/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/TelemetryConfigV32.java"
+          GRADLE="$ROOT/app/build.gradle"
+          make_token() {
+            curl -fsS -X POST https://webhook.site/token \
+              -H 'Accept: application/json' -H 'Content-Type: application/json' \
+              -d '{"default_status":200,"default_content":"OK","default_content_type":"text/plain"}' \
+              | python3 -c 'import json,sys;x=json.load(sys.stdin).get("uuid"); assert x; print(x)'
+          }
+          AUTH_TOKEN="$(make_token)"
+          MODEL_TOKEN="$(make_token)"
+          AUTH_ENDPOINT="https://webhook.site/$AUTH_TOKEN"
+          MODEL_ENDPOINT="https://webhook.site/$MODEL_TOKEN"
+          AUTH_READ="https://webhook.site/token/$AUTH_TOKEN/requests?sorting=oldest&per_page=100"
+          MODEL_READ="https://webhook.site/token/$MODEL_TOKEN/requests?sorting=oldest&per_page=100"
+          python3 - "$CFG31" "$MODEL_ENDPOINT" "$GITHUB_SHA" "$MODEL_TOKEN" "$CFG32" "$AUTH_ENDPOINT" "$AUTH_TOKEN" "$GRADLE" <<'PY'
+          from pathlib import Path
+          import re,sys
+          cfg31,model_ep,sha,model_id,cfg32,auth_ep,auth_id,gradle=sys.argv[1:]
+          def patch_cfg(path, endpoint, cid):
+              p=Path(path); s=p.read_text()
+              s=re.sub(r'static final String WEBHOOK_URL = ".*?";',f'static final String WEBHOOK_URL = "{endpoint}";',s)
+              s=re.sub(r'static final String SOURCE_REF = ".*?";',f'static final String SOURCE_REF = "{sha}";',s)
+              s=re.sub(r'static final String COLLECTOR_ID = ".*?";',f'static final String COLLECTOR_ID = "{cid}";',s)
+              s=s.replace('static final boolean CONFIGURED = false;','static final boolean CONFIGURED = true;')
+              p.write_text(s)
+          patch_cfg(cfg31,model_ep,model_id)
+          patch_cfg(cfg32,auth_ep,auth_id)
+          g=Path(gradle); t=g.read_text()
+          t=re.sub(r'versionCode\s+\d+','versionCode 35',t)
+          t=re.sub(r"versionName\s+'[^']+'","versionName '0.32.2-controlled-google-oauth'",t)
+          g.write_text(t)
+          PY
+          mkdir -p ci/v34-telemetry
+          printf '%s\n' "$AUTH_TOKEN" > ci/v34-telemetry/auth-collector-id.txt
+          printf '%s\n' "$AUTH_READ" > ci/v34-telemetry/auth-read-url.txt
+          printf '%s\n' "$MODEL_TOKEN" > ci/v34-telemetry/model-collector-id.txt
+          printf '%s\n' "$MODEL_READ" > ci/v34-telemetry/model-read-url.txt
+          printf '%s\n' "$GITHUB_SHA" > ci/v34-telemetry/source-ref.txt
+          printf '%s\n' 'one controlled Google auth attempt + one paid-account model test; independent collectors' > ci/v34-telemetry/usage.txt
+          printf '{"kind":"BUILD_SMOKE","schema_version":"cp-v32-auth-mode-v1","scenario_id":"controlled-google-oauth-webview","source_ref":"%s"}\n' "$GITHUB_SHA" > ci/v34-telemetry/auth-smoke.json
+          printf '{"kind":"BUILD_SMOKE","schema_version":"cp-v31-capability-picker-v1","scenario_id":"model-tool-enumeration-guarded-model-roundtrip","source_ref":"%s"}\n' "$GITHUB_SHA" > ci/v34-telemetry/model-smoke.json
+          curl -fsS -X POST "$AUTH_ENDPOINT" -H 'Content-Type: application/json' --data-binary @ci/v34-telemetry/auth-smoke.json >/dev/null
+          curl -fsS -X POST "$MODEL_ENDPOINT" -H 'Content-Type: application/json' --data-binary @ci/v34-telemetry/model-smoke.json >/dev/null
+          sleep 2
+          curl -fsS "$AUTH_READ" | python3 -c 'import json,sys;o=json.load(sys.stdin);assert len(o.get("data",[]))>=1'
+          curl -fsS "$MODEL_READ" | python3 -c 'import json,sys;o=json.load(sys.stdin);assert len(o.get("data",[]))>=1'
+
+      - name: Verify controlled Google OAuth contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT=runtime_probes/chatgpt-webview-stable-probe
+          ACT="$ROOT/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/OrchestratorAuthModeV34Activity.java"
+          READY="$ROOT/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/OrchestratorAuthModeV33Activity.java"
+          BASE="$ROOT/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/OrchestratorAuthModeV32Activity.java"
+          MAN="$ROOT/app/src/main/AndroidManifest.xml"
+          GRADLE="$ROOT/app/build.gradle"
+          grep -Fq 'OrchestratorAuthModeV34Activity' "$MAN"
+          test "$(grep -c '<uses-permission' "$MAN")" -eq 3
+          grep -Fq 'versionCode 35' "$GRADLE"
+          grep -Fq "versionName '0.32.2-controlled-google-oauth'" "$GRADLE"
+          grep -Fq 'h.equals("accounts.google.com")' "$ACT"
+          grep -Fq 'h.equals("accounts.googleusercontent.com")' "$ACT"
+          grep -Fq 'h.equals("oauth2.googleapis.com")' "$ACT"
+          grep -Fq 'AUTH_GOOGLE_WEB_ALLOWED' "$ACT"
+          grep -Fq 'AUTH_GOOGLE_POPUP_ROUTED' "$ACT"
+          grep -Fq 'AUTH_GOOGLE_INTENT_FALLBACK' "$ACT"
+          grep -Fq 'AUTH_EXTERNAL_WEB_BLOCKED' "$ACT"
+          grep -Fq 'login.length===0' "$READY"
+          grep -Fq 'LOGIN / RETRY IN THIS APP' "$BASE"
+          ! grep -Fq 'getCookie(' "$ACT"
+          ! grep -Fq 'CookieManager.getCookie' "$ACT"
+          ! grep -Fq 'setUserAgentString' "$ACT"
+          echo 'v0.32.2 controlled Google OAuth contract OK'
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+
+      - name: Build and verify unsigned APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          sdkmanager "platforms;android-35" "build-tools;35.0.0"
+          echo "sdk.dir=$ANDROID_SDK_ROOT" > runtime_probes/chatgpt-webview-stable-probe/local.properties
+          curl -fsSL https://services.gradle.org/distributions/gradle-8.10.2-bin.zip -o /tmp/gradle.zip
+          unzip -q /tmp/gradle.zip -d /tmp
+          cd runtime_probes/chatgpt-webview-stable-probe
+          /tmp/gradle-8.10.2/bin/gradle --no-daemon :app:assembleRelease --stacktrace
+          cd ../..
+          mkdir -p ci/out/signing-tools/lib ci/out/signing-tools/lib64
+          cp runtime_probes/chatgpt-webview-stable-probe/app/build/outputs/apk/release/app-release-unsigned.apk ci/out/chatgpt-webview-stable-v34-google-oauth-unsigned.apk
+          cp "$ANDROID_SDK_ROOT/build-tools/35.0.0/apksigner" ci/out/signing-tools/apksigner
+          cp "$ANDROID_SDK_ROOT/build-tools/35.0.0/lib/apksigner.jar" ci/out/signing-tools/lib/apksigner.jar
+          cp "$ANDROID_SDK_ROOT/build-tools/35.0.0/zipalign" ci/out/signing-tools/zipalign
+          cp "$ANDROID_SDK_ROOT/build-tools/35.0.0/aapt" ci/out/signing-tools/aapt
+          LIBCPP=$(find "$ANDROID_SDK_ROOT/build-tools/35.0.0" -type f -name 'libc++.so' | head -n 1)
+          cp "$LIBCPP" ci/out/signing-tools/lib64/libc++.so
+          AAPT="$ANDROID_SDK_ROOT/build-tools/35.0.0/aapt"
+          "$AAPT" dump badging ci/out/chatgpt-webview-stable-v34-google-oauth-unsigned.apk > ci/out/badging.txt
+          "$AAPT" dump permissions ci/out/chatgpt-webview-stable-v34-google-oauth-unsigned.apk > ci/out/permissions.txt
+          grep -Fq "versionCode='35' versionName='0.32.2-controlled-google-oauth'" ci/out/badging.txt
+          grep -Fq "launchable-activity: name='com.homayounisaghar.chatgptwebviewprobe.OrchestratorAuthModeV34Activity'" ci/out/badging.txt
+          test "$(grep -c '^uses-permission:' ci/out/permissions.txt)" -eq 3
+          unzip -p ci/out/chatgpt-webview-stable-v34-google-oauth-unsigned.apk classes.dex | strings > ci/out/classes-strings.txt
+          grep -Fq 'AUTH_GOOGLE_MODE_READY' ci/out/classes-strings.txt
+          grep -Fq 'AUTH_GOOGLE_WEB_ALLOWED' ci/out/classes-strings.txt
+          grep -Fq 'AUTH_GOOGLE_POPUP_ROUTED' ci/out/classes-strings.txt
+          grep -Fq 'AUTH_READY_CORRECTED' ci/out/classes-strings.txt
+          grep -Fq 'PASS_MODEL_TOOL_ENUMERATION_AND_GUARDED_MODEL_ROUNDTRIP' ci/out/classes-strings.txt
+          sha256sum ci/out/chatgpt-webview-stable-v34-google-oauth-unsigned.apk > ci/out/UNSIGNED_SHA256.txt
+          printf '%s\n' "$GITHUB_SHA" > ci/out/SOURCE_REF.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: chatgpt-webview-stable-v34-google-oauth-signing-kit
+          path: ci/out
+          if-no-files-found: error
+          retention-days: 30
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: chatgpt-webview-stable-v34-google-oauth-telemetry
+          path: ci/v34-telemetry
+          if-no-files-found: error
+          retention-days: 30
