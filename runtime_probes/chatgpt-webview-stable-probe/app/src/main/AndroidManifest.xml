@@ -34,7 +34,8 @@
         <activity android:name=".OrchestratorCapabilityPickerV31Activity" android:exported="false" />
         <activity android:name=".OrchestratorAuthModeV32Activity" android:exported="false" />
         <activity android:name=".OrchestratorAuthModeV33Activity" android:exported="false" />
-        <activity android:name=".OrchestratorAuthModeV34Activity" android:exported="true">
+        <activity android:name=".OrchestratorAuthModeV34Activity" android:exported="false" />
+        <activity android:name=".OrchestratorPaidModelTriggerCensusV35Activity" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
