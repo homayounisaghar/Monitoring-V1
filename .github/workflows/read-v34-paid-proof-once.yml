@@ -33,10 +33,7 @@ jobs:
           def summarize(label,url):
               o=load(url); data=o.get('data',[])
               print(f'=== {label} API_ROWS={len(data)} TOTAL={o.get("total",o.get("total_count","?"))} ===')
-              parsed=[]
-              for i,x in enumerate(data):
-                  p=parse_payload(x)
-                  if isinstance(p,dict): parsed.append(p)
+              parsed=[p for x in data if isinstance((p:=parse_payload(x)),dict)]
               print(f'{label} PARSED={len(parsed)}')
               bytest={}
               for p in parsed:
@@ -49,14 +46,14 @@ jobs:
                       phase=p.get('phase') or p.get('kind') or '-'
                       cls=p.get('classification') or '-'
                       st=p.get('state') if isinstance(p.get('state'),dict) else {}
-                      keep={k:st.get(k) for k in (
+                      allowed=(
                           'auth_mode','auth_ready','nav_class','nav_events','popup_captures','external_blocks','authenticator_launches',
-                          'model_option_count','model_enabled_count','model_selected_count','selection_applicable','selection_clicks',
-                          'baseline_selected_count','alternate_candidate_count','receipt_selected_count','restore_receipt_selected_count',
-                          'model_roundtrip_result','menu_open_count','add_item_count','tools_trigger_count','send_replayed'
-                      ) if k in st}
-                      for k in ('selection_applicable','selection_clicks','baseline_model_hash','alternate_model_hash','selected_model_hash','restored_model_hash','receipt_basis','final_result'):
-                          if k in p: keep[k]=p[k]
+                          'model_trigger_count','model_trigger_hash','model_option_count','model_enabled_count','model_selected_count',
+                          'selection_applicable','selection_clicks','original_model_hash','target_model_hash','model_set_hash','menu_complete',
+                          'add_trigger_count','add_item_count','add_set_hash','tools_trigger_count','tools_item_count','tools_set_hash',
+                          'tool_surface_item_total','claim_action','claim_status','receipt_basis','receipt_count','restore_receipt_count'
+                      )
+                      keep={k:st.get(k) for k in allowed if k in st}
                       print(json.dumps({'seq':p.get('seq'),'phase':phase,'classification':cls,'state':keep},sort_keys=True))
               print()
           summarize('AUTH', os.environ['AUTH_URL'])
