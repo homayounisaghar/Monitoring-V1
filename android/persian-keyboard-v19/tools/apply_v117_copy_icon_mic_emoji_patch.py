@@ -35,9 +35,14 @@ replace_once(
     'compact microphone initial emoji',
 )
 replace_once(
-    '        String label=running?"🎙 "+badge():"🎤";if(mic!=null){mic.setText(label);mic.setTextColor(running?Color.WHITE:TEXT);mic.setBackground(round(running?MIC_ACTIVE:0x00FFFFFF,dp(15)));}if(collapse!=null)collapse.setVisibility(running?View.VISIBLE:View.INVISIBLE);if(compactMic!=null)compactMic.setText("🎙 "+badge());if(compactStatus!=null)compactStatus.setText(listeningText());\n',
-    '        String label=running?"🎙 "+badge():"🎙";if(mic!=null){mic.setText(label);mic.setTextColor(running?Color.WHITE:TEXT);mic.setBackground(round(running?MIC_ACTIVE:0x00FFFFFF,dp(15)));}if(collapse!=null)collapse.setVisibility(running?View.VISIBLE:View.INVISIBLE);if(compactMic!=null)compactMic.setText("🎙 "+badge());if(compactStatus!=null)compactStatus.setText(listeningText());\n',
-    'stable microphone emoji across idle/active state',
+    '        String label=running?"🎙 "+badge():"🎤";\n',
+    '        String label=running?"🎙 "+badge():"🎙";\n',
+    'main microphone stable emoji',
+)
+replace_once(
+    '            compactMic.setText((running?"🎙 ":"🎤 ")+badge());\n',
+    '            compactMic.setText("🎙 "+badge());\n',
+    'compact microphone stable emoji',
 )
 
 if 'versionCode 26' not in g or "versionName '1.16'" not in g:
@@ -52,6 +57,7 @@ required = [
     'mic = toolbarButton("🎙", v -> toggleVoice());',
     'compactMic = smallButton("🎙 " + badge(), v -> toggleVoice());',
     'String label=running?"🎙 "+badge():"🎙";',
+    'compactMic.setText("🎙 "+badge());',
     'Button clearField = toolbarButton("×", v -> clearCurrentTextField());',
     'private void clearCurrentTextField(){',
     'int desired = Math.round(v112Width * 0.70f);',
@@ -69,6 +75,7 @@ for forbidden in [
     'mic = toolbarButton("🎤", v -> toggleVoice());',
     'compactMic = smallButton("🎤 " + badge(), v -> toggleVoice());',
     'String label=running?"🎙 "+badge():"🎤";',
+    'compactMic.setText((running?"🎙 ":"🎤 ")+badge());',
     'toolbarButton("G⇄"',
     'Translate: next build',
     'toolbarButton("G", v -> switchToGboard())',
