@@ -1,0 +1,142 @@
+name: ChatGPT WebView Stable v0.54 Model DOM Click Roundtrip Unsigned
+
+on:
+  push:
+    branches: [project/chatgpt-webview-poc]
+    paths:
+      - '.github/workflows/chatgpt-webview-stable-v56-model-dom-click-roundtrip-unsigned.yml'
+      - 'ci/generate_chatgpt_webview_v56_model_dom_click_roundtrip.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify checkout identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+
+      - name: Generate v0.54 source
+        run: python3 ci/generate_chatgpt_webview_v56_model_dom_click_roundtrip.py
+
+      - name: Create fresh telemetry collector
+        shell: bash
+        run: |
+          set -euo pipefail
+          CFG=runtime_probes/chatgpt-webview-stable-probe/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/TelemetryConfigV56.java
+          TOKEN=$(curl -fsS -X POST https://webhook.site/token -H 'Accept: application/json' -H 'Content-Type: application/json' -d '{"default_status":200,"default_content":"OK","default_content_type":"text/plain"}' | python3 -c 'import json,sys;x=json.load(sys.stdin).get("uuid");assert x;print(x)')
+          ENDPOINT="https://webhook.site/$TOKEN"
+          READ="https://webhook.site/token/$TOKEN/requests?sorting=oldest&per_page=100"
+          python3 - "$CFG" "$ENDPOINT" "$GITHUB_SHA" "$TOKEN" <<'PY'
+          from pathlib import Path
+          import re,sys
+          p=Path(sys.argv[1]); s=p.read_text(); ep,sha,cid=sys.argv[2:]
+          s=re.sub(r'WEBHOOK_URL=".*?"',f'WEBHOOK_URL="{ep}"',s)
+          s=re.sub(r'SOURCE_REF=".*?"',f'SOURCE_REF="{sha}"',s)
+          s=re.sub(r'COLLECTOR_ID=".*?"',f'COLLECTOR_ID="{cid}"',s)
+          s=s.replace('CONFIGURED=false','CONFIGURED=true')
+          p.write_text(s)
+          PY
+          mkdir -p ci/v56-model-click-telemetry
+          printf '%s\n' "$TOKEN" > ci/v56-model-click-telemetry/collector-id.txt
+          printf '%s\n' "$READ" > ci/v56-model-click-telemetry/read-url.txt
+          printf '%s\n' "$GITHUB_SHA" > ci/v56-model-click-telemetry/source-ref.txt
+          printf '{"kind":"BUILD_SMOKE","schema_version":"cp-v56-paid-current-ui-model-dom-click-roundtrip-v1","scenario_id":"paid-current-ui-model-dom-click-roundtrip","source_ref":"%s"}\n' "$GITHUB_SHA" | curl -fsS -X POST "$ENDPOINT" -H 'Content-Type: application/json' --data-binary @- >/dev/null
+
+      - name: Contract checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT=runtime_probes/chatgpt-webview-stable-probe
+          PKG=$ROOT/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe
+          ACT=$PKG/OrchestratorPaidCurrentUiModelDomClickRoundtripV56Activity.java
+          MAN=$ROOT/app/src/main/AndroidManifest.xml
+          GRADLE=$ROOT/app/build.gradle
+
+          grep -Fq "applicationId 'com.homayounisaghar.chatgptwebviewprobe.diag'" "$GRADLE"
+          grep -Fq 'versionCode 57' "$GRADLE"
+          grep -Fq "versionName '0.54-stable-diag-model-dom-click-roundtrip'" "$GRADLE"
+          grep -Fq 'OrchestratorPaidCurrentUiModelDomClickRoundtripV56Activity' "$MAN"
+
+          grep -Fq 'ControlPlaneAccessibilityServiceV51' "$MAN"
+          grep -Fq '@xml/cp_accessibility_service_v51' "$MAN"
+          ! grep -Fq 'ControlPlaneAccessibilityServiceV56' "$MAN"
+          ! grep -Fq 'REQUEST_INSTALL_PACKAGES' "$MAN"
+          ! grep -Fq 'UPDATE_PACKAGES_WITHOUT_USER_ACTION' "$MAN"
+
+          grep -Fq 'RUN AUTONOMOUS MODEL CLICK ROUNDTRIP' "$ACT"
+          grep -Fq 'PASS_MEDIUM_UNCHANGED_MODEL_GATE_AUTHORIZED' "$ACT"
+          grep -Fq 'PASS_AUTONOMOUS_MODEL_ROUNDTRIP_RESTORED_MEDIUM_UNCHANGED' "$ACT"
+          grep -Fq 'scanDomModelBridgeJs55' "$ACT"
+          grep -Fq 'clickDomModelBridgeJs56' "$ACT"
+          grep -Fq 'DOM_CLICK_UNIQUE_MODEL_BRIDGE' "$ACT"
+          grep -Fq 'CLAIMED_BEFORE_UNIQUE_DOM_MODEL_BRIDGE_CLICK' "$ACT"
+          grep -Fq 'ELEMENT_CLICK' "$ACT"
+          grep -Fq 'click_observed' "$ACT"
+          grep -Fq 'captureModelMenu' "$ACT"
+          grep -Fq 'clickModelOption' "$ACT"
+
+          ! grep -Fq 'pointerDownDomModelBridgeJs55' "$ACT"
+          ! grep -Fq 'DOM_POINTERDOWN_UNIQUE_MODEL_BRIDGE' "$ACT"
+          ! grep -Fq 'startDynamicEffortProof50();' "$ACT"
+          ! grep -Fq 'captureEffortUpperBridgeCandidate' "$ACT"
+          ! grep -Fq 'elementFromPoint' "$ACT"
+          ! grep -Fq 'document.evaluate' "$ACT"
+          ! grep -Fq 'setAttribute("aria-value' "$ACT"
+          test "$(grep -c '<uses-permission' "$MAN")" -eq 3
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+
+      - name: Build and prove exact artifact identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          sdkmanager "platforms;android-35" "build-tools;35.0.0"
+          echo "sdk.dir=$ANDROID_SDK_ROOT" > runtime_probes/chatgpt-webview-stable-probe/local.properties
+          curl -fsSL https://services.gradle.org/distributions/gradle-8.10.2-bin.zip -o /tmp/gradle.zip
+          unzip -q /tmp/gradle.zip -d /tmp
+          cd runtime_probes/chatgpt-webview-stable-probe
+          /tmp/gradle-8.10.2/bin/gradle --no-daemon :app:assembleRelease --stacktrace
+          cd ../..
+          OUT=ci/v56-model-click-out
+          mkdir -p "$OUT"
+          UNSIGNED=runtime_probes/chatgpt-webview-stable-probe/app/build/outputs/apk/release/app-release-unsigned.apk
+          ALIGNED="$OUT/chatgpt-webview-v0.54-model-dom-click-roundtrip-exact-source-aligned-unsigned.apk"
+          BT="$ANDROID_SDK_ROOT/build-tools/35.0.0"
+          "$BT/zipalign" -f -p 4 "$UNSIGNED" "$ALIGNED"
+          "$BT/zipalign" -c -v 4 "$ALIGNED" > "$OUT/zipalign-verify.txt"
+          "$BT/aapt" dump badging "$ALIGNED" > "$OUT/badging.txt"
+          "$BT/aapt" dump permissions "$ALIGNED" > "$OUT/permissions.txt"
+          grep -Fq "package: name='com.homayounisaghar.chatgptwebviewprobe.diag' versionCode='57' versionName='0.54-stable-diag-model-dom-click-roundtrip'" "$OUT/badging.txt"
+          grep -Fq "launchable-activity: name='com.homayounisaghar.chatgptwebviewprobe.OrchestratorPaidCurrentUiModelDomClickRoundtripV56Activity'" "$OUT/badging.txt"
+          test "$(grep -c '^uses-permission:' "$OUT/permissions.txt")" -eq 3
+          printf '%s\n' "$GITHUB_SHA" > "$OUT/SOURCE_REF.txt"
+          test "$(cat "$OUT/SOURCE_REF.txt")" = "$GITHUB_SHA"
+          sha256sum "$ALIGNED" > "$OUT/ALIGNED_UNSIGNED_SHA256.txt"
+          cp "$OUT/badging.txt" "$OUT/IDENTITY_PROOF.txt"
+          printf 'SOURCE_REF=%s\nRUN_ID=%s\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" >> "$OUT/IDENTITY_PROOF.txt"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: chatgpt-webview-v0.54-model-dom-click-roundtrip-${{ github.run_id }}-unsigned
+          path: ci/v56-model-click-out
+          if-no-files-found: error
+          retention-days: 30
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: chatgpt-webview-v0.54-model-dom-click-roundtrip-${{ github.run_id }}-telemetry
+          path: ci/v56-model-click-telemetry
+          if-no-files-found: error
+          retention-days: 30
