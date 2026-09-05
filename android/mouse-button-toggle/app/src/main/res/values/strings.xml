@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="accessibility_description">When you tap the mouse Quick Settings control, this helper briefly operates Samsung Settings to switch the Primary mouse button. It is restricted to the Android Settings app and does not read or control other apps.</string>
+</resources>
