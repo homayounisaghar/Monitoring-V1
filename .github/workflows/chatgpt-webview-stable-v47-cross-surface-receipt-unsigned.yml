@@ -1,0 +1,139 @@
+name: ChatGPT WebView Stable v0.45 Cross Surface Receipt Unsigned
+
+on:
+  push:
+    branches:
+      - project/chatgpt-webview-poc
+    paths:
+      - '.github/workflows/chatgpt-webview-stable-v47-cross-surface-receipt-unsigned.yml'
+      - 'ci/generate_chatgpt_webview_v47_cross_surface_receipt.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Generate v0.45 cross-surface receipt source
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 ci/generate_chatgpt_webview_v47_cross_surface_receipt.py
+
+      - name: Create fresh telemetry collector
+        shell: bash
+        run: |
+          set -euo pipefail
+          CFG=runtime_probes/chatgpt-webview-stable-probe/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/TelemetryConfigV47.java
+          TOKEN=$(curl -fsS -X POST https://webhook.site/token -H 'Accept: application/json' -H 'Content-Type: application/json' -d '{"default_status":200,"default_content":"OK","default_content_type":"text/plain"}' | python3 -c 'import json,sys;x=json.load(sys.stdin).get("uuid");assert x;print(x)')
+          ENDPOINT="https://webhook.site/$TOKEN"
+          READ="https://webhook.site/token/$TOKEN/requests?sorting=oldest&per_page=100"
+          python3 - "$CFG" "$ENDPOINT" "$GITHUB_SHA" "$TOKEN" <<'PY'
+          from pathlib import Path
+          import re,sys
+          p=Path(sys.argv[1]); s=p.read_text(); ep,sha,cid=sys.argv[2:]
+          s=re.sub(r'WEBHOOK_URL=".*?"',f'WEBHOOK_URL="{ep}"',s)
+          s=re.sub(r'SOURCE_REF=".*?"',f'SOURCE_REF="{sha}"',s)
+          s=re.sub(r'COLLECTOR_ID=".*?"',f'COLLECTOR_ID="{cid}"',s)
+          s=s.replace('CONFIGURED=false','CONFIGURED=true')
+          p.write_text(s)
+          PY
+          mkdir -p ci/v47-cross-surface-telemetry
+          printf '%s\n' "$TOKEN" > ci/v47-cross-surface-telemetry/collector-id.txt
+          printf '%s\n' "$READ" > ci/v47-cross-surface-telemetry/read-url.txt
+          printf '%s\n' "$GITHUB_SHA" > ci/v47-cross-surface-telemetry/source-ref.txt
+          printf '{"kind":"BUILD_SMOKE","schema_version":"cp-v47-paid-model-effort-cross-surface-apply-receipt-v1","scenario_id":"paid-model-effort-cross-surface-apply-receipt","source_ref":"%s"}\n' "$GITHUB_SHA" | curl -fsS -X POST "$ENDPOINT" -H 'Content-Type: application/json' --data-binary @- >/dev/null
+
+      - name: Contract checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT=runtime_probes/chatgpt-webview-stable-probe
+          SRC="$ROOT/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/OrchestratorPaidModelEffortCrossSurfaceReceiptV47Activity.java"
+          GRADLE="$ROOT/app/build.gradle"
+          MAN="$ROOT/app/src/main/AndroidManifest.xml"
+          grep -Fq "applicationId 'com.homayounisaghar.chatgptwebviewprobe.diag'" "$GRADLE"
+          grep -Fq "versionCode 48" "$GRADLE"
+          grep -Fq "versionName '0.45-stable-diag-cross-surface-light-receipt'" "$GRADLE"
+          grep -Fq 'PASS_MACHINE_VERIFIED_LIGHT_APPLIED_AND_MEDIUM_RESTORED' "$SRC"
+          grep -Fq 'PASS_CLOSED_COMPOSER_LIGHT' "$SRC"
+          grep -Fq 'PASS_CLOSED_LIGHT_REOPENED_SAME_SLIDER_VALUE_0' "$SRC"
+          grep -Fq 'PASS_CLOSED_COMPOSER_MEDIUM' "$SRC"
+          grep -Fq 'CLAIMED_BEFORE_ARROWLEFT' "$SRC"
+          grep -Fq 'CLAIMED_BEFORE_ARROWRIGHT' "$SRC"
+          grep -Fq 'CLAIMED_BEFORE_POPUP_CLOSE' "$SRC"
+          grep -Fq 'CLAIMED_BEFORE_REOPEN_LIGHT' "$SRC"
+          grep -Fq 'c5eb5ab9' "$SRC"
+          grep -Fq 'aria-valuenow' "$SRC"
+          grep -Fq 'closed_light_receipt' "$SRC"
+          grep -Fq 'reopened_value_0_receipt' "$SRC"
+          grep -Fq 'closed_medium_receipt' "$SRC"
+          test "$(grep -c '<uses-permission' "$MAN")" -eq 3
+          python3 - "$SRC" <<'PY'
+          from pathlib import Path
+          import re,sys
+          s=Path(sys.argv[1]).read_text()
+          body=re.sub(r'/\*.*?\*/','',s,flags=re.S)
+          body=re.sub(r'//.*','',body)
+          assert '.click()' not in body
+          assert 'pointerover' not in body
+          assert 'mouseover' not in body
+          assert 'elementFromPoint' not in body
+          assert 'MODEL_EFFORT_SELECT_LIGHT' not in body
+          assert body.count("new PointerEvent('pointerdown'") == 1
+          assert body.count("new KeyboardEvent('keydown'") == 1
+          assert 'model_option_clicks",0' in body
+          assert 'setAttribute(\"aria-value' not in body
+          assert 'ArrowLeft' in body and 'ArrowRight' in body
+          PY
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+
+      - name: Build and verify aligned unsigned APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          sdkmanager "platforms;android-35" "build-tools;35.0.0"
+          echo "sdk.dir=$ANDROID_SDK_ROOT" > runtime_probes/chatgpt-webview-stable-probe/local.properties
+          curl -fsSL https://services.gradle.org/distributions/gradle-8.10.2-bin.zip -o /tmp/gradle.zip
+          unzip -q /tmp/gradle.zip -d /tmp
+          cd runtime_probes/chatgpt-webview-stable-probe
+          /tmp/gradle-8.10.2/bin/gradle --no-daemon :app:assembleRelease --stacktrace
+          cd ../..
+          OUT=ci/v47-cross-surface-out
+          mkdir -p "$OUT"
+          UNSIGNED=runtime_probes/chatgpt-webview-stable-probe/app/build/outputs/apk/release/app-release-unsigned.apk
+          ALIGNED="$OUT/chatgpt-webview-v0.45-cross-surface-light-receipt-stable-diag-aligned-unsigned.apk"
+          BT="$ANDROID_SDK_ROOT/build-tools/35.0.0"
+          "$BT/zipalign" -f -p 4 "$UNSIGNED" "$ALIGNED"
+          "$BT/zipalign" -c -v 4 "$ALIGNED" > "$OUT/zipalign-verify.txt"
+          "$BT/aapt" dump badging "$ALIGNED" > "$OUT/badging.txt"
+          "$BT/aapt" dump permissions "$ALIGNED" > "$OUT/permissions.txt"
+          grep -Fq "package: name='com.homayounisaghar.chatgptwebviewprobe.diag' versionCode='48' versionName='0.45-stable-diag-cross-surface-light-receipt'" "$OUT/badging.txt"
+          grep -Fq "launchable-activity: name='com.homayounisaghar.chatgptwebviewprobe.OrchestratorPaidModelEffortCrossSurfaceReceiptV47Activity'" "$OUT/badging.txt"
+          test "$(grep -c '^uses-permission:' "$OUT/permissions.txt")" -eq 3
+          sha256sum "$ALIGNED" > "$OUT/ALIGNED_UNSIGNED_SHA256.txt"
+          printf '%s\n' "$GITHUB_SHA" > "$OUT/SOURCE_REF.txt"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: chatgpt-webview-v0.45-cross-surface-light-receipt-stable-diag-unsigned
+          path: ci/v47-cross-surface-out
+          if-no-files-found: error
+          retention-days: 30
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: chatgpt-webview-v0.45-cross-surface-light-receipt-stable-diag-telemetry
+          path: ci/v47-cross-surface-telemetry
+          if-no-files-found: error
+          retention-days: 30
