@@ -51,23 +51,14 @@ public final class MouseToggleTileService extends TileService {
                 openSetup();
                 return;
             }
-            try {
-                SamsungMouseAccessibilityService.PreparedToggle prepared =
-                        SamsungMouseAccessibilityService.prepareToggle(this);
+            if (SamsungMouseAccessibilityService.isPending(this)) {
                 showSwitching();
-                if (Build.VERSION.SDK_INT >= 34) {
-                    PendingIntent pendingIntent = PendingIntent.getActivity(
-                            this,
-                            prepared.target == 1 ? 21 : 20,
-                            prepared.settingsIntent,
-                            PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
-                    startActivityAndCollapse(pendingIntent);
-                } else {
-                    startActivityAndCollapse(prepared.settingsIntent);
-                }
-            } catch (Throwable e) {
-                SamsungMouseAccessibilityService.cancelPending(this, message(e));
-                showError(e);
+                return;
+            }
+            showSwitching();
+            if (!SamsungMouseAccessibilityService.requestSeamlessToggle(this)) {
+                showError(new IllegalStateException(
+                        "Accessibility helper is enabled but not connected yet; toggle it off/on once"));
             }
             return;
         }
@@ -106,7 +97,7 @@ public final class MouseToggleTileService extends TileService {
         tile.setLabel("Mouse: switching...");
         if (Build.VERSION.SDK_INT >= 29) {
             tile.setSubtitle(MouseSettingsController.isSamsungDevice()
-                    ? "Using Samsung Settings"
+                    ? "Seamless Samsung switch"
                     : "Changing primary button");
         }
         tile.setState(Tile.STATE_INACTIVE);
