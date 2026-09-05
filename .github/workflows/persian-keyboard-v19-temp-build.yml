@@ -1,4 +1,4 @@
-name: Persian Keyboard Android v1.19 Test APK
+name: Persian Keyboard Android v1.20 Test APK
 
 on:
   push:
@@ -47,7 +47,7 @@ jobs:
           echo 'Expected persistent v1.9+ signing cache was not restored.' >&2
           exit 1
 
-      - name: Apply v1.8 through v1.19 patches
+      - name: Apply v1.8 through v1.20 patches
         working-directory: android/persian-keyboard-v19
         run: |
           set -euo pipefail
@@ -64,8 +64,9 @@ jobs:
           python3 tools/apply_v118_caps_lock_patch.py
           python3 tools/apply_v119_persistent_speech_recovery_patch.py
           python3 tools/apply_v1191_recovery_retry_race_patch.py
+          python3 tools/apply_v120_long_press_mic_send_patch.py
 
-      - name: Verify v1.19 source invariants
+      - name: Verify v1.20 source invariants
         working-directory: android/persian-keyboard-v19
         run: |
           set -euo pipefail
@@ -97,15 +98,25 @@ jobs:
               'main.postDelayed(()->{if(running&&!stopRequested&&!completed)startAudioCapture();},350L);',
               'if(running&&awaitingCredential&&!speechRecovering)',
               'speechRecovering=false;startSoniox(apiKey);',
+              'private boolean sendAfterVoiceStop;',
+              'mic.setOnLongClickListener(v -> stopVoiceAndSend());',
+              'compactMic.setOnLongClickListener(v -> stopVoiceAndSend());',
+              'private boolean stopVoiceAndSend(){',
+              'sendAfterVoiceStop=true;',
+              'private void sendFocusedField(){',
+              'ic.performEditorAction(EditorInfo.IME_ACTION_SEND)',
+              'editorInfo.imeOptions&EditorInfo.IME_MASK_ACTION',
+              'InputType.TYPE_TEXT_FLAG_MULTI_LINE',
+              'if(shouldSend)main.postDelayed(this::sendFocusedField,40L);',
               'enable_endpoint_detection",false',
               'language_hints_strict",true',
-              'versionCode 29',
-              "versionName '1.19'",
+              'versionCode 30',
+              "versionName '1.20'",
           ]
           text = src + '\n' + gradle
           for needle in required:
               if needle not in text:
-                  raise SystemExit(f'Missing v1.19 invariant: {needle}')
+                  raise SystemExit(f'Missing v1.20 invariant: {needle}')
           forbidden = [
               '@Override public void onClosed(WebSocket ws,int code,String reason){if(running&&!completed)finishWithText("Connection closed");}',
               '@Override public void onFailure(WebSocket ws,Throwable t,Response response){if(running&&!completed)finishWithText("Connection error");}',
@@ -120,16 +131,16 @@ jobs:
               'private void switchToGboard(){',
               'Button copy = toolbarButton("Copy", v -> copyCurrentText());',
               'String label=running?"🎙 "+badge():"🎤";',
-              'versionCode 28',
-              "versionName '1.18'",
+              'versionCode 29',
+              "versionName '1.19'",
           ]
           for needle in forbidden:
               if needle in text:
                   raise SystemExit(f'Forbidden old behavior remains: {needle}')
-          print('v1.19 source invariants OK')
+          print('v1.20 source invariants OK')
           PY
 
-      - name: Build Android v1.19 debug APK
+      - name: Build Android v1.20 debug APK
         run: gradle -p android/persian-keyboard-v19 --no-daemon assembleDebug --stacktrace
 
       - name: Verify APK, signer continuity, and metadata
@@ -142,19 +153,19 @@ jobs:
           grep -q 'Signer #1 certificate SHA-256 digest: c557bdc60de4100720d6f122789b51c2889661ef0b76886d5b08c1f44cf023cf' apk-signing.txt
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | head -n 30 | tee apk-badging.txt
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump xmltree "$APK" AndroidManifest.xml > apk-manifest.txt
-          grep -q "package: name='com.najme.perplexityprobe' versionCode='29' versionName='1.19'" apk-badging.txt
+          grep -q "package: name='com.najme.perplexityprobe' versionCode='30' versionName='1.20'" apk-badging.txt
           grep -q 'PersianKeyboardService' apk-manifest.txt
           grep -q 'android.permission.BIND_INPUT_METHOD' apk-manifest.txt
           grep -q 'android.view.InputMethod' apk-manifest.txt
           sha256sum "$APK" | tee apk-sha256.txt
-          cp "$APK" Persian-keyboard-Android-v1.19.apk
+          cp "$APK" Persian-keyboard-Android-v1.20.apk
 
       - name: Upload verified APK and evidence
         uses: actions/upload-artifact@v4
         with:
-          name: Persian-keyboard-Android-v1.19-stable-signed
+          name: Persian-keyboard-Android-v1.20-stable-signed
           path: |
-            Persian-keyboard-Android-v1.19.apk
+            Persian-keyboard-Android-v1.20.apk
             apk-signing.txt
             apk-badging.txt
             apk-manifest.txt
