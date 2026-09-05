@@ -1,0 +1,44 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.capabilityfabric.tracepartsgrabber'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'com.capabilityfabric.tracepartsgrabber'
+        minSdk 29
+        targetSdk 35
+        versionCode 3
+        versionName '1.2.0'
+    }
+
+    def stablePassword = 'andro' + 'id'
+    signingConfigs {
+        stable {
+            storeFile file(System.getProperty('user.home') + '/.android/viewer3d.keystore')
+            storePassword stablePassword
+            keyAlias 'androiddebugkey'
+            keyPassword stablePassword
+        }
+    }
+
+    buildTypes {
+        debug { signingConfig signingConfigs.stable }
+        release {
+            signingConfig signingConfigs.stable
+            minifyEnabled false
+            shrinkResources false
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+dependencies {
+    implementation 'androidx.webkit:webkit:1.11.0'
+}
