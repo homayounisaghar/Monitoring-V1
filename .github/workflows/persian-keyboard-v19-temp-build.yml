@@ -1,4 +1,4 @@
-name: Persian Keyboard Android v1.18 Test APK
+name: Persian Keyboard Android v1.19 Test APK
 
 on:
   push:
@@ -47,7 +47,7 @@ jobs:
           echo 'Expected persistent v1.9+ signing cache was not restored.' >&2
           exit 1
 
-      - name: Apply v1.8 through v1.18 patches
+      - name: Apply v1.8 through v1.19 patches
         working-directory: android/persian-keyboard-v19
         run: |
           set -euo pipefail
@@ -62,8 +62,9 @@ jobs:
           python3 tools/apply_v116_copy_button_patch.py
           python3 tools/apply_v117_copy_icon_mic_emoji_patch.py
           python3 tools/apply_v118_caps_lock_patch.py
+          python3 tools/apply_v119_persistent_speech_recovery_patch.py
 
-      - name: Verify v1.18 source invariants
+      - name: Verify v1.19 source invariants
         working-directory: android/persian-keyboard-v19
         run: |
           set -euo pipefail
@@ -75,90 +76,57 @@ jobs:
               'Configuration.ORIENTATION_LANDSCAPE',
               'FrameLayout inputShell;',
               'floatingButton = toolbarButton("▱", v -> setCollapsed(!collapsed));',
-              'floatingButton.setOnTouchListener(this::handleFloatingHandleTouch);',
               'Button copy = toolbarButton("⧉", v -> copyCurrentText());',
-              'copy.setContentDescription("Copy selected text or entire field");',
-              'private void copyCurrentText(){',
-              'CharSequence selected=ic.getSelectedText(0);',
-              'cm.setPrimaryClip(ClipData.newPlainText("Persian keyboard copy",toCopy==null?"":toCopy));',
-              'mic = toolbarButton("🎙", v -> toggleVoice());',
-              'compactMic = smallButton("🎙 " + badge(), v -> toggleVoice());',
               'String label=running?"🎙 "+badge():"🎙";',
-              'compactMic.setText("🎙 "+badge());',
               'private boolean capsLock;',
               'Button shiftKey = actionKey(capsLock ? "⇪" : (shift ? "⇧●" : "⇧")',
-              'shiftKey.setOnLongClickListener(v -> {',
-              'capsLock=true;',
-              'if(capsLock){capsLock=false; shift=false;}',
-              'if(!persian&&shift&&!capsLock&&t.length()==1&&Character.isLetter(t.charAt(0)))',
-              'persian=!persian; shift=false; capsLock=false; layer=Layer.ALPHA;',
               'Button clearField = toolbarButton("×", v -> clearCurrentTextField());',
-              'clearField.setContentDescription("Clear text field");',
-              'private void clearCurrentTextField(){',
-              'performContextMenuAction(android.R.id.selectAll)',
-              'android.view.inputmethod.ExtractedTextRequest',
-              'getTextBeforeCursor(65536,0)',
-              'getTextAfterCursor(65536,0)',
-              'if (full != null) full.setVisibility(View.VISIBLE);',
-              'if (compact != null) compact.setVisibility(View.GONE);',
-              'return collapsed || getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE;',
-              'rebuildKeyboardSurface();',
-              'int v112Desired = Math.round(shortSide * 0.88f);',
-              'int desired = Math.round(v112Width * 0.70f);',
-              'return Math.max(dp(160), Math.min(desired,',
-              'inputShell.setMinimumHeight(floating ? screenHeight : 0);',
-              'shellLp.height = floating ? screenHeight : ViewGroup.LayoutParams.WRAP_CONTENT;',
-              'attrs.gravity = floating ? (Gravity.TOP | Gravity.START) : Gravity.BOTTOM;',
-              'moveFloatingKeyboard(dragStartLeft + dx, dragStartTop + dy);',
-              'hasComposingTail=false;\n        updateMicUi(); setStatus(readyText());',
-              'Insets.TOUCHABLE_INSETS_REGION',
-              'root.getLocationInWindow(loc);',
+              'private volatile boolean speechRecovering;',
+              'private volatile int speechRecoveryEpoch;',
+              'private void recoverSpeechTransport(String reason){',
+              'code==408 || code>=500',
+              '"temp_api_key_session_expired".equals(type)',
+              '"max_duration_reached".equals(type)',
+              'recoverSpeechTransport("Connection closed "+code)',
+              'recoverSpeechTransport("Connection error")',
+              'if(!stopRequested){recoverSpeechTransport("Unexpected finished");return;}',
+              'private void queuePendingLocked(byte[] chunk){',
+              'pendingAudio.peekFirst()',
+              'private static final int PREBUFFER_MAX = SAMPLE_RATE * 2 * 60;',
+              'main.postDelayed(()->{if(running&&!stopRequested&&!completed)startAudioCapture();},350L);',
               'enable_endpoint_detection",false',
               'language_hints_strict",true',
-              'versionCode 28',
-              "versionName '1.18'",
+              'versionCode 29',
+              "versionName '1.19'",
           ]
           text = src + '\n' + gradle
           for needle in required:
               if needle not in text:
-                  raise SystemExit(f'Missing v1.18 invariant: {needle}')
+                  raise SystemExit(f'Missing v1.19 invariant: {needle}')
           forbidden = [
-              'Button copy = toolbarButton("Copy", v -> copyCurrentText());',
-              'mic = toolbarButton("🎤", v -> toggleVoice());',
-              'compactMic = smallButton("🎤 " + badge(), v -> toggleVoice());',
-              'String label=running?"🎙 "+badge():"🎤";',
-              'compactMic.setText((running?"🎙 ":"🎤 ")+badge());',
-              'r4.addView(actionKey(shift ? "⇧●" : "⇧", v -> { shift = !shift; render(); })',
-              'if(!persian&&shift&&t.length()==1&&Character.isLetter(t.charAt(0)))',
+              '@Override public void onClosed(WebSocket ws,int code,String reason){if(running&&!completed)finishWithText("Connection closed");}',
+              '@Override public void onFailure(WebSocket ws,Throwable t,Response response){if(running&&!completed)finishWithText("Connection error");}',
+              'if(!bufferOrSend(chunk))throw new IllegalStateException("Audio send rejected")',
+              'if(running)finishWithText("Audio error")',
+              'if(o.has("error_code")&&!o.isNull("error_code")){finishWithText("Soniox error");return;}',
+              'if(o.optBoolean("finished",false)){completed=true;',
+              'MAX_CAPTURE_MS',
               'toolbarButton("G⇄"',
               'Translate: next build',
-              'setContentDescription("Translate")',
               'toolbarButton("G", v -> switchToGboard())',
-              'Switch to Gboard',
               'private void switchToGboard(){',
-              'GBOARD_PACKAGE',
-              'InputMethodInfo',
-              'InputMethodManager',
-              'setCollapsed(false); updateMicUi(); setStatus(readyText());',
-              'int desired = Math.round(shortSide * 0.88f);',
-              'float factor = isLandscape() ? 0.78f : 0.88f;',
-              'int minWidth = dp(isLandscape() ? 420 : 300);',
-              'int maxWidth = dp(isLandscape() ? 620 : 460);',
-              'lp.width = dp(148);',
-              'lp.height = dp(50);',
-              'if (full != null) full.setVisibility(value ? View.GONE : View.VISIBLE);',
-              'Floating mode: next build',
-              'MAX_CAPTURE_MS',
-              'versionCode 27',
-              "versionName '1.17'",
+              'Button copy = toolbarButton("Copy", v -> copyCurrentText());',
+              'String label=running?"🎙 "+badge():"🎤";',
+              'versionCode 28',
+              "versionName '1.18'",
           ]
           for needle in forbidden:
               if needle in text:
                   raise SystemExit(f'Forbidden old behavior remains: {needle}')
-          print('v1.18 source invariants OK')
+          print('v1.19 source invariants OK')
           PY
 
-      - name: Build Android v1.18 debug APK
+      - name: Build Android v1.19 debug APK
         run: gradle -p android/persian-keyboard-v19 --no-daemon assembleDebug --stacktrace
 
       - name: Verify APK, signer continuity, and metadata
@@ -171,19 +139,19 @@ jobs:
           grep -q 'Signer #1 certificate SHA-256 digest: c557bdc60de4100720d6f122789b51c2889661ef0b76886d5b08c1f44cf023cf' apk-signing.txt
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | head -n 30 | tee apk-badging.txt
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump xmltree "$APK" AndroidManifest.xml > apk-manifest.txt
-          grep -q "package: name='com.najme.perplexityprobe' versionCode='28' versionName='1.18'" apk-badging.txt
+          grep -q "package: name='com.najme.perplexityprobe' versionCode='29' versionName='1.19'" apk-badging.txt
           grep -q 'PersianKeyboardService' apk-manifest.txt
           grep -q 'android.permission.BIND_INPUT_METHOD' apk-manifest.txt
           grep -q 'android.view.InputMethod' apk-manifest.txt
           sha256sum "$APK" | tee apk-sha256.txt
-          cp "$APK" Persian-keyboard-Android-v1.18.apk
+          cp "$APK" Persian-keyboard-Android-v1.19.apk
 
       - name: Upload verified APK and evidence
         uses: actions/upload-artifact@v4
         with:
-          name: Persian-keyboard-Android-v1.18-stable-signed
+          name: Persian-keyboard-Android-v1.19-stable-signed
           path: |
-            Persian-keyboard-Android-v1.18.apk
+            Persian-keyboard-Android-v1.19.apk
             apk-signing.txt
             apk-badging.txt
             apk-manifest.txt
