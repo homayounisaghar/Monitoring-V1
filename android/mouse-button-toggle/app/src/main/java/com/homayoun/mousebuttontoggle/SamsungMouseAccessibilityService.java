@@ -8,14 +8,24 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.content.pm.ServiceInfo;
+import android.graphics.Bitmap;
+import android.graphics.Color;
+import android.graphics.PixelFormat;
+import android.hardware.HardwareBuffer;
+import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 import android.provider.Settings;
 import android.service.quicksettings.TileService;
 import android.text.TextUtils;
+import android.view.Display;
+import android.view.Gravity;
+import android.view.WindowManager;
 import android.view.accessibility.AccessibilityEvent;
 import android.view.accessibility.AccessibilityManager;
 import android.view.accessibility.AccessibilityNodeInfo;
+import android.view.accessibility.AccessibilityWindowInfo;
+import android.widget.ImageView;
 import android.widget.Toast;
 
 import java.util.ArrayDeque;
@@ -35,12 +45,20 @@ public final class SamsungMouseAccessibilityService extends AccessibilityService
     private static final String KEY_SCROLLS = "pending_scrolls";
     private static final String KEY_LAST_RESULT = "last_result";
     private static final String KEY_LAST_ERROR = "last_error";
+    private static final String KEY_LAST_COVER = "last_cover";
+    private static final String KEY_LAST_RETURN = "last_return";
 
     private static final int STAGE_FIND_PRIMARY = 0;
     private static final int STAGE_PICK_SIDE = 1;
-    private static final long TIMEOUT_MS = 9000L;
+    private static final long TIMEOUT_MS = 10000L;
+
+    private static volatile SamsungMouseAccessibilityService sInstance;
 
     private final Handler handler = new Handler(Looper.getMainLooper());
+    private WindowManager windowManager;
+    private ImageView coverView;
+    private Bitmap coverBitmap;
+    private boolean settingsLaunched;
 
     public static ComponentName component(Context context) {
         return new ComponentName(context, SamsungMouseAccessibilityService.class);
@@ -66,40 +84,19 @@ public final class SamsungMouseAccessibilityService extends AccessibilityService
         return false;
     }
 
-    public static Intent accessibilitySettingsIntent(Context context) {
-        ComponentName component = component(context);
-        Intent details = new Intent("android.settings.ACCESSIBILITY_DETAILS_SETTINGS")
-                .putExtra(Intent.EXTRA_COMPONENT_NAME, component);
-        try {
-            if (details.resolveActivity(context.getPackageManager()) != null) {
-                return details;
-            }
-        } catch (Throwable ignored) {
-        }
-        return new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS);
+    public static boolean isConnected() {
+        return sInstance != null;
     }
 
-    public static PreparedToggle prepareToggle(Context context) {
-        if (!isEnabled(context)) {
-            throw new IllegalStateException("Enable the Samsung Settings helper first");
-        }
-        int current = MouseSettingsController.readPrimaryButton(context);
-        int target = current == 1 ? 0 : 1;
-        prefs(context).edit()
-                .putInt(KEY_TARGET, target)
-                .putInt(KEY_STAGE, STAGE_FIND_PRIMARY)
-                .putInt(KEY_SCROLLS, 0)
-                .putLong(KEY_STARTED_AT, System.currentTimeMillis())
-                .remove(KEY_LAST_ERROR)
-                .apply();
+    public static boolean requestSeamlessToggle(Context context) {
+        SamsungMouseAccessibilityService service = sInstance;
+        if (service == null || !isEnabled(context)) return false;
+        service.handler.post(service::beginSeamlessToggle);
+        return true;
+    }
 
-        Intent intent = new Intent()
-                .setComponent(new ComponentName(SETTINGS_PACKAGE, SETTINGS_MOUSE_ACTIVITY))
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK
-                        | Intent.FLAG_ACTIVITY_CLEAR_TOP
-                        | Intent.FLAG_ACTIVITY_NO_ANIMATION
-                        | Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS);
-        return new PreparedToggle(target, intent);
+    public static Intent accessibilitySettingsIntent(Context context) {
+        return new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS);
     }
 
     public static void cancelPending(Context context, String error) {
@@ -116,8 +113,8 @@ public final class SamsungMouseAccessibilityService extends AccessibilityService
         SharedPreferences p = prefs(context);
         if (!p.contains(KEY_TARGET)) return false;
         long started = p.getLong(KEY_STARTED_AT, 0L);
-        if (started > 0 && System.currentTimeMillis() - started > TIMEOUT_MS + 2000L) {
-            cancelPending(context, "Previous Samsung Settings automation timed out");
+        if (started > 0 && System.currentTimeMillis() - started > TIMEOUT_MS + 2500L) {
+            cancelPending(context, "Previous seamless Samsung Settings automation timed out");
             return false;
         }
         return true;
@@ -126,15 +123,28 @@ public final class SamsungMouseAccessibilityService extends AccessibilityService
     public static String diagnostics(Context context) {
         SharedPreferences p = prefs(context);
         return "samsung_settings_helper_enabled=" + isEnabled(context)
+                + "\nsamsung_settings_helper_connected=" + isConnected()
                 + "\nsamsung_automation_pending=" + isPending(context)
                 + "\nsamsung_last_result=" + p.getString(KEY_LAST_RESULT, "none")
-                + "\nsamsung_last_error=" + p.getString(KEY_LAST_ERROR, "none");
+                + "\nsamsung_last_error=" + p.getString(KEY_LAST_ERROR, "none")
+                + "\nsamsung_last_cover=" + p.getString(KEY_LAST_COVER, "none")
+                + "\nsamsung_last_return=" + p.getString(KEY_LAST_RETURN, "none");
     }
 
     @Override
     protected void onServiceConnected() {
         super.onServiceConnected();
+        sInstance = this;
+        windowManager = (WindowManager) getSystemService(WINDOW_SERVICE);
         requestTileRefresh();
+    }
+
+    @Override
+    public void onDestroy() {
+        if (sInstance == this) sInstance = null;
+        handler.removeCallbacksAndMessages(null);
+        removeCover();
+        super.onDestroy();
     }
 
     @Override
@@ -142,11 +152,171 @@ public final class SamsungMouseAccessibilityService extends AccessibilityService
         if (!isPending(this)) return;
         CharSequence pkg = event == null ? null : event.getPackageName();
         if (pkg == null || !SETTINGS_PACKAGE.contentEquals(pkg)) return;
-        processPending();
+        if (settingsLaunched) processPending();
     }
 
     @Override
     public void onInterrupt() {
+    }
+
+    private void beginSeamlessToggle() {
+        if (isPending(this)) return;
+
+        int current = MouseSettingsController.readPrimaryButton(this);
+        int target = current == 1 ? 0 : 1;
+        settingsLaunched = false;
+        prefs(this).edit()
+                .putInt(KEY_TARGET, target)
+                .putInt(KEY_STAGE, STAGE_FIND_PRIMARY)
+                .putInt(KEY_SCROLLS, 0)
+                .putLong(KEY_STARTED_AT, System.currentTimeMillis())
+                .remove(KEY_LAST_ERROR)
+                .putString(KEY_LAST_RETURN, "pending")
+                .apply();
+        requestTileRefresh();
+
+        if (Build.VERSION.SDK_INT >= 31) {
+            try {
+                performGlobalAction(GLOBAL_ACTION_DISMISS_NOTIFICATION_SHADE);
+            } catch (Throwable ignored) {
+            }
+        }
+
+        handler.postDelayed(this::captureCoverThenLaunch, 260L);
+        handler.postDelayed(watchdog, TIMEOUT_MS + 800L);
+    }
+
+    private void captureCoverThenLaunch() {
+        if (!isPending(this)) return;
+
+        if (Build.VERSION.SDK_INT >= 30) {
+            try {
+                takeScreenshot(
+                        Display.DEFAULT_DISPLAY,
+                        getMainExecutor(),
+                        new TakeScreenshotCallback() {
+                            @Override
+                            public void onSuccess(ScreenshotResult screenshot) {
+                                Bitmap software = null;
+                                HardwareBuffer buffer = null;
+                                Bitmap hardware = null;
+                                try {
+                                    buffer = screenshot.getHardwareBuffer();
+                                    hardware = Bitmap.wrapHardwareBuffer(
+                                            buffer, screenshot.getColorSpace());
+                                    if (hardware != null) {
+                                        software = hardware.copy(Bitmap.Config.ARGB_8888, false);
+                                    }
+                                } catch (Throwable ignored) {
+                                } finally {
+                                    if (hardware != null) {
+                                        try { hardware.recycle(); } catch (Throwable ignored) {}
+                                    }
+                                    if (buffer != null) {
+                                        try { buffer.close(); } catch (Throwable ignored) {}
+                                    }
+                                }
+
+                                if (software != null) {
+                                    prefs(SamsungMouseAccessibilityService.this).edit()
+                                            .putString(KEY_LAST_COVER, "screenshot")
+                                            .apply();
+                                    showCover(software);
+                                } else {
+                                    prefs(SamsungMouseAccessibilityService.this).edit()
+                                            .putString(KEY_LAST_COVER, "fallback-copy-failed")
+                                            .apply();
+                                    showFallbackCover();
+                                }
+                                launchSettingsUnderCover();
+                            }
+
+                            @Override
+                            public void onFailure(int errorCode) {
+                                prefs(SamsungMouseAccessibilityService.this).edit()
+                                        .putString(KEY_LAST_COVER, "fallback-screenshot-error-" + errorCode)
+                                        .apply();
+                                showFallbackCover();
+                                launchSettingsUnderCover();
+                            }
+                        });
+                return;
+            } catch (Throwable e) {
+                prefs(this).edit().putString(KEY_LAST_COVER,
+                        "fallback-exception-" + shortMessage(e)).apply();
+            }
+        }
+
+        showFallbackCover();
+        launchSettingsUnderCover();
+    }
+
+    private void showCover(Bitmap bitmap) {
+        removeCover();
+        coverBitmap = bitmap;
+        ImageView view = new ImageView(this);
+        view.setScaleType(ImageView.ScaleType.FIT_XY);
+        view.setImageBitmap(bitmap);
+        installCover(view, PixelFormat.OPAQUE);
+    }
+
+    private void showFallbackCover() {
+        removeCover();
+        ImageView view = new ImageView(this);
+        view.setBackgroundColor(Color.BLACK);
+        installCover(view, PixelFormat.OPAQUE);
+    }
+
+    private void installCover(ImageView view, int format) {
+        if (windowManager == null) {
+            windowManager = (WindowManager) getSystemService(WINDOW_SERVICE);
+        }
+        if (windowManager == null) return;
+
+        WindowManager.LayoutParams lp = new WindowManager.LayoutParams(
+                WindowManager.LayoutParams.MATCH_PARENT,
+                WindowManager.LayoutParams.MATCH_PARENT,
+                WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
+                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+                        | WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
+                        | WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN
+                        | WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+                format);
+        lp.gravity = Gravity.TOP | Gravity.START;
+        lp.setTitle("Mouse Button Toggle seamless cover");
+        if (Build.VERSION.SDK_INT >= 28) {
+            lp.layoutInDisplayCutoutMode =
+                    WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES;
+        }
+        try {
+            windowManager.addView(view, lp);
+            coverView = view;
+        } catch (Throwable e) {
+            prefs(this).edit().putString(KEY_LAST_COVER,
+                    "overlay-failed-" + shortMessage(e)).apply();
+            coverView = null;
+        }
+    }
+
+    private void launchSettingsUnderCover() {
+        if (!isPending(this)) {
+            removeCover();
+            return;
+        }
+        try {
+            Intent intent = new Intent()
+                    .setComponent(new ComponentName(SETTINGS_PACKAGE, SETTINGS_MOUSE_ACTIVITY))
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK
+                            | Intent.FLAG_ACTIVITY_MULTIPLE_TASK
+                            | Intent.FLAG_ACTIVITY_NO_HISTORY
+                            | Intent.FLAG_ACTIVITY_NO_ANIMATION
+                            | Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS);
+            settingsLaunched = true;
+            startActivity(intent);
+            handler.postDelayed(this::processPending, 220L);
+        } catch (Throwable e) {
+            fail("Could not launch Samsung Mouse settings under cover: " + shortMessage(e));
+        }
     }
 
     private void processPending() {
@@ -171,7 +341,7 @@ public final class SamsungMouseAccessibilityService extends AccessibilityService
             return;
         }
 
-        AccessibilityNodeInfo root = getRootInActiveWindow();
+        AccessibilityNodeInfo root = findSettingsRoot();
         if (root == null) {
             retrySoon();
             return;
@@ -218,11 +388,39 @@ public final class SamsungMouseAccessibilityService extends AccessibilityService
                 } else {
                     processPending();
                 }
-            }, 300L);
+            }, 260L);
             return;
         }
 
         retrySoon();
+    }
+
+    private AccessibilityNodeInfo findSettingsRoot() {
+        try {
+            List<AccessibilityWindowInfo> windows = getWindows();
+            if (windows != null) {
+                for (AccessibilityWindowInfo window : windows) {
+                    if (window == null) continue;
+                    AccessibilityNodeInfo root = window.getRoot();
+                    if (root == null) continue;
+                    CharSequence pkg = root.getPackageName();
+                    if (pkg != null && SETTINGS_PACKAGE.contentEquals(pkg)) {
+                        return root;
+                    }
+                }
+            }
+        } catch (Throwable ignored) {
+        }
+
+        try {
+            AccessibilityNodeInfo active = getRootInActiveWindow();
+            if (active != null) {
+                CharSequence pkg = active.getPackageName();
+                if (pkg != null && SETTINGS_PACKAGE.contentEquals(pkg)) return active;
+            }
+        } catch (Throwable ignored) {
+        }
+        return null;
     }
 
     private void succeed(int target) {
@@ -235,25 +433,69 @@ public final class SamsungMouseAccessibilityService extends AccessibilityService
                 .remove(KEY_LAST_ERROR)
                 .apply();
         requestTileRefresh();
-        Toast.makeText(this,
-                target == 1 ? "Right mouse button is primary" : "Left mouse button is primary",
-                Toast.LENGTH_SHORT).show();
-        handler.postDelayed(() -> performGlobalAction(GLOBAL_ACTION_BACK), 180L);
+        finishHiddenSettings("success");
     }
 
     private void fail(String error) {
         cancelPending(this, error);
         requestTileRefresh();
         Toast.makeText(this, "Mouse toggle failed: " + error, Toast.LENGTH_LONG).show();
-        handler.postDelayed(() -> performGlobalAction(GLOBAL_ACTION_BACK), 180L);
+        finishHiddenSettings("failed");
     }
+
+    private void finishHiddenSettings(String result) {
+        handler.removeCallbacks(retryRunnable);
+        handler.removeCallbacks(watchdog);
+
+        if (settingsLaunched) {
+            try {
+                performGlobalAction(GLOBAL_ACTION_BACK);
+            } catch (Throwable ignored) {
+            }
+        }
+        settingsLaunched = false;
+
+        handler.postDelayed(() -> {
+            prefs(this).edit().putString(KEY_LAST_RETURN, result + "-back-to-caller").apply();
+            removeCover();
+            requestTileRefresh();
+        }, 360L);
+    }
+
+    private final Runnable watchdog = () -> {
+        if (!isPending(this)) return;
+        cancelPending(this, "Seamless toggle watchdog timeout");
+        requestTileRefresh();
+        if (settingsLaunched) {
+            try { performGlobalAction(GLOBAL_ACTION_BACK); } catch (Throwable ignored) {}
+        }
+        settingsLaunched = false;
+        handler.postDelayed(this::removeCover, 280L);
+        Toast.makeText(this, "Mouse toggle timed out", Toast.LENGTH_LONG).show();
+    };
 
     private void retrySoon() {
         handler.removeCallbacks(retryRunnable);
-        handler.postDelayed(retryRunnable, 180L);
+        handler.postDelayed(retryRunnable, 150L);
     }
 
     private final Runnable retryRunnable = this::processPending;
+
+    private void removeCover() {
+        ImageView view = coverView;
+        coverView = null;
+        if (view != null && windowManager != null) {
+            try {
+                windowManager.removeViewImmediate(view);
+            } catch (Throwable ignored) {
+            }
+        }
+        Bitmap bitmap = coverBitmap;
+        coverBitmap = null;
+        if (bitmap != null && !bitmap.isRecycled()) {
+            try { bitmap.recycle(); } catch (Throwable ignored) {}
+        }
+    }
 
     private void requestTileRefresh() {
         try {
@@ -342,13 +584,10 @@ public final class SamsungMouseAccessibilityService extends AccessibilityService
         return context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
     }
 
-    public static final class PreparedToggle {
-        public final int target;
-        public final Intent settingsIntent;
-
-        PreparedToggle(int target, Intent settingsIntent) {
-            this.target = target;
-            this.settingsIntent = settingsIntent;
-        }
+    private static String shortMessage(Throwable throwable) {
+        if (throwable == null) return "unknown";
+        String message = throwable.getMessage();
+        if (TextUtils.isEmpty(message)) message = throwable.getClass().getSimpleName();
+        return message.replace('\n', ' ').replace('\r', ' ');
     }
 }
