@@ -1,0 +1,62 @@
+name: Probe Backflip signup terms
+
+on:
+  push:
+    branches: ['imagecad-backflip-xpea110']
+    paths:
+      - '.github/workflows/probe-backflip-signup.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install Playwright
+        run: |
+          python -m pip install --quiet playwright
+          python -m playwright install chromium --with-deps
+      - name: Inspect signup page only
+        run: |
+          cat > /tmp/probe.py <<'PY'
+          import asyncio, json
+          from pathlib import Path
+          from playwright.async_api import async_playwright
+          async def main():
+              out=Path('backflip_signup_probe'); out.mkdir(exist_ok=True)
+              async with async_playwright() as p:
+                  browser=await p.chromium.launch(headless=True)
+                  page=await browser.new_page(viewport={'width':1440,'height':1000})
+                  await page.goto('https://login.backflip.ai/', wait_until='domcontentloaded', timeout=90000)
+                  await page.wait_for_timeout(1500)
+                  link=page.get_by_role('link',name='Sign up')
+                  await link.click()
+                  await page.wait_for_timeout(3000)
+                  info={
+                    'url':page.url,
+                    'title':await page.title(),
+                    'body_text':(await page.locator('body').inner_text())[:30000],
+                    'inputs':await page.locator('input').evaluate_all("els => els.map(e => ({type:e.type,name:e.name,placeholder:e.placeholder,checked:e.checked}))"),
+                    'buttons':await page.locator('button').evaluate_all("els => els.map(e => ({text:(e.innerText||'').trim(),type:e.type}))"),
+                    'links':await page.locator('a').evaluate_all("els => els.map(e => ({text:(e.innerText||'').trim(),href:e.href})).slice(0,100)"),
+                  }
+                  (out/'signup.json').write_text(json.dumps(info,indent=2),encoding='utf-8')
+                  (out/'signup.html').write_text(await page.content(),encoding='utf-8')
+                  await page.screenshot(path=str(out/'signup.png'),full_page=True)
+                  print(json.dumps(info,indent=2))
+                  await browser.close()
+          asyncio.run(main())
+          PY
+          python /tmp/probe.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: backflip-signup-probe
+          path: backflip_signup_probe/
+          retention-days: 7
