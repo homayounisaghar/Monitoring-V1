@@ -16,6 +16,11 @@ public final class MouseSettingsController {
         return Settings.System.canWrite(context);
     }
 
+    public static boolean isSamsungDevice() {
+        return "samsung".equalsIgnoreCase(Build.MANUFACTURER)
+                || "samsung".equalsIgnoreCase(Build.BRAND);
+    }
+
     public static int readPrimaryButton(Context context) {
         ContentResolver resolver = context.getContentResolver();
         Integer samsung = readBinary(resolver, SAMSUNG_KEY);
@@ -33,7 +38,11 @@ public final class MouseSettingsController {
         return 0;
     }
 
-    public static int togglePrimaryButton(Context context) {
+    public static int togglePrimaryButtonDirect(Context context) {
+        if (isSamsungDevice()) {
+            throw new IllegalStateException(
+                    "Samsung primary mouse setting is private; use the Samsung Settings helper");
+        }
         if (!hasWritePermission(context)) {
             throw new IllegalStateException("Modify system settings permission is not granted");
         }
@@ -41,18 +50,6 @@ public final class MouseSettingsController {
         ContentResolver resolver = context.getContentResolver();
         int current = readPrimaryButton(context);
         int next = current == 1 ? 0 : 1;
-        Integer samsungBefore = readBinary(resolver, SAMSUNG_KEY);
-        boolean samsungBackend = isSamsungDevice() || samsungBefore != null;
-
-        if (samsungBackend) {
-            writeAndVerify(resolver, SAMSUNG_KEY, next, "Samsung primary mouse setting");
-            try {
-                Settings.System.putInt(resolver, AOSP_KEY, next);
-            } catch (Throwable ignored) {
-            }
-            return next;
-        }
-
         writeAndVerify(resolver, AOSP_KEY, next, "Android primary mouse setting");
         return next;
     }
@@ -61,7 +58,7 @@ public final class MouseSettingsController {
         ContentResolver resolver = context.getContentResolver();
         Integer samsung = readBinary(resolver, SAMSUNG_KEY);
         Integer aosp = readBinary(resolver, AOSP_KEY);
-        boolean samsungBackend = isSamsungDevice() || samsung != null;
+        boolean samsungDevice = isSamsungDevice();
 
         return "manufacturer=" + Build.MANUFACTURER
                 + "\nbrand=" + Build.BRAND
@@ -69,11 +66,13 @@ public final class MouseSettingsController {
                 + "\ndevice=" + Build.DEVICE
                 + "\nsdk=" + Build.VERSION.SDK_INT
                 + "\nrelease=" + Build.VERSION.RELEASE
+                + "\nselected_backend="
+                + (samsungDevice ? "samsung-settings-accessibility" : "android-system")
                 + "\nmodify_system_settings=" + hasWritePermission(context)
-                + "\nselected_backend=" + (samsungBackend ? "samsung-system" : "android-system")
                 + "\n" + SAMSUNG_KEY + "=" + valueText(samsung)
                 + "\n" + AOSP_KEY + "=" + valueText(aosp)
-                + "\nreported_primary=" + readPrimaryButton(context);
+                + "\nreported_primary=" + readPrimaryButton(context)
+                + "\n" + SamsungMouseAccessibilityService.diagnostics(context);
     }
 
     private static void writeAndVerify(
@@ -81,7 +80,7 @@ public final class MouseSettingsController {
         final boolean wrote;
         try {
             wrote = Settings.System.putInt(resolver, key, value);
-        } catch (SecurityException e) {
+        } catch (SecurityException | IllegalArgumentException e) {
             throw new IllegalStateException(label + " is blocked by this Android build", e);
         } catch (Throwable e) {
             throw new IllegalStateException(label + " write failed: " + message(e), e);
@@ -107,11 +106,6 @@ public final class MouseSettingsController {
         } catch (Throwable ignored) {
             return null;
         }
-    }
-
-    private static boolean isSamsungDevice() {
-        return "samsung".equalsIgnoreCase(Build.MANUFACTURER)
-                || "samsung".equalsIgnoreCase(Build.BRAND);
     }
 
     private static String valueText(Integer value) {
