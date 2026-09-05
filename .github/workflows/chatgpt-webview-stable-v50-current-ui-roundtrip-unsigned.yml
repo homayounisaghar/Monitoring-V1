@@ -90,7 +90,7 @@ jobs:
           assert 'next < 0 || next > 3 || next == 4' in a
           assert 'proWriteAttempted50 = true' in a or 'proWriteAttempted50=true' in a
           assert 'startDynamicEffortProof50();' in a
-          assert 'beginModelProof50();' in a
+          assert 'claimCloseEffortForModel49();' in a and 'captureClosedModelSurface()' in a
           assert 'modelOriginalSemantic50' in a and 'modelTargetSemantic50' in a
           assert 'PASS_CURRENT_UI_EFFORT_0_1_2_3_AND_MODEL_ROUNDTRIP_RESTORED' in a
           assert 'PARTIAL_CURRENT_UI_EFFORT_OR_MODEL_RECEIPT_INCOMPLETE_RESTORED' in a
@@ -98,12 +98,9 @@ jobs:
           assert 'getRootInActiveWindow()' in s and 'r.inWeb' in s
           assert 'p.options.size()==3' in s
           assert all(x in s for x in ['LATEST','GPT56_SOL','GPT55'])
-          # Pro must be readable on the effort surface so it can be denied.
           assert '"PRO"' in s
-          # But Pro must never be a model option semantic.
           mb=s[s.index('private static String modelSemantic'):s.index('private static boolean isModelLabel')]
           assert '"PRO"' not in mb
-          # Model plan must require exactly the three current expected model semantics.
           assert 'sems.contains("LATEST")' in s and 'sems.contains("GPT56_SOL")' in s and 'sems.contains("GPT55")' in s
           PY
 
