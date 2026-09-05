@@ -1,0 +1,138 @@
+name: ChatGPT WebView Stable v0.49 Human Model Open Discovery Unsigned
+
+on:
+  push:
+    branches: [project/chatgpt-webview-poc]
+    paths:
+      - '.github/workflows/chatgpt-webview-stable-v51-model-human-open-discovery-unsigned.yml'
+      - 'ci/generate_chatgpt_webview_v51_model_human_open_discovery.py'
+      - 'ci/v51_model_observer/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Generate v0.49 source
+        run: python3 ci/generate_chatgpt_webview_v51_model_human_open_discovery.py
+
+      - name: Create fresh telemetry collector
+        shell: bash
+        run: |
+          set -euo pipefail
+          CFG=runtime_probes/chatgpt-webview-stable-probe/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/TelemetryConfigV51.java
+          TOKEN=$(curl -fsS -X POST https://webhook.site/token -H 'Accept: application/json' -H 'Content-Type: application/json' -d '{"default_status":200,"default_content":"OK","default_content_type":"text/plain"}' | python3 -c 'import json,sys;x=json.load(sys.stdin).get("uuid");assert x;print(x)')
+          ENDPOINT="https://webhook.site/$TOKEN"
+          READ="https://webhook.site/token/$TOKEN/requests?sorting=oldest&per_page=100"
+          python3 - "$CFG" "$ENDPOINT" "$GITHUB_SHA" "$TOKEN" <<'PY'
+          from pathlib import Path
+          import re,sys
+          p=Path(sys.argv[1]); s=p.read_text(); ep,sha,cid=sys.argv[2:]
+          s=re.sub(r'WEBHOOK_URL=".*?"',f'WEBHOOK_URL="{ep}"',s)
+          s=re.sub(r'SOURCE_REF=".*?"',f'SOURCE_REF="{sha}"',s)
+          s=re.sub(r'COLLECTOR_ID=".*?"',f'COLLECTOR_ID="{cid}"',s)
+          s=s.replace('CONFIGURED=false','CONFIGURED=true')
+          p.write_text(s)
+          PY
+          mkdir -p ci/v51-model-discovery-telemetry
+          printf '%s\n' "$TOKEN" > ci/v51-model-discovery-telemetry/collector-id.txt
+          printf '%s\n' "$READ" > ci/v51-model-discovery-telemetry/read-url.txt
+          printf '%s\n' "$GITHUB_SHA" > ci/v51-model-discovery-telemetry/source-ref.txt
+          printf '{"kind":"BUILD_SMOKE","schema_version":"cp-v51-paid-model-human-open-discovery-v1","scenario_id":"paid-model-human-open-discovery","source_ref":"%s"}\n' "$GITHUB_SHA" | curl -fsS -X POST "$ENDPOINT" -H 'Content-Type: application/json' --data-binary @- >/dev/null
+
+      - name: Zero-write discovery contract checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT=runtime_probes/chatgpt-webview-stable-probe
+          PKG=$ROOT/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe
+          ACT=$PKG/OrchestratorPaidModelHumanOpenDiscoveryV51Activity.java
+          SVC=$PKG/ControlPlaneAccessibilityServiceV51.java
+          MAN=$ROOT/app/src/main/AndroidManifest.xml
+          CFG=$ROOT/app/src/main/res/xml/cp_accessibility_service_v51.xml
+          GRADLE=$ROOT/app/build.gradle
+          grep -Fq "applicationId 'com.homayounisaghar.chatgptwebviewprobe.diag'" "$GRADLE"
+          grep -Fq 'versionCode 52' "$GRADLE"
+          grep -Fq "versionName '0.49-stable-diag-model-human-open-discovery'" "$GRADLE"
+          grep -Fq 'ARM MODEL MENU OBSERVER' "$ACT"
+          grep -Fq 'now tap the model name at the TOP of the WebView once' "$ACT"
+          grep -Fq 'captureClosedModelSurface()' "$ACT"
+          grep -Fq 'captureModelMenu(fallback)' "$ACT"
+          grep -Fq 'armManualModelClickObservation()' "$ACT"
+          grep -Fq 'TYPE_VIEW_CLICKED' "$SVC"
+          grep -Fq 'nearest_model_semantic' "$SVC"
+          grep -Fq 'ancestry_hash' "$SVC"
+          grep -Fq 'GPT56_SOL' "$SVC"
+          grep -Fq 'GPT55' "$SVC"
+          grep -Fq 'LATEST' "$SVC"
+          grep -Fq 'android:packageNames="com.homayounisaghar.chatgptwebviewprobe.diag"' "$CFG"
+          grep -Fq 'ControlPlaneAccessibilityServiceV51' "$MAN"
+          grep -Fq 'OrchestratorPaidModelHumanOpenDiscoveryV51Activity' "$MAN"
+          test "$(grep -c '<uses-permission' "$MAN")" -eq 3
+          python3 - "$ACT" "$SVC" <<'PY'
+          from pathlib import Path
+          import sys
+          a=Path(sys.argv[1]).read_text(); s=Path(sys.argv[2]).read_text()
+          forbidden=['performAction(','clickModelOption(','clickClosedModelTrigger(','evaluateJavascript(','dispatchEvent(','ArrowLeft','ArrowRight','setAttribute("aria-value']
+          for x in forbidden:
+              assert x not in a, x
+          assert 'performAction(' not in s
+          assert 'model_trigger_clicks_by_app",0' in a
+          assert 'model_option_clicks_by_app",0' in a
+          assert 'effort_writes_by_app",0' in a
+          assert 'pro_write_attempted",false' in a
+          assert 'raw_text_uploaded",false' in a and 'raw_html_uploaded",false' in a
+          assert 'human_click_seen' in a and 'exact_expected_set' in a
+          assert 'TYPE_VIEW_CLICKED' in s
+          assert 'source_label_hash' in s and 'ancestry_hash' in s
+          PY
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+
+      - name: Build and verify aligned unsigned APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          sdkmanager "platforms;android-35" "build-tools;35.0.0"
+          echo "sdk.dir=$ANDROID_SDK_ROOT" > runtime_probes/chatgpt-webview-stable-probe/local.properties
+          curl -fsSL https://services.gradle.org/distributions/gradle-8.10.2-bin.zip -o /tmp/gradle.zip
+          unzip -q /tmp/gradle.zip -d /tmp
+          cd runtime_probes/chatgpt-webview-stable-probe
+          /tmp/gradle-8.10.2/bin/gradle --no-daemon :app:assembleRelease --stacktrace
+          cd ../..
+          OUT=ci/v51-model-discovery-out
+          mkdir -p "$OUT"
+          UNSIGNED=runtime_probes/chatgpt-webview-stable-probe/app/build/outputs/apk/release/app-release-unsigned.apk
+          ALIGNED="$OUT/chatgpt-webview-v0.49-model-human-open-discovery-stable-diag-aligned-unsigned.apk"
+          BT="$ANDROID_SDK_ROOT/build-tools/35.0.0"
+          "$BT/zipalign" -f -p 4 "$UNSIGNED" "$ALIGNED"
+          "$BT/zipalign" -c -v 4 "$ALIGNED" > "$OUT/zipalign-verify.txt"
+          "$BT/aapt" dump badging "$ALIGNED" > "$OUT/badging.txt"
+          "$BT/aapt" dump permissions "$ALIGNED" > "$OUT/permissions.txt"
+          grep -Fq "package: name='com.homayounisaghar.chatgptwebviewprobe.diag' versionCode='52' versionName='0.49-stable-diag-model-human-open-discovery'" "$OUT/badging.txt"
+          grep -Fq "launchable-activity: name='com.homayounisaghar.chatgptwebviewprobe.OrchestratorPaidModelHumanOpenDiscoveryV51Activity'" "$OUT/badging.txt"
+          test "$(grep -c '^uses-permission:' "$OUT/permissions.txt")" -eq 3
+          sha256sum "$ALIGNED" > "$OUT/ALIGNED_UNSIGNED_SHA256.txt"
+          printf '%s\n' "$GITHUB_SHA" > "$OUT/SOURCE_REF.txt"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: chatgpt-webview-v0.49-model-human-open-discovery-stable-diag-unsigned
+          path: ci/v51-model-discovery-out
+          if-no-files-found: error
+          retention-days: 30
+      - uses: actions/upload-artifact@v4
+        with:
+          name: chatgpt-webview-v0.49-model-human-open-discovery-stable-diag-telemetry
+          path: ci/v51-model-discovery-telemetry
+          if-no-files-found: error
+          retention-days: 30
