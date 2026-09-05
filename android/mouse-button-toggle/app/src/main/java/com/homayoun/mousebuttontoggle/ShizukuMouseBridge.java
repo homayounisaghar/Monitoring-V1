@@ -127,7 +127,7 @@ public final class ShizukuMouseBridge {
                 .daemon(false)
                 .processNameSuffix("mouse_settings")
                 .debuggable(false)
-                .version(2);
+                .version(3);
     }
 
     private static String message(Throwable e) {
