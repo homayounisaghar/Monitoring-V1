@@ -47,7 +47,7 @@ public final class MainActivity extends Activity {
                 ScrollView.LayoutParams.MATCH_PARENT, ScrollView.LayoutParams.WRAP_CONTENT));
 
         TextView title = new TextView(this);
-        title.setText("Mouse Button Toggle 1.0.4");
+        title.setText("Mouse Button Toggle 1.0.5");
         title.setTextSize(26);
         title.setGravity(Gravity.CENTER);
         root.addView(title, matchWrap());
@@ -69,7 +69,7 @@ public final class MainActivity extends Activity {
         root.addView(status, matchWrap());
 
         if (MouseSettingsController.isSamsungDevice()) {
-            root.addView(button("Enable Samsung Settings helper", v -> openAccessibilitySetup()), matchWrap());
+            root.addView(button("Open Accessibility settings", v -> openAccessibilitySetup()), matchWrap());
         } else {
             root.addView(button("Grant Modify system settings", v -> grantWriteSettings()), matchWrap());
         }
@@ -80,7 +80,7 @@ public final class MainActivity extends Activity {
         TextView note = new TextView(this);
         String placement = "One UI controls the initial location of third-party Quick Panel controls. After adding it, use the Quick Panel pencil/edit mode and drag the mouse control into the expandable/top Quick Settings area where you want it.";
         if (MouseSettingsController.isSamsungDevice()) {
-            placement += "\n\nIf Android says the Accessibility helper is a restricted setting for this sideloaded app, open this app's App info, use the three-dot menu to Allow restricted settings, then enable the helper again.";
+            placement += "\n\nSamsung Android 16 does not allow third-party apps to open an individual Accessibility-service detail page directly. Tap Open Accessibility settings, then go to Installed apps and enable Mouse Button Toggle. If Android says this sideloaded helper is restricted, open this app's App info, use the three-dot menu to Allow restricted settings, then enable it again.";
         }
         note.setText(placement);
         note.setTextSize(14);
@@ -92,7 +92,8 @@ public final class MainActivity extends Activity {
 
     private void openAccessibilitySetup() {
         try {
-            startActivity(SamsungMouseAccessibilityService.accessibilitySettingsIntent(this));
+            startActivity(new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS));
+            setStatus("Accessibility opened. Go to Installed apps -> Mouse Button Toggle and enable it.");
         } catch (Throwable e) {
             setStatus("Could not open Accessibility settings: " + message(e));
         }
@@ -132,7 +133,7 @@ public final class MainActivity extends Activity {
     private void testToggle() {
         if (MouseSettingsController.isSamsungDevice()) {
             if (!SamsungMouseAccessibilityService.isEnabled(this)) {
-                setStatus("Enable the Samsung Settings helper first. Shizuku is not required.");
+                setStatus("Enable Mouse Button Toggle under Accessibility -> Installed apps first. Shizuku is not required.");
                 openAccessibilitySetup();
                 return;
             }
@@ -196,7 +197,7 @@ public final class MainActivity extends Activity {
     private void refreshStatus() {
         if (MouseSettingsController.isSamsungDevice()) {
             if (!SamsungMouseAccessibilityService.isEnabled(this)) {
-                setStatus("Setup required: enable the Samsung Settings helper once. Shizuku is not required.");
+                setStatus("Setup required: Accessibility -> Installed apps -> Mouse Button Toggle -> On. Shizuku is not required.");
                 return;
             }
             if (SamsungMouseAccessibilityService.isPending(this)) {
