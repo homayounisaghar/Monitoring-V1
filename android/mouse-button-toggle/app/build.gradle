@@ -10,8 +10,8 @@ android {
         applicationId 'com.homayoun.mousebuttontoggle'
         minSdk 29
         targetSdk 35
-        versionCode 3
-        versionName '1.0.2'
+        versionCode 4
+        versionName '1.0.3'
     }
 
     def stablePassword = 'andro' + 'id'
@@ -35,17 +35,8 @@ android {
         }
     }
 
-    buildFeatures {
-        aidl true
-    }
-
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
     }
-}
-
-dependencies {
-    implementation 'dev.rikka.shizuku:api:13.1.5'
-    implementation 'dev.rikka.shizuku:provider:13.1.5'
 }
