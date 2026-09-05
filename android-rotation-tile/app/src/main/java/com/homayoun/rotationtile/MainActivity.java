@@ -19,6 +19,7 @@ import java.util.concurrent.Executor;
 
 public class MainActivity extends Activity {
     private TextView status;
+    private Button overrideButton;
     private boolean tileRequestAttemptedThisLaunch;
 
     @Override
@@ -62,8 +63,10 @@ public class MainActivity extends Activity {
 
         TextView description = new TextView(this);
         description.setText(
-                "Quick Settings cycle:\nOff → Portrait → 90° → 180° → 270° → Off\n\n" +
-                "For stronger forcing, the app combines Android's system rotation lock with a tiny transparent orientation overlay.");
+                "Long-press the Quick Settings tile to toggle the rotation override. " +
+                "Turning it on locks the exact angle the display already has; turning it off releases the lock without choosing another angle.\n\n" +
+                "While override is ON, short taps rotate through 0° / 90° / 180° / 270°. " +
+                "Rapid taps are grouped for about 0.4 seconds after the last tap.");
         description.setTextSize(16);
         description.setTextColor(Color.DKGRAY);
         description.setPadding(0, dp(18), 0, dp(20));
@@ -91,18 +94,24 @@ public class MainActivity extends Activity {
         addTile.setOnClickListener(v -> requestTileIfSupported());
         root.addView(addTile, matchWrap());
 
-        Button off = new Button(this);
-        off.setText("Turn forcing OFF and restore previous rotation setting");
-        off.setOnClickListener(v -> {
-            RotationController.setMode(this, RotationMode.OFF);
+        overrideButton = new Button(this);
+        overrideButton.setOnClickListener(v -> {
+            RotationTileService.cancelPendingBatch(this);
+            if (!RotationController.isEnabled(this)
+                    && !RotationController.hasRequiredPermissions(this)) {
+                refresh();
+                return;
+            }
+            RotationController.toggleOverride(this);
+            RotationTileService.requestTileRefresh(this);
             refresh();
         });
-        root.addView(off, matchWrap());
+        root.addView(overrideButton, matchWrap());
 
         TextView note = new TextView(this);
         note.setText(
-                "Tap the tile to advance one state. Rapid taps are buffered for about 0.4 seconds after the most recent tap: every tap is counted, but only the final queued state is applied. " +
-                "Long-press the tile to return here. If Android does not show the add-tile prompt, add “Rotate 90°” from Quick Settings edit mode.");
+                "Normal taps do nothing while override is OFF. Long-press toggles override. " +
+                "When override is released, Android auto-rotation is enabled, so the screen may rotate immediately if the device posture calls for it.");
         note.setTextSize(14);
         note.setTextColor(Color.GRAY);
         note.setPadding(0, dp(18), 0, 0);
@@ -114,11 +123,21 @@ public class MainActivity extends Activity {
     private void refresh() {
         boolean overlay = Settings.canDrawOverlays(this);
         boolean write = Settings.System.canWrite(this);
-        RotationMode mode = RotationController.getMode(this);
+        boolean enabled = RotationController.isEnabled(this);
+        RotationMode locked = RotationController.getLockedMode(this);
+        RotationMode current = RotationController.getCurrentDisplayMode(this);
+
         status.setText(
                 "Overlay: " + (overlay ? "OK" : "needed") +
                 "   •   Modify settings: " + (write ? "OK" : "needed") +
-                "\nCurrent mode: " + mode.label);
+                "\nOverride: " + (enabled ? "ON" : "OFF") +
+                (enabled ? "   •   Locked: " + locked.label : "   •   Display now: " + current.label));
+
+        if (overrideButton != null) {
+            overrideButton.setText(enabled
+                    ? "Turn override OFF and follow device auto-rotation"
+                    : "Lock the current display angle now");
+        }
     }
 
     private void requestTileIfSupported() {
@@ -131,7 +150,7 @@ public class MainActivity extends Activity {
         Executor executor = getMainExecutor();
         manager.requestAddTileService(
                 component,
-                "Rotate 90°",
+                "Rotation",
                 icon,
                 executor,
                 result -> refresh());

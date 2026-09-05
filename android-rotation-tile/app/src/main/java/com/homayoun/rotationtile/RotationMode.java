@@ -22,13 +22,17 @@ public enum RotationMode {
         this.label = label;
     }
 
-    public RotationMode next() {
+    public boolean isLockedMode() {
+        return this != OFF;
+    }
+
+    public RotationMode nextLocked() {
         switch (this) {
-            case OFF: return PORTRAIT;
             case PORTRAIT: return LANDSCAPE;
             case LANDSCAPE: return REVERSE_PORTRAIT;
             case REVERSE_PORTRAIT: return REVERSE_LANDSCAPE;
-            default: return OFF;
+            case REVERSE_LANDSCAPE: return PORTRAIT;
+            default: return PORTRAIT;
         }
     }
 
@@ -37,5 +41,15 @@ public enum RotationMode {
             if (mode.id == id) return mode;
         }
         return OFF;
+    }
+
+    public static RotationMode fromSurfaceRotation(int rotation) {
+        switch (rotation) {
+            case Surface.ROTATION_90: return LANDSCAPE;
+            case Surface.ROTATION_180: return REVERSE_PORTRAIT;
+            case Surface.ROTATION_270: return REVERSE_LANDSCAPE;
+            case Surface.ROTATION_0:
+            default: return PORTRAIT;
+        }
     }
 }

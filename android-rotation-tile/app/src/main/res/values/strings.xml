@@ -1,4 +1,4 @@
 <resources>
     <string name="app_name">Rotation Tile</string>
-    <string name="tile_label">Rotate 90°</string>
+    <string name="tile_label">Rotation</string>
 </resources>

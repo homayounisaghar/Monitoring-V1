@@ -45,11 +45,13 @@ public class RotationService extends Service {
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         int modeId = intent != null
-                ? intent.getIntExtra(EXTRA_MODE, RotationController.getMode(this).id)
-                : RotationController.getMode(this).id;
+                ? intent.getIntExtra(EXTRA_MODE, RotationController.getLockedMode(this).id)
+                : RotationController.getLockedMode(this).id;
         activeMode = RotationMode.fromId(modeId);
 
-        if (activeMode == RotationMode.OFF || !RotationController.hasRequiredPermissions(this)) {
+        if (!RotationController.isEnabled(this)
+                || !activeMode.isLockedMode()
+                || !RotationController.hasRequiredPermissions(this)) {
             removeOverlay();
             stopForeground(true);
             stopSelf();
@@ -63,7 +65,7 @@ public class RotationService extends Service {
     }
 
     private void applyOverlay(RotationMode mode) {
-        if (!Settings.canDrawOverlays(this) || windowManager == null) return;
+        if (!mode.isLockedMode() || !Settings.canDrawOverlays(this) || windowManager == null) return;
         removeOverlay();
 
         overlayView = new View(this);
@@ -123,7 +125,7 @@ public class RotationService extends Service {
     }
 
     private void scheduleReassert(long delayMs) {
-        if (activeMode == RotationMode.OFF || handler == null) return;
+        if (!RotationController.isEnabled(this) || handler == null) return;
         handler.removeCallbacks(reassertRunnable);
         handler.postDelayed(reassertRunnable, delayMs);
     }
@@ -131,7 +133,8 @@ public class RotationService extends Service {
     private final Runnable reassertRunnable = new Runnable() {
         @Override
         public void run() {
-            if (activeMode == RotationMode.OFF) return;
+            if (!RotationController.isEnabled(RotationService.this)) return;
+            activeMode = RotationController.getLockedMode(RotationService.this);
             RotationController.enforceSystemSettings(RotationService.this, activeMode);
             applyOverlay(activeMode);
         }
@@ -170,7 +173,7 @@ public class RotationService extends Service {
 
         return builder
                 .setSmallIcon(R.drawable.ic_rotation)
-                .setContentTitle("Rotation forced")
+                .setContentTitle("Rotation override on")
                 .setContentText(mode.label)
                 .setOngoing(true)
                 .setCategory(Notification.CATEGORY_SERVICE)

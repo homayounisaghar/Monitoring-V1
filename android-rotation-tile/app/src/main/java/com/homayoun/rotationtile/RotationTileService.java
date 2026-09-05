@@ -36,24 +36,31 @@ public class RotationTileService extends TileService {
         super.onClick();
         rememberService();
 
-        RotationMode actual = RotationController.getMode(this);
-        if (actual == RotationMode.OFF && !RotationController.hasRequiredPermissions(this)) {
-            cancelPendingBatch();
+        if (!RotationController.isEnabled(this)) {
+            cancelPendingBatch(this);
+            updateTile();
+            return;
+        }
+
+        if (!RotationController.hasRequiredPermissions(this)) {
+            cancelPendingBatch(this);
             openSetup();
             return;
         }
 
         final long generation;
         synchronized (TAP_LOCK) {
-            RotationMode base = pendingTarget != null ? pendingTarget : actual;
-            pendingTarget = base.next();
+            RotationMode base = pendingTarget != null
+                    ? pendingTarget
+                    : RotationController.getLockedMode(this);
+            pendingTarget = base.nextLocked();
             pendingTapCount += 1;
             pendingGeneration += 1;
             generation = pendingGeneration;
         }
 
-        // Give the user immediate visual confirmation that this tap was counted,
-        // but do not rotate yet. The 400 ms timer restarts after every tap.
+        // Count every tap immediately, but wait until 400 ms after the last tap
+        // before applying the final locked angle.
         updateTile();
         TAP_HANDLER.postDelayed(() -> commitPendingBatch(generation), MULTI_TAP_SETTLE_MS);
     }
@@ -71,9 +78,7 @@ public class RotationTileService extends TileService {
         final RotationTileService service;
 
         synchronized (TAP_LOCK) {
-            if (generation != pendingGeneration || pendingTarget == null) {
-                return;
-            }
+            if (generation != pendingGeneration || pendingTarget == null) return;
             target = pendingTarget;
             pendingTarget = null;
             pendingTapCount = 0;
@@ -81,35 +86,43 @@ public class RotationTileService extends TileService {
             service = latestService.get();
         }
 
-        if (context == null) return;
-
-        if (target != RotationMode.OFF && !RotationController.hasRequiredPermissions(context)) {
-            if (service != null) {
-                service.openSetup();
-                service.updateTile();
-            }
+        if (context == null || !RotationController.isEnabled(context)) {
+            requestTileRefresh(context);
             return;
         }
 
-        RotationController.setMode(context, target);
-
-        if (service != null) {
-            service.updateTile();
-        } else {
-            try {
-                TileService.requestListeningState(
-                        context,
-                        new ComponentName(context, RotationTileService.class));
-            } catch (Throwable ignored) {
-            }
+        if (!RotationController.hasRequiredPermissions(context)) {
+            if (service != null) service.openSetup();
+            requestTileRefresh(context);
+            return;
         }
+
+        RotationController.setLockedMode(context, target);
+        requestTileRefresh(context);
     }
 
-    private static void cancelPendingBatch() {
+    public static void cancelPendingBatch(Context context) {
         synchronized (TAP_LOCK) {
             pendingTarget = null;
             pendingTapCount = 0;
             pendingGeneration += 1;
+            if (context != null) appContext = context.getApplicationContext();
+        }
+        requestTileRefresh(context);
+    }
+
+    public static void requestTileRefresh(Context context) {
+        if (context == null) return;
+        RotationTileService service = latestService.get();
+        if (service != null) {
+            service.updateTile();
+            return;
+        }
+        try {
+            TileService.requestListeningState(
+                    context.getApplicationContext(),
+                    new ComponentName(context, RotationTileService.class));
+        } catch (Throwable ignored) {
         }
     }
 
@@ -132,7 +145,8 @@ public class RotationTileService extends TileService {
         Tile tile = getQsTile();
         if (tile == null) return;
 
-        RotationMode actual = RotationController.getMode(this);
+        boolean enabled = RotationController.isEnabled(this);
+        RotationMode actual = RotationController.getLockedMode(this);
         RotationMode queued;
         int queuedTaps;
         synchronized (TAP_LOCK) {
@@ -140,18 +154,23 @@ public class RotationTileService extends TileService {
             queuedTaps = pendingTapCount;
         }
 
-        RotationMode shown = queued != null ? queued : actual;
         tile.setIcon(Icon.createWithResource(this, R.drawable.ic_rotation));
-        tile.setLabel("Rotate 90°");
-        tile.setState(shown == RotationMode.OFF ? Tile.STATE_INACTIVE : Tile.STATE_ACTIVE);
+        tile.setLabel("Rotation");
+        tile.setState(enabled ? Tile.STATE_ACTIVE : Tile.STATE_INACTIVE);
 
-        String subtitle = queued != null
-                ? "Queued ×" + queuedTaps + " → " + queued.label
-                : actual.label;
+        String subtitle;
+        if (!enabled) {
+            subtitle = "Off · Auto";
+        } else if (queued != null) {
+            subtitle = "Queued ×" + queuedTaps + " → " + queued.label;
+        } else {
+            subtitle = actual.label;
+        }
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             tile.setSubtitle(subtitle);
         } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            tile.setContentDescription("Rotate 90°. " + subtitle);
+            tile.setContentDescription("Rotation. " + subtitle);
         }
         tile.updateTile();
     }
