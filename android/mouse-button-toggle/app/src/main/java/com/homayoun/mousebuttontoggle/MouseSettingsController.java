@@ -26,27 +26,20 @@ public final class MouseSettingsController {
         Integer samsung = readBinary(resolver, SAMSUNG_KEY);
         Integer aosp = readBinary(resolver, AOSP_KEY);
 
-        if (isSamsungDevice() && samsung != null) {
-            return samsung;
-        }
-        if (aosp != null) {
-            return aosp;
-        }
-        if (samsung != null) {
-            return samsung;
-        }
+        if (isSamsungDevice() && samsung != null) return samsung;
+        if (aosp != null) return aosp;
+        if (samsung != null) return samsung;
         return 0;
     }
 
     public static int togglePrimaryButtonDirect(Context context) {
         if (isSamsungDevice()) {
             throw new IllegalStateException(
-                    "Samsung primary mouse setting is private; use the Samsung Settings helper");
+                    "Samsung primary mouse setting is private; use the Samsung background backend");
         }
         if (!hasWritePermission(context)) {
             throw new IllegalStateException("Modify system settings permission is not granted");
         }
-
         ContentResolver resolver = context.getContentResolver();
         int current = readPrimaryButton(context);
         int next = current == 1 ? 0 : 1;
@@ -60,23 +53,24 @@ public final class MouseSettingsController {
         Integer aosp = readBinary(resolver, AOSP_KEY);
         boolean samsungDevice = isSamsungDevice();
 
-        return "manufacturer=" + Build.MANUFACTURER
-                + "\nbrand=" + Build.BRAND
-                + "\nmodel=" + Build.MODEL
-                + "\ndevice=" + Build.DEVICE
-                + "\nsdk=" + Build.VERSION.SDK_INT
-                + "\nrelease=" + Build.VERSION.RELEASE
-                + "\nselected_backend="
-                + (samsungDevice ? "samsung-settings-accessibility" : "android-system")
-                + "\nmodify_system_settings=" + hasWritePermission(context)
-                + "\n" + SAMSUNG_KEY + "=" + valueText(samsung)
-                + "\n" + AOSP_KEY + "=" + valueText(aosp)
-                + "\nreported_primary=" + readPrimaryButton(context)
-                + "\n" + SamsungMouseAccessibilityService.diagnostics(context);
+        StringBuilder out = new StringBuilder();
+        out.append("manufacturer=").append(Build.MANUFACTURER)
+                .append("\nbrand=").append(Build.BRAND)
+                .append("\nmodel=").append(Build.MODEL)
+                .append("\ndevice=").append(Build.DEVICE)
+                .append("\nsdk=").append(Build.VERSION.SDK_INT)
+                .append("\nrelease=").append(Build.VERSION.RELEASE)
+                .append("\nselected_backend=")
+                .append(samsungDevice ? "samsung-gts-background" : "android-system")
+                .append("\nmodify_system_settings=").append(hasWritePermission(context))
+                .append("\n").append(SAMSUNG_KEY).append("=").append(valueText(samsung))
+                .append("\n").append(AOSP_KEY).append("=").append(valueText(aosp))
+                .append("\nreported_primary=").append(readPrimaryButton(context));
+        if (samsungDevice) out.append("\n").append(SamsungBackgroundController.diagnostics(context));
+        return out.toString();
     }
 
-    private static void writeAndVerify(
-            ContentResolver resolver, String key, int value, String label) {
+    private static void writeAndVerify(ContentResolver resolver, String key, int value, String label) {
         final boolean wrote;
         try {
             wrote = Settings.System.putInt(resolver, key, value);
@@ -85,11 +79,7 @@ public final class MouseSettingsController {
         } catch (Throwable e) {
             throw new IllegalStateException(label + " write failed: " + message(e), e);
         }
-
-        if (!wrote) {
-            throw new IllegalStateException(label + " write returned false");
-        }
-
+        if (!wrote) throw new IllegalStateException(label + " write returned false");
         Integer verified = readBinary(resolver, key);
         if (verified == null || verified != value) {
             throw new IllegalStateException(label + " did not persist (requested="
