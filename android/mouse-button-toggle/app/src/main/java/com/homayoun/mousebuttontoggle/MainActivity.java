@@ -47,13 +47,17 @@ public final class MainActivity extends Activity {
                 ScrollView.LayoutParams.MATCH_PARENT, ScrollView.LayoutParams.WRAP_CONTENT));
 
         TextView title = new TextView(this);
-        title.setText("Mouse Button Toggle 1.0.3");
+        title.setText("Mouse Button Toggle 1.0.4");
         title.setTextSize(26);
         title.setGravity(Gravity.CENTER);
         root.addView(title, matchWrap());
 
         TextView description = new TextView(this);
-        description.setText("One Quick Settings control switches the physical mouse primary button between Left and Right.\n\nThis version does not use Shizuku. Grant Android's Modify system settings permission once, then the tile works independently.");
+        if (MouseSettingsController.isSamsungDevice()) {
+            description.setText("One Quick Settings control switches the physical mouse primary button between Left and Right.\n\nSamsung protects this mouse setting from ordinary app writes. This version does not use Shizuku: instead, a narrowly-scoped Accessibility helper briefly operates Samsung Settings when you tap the tile. The helper is restricted to the Android Settings app.");
+        } else {
+            description.setText("One Quick Settings control switches the physical mouse primary button between Left and Right.\n\nThis version does not use Shizuku. Grant Android's Modify system settings permission once, then the tile works independently.");
+        }
         description.setTextSize(16);
         description.setPadding(0, dp(18), 0, dp(18));
         root.addView(description, matchWrap());
@@ -64,18 +68,34 @@ public final class MainActivity extends Activity {
         status.setPadding(dp(16), dp(16), dp(16), dp(16));
         root.addView(status, matchWrap());
 
-        root.addView(button("Grant Modify system settings", v -> grantWriteSettings()), matchWrap());
+        if (MouseSettingsController.isSamsungDevice()) {
+            root.addView(button("Enable Samsung Settings helper", v -> openAccessibilitySetup()), matchWrap());
+        } else {
+            root.addView(button("Grant Modify system settings", v -> grantWriteSettings()), matchWrap());
+        }
         root.addView(button("Add Quick Panel control", v -> requestTile()), matchWrap());
         root.addView(button("Test: switch Left / Right now", v -> testToggle()), matchWrap());
         root.addView(button("Show local mouse diagnostics", v -> showDiagnostics()), matchWrap());
 
         TextView note = new TextView(this);
-        note.setText("One UI controls the initial location of third-party Quick Panel controls. After adding it, use the Quick Panel pencil/edit mode and drag the mouse control into the expandable/top Quick Settings area where you want it.");
+        String placement = "One UI controls the initial location of third-party Quick Panel controls. After adding it, use the Quick Panel pencil/edit mode and drag the mouse control into the expandable/top Quick Settings area where you want it.";
+        if (MouseSettingsController.isSamsungDevice()) {
+            placement += "\n\nIf Android says the Accessibility helper is a restricted setting for this sideloaded app, open this app's App info, use the three-dot menu to Allow restricted settings, then enable the helper again.";
+        }
+        note.setText(placement);
         note.setTextSize(14);
         note.setPadding(0, dp(18), 0, 0);
         root.addView(note, matchWrap());
 
         return scroll;
+    }
+
+    private void openAccessibilitySetup() {
+        try {
+            startActivity(SamsungMouseAccessibilityService.accessibilitySettingsIntent(this));
+        } catch (Throwable e) {
+            setStatus("Could not open Accessibility settings: " + message(e));
+        }
     }
 
     private void grantWriteSettings() {
@@ -105,18 +125,38 @@ public final class MainActivity extends Activity {
                     result -> setStatus("Add-control result: " + result
                             + ". One UI chooses the initial position; use Quick Panel edit mode to move it."));
         } else {
-            setStatus("Open Quick Settings edit mode and drag ‘Mouse: Left / Right’ into the active tiles.");
+            setStatus("Open Quick Settings edit mode and drag 'Mouse: Left / Right' into the active tiles.");
         }
     }
 
     private void testToggle() {
+        if (MouseSettingsController.isSamsungDevice()) {
+            if (!SamsungMouseAccessibilityService.isEnabled(this)) {
+                setStatus("Enable the Samsung Settings helper first. Shizuku is not required.");
+                openAccessibilitySetup();
+                return;
+            }
+            try {
+                SamsungMouseAccessibilityService.PreparedToggle prepared =
+                        SamsungMouseAccessibilityService.prepareToggle(this);
+                setStatus(prepared.target == 1
+                        ? "Switching to RIGHT through Samsung Settings..."
+                        : "Switching to LEFT through Samsung Settings...");
+                startActivity(prepared.settingsIntent);
+            } catch (Throwable e) {
+                SamsungMouseAccessibilityService.cancelPending(this, message(e));
+                setStatus("Toggle could not start: " + message(e));
+            }
+            return;
+        }
+
         if (!MouseSettingsController.hasWritePermission(this)) {
             setStatus("Grant Modify system settings first.");
             grantWriteSettings();
             return;
         }
         try {
-            int state = MouseSettingsController.togglePrimaryButton(this);
+            int state = MouseSettingsController.togglePrimaryButtonDirect(this);
             setStatus(state == 1
                     ? "RIGHT mouse button is now primary. Test the physical mouse to confirm."
                     : "LEFT mouse button is now primary. Test the physical mouse to confirm.");
@@ -154,6 +194,23 @@ public final class MainActivity extends Activity {
     }
 
     private void refreshStatus() {
+        if (MouseSettingsController.isSamsungDevice()) {
+            if (!SamsungMouseAccessibilityService.isEnabled(this)) {
+                setStatus("Setup required: enable the Samsung Settings helper once. Shizuku is not required.");
+                return;
+            }
+            if (SamsungMouseAccessibilityService.isPending(this)) {
+                setStatus("Samsung Settings toggle is in progress...");
+                return;
+            }
+            int state = MouseSettingsController.readPrimaryButton(this);
+            setStatus(state == 1
+                    ? "Ready. Current primary mouse button: RIGHT. Shizuku is not required."
+                    : "Ready. Current primary mouse button: LEFT. Shizuku is not required.");
+            TileService.requestListeningState(this, new ComponentName(this, MouseToggleTileService.class));
+            return;
+        }
+
         if (!MouseSettingsController.hasWritePermission(this)) {
             setStatus("Setup required: grant Modify system settings once. Shizuku is not required.");
             return;
