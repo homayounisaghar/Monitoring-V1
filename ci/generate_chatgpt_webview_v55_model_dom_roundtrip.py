@@ -8,8 +8,9 @@ PKG=ROOT/"app/src/main/java/com/homayounisaghar/chatgptwebviewprobe"
 B=Path("ci/v55_model_dom_bridge")
 
 act="".join((B/f"act_{i:02d}.b64").read_text().strip() for i in range(1,3))
-(PKG/"OrchestratorPaidCurrentUiModelDomRoundtripV55Activity.java").write_text(
-    lzma.decompress(base64.b64decode(act)).decode("utf-8"))
+activity=PKG/"OrchestratorPaidCurrentUiModelDomRoundtripV55Activity.java"
+activity.write_text(
+    lzma.decompress(base64.b64decode(act)).decode("utf-8").replace("TelemetryConfigV54","TelemetryConfigV55"))
 
 cfg54=(PKG/"TelemetryConfigV54.java").read_text()
 (PKG/"TelemetryConfigV55.java").write_text(cfg54.replace("TelemetryConfigV54","TelemetryConfigV55"))
