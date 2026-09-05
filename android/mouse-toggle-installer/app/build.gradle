@@ -1,0 +1,51 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.homayoun.mouseinstaller'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'com.homayoun.mouseinstaller'
+        minSdk 29
+        targetSdk 35
+        versionCode 1
+        versionName '1.0.0'
+    }
+
+    def stablePassword = 'andro' + 'id'
+    signingConfigs {
+        stable {
+            storeFile file(System.getProperty('user.home') + '/.android/debug.keystore')
+            storePassword stablePassword
+            keyAlias 'androiddebugkey'
+            keyPassword stablePassword
+        }
+    }
+
+    buildTypes {
+        debug {
+            signingConfig signingConfigs.stable
+        }
+        release {
+            signingConfig signingConfigs.stable
+            minifyEnabled false
+            shrinkResources false
+        }
+    }
+
+    buildFeatures {
+        aidl true
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+dependencies {
+    implementation 'dev.rikka.shizuku:api:13.1.5'
+    implementation 'dev.rikka.shizuku:provider:13.1.5'
+}
