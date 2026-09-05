@@ -7,6 +7,7 @@ on:
     paths:
       - '.github/workflows/chatgpt-webview-stable-v48-transactional-receipt-unsigned.yml'
       - 'ci/generate_chatgpt_webview_v48_transactional_receipt.py'
+      - 'ci/generate_chatgpt_webview_v48_transactional_receipt_fixed.py'
   workflow_dispatch:
 
 permissions:
@@ -23,7 +24,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python3 ci/generate_chatgpt_webview_v48_transactional_receipt.py
+          python3 ci/generate_chatgpt_webview_v48_transactional_receipt_fixed.py
 
       - name: Create fresh telemetry collector
         shell: bash
@@ -86,7 +87,8 @@ jobs:
           assert body.count("new KeyboardEvent('keydown'") == 1
           assert 'setAttribute("aria-value' not in body
           assert 'ArrowLeft' in body and 'ArrowRight' in body
-          # Active decrement path must observe without closing, then compensate.
+          assert 'private int popupToggleDispatches47 = 0;\n    private boolean independentLightReceipt47 = false;' in s
+          assert 'popupToggleDispatches47 = 0;\n        independentLightReceipt47 = false;' in s
           a=s.index('private void receiptAfterDecrement47()')
           b=s.index('private void claimCloseForLightReceipt47()',a)
           seg=s[a:b]
@@ -94,7 +96,6 @@ jobs:
           assert 'claimCloseForLightReceipt47();' not in seg
           obs=s[s.index('private void scanIndependentLightReceipt47()'):s.index('private void claimCloseForLightReceipt47()')]
           assert 'claimRestore47();' in obs
-          # Active restore receipt must finish without another popup toggle.
           a=s.index('private void receiptAfterRestore47()')
           b=s.index('private void claimCloseForMediumReceipt47()',a)
           r=s[a:b]
