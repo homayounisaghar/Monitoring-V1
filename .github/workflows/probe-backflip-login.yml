@@ -13,26 +13,75 @@ permissions:
 jobs:
   probe:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 12
     steps:
       - uses: actions/checkout@v4
-      - name: Probe direct TraceParts preview asset access
-        shell: bash
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install Playwright
         run: |
-          set -u
-          mkdir -p probe
-          URL='https://traceparts-previews-production.s3.eu-west-1.amazonaws.com/PREVIEW/SCHNEIDER_ELECTRIC/10-31032006-112260/foot_switch_xpea110.zip'
-          echo "URL=$URL" | tee probe/result.txt
-          echo '--- unsigned HEAD ---' | tee -a probe/result.txt
-          curl -sS -D probe/headers.txt -o probe/body.bin "$URL"; RC=$?
-          echo "curl_rc=$RC" | tee -a probe/result.txt
-          cat probe/headers.txt | tee -a probe/result.txt
-          echo "bytes=$(wc -c < probe/body.bin)" | tee -a probe/result.txt
-          echo '--- body prefix ---' | tee -a probe/result.txt
-          head -c 500 probe/body.bin | strings | tee -a probe/result.txt || true
-          exit 0
+          python -m pip install --quiet playwright
+          python -m playwright install chromium --with-deps
+      - name: Capture preview ZIP through live TraceParts page
+        run: |
+          cat > /tmp/cap.py <<'PY'
+          import asyncio, json
+          from pathlib import Path
+          from playwright.async_api import async_playwright
+
+          URL='https://www.traceparts.com/fr/product/schneider-electric-interrupteurs-a-pedale-plastique-universelle-xpe-a-pedale-simple-sans-capot-de-protection-2-entrees-de-cable-pour-presseetoupe-1-iso-m20-1-iso-m16-1-cran-1-contact-o-f-noir?CatalogPath=TRACEPARTS:TP09007004&PartNumber=XPEA110&Product=10-31032006-112260'
+          OUT=Path('probe'); OUT.mkdir(exist_ok=True)
+          events=[]
+          got=asyncio.Event()
+
+          async def main():
+              async with async_playwright() as p:
+                  browser=await p.chromium.launch(headless=True,args=['--use-gl=swiftshader','--enable-webgl'])
+                  ctx=await browser.new_context(viewport={'width':1280,'height':1000}, locale='fr-FR')
+                  page=await ctx.new_page()
+                  async def on_response(resp):
+                      u=resp.url
+                      if '/api/v/path?' in u or 'foot_switch_xpea110.zip' in u:
+                          rec={'url':u,'status':resp.status,'headers':await resp.all_headers()}
+                          events.append(rec)
+                          try:
+                              body=await resp.body()
+                              rec['bytes']=len(body)
+                              if 'foot_switch_xpea110.zip' in u and resp.status==200 and body[:2]==b'PK':
+                                  (OUT/'foot_switch_xpea110.zip').write_bytes(body)
+                                  got.set()
+                              elif '/api/v/path?' in u:
+                                  (OUT/'path_response.txt').write_bytes(body)
+                          except Exception as e:
+                              rec['body_error']=repr(e)
+                  page.on('response', lambda r: asyncio.create_task(on_response(r)))
+                  try:
+                      await page.goto(URL,wait_until='domcontentloaded',timeout=90000)
+                  except Exception as e:
+                      events.append({'goto_error':repr(e)})
+                  for frac in (0.25,0.5,0.75,0.95,0.5):
+                      await page.evaluate(f'window.scrollTo(0, document.body.scrollHeight*{frac})')
+                      await page.wait_for_timeout(2500)
+                      if got.is_set(): break
+                  if not got.is_set():
+                      try:
+                          loc=page.locator('button,a,[role=button],[role=tab]').filter(has_text='Preview').first
+                          if await loc.count():
+                              await loc.click(timeout=3000)
+                      except Exception: pass
+                  try: await asyncio.wait_for(got.wait(), timeout=25)
+                  except Exception: pass
+                  (OUT/'events.json').write_text(json.dumps(events,indent=2),encoding='utf-8')
+                  (OUT/'page.txt').write_text((await page.locator('body').inner_text())[:50000],encoding='utf-8')
+                  await page.screenshot(path=str(OUT/'page.png'),full_page=True)
+                  print(json.dumps({'url':page.url,'title':await page.title(),'events':events,'zip_exists':(OUT/'foot_switch_xpea110.zip').exists()},indent=2))
+                  await browser.close()
+          asyncio.run(main())
+          PY
+          python /tmp/cap.py
       - uses: actions/upload-artifact@v4
         with:
-          name: traceparts-direct-asset-probe
+          name: traceparts-browser-capture-probe
           path: probe/
           retention-days: 7
