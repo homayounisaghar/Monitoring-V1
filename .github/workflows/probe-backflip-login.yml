@@ -1,4 +1,4 @@
-name: Probe Backflip login
+name: XPEA110 HoLa STEP conversion
 
 on:
   push:
@@ -11,77 +11,148 @@ permissions:
   contents: read
 
 jobs:
-  probe:
+  convert:
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - name: Install Playwright
+      - name: Install client and geometry libraries
+        run: python -m pip install --quiet gradio_client trimesh numpy
+      - name: Recover private-input blob and run HoLa-BRep
+        env:
+          INPUT_BLOB_SHA: '7515628742522d95021c6f402237cdf94a7987f4'
         run: |
-          python -m pip install --quiet playwright
-          python -m playwright install chromium --with-deps
-      - name: Capture preview ZIP through live TraceParts page
-        run: |
-          cat > /tmp/cap.py <<'PY'
-          import asyncio, json
+          cat > /tmp/run.py <<'PY'
+          from __future__ import annotations
+          import base64, gzip, json, shutil, time, traceback, urllib.request
           from pathlib import Path
-          from playwright.async_api import async_playwright
+          import numpy as np
+          import trimesh
+          from gradio_client import Client, handle_file
 
-          URL='https://www.traceparts.com/fr/product/schneider-electric-interrupteurs-a-pedale-plastique-universelle-xpe-a-pedale-simple-sans-capot-de-protection-2-entrees-de-cable-pour-presseetoupe-1-iso-m20-1-iso-m16-1-cran-1-contact-o-f-noir?CatalogPath=TRACEPARTS:TP09007004&PartNumber=XPEA110&Product=10-31032006-112260'
-          OUT=Path('probe'); OUT.mkdir(exist_ok=True)
-          events=[]
-          got=asyncio.Event()
+          OUT = Path('result')
+          OUT.mkdir(exist_ok=True)
+          GZ = OUT / 'XPEA110_TraceParts_Preview.glb.gz'
+          GLB = OUT / 'XPEA110_TraceParts_Preview.glb'
+          PLY = OUT / 'XPEA110_HoLa_pointcloud_4096.ply'
+          BLOB = __import__('os').environ['INPUT_BLOB_SHA']
+          SPACE = 'YuXingyao/HoLa-BRep'
 
-          async def main():
-              async with async_playwright() as p:
-                  browser=await p.chromium.launch(headless=True,args=['--use-gl=swiftshader','--enable-webgl'])
-                  ctx=await browser.new_context(viewport={'width':1280,'height':1000}, locale='fr-FR')
-                  page=await ctx.new_page()
-                  async def on_response(resp):
-                      u=resp.url
-                      if '/api/v/path?' in u or 'foot_switch_xpea110.zip' in u:
-                          rec={'url':u,'status':resp.status,'headers':await resp.all_headers()}
-                          events.append(rec)
-                          try:
-                              body=await resp.body()
-                              rec['bytes']=len(body)
-                              if 'foot_switch_xpea110.zip' in u and resp.status==200 and body[:2]==b'PK':
-                                  (OUT/'foot_switch_xpea110.zip').write_bytes(body)
-                                  got.set()
-                              elif '/api/v/path?' in u:
-                                  (OUT/'path_response.txt').write_bytes(body)
-                          except Exception as e:
-                              rec['body_error']=repr(e)
-                  page.on('response', lambda r: asyncio.create_task(on_response(r)))
+          def fetch_blob():
+              url=f'https://api.github.com/repos/homayounisaghar/Monitoring-V1/git/blobs/{BLOB}'
+              req=urllib.request.Request(url, headers={'Accept':'application/vnd.github+json','User-Agent':'imagecad-hola-runner'})
+              with urllib.request.urlopen(req,timeout=60) as r:
+                  obj=json.load(r)
+              GZ.write_bytes(base64.b64decode(obj['content']))
+              with gzip.open(GZ,'rb') as src, GLB.open('wb') as dst:
+                  shutil.copyfileobj(src,dst)
+
+          def make_pc():
+              loaded=trimesh.load(GLB, force='scene')
+              mesh=loaded.dump(concatenate=True) if isinstance(loaded,trimesh.Scene) else loaded
+              if not isinstance(mesh,trimesh.Trimesh):
+                  raise TypeError(f'Expected Trimesh, got {type(mesh)}')
+              np.random.seed(20260905)
+              points, face_idx = trimesh.sample.sample_surface(mesh,4096)
+              normals=mesh.face_normals[np.asarray(face_idx,dtype=np.int64)]
+              normals=normals/np.maximum(np.linalg.norm(normals,axis=1)[:,None],1e-12)
+              header=('ply\nformat binary_little_endian 1.0\n'
+                      'comment XPEA110 TraceParts Preview surface sample for HoLa-BRep\n'
+                      'element vertex 4096\n'
+                      'property double x\nproperty double y\nproperty double z\n'
+                      'property double nx\nproperty double ny\nproperty double nz\nend_header\n')
+              with PLY.open('wb') as f:
+                  f.write(header.encode('ascii'))
+                  f.write(np.hstack([points,normals]).astype('<f8',copy=False).tobytes(order='C'))
+              return {
+                  'vertices':int(len(mesh.vertices)), 'faces':int(len(mesh.faces)),
+                  'watertight':bool(mesh.is_watertight),
+                  'bounds':np.asarray(mesh.bounds).tolist(), 'point_count':4096,
+                  'point_bounds':[points.min(axis=0).tolist(),points.max(axis=0).tolist()]
+              }
+
+          def copy_returned(value,prefix,copied):
+              if value is None: return
+              if isinstance(value,(str,Path)):
+                  p=Path(str(value))
+                  if p.exists() and p.is_file():
+                      suffix=p.suffix or '.bin'
+                      dst=OUT/f'{prefix}_{len(copied):02d}{suffix}'
+                      shutil.copy2(p,dst)
+                      copied.append({'source':str(p),'dest':dst.name,'size':dst.stat().st_size})
+                  return
+              if isinstance(value,dict):
+                  if value.get('path'): copy_returned(value['path'],prefix,copied)
+                  for k,v in value.items():
+                      if k!='path': copy_returned(v,prefix,copied)
+                  return
+              if isinstance(value,(list,tuple)):
+                  for v in value: copy_returned(v,prefix,copied)
+
+          report={'schema':'image-to-cad.xpea110-hola-pc.v1','service':'HoLa-BRep','space':SPACE,'mode':'Point Cloud','endpoint':'/generating_method','status':'started'}
+          try:
+              fetch_blob()
+              report['mesh']=make_pc()
+              client=Client(SPACE,verbose=False)
+              state={'user_id':None,'user_output_dir':None}
+              result=None; attempts=[]; t0=time.time()
+              for variant,arg in [('single',handle_file(str(PLY))),('list',[handle_file(str(PLY))])]:
                   try:
-                      await page.goto(URL,wait_until='domcontentloaded',timeout=90000)
+                      result=client.predict(state,arg,api_name='/generating_method')
+                      report['input_variant']=variant
+                      break
                   except Exception as e:
-                      events.append({'goto_error':repr(e)})
-                  for frac in (0.25,0.5,0.75,0.95,0.5):
-                      await page.evaluate(f'window.scrollTo(0, document.body.scrollHeight*{frac})')
-                      await page.wait_for_timeout(2500)
-                      if got.is_set(): break
-                  if not got.is_set():
+                      attempts.append({'variant':variant,'error':f'{type(e).__name__}: {e}'})
+              report['input_attempt_errors']=attempts
+              if result is None: raise RuntimeError('Both HoLa point-cloud input encodings failed')
+              report['initial_generation_seconds']=time.time()-t0
+              report['raw_result']=json.loads(json.dumps(result,default=str))
+              copied=[]
+              if isinstance(result,(list,tuple)):
+                  new_state=result[0] if result else None
+                  for i,v in enumerate(result[1:],start=1): copy_returned(v,f'hypothesis_1_return_{i}',copied)
+              else:
+                  new_state=None; copy_returned(result,'hypothesis_1',copied)
+              report['initial_copied_files']=copied
+              report['returned_state']=json.loads(json.dumps(new_state,default=str)) if new_state is not None else None
+
+              switches=[]; model_index=0
+              if new_state is not None:
+                  for step in range(3):
                       try:
-                          loc=page.locator('button,a,[role=button],[role=tab]').filter(has_text='Preview').first
-                          if await loc.count():
-                              await loc.click(timeout=3000)
-                      except Exception: pass
-                  try: await asyncio.wait_for(got.wait(), timeout=25)
-                  except Exception: pass
-                  (OUT/'events.json').write_text(json.dumps(events,indent=2),encoding='utf-8')
-                  (OUT/'page.txt').write_text((await page.locator('body').inner_text())[:50000],encoding='utf-8')
-                  await page.screenshot(path=str(OUT/'page.png'),full_page=True)
-                  print(json.dumps({'url':page.url,'title':await page.title(),'events':events,'zip_exists':(OUT/'foot_switch_xpea110.zip').exists()},indent=2))
-                  await browser.close()
-          asyncio.run(main())
+                          time.sleep(1)
+                          sw=client.predict(new_state,'Point Cloud',model_index,1,api_name='/switch_model_1')
+                          scopy=[]
+                          if isinstance(sw,(list,tuple)):
+                              if sw:
+                                  try: model_index=int(float(sw[0]))
+                                  except Exception: pass
+                              for j,v in enumerate(sw[1:],start=1): copy_returned(v,f'hypothesis_{step+2}_return_{j}',scopy)
+                          switches.append({'step':step+1,'model_index_after':model_index,'files':scopy,'raw':json.loads(json.dumps(sw,default=str))})
+                      except Exception as e:
+                          switches.append({'step':step+1,'error':f'{type(e).__name__}: {e}','traceback':traceback.format_exc()})
+                          break
+              report['switch_results']=switches
+              report['step_files']=[{'name':p.name,'size':p.stat().st_size} for p in sorted(OUT.iterdir()) if p.suffix.lower() in ('.step','.stp')]
+              report['status']='success' if report['step_files'] else 'no-step-file'
+          except Exception as e:
+              report['status']='error'; report['error']=f'{type(e).__name__}: {e}'; report['traceback']=traceback.format_exc()
+          finally:
+              (OUT/'run_report.json').write_text(json.dumps(report,indent=2,default=str),encoding='utf-8')
+              print(json.dumps(report,indent=2,default=str))
+          if report['status']=='error': raise SystemExit(2)
           PY
-          python /tmp/cap.py
+          python /tmp/run.py
+      - name: List outputs
+        if: always()
+        run: find result -maxdepth 1 -type f -printf '%f %s bytes\n' | sort || true
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
-          name: traceparts-browser-capture-probe
-          path: probe/
-          retention-days: 7
+          name: XPEA110-HoLa-STEP-results
+          path: result/
+          if-no-files-found: error
+          retention-days: 14
