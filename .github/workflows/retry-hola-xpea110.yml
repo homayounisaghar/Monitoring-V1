@@ -1,0 +1,128 @@
+name: Retry XPEA110 HoLa STEP
+
+on:
+  push:
+    branches: ['imagecad-backflip-xpea110']
+    paths:
+      - '.github/workflows/retry-hola-xpea110.yml'
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  convert:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Recover validated point-cloud input from prior run
+        run: |
+          mkdir -p input result
+          gh run download 33957400906 --repo homayounisaghar/Monitoring-V1 --name XPEA110-HoLa-STEP-results --dir input
+          cp input/XPEA110_HoLa_pointcloud_4096.ply result/
+          cp input/XPEA110_TraceParts_Preview.glb result/
+          ls -lh input result
+      - name: Install HoLa client
+        run: python -m pip install --quiet gradio_client
+      - name: Retry HoLa-BRep with backoff
+        run: |
+          cat > /tmp/retry.py <<'PY'
+          from __future__ import annotations
+          import json, shutil, time, traceback
+          from pathlib import Path
+          from gradio_client import Client, handle_file
+
+          OUT=Path('result')
+          PLY=OUT/'XPEA110_HoLa_pointcloud_4096.ply'
+          SPACE='YuXingyao/HoLa-BRep'
+          report={'schema':'image-to-cad.xpea110-hola-pc.retry.v1','service':'HoLa-BRep','space':SPACE,'mode':'Point Cloud','attempts':[],'status':'started'}
+
+          def copy_returned(value,prefix,copied):
+              if value is None: return
+              if isinstance(value,(str,Path)):
+                  p=Path(str(value))
+                  if p.exists() and p.is_file():
+                      dst=OUT/f'{prefix}_{len(copied):02d}{p.suffix or ".bin"}'
+                      shutil.copy2(p,dst)
+                      copied.append({'source':str(p),'dest':dst.name,'size':dst.stat().st_size})
+                  return
+              if isinstance(value,dict):
+                  if value.get('path'): copy_returned(value['path'],prefix,copied)
+                  for k,v in value.items():
+                      if k!='path': copy_returned(v,prefix,copied)
+                  return
+              if isinstance(value,(list,tuple)):
+                  for v in value: copy_returned(v,prefix,copied)
+
+          result=None; new_state=None
+          for attempt in range(1,5):
+              rec={'attempt':attempt,'started':time.time()}
+              try:
+                  client=Client(SPACE,verbose=False)
+                  state={'user_id':None,'user_output_dir':None}
+                  errors=[]
+                  for variant,arg in [('single',handle_file(str(PLY))),('list',[handle_file(str(PLY))])]:
+                      try:
+                          t0=time.time()
+                          result=client.predict(state,arg,api_name='/generating_method')
+                          rec.update({'variant':variant,'seconds':time.time()-t0,'result':json.loads(json.dumps(result,default=str))})
+                          break
+                      except Exception as e:
+                          errors.append({'variant':variant,'error':f'{type(e).__name__}: {e}'})
+                  rec['variant_errors']=errors
+                  if result is None: raise RuntimeError('no successful input variant')
+                  copied=[]
+                  if isinstance(result,(list,tuple)):
+                      new_state=result[0] if result else None
+                      for i,v in enumerate(result[1:],start=1): copy_returned(v,'hypothesis_1_return_'+str(i),copied)
+                  else:
+                      copy_returned(result,'hypothesis_1',copied)
+                  rec['copied_files']=copied
+                  report['attempts'].append(rec)
+                  break
+              except Exception as e:
+                  rec['error']=f'{type(e).__name__}: {e}'; rec['traceback']=traceback.format_exc(); report['attempts'].append(rec)
+                  result=None
+                  if attempt<4: time.sleep(20*attempt)
+
+          if result is not None:
+              switches=[]; model_index=0
+              if new_state is not None:
+                  client=Client(SPACE,verbose=False)
+                  for step in range(3):
+                      try:
+                          sw=client.predict(new_state,'Point Cloud',model_index,1,api_name='/switch_model_1')
+                          scopy=[]
+                          if isinstance(sw,(list,tuple)):
+                              if sw:
+                                  try: model_index=int(float(sw[0]))
+                                  except Exception: pass
+                              for j,v in enumerate(sw[1:],start=1): copy_returned(v,f'hypothesis_{step+2}_return_{j}',scopy)
+                          switches.append({'step':step+1,'model_index_after':model_index,'files':scopy,'raw':json.loads(json.dumps(sw,default=str))})
+                      except Exception as e:
+                          switches.append({'step':step+1,'error':f'{type(e).__name__}: {e}','traceback':traceback.format_exc()}); break
+              report['switch_results']=switches
+          report['step_files']=[{'name':p.name,'size':p.stat().st_size} for p in sorted(OUT.iterdir()) if p.suffix.lower() in ('.step','.stp')]
+          report['status']='success' if report['step_files'] else ('no-step-file' if result is not None else 'error')
+          (OUT/'retry_report.json').write_text(json.dumps(report,indent=2,default=str),encoding='utf-8')
+          print(json.dumps(report,indent=2,default=str))
+          if report['status']=='error': raise SystemExit(2)
+          PY
+          python /tmp/retry.py
+      - name: List outputs
+        if: always()
+        run: find result -maxdepth 1 -type f -printf '%f %s bytes\n' | sort || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: XPEA110-HoLa-STEP-retry-results
+          path: result/
+          if-no-files-found: error
+          retention-days: 14
