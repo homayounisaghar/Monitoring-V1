@@ -66,7 +66,7 @@ jobs:
           unzip -l "$APK" | grep -q 'assets/viewer_hook.js'
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$APK" | tee apk-signing.txt
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | tee apk-badging.txt
-          grep -q "package: name='com.capabilityfabric.tracepartsgrabber'" apk-badging.txt
+          grep -q "package: name='com.capabilityfabric.viewer3dextractor'" apk-badging.txt
           grep -q "versionCode='3'" apk-badging.txt
           grep -q "versionName='1.2.0'" apk-badging.txt
           grep -q "launchable-activity: name='com.capabilityfabric.tracepartsgrabber.MainActivity'" apk-badging.txt
@@ -78,7 +78,7 @@ jobs:
           cp "$APK" Viewer3DExtractor-v1.2.0.apk
       - uses: actions/upload-artifact@v4
         with:
-          name: Viewer3DExtractor-v1.2.0-public-build
+          name: Viewer3DExtractor-v1.2.0-side-by-side
           path: |
             Viewer3DExtractor-v1.2.0.apk
             apk-signing.txt
