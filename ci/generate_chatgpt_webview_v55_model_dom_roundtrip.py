@@ -9,8 +9,12 @@ B=Path("ci/v55_model_dom_bridge")
 
 act="".join((B/f"act_{i:02d}.b64").read_text().strip() for i in range(1,3))
 activity=PKG/"OrchestratorPaidCurrentUiModelDomRoundtripV55Activity.java"
-activity.write_text(
-    lzma.decompress(base64.b64decode(act)).decode("utf-8").replace("TelemetryConfigV54","TelemetryConfigV55"))
+src=lzma.decompress(base64.b64decode(act)).decode("utf-8").replace("TelemetryConfigV54","TelemetryConfigV55")
+# v0.53 is model-only: the already-proven effort write sequence remains in legacy source for lineage,
+# but its sole call edge is replaced by a hard stop so no effort value write is reachable in this build.
+assert src.count("startDynamicEffortProof50();") == 1
+src=src.replace("startDynamicEffortProof50();", 'finish47("LEGACY_EFFORT_WRITE_PATH_DISABLED_IN_V055");')
+activity.write_text(src)
 
 cfg54=(PKG/"TelemetryConfigV54.java").read_text()
 (PKG/"TelemetryConfigV55.java").write_text(cfg54.replace("TelemetryConfigV54","TelemetryConfigV55"))
