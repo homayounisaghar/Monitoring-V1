@@ -13,49 +13,26 @@ permissions:
 jobs:
   probe:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-      - name: Install Playwright
+      - name: Fetch HoLa point-cloud format evidence
         run: |
-          python -m pip install --quiet playwright
-          python -m playwright install chromium --with-deps
-      - name: Inspect signup page only
-        run: |
-          cat > /tmp/probe.py <<'PY'
-          import asyncio, json
-          from pathlib import Path
-          from playwright.async_api import async_playwright
-          async def main():
-              out=Path('backflip_probe'); out.mkdir(exist_ok=True)
-              async with async_playwright() as p:
-                  browser=await p.chromium.launch(headless=True)
-                  page=await browser.new_page(viewport={'width':1440,'height':1000})
-                  await page.goto('https://login.backflip.ai/',wait_until='domcontentloaded',timeout=90000)
-                  await page.wait_for_timeout(1500)
-                  await page.get_by_role('link',name='Sign up').click()
-                  await page.wait_for_timeout(3000)
-                  info={
-                      'url':page.url,
-                      'title':await page.title(),
-                      'body_text':(await page.locator('body').inner_text())[:30000],
-                      'inputs':await page.locator('input').evaluate_all("els => els.map(e => ({type:e.type,name:e.name,placeholder:e.placeholder,checked:e.checked}))"),
-                      'buttons':await page.locator('button').evaluate_all("els => els.map(e => ({text:(e.innerText||'').trim(),type:e.type}))"),
-                      'links':await page.locator('a').evaluate_all("els => els.map(e => ({text:(e.innerText||'').trim(),href:e.href})).slice(0,100)"),
-                  }
-                  (out/'page_info.json').write_text(json.dumps(info,indent=2),encoding='utf-8')
-                  (out/'page.html').write_text(await page.content(),encoding='utf-8')
-                  await page.screenshot(path=str(out/'page.png'),full_page=True)
-                  print(json.dumps(info,indent=2))
-                  await browser.close()
-          asyncio.run(main())
-          PY
-          python /tmp/probe.py
+          set -euo pipefail
+          mkdir -p hola_probe
+          curl -fL --retry 3 'https://huggingface.co/spaces/YuXingyao/HoLa-BRep/resolve/main/app/DataProcessor/PointCloudProcessor.py' -o hola_probe/PointCloudProcessor.py
+          curl -fL --retry 3 'https://huggingface.co/spaces/YuXingyao/HoLa-BRep/resolve/main/app/AppLayout.py' -o hola_probe/AppLayout.py
+          curl -fL --retry 3 'https://huggingface.co/spaces/YuXingyao/HoLa-BRep/resolve/main/app/examples/pc_examples/00052336/pc.ply' -o hola_probe/example.ply
+          echo '--- PointCloudProcessor.py ---'
+          cat hola_probe/PointCloudProcessor.py
+          echo '--- PCLayout excerpts ---'
+          grep -n -A30 -B5 'class PCLayout' hola_probe/AppLayout.py || true
+          echo '--- PLY header ---'
+          head -n 25 hola_probe/example.ply || true
+          echo '--- sizes ---'
+          wc -c hola_probe/*
       - uses: actions/upload-artifact@v4
         with:
-          name: backflip-signup-probe
-          path: backflip_probe/
+          name: hola-pc-format-probe
+          path: hola_probe/
           retention-days: 7
