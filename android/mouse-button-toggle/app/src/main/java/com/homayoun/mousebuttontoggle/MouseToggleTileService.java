@@ -12,46 +12,33 @@ public final class MouseToggleTileService extends TileService {
     @Override
     public void onStartListening() {
         super.onStartListening();
-        if (!ShizukuMouseBridge.hasPermission()) {
+        if (!MouseSettingsController.hasWritePermission(this)) {
             showNeedsSetup();
             return;
         }
-        ShizukuMouseBridge.read(this, (state, error) -> getMainExecutor().execute(() -> {
-            if (error != null || state == null) {
-                showError(error);
-            } else {
-                showState(state);
-            }
-        }));
+        try {
+            showState(MouseSettingsController.readPrimaryButton(this));
+        } catch (Throwable e) {
+            showError(e);
+        }
     }
 
     @Override
     public void onClick() {
         super.onClick();
-        if (!ShizukuMouseBridge.hasPermission()) {
+        if (!MouseSettingsController.hasWritePermission(this)) {
             showNeedsSetup();
             openSetup();
             return;
         }
 
-        Tile tile = getQsTile();
-        if (tile != null) {
-            tile.setLabel("Mouse: switching…");
-            if (Build.VERSION.SDK_INT >= 29) {
-                tile.setSubtitle("Checking Samsung input state");
-            }
-            tile.setState(Tile.STATE_INACTIVE);
-            tile.updateTile();
+        try {
+            int state = MouseSettingsController.togglePrimaryButton(this);
+            showState(state);
+        } catch (Throwable e) {
+            showError(e);
+            openSetup();
         }
-
-        ShizukuMouseBridge.toggle(this, (state, error) -> getMainExecutor().execute(() -> {
-            if (error != null || state == null) {
-                showError(error);
-                openSetup();
-            } else {
-                showState(state);
-            }
-        }));
     }
 
     private void showState(int swapped) {
@@ -72,21 +59,23 @@ public final class MouseToggleTileService extends TileService {
         if (tile == null) return;
         tile.setIcon(Icon.createWithResource(this, R.drawable.ic_mouse_toggle));
         tile.setLabel("Mouse: setup");
-        if (Build.VERSION.SDK_INT >= 29) tile.setSubtitle("Tap to grant Shizuku permission");
+        if (Build.VERSION.SDK_INT >= 29) {
+            tile.setSubtitle("Tap to grant Modify system settings");
+        }
         tile.setState(Tile.STATE_INACTIVE);
         tile.updateTile();
     }
 
-    private void showError(String error) {
+    private void showError(Throwable error) {
         Tile tile = getQsTile();
         if (tile != null) {
             tile.setIcon(Icon.createWithResource(this, R.drawable.ic_mouse_toggle));
             tile.setLabel("Mouse: error");
-            if (Build.VERSION.SDK_INT >= 29) tile.setSubtitle("Tap to open diagnostics");
+            if (Build.VERSION.SDK_INT >= 29) tile.setSubtitle("Tap to open app");
             tile.setState(Tile.STATE_INACTIVE);
             tile.updateTile();
         }
-        Toast.makeText(this, "Mouse toggle failed: " + (error == null ? "unknown error" : error), Toast.LENGTH_LONG).show();
+        Toast.makeText(this, "Mouse toggle failed: " + message(error), Toast.LENGTH_LONG).show();
     }
 
     private void openSetup() {
@@ -99,5 +88,11 @@ public final class MouseToggleTileService extends TileService {
         } else {
             startActivityAndCollapse(intent);
         }
+    }
+
+    private static String message(Throwable throwable) {
+        if (throwable == null) return "unknown error";
+        String message = throwable.getMessage();
+        return message == null ? throwable.toString() : message;
     }
 }
