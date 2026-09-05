@@ -31,24 +31,30 @@ replace_once(
 
 replace_once(
 '''        mic = toolbarButton("🎙", v -> toggleVoice());
-        bar.addView(mic, toolbarLp(1f));
+        mic.setTextSize(landscape ? 18f : 22f);
+        mic.setBackground(round(KEY, dp(landscape ? 12 : 16)));
+        center.addView(mic, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
 ''',
 '''        mic = toolbarButton("🎙", v -> toggleVoice());
         mic.setContentDescription("Microphone; long press while recording to stop and send");
         mic.setOnLongClickListener(v -> stopVoiceAndSend());
-        bar.addView(mic, toolbarLp(1f));
+        mic.setTextSize(landscape ? 18f : 22f);
+        mic.setBackground(round(KEY, dp(landscape ? 12 : 16)));
+        center.addView(mic, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
 ''',
     'main microphone long press',
 )
 
 replace_once(
 '''        compactMic = smallButton("🎙 " + badge(), v -> toggleVoice());
-        compact.addView(compactMic, new LinearLayout.LayoutParams(dp(78), dp(42)));
+        compactMic.setTextSize(16f);
+        compact.addView(compactMic, new LinearLayout.LayoutParams(dp(94), dp(42)));
 ''',
 '''        compactMic = smallButton("🎙 " + badge(), v -> toggleVoice());
         compactMic.setContentDescription("Microphone; long press while recording to stop and send");
         compactMic.setOnLongClickListener(v -> stopVoiceAndSend());
-        compact.addView(compactMic, new LinearLayout.LayoutParams(dp(78), dp(42)));
+        compactMic.setTextSize(16f);
+        compact.addView(compactMic, new LinearLayout.LayoutParams(dp(94), dp(42)));
 ''',
     'compact microphone long press',
 )
@@ -140,21 +146,21 @@ replace_once(
 )
 
 replace_once(
-'''    private void completeSession(String m){running=false;stopRequested=true;awaitingCredential=false;stopAudioRecord();clearPending();main.post(()->{setCollapsed(false);updateMicUi();setStatus(m);});}
+'''    private void completeSession(String m){running=false;stopRequested=true;awaitingCredential=false;stopAudioRecord();clearPending();main.post(()->{updateMicUi();setStatus(m);});}
 ''',
 '''    private void completeSession(String m){
         boolean shouldSend=sendAfterVoiceStop;
         sendAfterVoiceStop=false;
         running=false;stopRequested=true;awaitingCredential=false;stopAudioRecord();clearPending();
         main.post(()->{
-            setCollapsed(false);updateMicUi();setStatus(m);
+            updateMicUi();setStatus(m);
             // publish(true) is queued before completeSession(), so this follow-up
             // executes only after the final transcript has been committed.
             if(shouldSend)main.postDelayed(this::sendFocusedField,40L);
         });
     }
 ''',
-    'send only after final transcript commit',
+    'send only after final transcript commit while preserving floating mode',
 )
 
 if 'versionCode 29' not in g or "versionName '1.19'" not in g:
