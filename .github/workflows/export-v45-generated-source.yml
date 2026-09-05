@@ -1,0 +1,32 @@
+name: Export v45 generated source
+
+on:
+  push:
+    branches:
+      - project/chatgpt-webview-poc
+    paths:
+      - '.github/workflows/export-v45-generated-source.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Generate v45 source
+        run: python3 ci/generate_chatgpt_webview_v45_slider_semantics.py
+      - name: Stage generated files
+        run: |
+          mkdir -p out
+          cp runtime_probes/chatgpt-webview-stable-probe/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/OrchestratorPaidModelEffortSliderSemanticsV45Activity.java out/
+          cp runtime_probes/chatgpt-webview-stable-probe/app/src/main/AndroidManifest.xml out/
+          cp runtime_probes/chatgpt-webview-stable-probe/app/build.gradle out/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v45-generated-source
+          path: out
+          retention-days: 7
