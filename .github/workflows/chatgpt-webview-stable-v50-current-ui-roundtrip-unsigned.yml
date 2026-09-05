@@ -1,0 +1,147 @@
+name: ChatGPT WebView Stable v0.48 Current UI Effort Model Roundtrip Unsigned
+
+on:
+  push:
+    branches: [project/chatgpt-webview-poc]
+    paths:
+      - '.github/workflows/chatgpt-webview-stable-v50-current-ui-roundtrip-unsigned.yml'
+      - 'ci/generate_chatgpt_webview_v50_current_ui_roundtrip.py'
+      - 'ci/v50_current_ui_blobs/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Generate v0.48 source
+        run: python3 ci/generate_chatgpt_webview_v50_current_ui_roundtrip.py
+
+      - name: Create fresh telemetry collector
+        shell: bash
+        run: |
+          set -euo pipefail
+          CFG=runtime_probes/chatgpt-webview-stable-probe/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/TelemetryConfigV50.java
+          TOKEN=$(curl -fsS -X POST https://webhook.site/token -H 'Accept: application/json' -H 'Content-Type: application/json' -d '{"default_status":200,"default_content":"OK","default_content_type":"text/plain"}' | python3 -c 'import json,sys;x=json.load(sys.stdin).get("uuid");assert x;print(x)')
+          ENDPOINT="https://webhook.site/$TOKEN"
+          READ="https://webhook.site/token/$TOKEN/requests?sorting=oldest&per_page=100"
+          python3 - "$CFG" "$ENDPOINT" "$GITHUB_SHA" "$TOKEN" <<'PY'
+          from pathlib import Path
+          import re,sys
+          p=Path(sys.argv[1]); s=p.read_text(); ep,sha,cid=sys.argv[2:]
+          s=re.sub(r'WEBHOOK_URL=".*?"',f'WEBHOOK_URL="{ep}"',s)
+          s=re.sub(r'SOURCE_REF=".*?"',f'SOURCE_REF="{sha}"',s)
+          s=re.sub(r'COLLECTOR_ID=".*?"',f'COLLECTOR_ID="{cid}"',s)
+          s=s.replace('CONFIGURED=false','CONFIGURED=true')
+          p.write_text(s)
+          PY
+          mkdir -p ci/v50-current-ui-telemetry
+          printf '%s\n' "$TOKEN" > ci/v50-current-ui-telemetry/collector-id.txt
+          printf '%s\n' "$READ" > ci/v50-current-ui-telemetry/read-url.txt
+          printf '%s\n' "$GITHUB_SHA" > ci/v50-current-ui-telemetry/source-ref.txt
+          printf '{"kind":"BUILD_SMOKE","schema_version":"cp-v50-paid-current-ui-effort-model-roundtrip-v1","scenario_id":"paid-current-ui-effort-model-roundtrip","source_ref":"%s"}\n' "$GITHUB_SHA" | curl -fsS -X POST "$ENDPOINT" -H 'Content-Type: application/json' --data-binary @- >/dev/null
+
+      - name: Contract checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT=runtime_probes/chatgpt-webview-stable-probe
+          PKG=$ROOT/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe
+          ACT=$PKG/OrchestratorPaidCurrentUiControlRoundtripV50Activity.java
+          SVC=$PKG/ControlPlaneAccessibilityServiceV50.java
+          MAN=$ROOT/app/src/main/AndroidManifest.xml
+          CFG=$ROOT/app/src/main/res/xml/cp_accessibility_service_v50.xml
+          GRADLE=$ROOT/app/build.gradle
+          grep -Fq "applicationId 'com.homayounisaghar.chatgptwebviewprobe.diag'" "$GRADLE"
+          grep -Fq 'versionCode 51' "$GRADLE"
+          grep -Fq "versionName '0.48-stable-diag-current-ui-effort-model-roundtrip'" "$GRADLE"
+          grep -Fq 'private static final int[] EFFORT_FROM50 = {1,0,1,2,3,2};' "$ACT"
+          grep -Fq 'private static final int[] EFFORT_TO50 = {0,1,2,3,2,1};' "$ACT"
+          grep -Fq '"INSTANT","MEDIUM","HIGH","EXTRA_HIGH","HIGH","MEDIUM"' "$ACT"
+          grep -Fq 'BLOCKED_PRO_OR_OUT_OF_ALLOWLIST_WRITE' "$ACT"
+          grep -Fq 'PASS_CURRENT_UI_EFFORT_0_1_2_3_AND_MODEL_ROUNDTRIP_RESTORED' "$ACT"
+          grep -Fq 'startDynamicEffortProof50();' "$ACT"
+          grep -Fq 'modelTargetSemantic50' "$ACT"
+          grep -Fq 'GPT56_SOL' "$SVC"
+          grep -Fq 'GPT55' "$SVC"
+          grep -Fq 'LATEST' "$SVC"
+          grep -Fq 'p.options.size()==3' "$SVC"
+          grep -Fq 'AccessibilityNodeInfo.ACTION_CLICK' "$SVC"
+          grep -Fq 'r.inWeb' "$SVC"
+          grep -Fq 'android:packageNames="com.homayounisaghar.chatgptwebviewprobe.diag"' "$CFG"
+          grep -Fq 'android.permission.BIND_ACCESSIBILITY_SERVICE' "$MAN"
+          grep -Fq 'ControlPlaneAccessibilityServiceV50' "$MAN"
+          test "$(grep -c '<uses-permission' "$MAN")" -eq 3
+          python3 - "$ACT" "$SVC" <<'PY'
+          from pathlib import Path
+          import re,sys
+          a=Path(sys.argv[1]).read_text(); s=Path(sys.argv[2]).read_text()
+          body=re.sub(r'/\*.*?\*/','',a,flags=re.S); body=re.sub(r'//.*','',body)
+          assert '.click()' not in body
+          assert 'pointerover' not in body and 'mouseover' not in body and 'elementFromPoint' not in body
+          assert 'setAttribute("aria-value' not in body
+          assert 'EFFORT_FROM50 = {1,0,1,2,3,2}' in a
+          assert 'EFFORT_TO50 = {0,1,2,3,2,1}' in a
+          assert 'if (to < 0 || to > 3 || from < 0 || from > 3)' in a
+          assert 'proWriteAttempted50 = true' in a
+          assert 'startDynamicEffortProof50();' in a
+          assert 'beginModelProof50();' in a
+          assert 'modelOriginalSemantic50' in a and 'modelTargetSemantic50' in a
+          assert 'PASS_CURRENT_UI_EFFORT_0_1_2_3_AND_MODEL_ROUNDTRIP_RESTORED' in a
+          assert 'PARTIAL_CURRENT_UI_EFFORT_OR_MODEL_RECEIPT_INCOMPLETE_RESTORED' in a
+          assert 'put(o,"label"' not in s and 'put(o,"text"' not in s and 'put(o,"content_description"' not in s
+          assert 'getRootInActiveWindow()' in s and 'r.inWeb' in s
+          assert 'p.options.size()==3' in s
+          assert all(x in s for x in ['LATEST','GPT56_SOL','GPT55'])
+          # Explicitly forbid Pro from model semantics and effort write endpoints.
+          assert '"PRO"' not in s
+          PY
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+
+      - name: Build and verify aligned unsigned APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          sdkmanager "platforms;android-35" "build-tools;35.0.0"
+          echo "sdk.dir=$ANDROID_SDK_ROOT" > runtime_probes/chatgpt-webview-stable-probe/local.properties
+          curl -fsSL https://services.gradle.org/distributions/gradle-8.10.2-bin.zip -o /tmp/gradle.zip
+          unzip -q /tmp/gradle.zip -d /tmp
+          cd runtime_probes/chatgpt-webview-stable-probe
+          /tmp/gradle-8.10.2/bin/gradle --no-daemon :app:assembleRelease --stacktrace
+          cd ../..
+          OUT=ci/v50-current-ui-out
+          mkdir -p "$OUT"
+          UNSIGNED=runtime_probes/chatgpt-webview-stable-probe/app/build/outputs/apk/release/app-release-unsigned.apk
+          ALIGNED="$OUT/chatgpt-webview-v0.48-current-ui-effort-model-roundtrip-stable-diag-aligned-unsigned.apk"
+          BT="$ANDROID_SDK_ROOT/build-tools/35.0.0"
+          "$BT/zipalign" -f -p 4 "$UNSIGNED" "$ALIGNED"
+          "$BT/zipalign" -c -v 4 "$ALIGNED" > "$OUT/zipalign-verify.txt"
+          "$BT/aapt" dump badging "$ALIGNED" > "$OUT/badging.txt"
+          "$BT/aapt" dump permissions "$ALIGNED" > "$OUT/permissions.txt"
+          grep -Fq "package: name='com.homayounisaghar.chatgptwebviewprobe.diag' versionCode='51' versionName='0.48-stable-diag-current-ui-effort-model-roundtrip'" "$OUT/badging.txt"
+          grep -Fq "launchable-activity: name='com.homayounisaghar.chatgptwebviewprobe.OrchestratorPaidCurrentUiControlRoundtripV50Activity'" "$OUT/badging.txt"
+          test "$(grep -c '^uses-permission:' "$OUT/permissions.txt")" -eq 3
+          sha256sum "$ALIGNED" > "$OUT/ALIGNED_UNSIGNED_SHA256.txt"
+          printf '%s\n' "$GITHUB_SHA" > "$OUT/SOURCE_REF.txt"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: chatgpt-webview-v0.48-current-ui-effort-model-roundtrip-stable-diag-unsigned
+          path: ci/v50-current-ui-out
+          if-no-files-found: error
+          retention-days: 30
+      - uses: actions/upload-artifact@v4
+        with:
+          name: chatgpt-webview-v0.48-current-ui-effort-model-roundtrip-stable-diag-telemetry
+          path: ci/v50-current-ui-telemetry
+          if-no-files-found: error
+          retention-days: 30
