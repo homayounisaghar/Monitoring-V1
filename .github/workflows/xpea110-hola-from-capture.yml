@@ -1,0 +1,126 @@
+name: XPEA110 STEP from Viewer Capture
+
+on:
+  push:
+    branches: ['xpea110-step-capture-20260905']
+    paths:
+      - '.github/workflows/xpea110-hola-from-capture.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  convert:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install Python dependencies
+        run: python -m pip install --quiet numpy gradio_client
+      - name: Download captured model and run HoLa-BRep point-cloud reconstruction
+        env:
+          MODEL_URL: 'https://traceparts-previews-production.s3.eu-west-1.amazonaws.com/PREVIEW/SCHNEIDER_ELECTRIC/10-31032006-112260/foot_switch_xpea110.zip?X-Amz-Expires=900&X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIARCYOMLFEKBNSVCIG%2F20260905%2Feu-west-1%2Fs3%2Faws4_request&X-Amz-Date=20260905T135439Z&X-Amz-SignedHeaders=host&X-Amz-Signature=c8713967fc647e14841496face5cff9f8a14ea16327f198e69cfd05e86878d10'
+        run: |
+          set -euo pipefail
+          mkdir -p result
+          python - <<'PY'
+          import os, urllib.request, zipfile, struct, json, shutil, time, traceback
+          from pathlib import Path
+          import numpy as np
+          from gradio_client import Client, handle_file
+
+          out = Path('result')
+          zpath = out/'foot_switch_xpea110.zip'
+          urllib.request.urlretrieve(os.environ['MODEL_URL'], zpath)
+          with zipfile.ZipFile(zpath) as z:
+              z.extractall(out/'raw')
+          bpath = out/'raw'/'foot_switch_xpea110_000.bin'
+          data = bpath.read_bytes()
+          if data[:12] != b'Three.js 003':
+              raise RuntimeError(f'unexpected signature {data[:12]!r}')
+          header = data[12]
+          nverts = struct.unpack_from('<I', data, 24)[0]
+          nnorms = struct.unpack_from('<I', data, 28)[0]
+          nlines = struct.unpack_from('<I', data, 32)[0]
+          nfaces = struct.unpack_from('<I', data, 44)[0]
+          verts = np.frombuffer(data, dtype='<f4', count=nverts*3, offset=header).reshape(nverts,3).astype(np.float64)
+          off = header + nverts*3*4
+          off += nnorms*3
+          off += (-off) % 4
+          line_idx = np.frombuffer(data, dtype='<u4', count=nlines*2, offset=off).reshape(nlines,2)
+          off += nlines*2*4
+          faces = np.frombuffer(data, dtype='<u4', count=nfaces*3, offset=off).reshape(nfaces,3).astype(np.int64)
+          off += nfaces*3*4
+          normal_idx = np.frombuffer(data, dtype='<u4', count=nfaces*3, offset=off).reshape(nfaces,3)
+          off += nfaces*3*4
+          mats = np.frombuffer(data, dtype='<u2', count=nfaces, offset=off)
+          tri = verts[faces]
+          cross = np.cross(tri[:,1]-tri[:,0], tri[:,2]-tri[:,0])
+          area2 = np.linalg.norm(cross,axis=1)
+          if not np.all(np.isfinite(area2)) or area2.sum() <= 0:
+              raise RuntimeError('invalid triangle areas')
+          prob = area2/area2.sum()
+          rng=np.random.default_rng(20260905)
+          fi=rng.choice(len(faces),size=4096,p=prob)
+          r1=np.sqrt(rng.random(4096)); r2=rng.random(4096)
+          t=tri[fi]
+          pts=(1-r1)[:,None]*t[:,0] + (r1*(1-r2))[:,None]*t[:,1] + (r1*r2)[:,None]*t[:,2]
+          fn=cross[fi]
+          fn=fn/np.maximum(np.linalg.norm(fn,axis=1)[:,None],1e-12)
+          ply=out/'XPEA110_HoLa_pointcloud_4096.ply'
+          with ply.open('w',encoding='ascii',newline='\n') as f:
+              f.write('ply\nformat ascii 1.0\ncomment XPEA110 TraceParts viewer geometry\n')
+              f.write('element vertex 4096\nproperty float x\nproperty float y\nproperty float z\nproperty float nx\nproperty float ny\nproperty float nz\nend_header\n')
+              for p,n in zip(pts,fn):
+                  f.write(f'{p[0]:.9g} {p[1]:.9g} {p[2]:.9g} {n[0]:.9g} {n[1]:.9g} {n[2]:.9g}\n')
+          report={
+              'signature':data[:12].decode('ascii'), 'header_bytes':header,
+              'vertices':int(nverts),'normals':int(nnorms),'lines':int(nlines),'faces':int(nfaces),
+              'bounds':[verts.min(0).tolist(),verts.max(0).tolist()],
+              'point_bounds':[pts.min(0).tolist(),pts.max(0).tolist()],
+              'service':'YuXingyao/HoLa-BRep','mode':'Point Cloud','endpoint':'/generating_method'
+          }
+          client=Client('YuXingyao/HoLa-BRep', verbose=True)
+          state={'user_id':None,'user_output_dir':None}
+          t0=time.time()
+          try:
+              result=client.predict(state, handle_file(str(ply)), api_name='/generating_method')
+          except Exception as e:
+              report['first_error']=f'{type(e).__name__}: {e}'
+              result=client.predict(state, [handle_file(str(ply))], api_name='/generating_method')
+          report['elapsed_seconds']=time.time()-t0
+          report['result_repr']=repr(result)
+          def copy_any(v,prefix):
+              if v is None: return
+              if isinstance(v,(str,Path)):
+                  p=Path(str(v))
+                  if p.exists() and p.is_file():
+                      dst=out/f'{prefix}_{p.name}'
+                      if p.resolve()!=dst.resolve(): shutil.copy2(p,dst)
+                  return
+              if isinstance(v,dict):
+                  if v.get('path'): copy_any(v['path'],prefix)
+                  for k,x in v.items():
+                      if k!='path': copy_any(x,prefix+'_'+str(k))
+                  return
+              if isinstance(v,(list,tuple)):
+                  for i,x in enumerate(v): copy_any(x,f'{prefix}_{i}')
+          copy_any(result,'hola')
+          report['files']=[{'name':p.name,'bytes':p.stat().st_size} for p in sorted(out.iterdir()) if p.is_file()]
+          (out/'run_report.json').write_text(json.dumps(report,indent=2),encoding='utf-8')
+          print(json.dumps(report,indent=2))
+          PY
+      - name: List outputs
+        if: always()
+        run: find result -maxdepth 2 -type f -printf '%p %s bytes\n' | sort || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: XPEA110-HoLa-from-capture
+          path: result/
+          if-no-files-found: error
+          retention-days: 14
