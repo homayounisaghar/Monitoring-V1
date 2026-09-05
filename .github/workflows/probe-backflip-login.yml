@@ -16,23 +16,23 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-      - name: Fetch HoLa point-cloud format evidence
+      - name: Probe direct TraceParts preview asset access
+        shell: bash
         run: |
-          set -euo pipefail
-          mkdir -p hola_probe
-          curl -fL --retry 3 'https://huggingface.co/spaces/YuXingyao/HoLa-BRep/resolve/main/app/DataProcessor/PointCloudProcessor.py' -o hola_probe/PointCloudProcessor.py
-          curl -fL --retry 3 'https://huggingface.co/spaces/YuXingyao/HoLa-BRep/resolve/main/app/AppLayout.py' -o hola_probe/AppLayout.py
-          curl -fL --retry 3 'https://huggingface.co/spaces/YuXingyao/HoLa-BRep/resolve/main/app/examples/pc_examples/00052336/pc.ply' -o hola_probe/example.ply
-          echo '--- PointCloudProcessor.py ---'
-          cat hola_probe/PointCloudProcessor.py
-          echo '--- PCLayout excerpts ---'
-          grep -n -A30 -B5 'class PCLayout' hola_probe/AppLayout.py || true
-          echo '--- PLY header ---'
-          head -n 25 hola_probe/example.ply || true
-          echo '--- sizes ---'
-          wc -c hola_probe/*
+          set -u
+          mkdir -p probe
+          URL='https://traceparts-previews-production.s3.eu-west-1.amazonaws.com/PREVIEW/SCHNEIDER_ELECTRIC/10-31032006-112260/foot_switch_xpea110.zip'
+          echo "URL=$URL" | tee probe/result.txt
+          echo '--- unsigned HEAD ---' | tee -a probe/result.txt
+          curl -sS -D probe/headers.txt -o probe/body.bin "$URL"; RC=$?
+          echo "curl_rc=$RC" | tee -a probe/result.txt
+          cat probe/headers.txt | tee -a probe/result.txt
+          echo "bytes=$(wc -c < probe/body.bin)" | tee -a probe/result.txt
+          echo '--- body prefix ---' | tee -a probe/result.txt
+          head -c 500 probe/body.bin | strings | tee -a probe/result.txt || true
+          exit 0
       - uses: actions/upload-artifact@v4
         with:
-          name: hola-pc-format-probe
-          path: hola_probe/
+          name: traceparts-direct-asset-probe
+          path: probe/
           retention-days: 7
