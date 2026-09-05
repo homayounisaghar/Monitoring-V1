@@ -25,3 +25,4 @@ jobs:
             runtime_probes/chatgpt-webview-stable-probe/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/ControlPlaneAccessibilityServiceV49.java
           if-no-files-found: error
           retention-days: 1
+# trigger: dynamic-v0.48
