@@ -8,10 +8,10 @@ android {
 
     defaultConfig {
         applicationId 'com.homayoun.mousebuttontoggle'
-        minSdk 29
-        targetSdk 35
-        versionCode 8
-        versionName '1.0.7'
+        minSdk 22
+        targetSdk 22
+        versionCode 9
+        versionName '1.0.8'
     }
 
     def stablePassword = 'andro' + 'id'
