@@ -1,0 +1,88 @@
+name: Build Viewer3D Extractor
+
+on:
+  push:
+    branches: ['viewer3d-extractor-v1']
+    paths:
+      - 'viewer3d/android/**'
+      - '.github/workflows/build-viewer3d-extractor.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: viewer3d-extractor-v1
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - name: Install Android SDK
+        run: sdkmanager "platforms;android-35" "build-tools;35.0.0" "platform-tools"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Check injected JavaScript syntax
+        run: node --check viewer3d/android/app/src/main/assets/viewer_hook.js
+      - name: Restore stable signing key
+        id: signing-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.android/viewer3d.keystore
+          key: viewer3d-extractor-public-signing-v1
+      - name: Create stable signing key
+        if: steps.signing-cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p "$HOME/.android"
+          PASS='andro''id'
+          keytool -genkeypair -v \
+            -keystore "$HOME/.android/viewer3d.keystore" \
+            -storepass "$PASS" \
+            -alias androiddebugkey \
+            -keypass "$PASS" \
+            -dname "CN=3D Viewer Extractor,O=Capability Fabric,C=DE" \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 10000
+      - name: Build signed release APK
+        run: gradle -p viewer3d/android :app:assembleRelease --stacktrace
+      - name: Validate APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK='viewer3d/android/app/build/outputs/apk/release/app-release.apk'
+          test -s "$APK"
+          unzip -t "$APK" >/dev/null
+          unzip -l "$APK" | grep -q 'classes.dex'
+          unzip -l "$APK" | grep -q 'assets/viewer_hook.js'
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$APK" | tee apk-signing.txt
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | tee apk-badging.txt
+          grep -q "package: name='com.capabilityfabric.tracepartsgrabber'" apk-badging.txt
+          grep -q "versionCode='3'" apk-badging.txt
+          grep -q "versionName='1.2.0'" apk-badging.txt
+          grep -q "launchable-activity: name='com.capabilityfabric.tracepartsgrabber.MainActivity'" apk-badging.txt
+          if grep -q 'application-debuggable' apk-badging.txt; then
+            echo 'Release APK must not be debuggable' >&2
+            exit 1
+          fi
+          sha256sum "$APK" | tee apk-sha256.txt
+          cp "$APK" Viewer3DExtractor-v1.2.0.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Viewer3DExtractor-v1.2.0-public-build
+          path: |
+            Viewer3DExtractor-v1.2.0.apk
+            apk-signing.txt
+            apk-badging.txt
+            apk-sha256.txt
+          if-no-files-found: error
+          retention-days: 30
