@@ -1,0 +1,138 @@
+name: ChatGPT WebView Stable v0.41 Nested Effort Census Sidecar Signed
+
+on:
+  push:
+    branches:
+      - project/chatgpt-webview-poc
+    paths:
+      - '.github/workflows/chatgpt-webview-stable-v43-sidecar-signed.yml'
+      - 'ci/generate_chatgpt_webview_v43_nested.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Generate v0.41 sidecar source
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 ci/generate_chatgpt_webview_v43_nested.py
+
+      - name: Create fresh telemetry collector
+        shell: bash
+        run: |
+          set -euo pipefail
+          CFG=runtime_probes/chatgpt-webview-stable-probe/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/TelemetryConfigV43.java
+          TOKEN=$(curl -fsS -X POST https://webhook.site/token -H 'Accept: application/json' -H 'Content-Type: application/json' -d '{"default_status":200,"default_content":"OK","default_content_type":"text/plain"}' | python3 -c 'import json,sys;x=json.load(sys.stdin).get("uuid");assert x;print(x)')
+          ENDPOINT="https://webhook.site/$TOKEN"
+          READ="https://webhook.site/token/$TOKEN/requests?sorting=oldest&per_page=100"
+          python3 - "$CFG" "$ENDPOINT" "$GITHUB_SHA" "$TOKEN" <<'PY'
+          from pathlib import Path
+          import re,sys
+          p=Path(sys.argv[1]); s=p.read_text(); ep,sha,cid=sys.argv[2:]
+          s=re.sub(r'WEBHOOK_URL=".*?"',f'WEBHOOK_URL="{ep}"',s)
+          s=re.sub(r'SOURCE_REF=".*?"',f'SOURCE_REF="{sha}"',s)
+          s=re.sub(r'COLLECTOR_ID=".*?"',f'COLLECTOR_ID="{cid}"',s)
+          s=s.replace('CONFIGURED=false','CONFIGURED=true')
+          p.write_text(s)
+          PY
+          mkdir -p ci/v43-sidecar-telemetry
+          printf '%s\n' "$TOKEN" > ci/v43-sidecar-telemetry/collector-id.txt
+          printf '%s\n' "$READ" > ci/v43-sidecar-telemetry/read-url.txt
+          printf '%s\n' "$GITHUB_SHA" > ci/v43-sidecar-telemetry/source-ref.txt
+          printf '{"kind":"BUILD_SMOKE","schema_version":"cp-v43-paid-model-effort-nested-surface-census-v1","scenario_id":"paid-model-effort-open-popup-nested-structure-census","source_ref":"%s"}\n' "$GITHUB_SHA" | curl -fsS -X POST "$ENDPOINT" -H 'Content-Type: application/json' --data-binary @- >/dev/null
+
+      - name: Contract checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT=runtime_probes/chatgpt-webview-stable-probe
+          SRC="$ROOT/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/OrchestratorPaidModelEffortNestedCensusV43Activity.java"
+          GRADLE="$ROOT/app/build.gradle"
+          MAN="$ROOT/app/src/main/AndroidManifest.xml"
+          grep -Fq "applicationId 'com.homayounisaghar.chatgptwebviewprobe.v43diag'" "$GRADLE"
+          grep -Fq "versionCode 44" "$GRADLE"
+          grep -Fq "versionName '0.41-sidecar-paid-model-effort-nested-surface-census'" "$GRADLE"
+          grep -Fq 'CLAIMED_BEFORE_SEMANTIC_POINTERDOWN' "$SRC"
+          grep -Fq "new PointerEvent('pointerdown'" "$SRC"
+          grep -Fq 'secondary_ui_dispatches",0' "$SRC"
+          grep -Fq 'hidden_semantic_count' "$SRC"
+          grep -Fq 'relation_ref_node_count' "$SRC"
+          grep -Fq 'aria-controls' "$SRC"
+          grep -Fq 'aria-owns' "$SRC"
+          grep -Fq 'PASS_NESTED_EFFORT_STRUCTURE_CENSUS_CAPTURED' "$SRC"
+          test "$(grep -c '<uses-permission' "$MAN")" -eq 3
+          python3 - "$SRC" <<'PY'
+          from pathlib import Path
+          import re,sys
+          s=Path(sys.argv[1]).read_text()
+          s=re.sub(r'/\*.*?\*/','',s,flags=re.S)
+          s=re.sub(r'//.*','',s)
+          assert '.click()' not in s
+          assert 'pointerover' not in s
+          assert 'mouseover' not in s
+          assert 'elementFromPoint' not in s
+          assert 'MODEL_EFFORT_SELECT_LIGHT' not in s
+          PY
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+
+      - name: Build, sign, and verify APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          sdkmanager "platforms;android-35" "build-tools;35.0.0"
+          echo "sdk.dir=$ANDROID_SDK_ROOT" > runtime_probes/chatgpt-webview-stable-probe/local.properties
+          curl -fsSL https://services.gradle.org/distributions/gradle-8.10.2-bin.zip -o /tmp/gradle.zip
+          unzip -q /tmp/gradle.zip -d /tmp
+          cd runtime_probes/chatgpt-webview-stable-probe
+          /tmp/gradle-8.10.2/bin/gradle --no-daemon :app:assembleRelease --stacktrace
+          cd ../..
+          OUT=ci/v43-sidecar-out
+          mkdir -p "$OUT"
+          UNSIGNED=runtime_probes/chatgpt-webview-stable-probe/app/build/outputs/apk/release/app-release-unsigned.apk
+          ALIGNED="$OUT/chatgpt-webview-v0.41-nested-effort-census-sidecar-aligned.apk"
+          SIGNED="$OUT/chatgpt-webview-v0.41-nested-effort-census-sidecar-signed.apk"
+          BT="$ANDROID_SDK_ROOT/build-tools/35.0.0"
+          "$BT/zipalign" -f -p 4 "$UNSIGNED" "$ALIGNED"
+          PASS=$(openssl rand -hex 24)
+          KEYSTORE="$RUNNER_TEMP/v43diag-signing.jks"
+          keytool -genkeypair -noprompt -keystore "$KEYSTORE" -storepass "$PASS" -keypass "$PASS" -alias v43diag -keyalg RSA -keysize 3072 -validity 3650 -dname 'CN=ChatGPT WebView V43 Diagnostic Sidecar,OU=Personal Android Signing,O=Homayoun,C=DE'
+          "$BT/apksigner" sign --ks "$KEYSTORE" --ks-key-alias v43diag --ks-pass "pass:$PASS" --key-pass "pass:$PASS" --v1-signing-enabled false --v2-signing-enabled false --v3-signing-enabled true --out "$SIGNED" "$ALIGNED"
+          "$BT/zipalign" -c -v 4 "$SIGNED" > "$OUT/zipalign-verify.txt"
+          "$BT/apksigner" verify --verbose --print-certs --min-sdk-version 29 "$SIGNED" > "$OUT/apksigner-verify.txt"
+          "$BT/aapt" dump badging "$SIGNED" > "$OUT/badging.txt"
+          "$BT/aapt" dump permissions "$SIGNED" > "$OUT/permissions.txt"
+          grep -Fq "package: name='com.homayounisaghar.chatgptwebviewprobe.v43diag' versionCode='44' versionName='0.41-sidecar-paid-model-effort-nested-surface-census'" "$OUT/badging.txt"
+          grep -Fq "launchable-activity: name='com.homayounisaghar.chatgptwebviewprobe.OrchestratorPaidModelEffortNestedCensusV43Activity'" "$OUT/badging.txt"
+          grep -Fq 'Verified using v3 scheme (APK Signature Scheme v3): true' "$OUT/apksigner-verify.txt"
+          test "$(grep -c '^uses-permission:' "$OUT/permissions.txt")" -eq 3
+          sha256sum "$SIGNED" > "$OUT/SIGNED_SHA256.txt"
+          sha256sum "$UNSIGNED" > "$OUT/UNSIGNED_SHA256.txt"
+          printf '%s\n' "$GITHUB_SHA" > "$OUT/SOURCE_REF.txt"
+          rm -f "$KEYSTORE"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: chatgpt-webview-v0.41-nested-effort-census-sidecar-signed
+          path: ci/v43-sidecar-out
+          if-no-files-found: error
+          retention-days: 30
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: chatgpt-webview-v0.41-nested-effort-census-sidecar-telemetry
+          path: ci/v43-sidecar-telemetry
+          if-no-files-found: error
+          retention-days: 30
