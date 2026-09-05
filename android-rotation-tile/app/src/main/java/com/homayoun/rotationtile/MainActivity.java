@@ -101,8 +101,8 @@ public class MainActivity extends Activity {
 
         TextView note = new TextView(this);
         note.setText(
-                "Tap the tile to advance one state. Long-press it to return here. " +
-                "If Android does not show the add-tile prompt, add “Rotate 90°” from Quick Settings edit mode.");
+                "Tap the tile to advance one state. Rapid taps are buffered for about 0.4 seconds after the most recent tap: every tap is counted, but only the final queued state is applied. " +
+                "Long-press the tile to return here. If Android does not show the add-tile prompt, add “Rotate 90°” from Quick Settings edit mode.");
         note.setTextSize(14);
         note.setTextColor(Color.GRAY);
         note.setPadding(0, dp(18), 0, 0);
