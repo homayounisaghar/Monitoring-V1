@@ -12,8 +12,26 @@ public final class MouseToggleTileService extends TileService {
     @Override
     public void onStartListening() {
         super.onStartListening();
+
+        if (MouseSettingsController.isSamsungDevice()) {
+            if (!SamsungMouseAccessibilityService.isEnabled(this)) {
+                showNeedsSetup("Enable Samsung Settings helper");
+                return;
+            }
+            if (SamsungMouseAccessibilityService.isPending(this)) {
+                showSwitching();
+                return;
+            }
+            try {
+                showState(MouseSettingsController.readPrimaryButton(this));
+            } catch (Throwable e) {
+                showError(e);
+            }
+            return;
+        }
+
         if (!MouseSettingsController.hasWritePermission(this)) {
-            showNeedsSetup();
+            showNeedsSetup("Grant Modify system settings");
             return;
         }
         try {
@@ -26,18 +44,45 @@ public final class MouseToggleTileService extends TileService {
     @Override
     public void onClick() {
         super.onClick();
+
+        if (MouseSettingsController.isSamsungDevice()) {
+            if (!SamsungMouseAccessibilityService.isEnabled(this)) {
+                showNeedsSetup("Enable Samsung Settings helper");
+                openSetup();
+                return;
+            }
+            try {
+                SamsungMouseAccessibilityService.PreparedToggle prepared =
+                        SamsungMouseAccessibilityService.prepareToggle(this);
+                showSwitching();
+                if (Build.VERSION.SDK_INT >= 34) {
+                    PendingIntent pendingIntent = PendingIntent.getActivity(
+                            this,
+                            prepared.target == 1 ? 21 : 20,
+                            prepared.settingsIntent,
+                            PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+                    startActivityAndCollapse(pendingIntent);
+                } else {
+                    startActivityAndCollapse(prepared.settingsIntent);
+                }
+            } catch (Throwable e) {
+                SamsungMouseAccessibilityService.cancelPending(this, message(e));
+                showError(e);
+            }
+            return;
+        }
+
         if (!MouseSettingsController.hasWritePermission(this)) {
-            showNeedsSetup();
+            showNeedsSetup("Grant Modify system settings");
             openSetup();
             return;
         }
 
         try {
-            int state = MouseSettingsController.togglePrimaryButton(this);
+            int state = MouseSettingsController.togglePrimaryButtonDirect(this);
             showState(state);
         } catch (Throwable e) {
             showError(e);
-            openSetup();
         }
     }
 
@@ -54,14 +99,26 @@ public final class MouseToggleTileService extends TileService {
         tile.updateTile();
     }
 
-    private void showNeedsSetup() {
+    private void showSwitching() {
+        Tile tile = getQsTile();
+        if (tile == null) return;
+        tile.setIcon(Icon.createWithResource(this, R.drawable.ic_mouse_toggle));
+        tile.setLabel("Mouse: switching...");
+        if (Build.VERSION.SDK_INT >= 29) {
+            tile.setSubtitle(MouseSettingsController.isSamsungDevice()
+                    ? "Using Samsung Settings"
+                    : "Changing primary button");
+        }
+        tile.setState(Tile.STATE_INACTIVE);
+        tile.updateTile();
+    }
+
+    private void showNeedsSetup(String subtitle) {
         Tile tile = getQsTile();
         if (tile == null) return;
         tile.setIcon(Icon.createWithResource(this, R.drawable.ic_mouse_toggle));
         tile.setLabel("Mouse: setup");
-        if (Build.VERSION.SDK_INT >= 29) {
-            tile.setSubtitle("Tap to grant Modify system settings");
-        }
+        if (Build.VERSION.SDK_INT >= 29) tile.setSubtitle(subtitle);
         tile.setState(Tile.STATE_INACTIVE);
         tile.updateTile();
     }
@@ -71,7 +128,7 @@ public final class MouseToggleTileService extends TileService {
         if (tile != null) {
             tile.setIcon(Icon.createWithResource(this, R.drawable.ic_mouse_toggle));
             tile.setLabel("Mouse: error");
-            if (Build.VERSION.SDK_INT >= 29) tile.setSubtitle("Tap to open app");
+            if (Build.VERSION.SDK_INT >= 29) tile.setSubtitle("See toast / app diagnostics");
             tile.setState(Tile.STATE_INACTIVE);
             tile.updateTile();
         }
