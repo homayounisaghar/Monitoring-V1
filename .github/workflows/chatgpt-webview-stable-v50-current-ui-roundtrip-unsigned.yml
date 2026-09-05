@@ -86,8 +86,9 @@ jobs:
           assert 'setAttribute("aria-value' not in body
           assert 'EFFORT_FROM50 = {1,0,1,2,3,2}' in a
           assert 'EFFORT_TO50 = {0,1,2,3,2,1}' in a
-          assert 'if (to < 0 || to > 3 || from < 0 || from > 3)' in a
-          assert 'proWriteAttempted50 = true' in a
+          assert 'from == 4 || to == 4 || from < 0 || from > 3 || to < 0 || to > 3' in a
+          assert 'next < 0 || next > 3 || next == 4' in a
+          assert 'proWriteAttempted50 = true' in a or 'proWriteAttempted50=true' in a
           assert 'startDynamicEffortProof50();' in a
           assert 'beginModelProof50();' in a
           assert 'modelOriginalSemantic50' in a and 'modelTargetSemantic50' in a
@@ -97,8 +98,13 @@ jobs:
           assert 'getRootInActiveWindow()' in s and 'r.inWeb' in s
           assert 'p.options.size()==3' in s
           assert all(x in s for x in ['LATEST','GPT56_SOL','GPT55'])
-          # Explicitly forbid Pro from model semantics and effort write endpoints.
-          assert '"PRO"' not in s
+          # Pro must be readable on the effort surface so it can be denied.
+          assert '"PRO"' in s
+          # But Pro must never be a model option semantic.
+          mb=s[s.index('private static String modelSemantic'):s.index('private static boolean isModelLabel')]
+          assert '"PRO"' not in mb
+          # Model plan must require exactly the three current expected model semantics.
+          assert 'sems.contains("LATEST")' in s and 'sems.contains("GPT56_SOL")' in s and 'sems.contains("GPT55")' in s
           PY
 
       - uses: actions/setup-java@v4
