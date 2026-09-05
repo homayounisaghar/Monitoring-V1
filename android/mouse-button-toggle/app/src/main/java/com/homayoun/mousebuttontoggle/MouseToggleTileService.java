@@ -12,13 +12,8 @@ public final class MouseToggleTileService extends TileService {
     @Override
     public void onStartListening() {
         super.onStartListening();
-
         if (MouseSettingsController.isSamsungDevice()) {
-            if (!SamsungMouseAccessibilityService.isEnabled(this)) {
-                showNeedsSetup("Enable Samsung Settings helper");
-                return;
-            }
-            if (SamsungMouseAccessibilityService.isPending(this)) {
+            if (SamsungBackgroundController.isBusy()) {
                 showSwitching();
                 return;
             }
@@ -29,7 +24,6 @@ public final class MouseToggleTileService extends TileService {
             }
             return;
         }
-
         if (!MouseSettingsController.hasWritePermission(this)) {
             showNeedsSetup("Grant Modify system settings");
             return;
@@ -44,31 +38,30 @@ public final class MouseToggleTileService extends TileService {
     @Override
     public void onClick() {
         super.onClick();
-
         if (MouseSettingsController.isSamsungDevice()) {
-            if (!SamsungMouseAccessibilityService.isEnabled(this)) {
-                showNeedsSetup("Enable Samsung Settings helper");
-                openSetup();
-                return;
-            }
-            if (SamsungMouseAccessibilityService.isPending(this)) {
+            if (SamsungBackgroundController.isBusy()) {
                 showSwitching();
                 return;
             }
             showSwitching();
-            if (!SamsungMouseAccessibilityService.requestSeamlessToggle(this)) {
-                showError(new IllegalStateException(
-                        "Accessibility helper is enabled but not connected yet; toggle it off/on once"));
-            }
+            SamsungBackgroundController.toggleAsync(this, new SamsungBackgroundController.Callback() {
+                @Override
+                public void onSuccess(int newPrimary) {
+                    showState(newPrimary);
+                }
+
+                @Override
+                public void onError(String error) {
+                    showError(new IllegalStateException(error));
+                }
+            });
             return;
         }
-
         if (!MouseSettingsController.hasWritePermission(this)) {
             showNeedsSetup("Grant Modify system settings");
             openSetup();
             return;
         }
-
         try {
             int state = MouseSettingsController.togglePrimaryButtonDirect(this);
             showState(state);
@@ -97,7 +90,7 @@ public final class MouseToggleTileService extends TileService {
         tile.setLabel("Mouse: switching...");
         if (Build.VERSION.SDK_INT >= 29) {
             tile.setSubtitle(MouseSettingsController.isSamsungDevice()
-                    ? "Seamless Samsung switch"
+                    ? "Background Samsung switch"
                     : "Changing primary button");
         }
         tile.setState(Tile.STATE_INACTIVE);
@@ -119,7 +112,7 @@ public final class MouseToggleTileService extends TileService {
         if (tile != null) {
             tile.setIcon(Icon.createWithResource(this, R.drawable.ic_mouse_toggle));
             tile.setLabel("Mouse: error");
-            if (Build.VERSION.SDK_INT >= 29) tile.setSubtitle("See toast / app diagnostics");
+            if (Build.VERSION.SDK_INT >= 29) tile.setSubtitle("No page opened; see app diagnostics");
             tile.setState(Tile.STATE_INACTIVE);
             tile.updateTile();
         }
