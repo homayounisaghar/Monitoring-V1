@@ -1,0 +1,46 @@
+name: ChatGPT WebView v42 telemetry readback
+
+on:
+  push:
+    branches:
+      - project/chatgpt-webview-poc
+    paths:
+      - '.github/workflows/chatgpt-webview-v42-readback.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  readback:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Fetch v42 collector payloads
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p out
+          URL='https://webhook.site/token/9750ff97-30bb-4bbe-83d7-8d34cb977a41/requests?sorting=oldest&per_page=100'
+          curl -fsS --retry 3 --retry-delay 2 "$URL" -o out/v42-requests.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path('out/v42-requests.json')
+          obj=json.loads(p.read_text())
+          data=obj.get('data', [])
+          print(f'V42_READBACK_COUNT={len(data)}')
+          for i,r in enumerate(data):
+              content=r.get('content','')
+              try:
+                  payload=json.loads(content) if isinstance(content,str) and content else content
+              except Exception:
+                  payload={'raw_content':content}
+              print(json.dumps({'index':i,'created_at':r.get('created_at'),'payload':payload},ensure_ascii=False,sort_keys=True))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: chatgpt-webview-v42-readback
+          path: out/v42-requests.json
+          if-no-files-found: error
+          retention-days: 7
