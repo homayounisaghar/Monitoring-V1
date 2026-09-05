@@ -68,8 +68,8 @@ jobs:
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$APK" | tee apk-signing.txt
           grep -q 'CN=Mouse Button Toggle Test' apk-signing.txt
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | head -n 20 | tee apk-badging.txt
-          grep -q "versionCode='5'" apk-badging.txt
-          grep -q "versionName='1.0.4'" apk-badging.txt
+          grep -q "versionCode='6'" apk-badging.txt
+          grep -q "versionName='1.0.5'" apk-badging.txt
           if grep -q 'application-debuggable' apk-badging.txt; then
             echo 'Release APK must not be debuggable' >&2
             exit 1
@@ -81,18 +81,18 @@ jobs:
           grep -q 'BIND_ACCESSIBILITY_SERVICE' apk-manifest.txt
           grep -q 'android.permission.WRITE_SETTINGS' apk-manifest.txt
           if grep -q 'ShizukuProvider' apk-manifest.txt; then
-            echo 'v1.0.4 must not contain ShizukuProvider' >&2
+            echo 'v1.0.5 must not contain ShizukuProvider' >&2
             exit 1
           fi
           sha256sum "$APK" | tee apk-sha256.txt
-          cp "$APK" MouseButtonToggle-v1.0.4.apk
+          cp "$APK" MouseButtonToggle-v1.0.5.apk
 
       - name: Upload verified APK and evidence
         uses: actions/upload-artifact@v4
         with:
-          name: MouseButtonToggle-v1.0.4-stable-signed-release
+          name: MouseButtonToggle-v1.0.5-stable-signed-release
           path: |
-            MouseButtonToggle-v1.0.4.apk
+            MouseButtonToggle-v1.0.5.apk
             apk-signing.txt
             apk-badging.txt
             apk-manifest.txt
