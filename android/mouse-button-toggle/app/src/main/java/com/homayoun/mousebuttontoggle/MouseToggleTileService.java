@@ -12,18 +12,6 @@ public final class MouseToggleTileService extends TileService {
     @Override
     public void onStartListening() {
         super.onStartListening();
-        if (MouseSettingsController.isSamsungDevice()) {
-            if (SamsungBackgroundController.isBusy()) {
-                showSwitching();
-                return;
-            }
-            try {
-                showState(MouseSettingsController.readPrimaryButton(this));
-            } catch (Throwable e) {
-                showError(e);
-            }
-            return;
-        }
         if (!MouseSettingsController.hasWritePermission(this)) {
             showNeedsSetup("Grant Modify system settings");
             return;
@@ -38,25 +26,6 @@ public final class MouseToggleTileService extends TileService {
     @Override
     public void onClick() {
         super.onClick();
-        if (MouseSettingsController.isSamsungDevice()) {
-            if (SamsungBackgroundController.isBusy()) {
-                showSwitching();
-                return;
-            }
-            showSwitching();
-            SamsungBackgroundController.toggleAsync(this, new SamsungBackgroundController.Callback() {
-                @Override
-                public void onSuccess(int newPrimary) {
-                    showState(newPrimary);
-                }
-
-                @Override
-                public void onError(String error) {
-                    showError(new IllegalStateException(error));
-                }
-            });
-            return;
-        }
         if (!MouseSettingsController.hasWritePermission(this)) {
             showNeedsSetup("Grant Modify system settings");
             openSetup();
@@ -83,20 +52,6 @@ public final class MouseToggleTileService extends TileService {
         tile.updateTile();
     }
 
-    private void showSwitching() {
-        Tile tile = getQsTile();
-        if (tile == null) return;
-        tile.setIcon(Icon.createWithResource(this, R.drawable.ic_mouse_toggle));
-        tile.setLabel("Mouse: switching...");
-        if (Build.VERSION.SDK_INT >= 29) {
-            tile.setSubtitle(MouseSettingsController.isSamsungDevice()
-                    ? "Background Samsung switch"
-                    : "Changing primary button");
-        }
-        tile.setState(Tile.STATE_INACTIVE);
-        tile.updateTile();
-    }
-
     private void showNeedsSetup(String subtitle) {
         Tile tile = getQsTile();
         if (tile == null) return;
@@ -112,7 +67,7 @@ public final class MouseToggleTileService extends TileService {
         if (tile != null) {
             tile.setIcon(Icon.createWithResource(this, R.drawable.ic_mouse_toggle));
             tile.setLabel("Mouse: error");
-            if (Build.VERSION.SDK_INT >= 29) tile.setSubtitle("No page opened; see app diagnostics");
+            if (Build.VERSION.SDK_INT >= 29) tile.setSubtitle("Legacy direct write blocked");
             tile.setState(Tile.STATE_INACTIVE);
             tile.updateTile();
         }
