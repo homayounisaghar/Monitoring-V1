@@ -1,0 +1,69 @@
+name: Probe Backflip login
+
+on:
+  push:
+    branches: ['imagecad-backflip-xpea110']
+    paths:
+      - '.github/workflows/probe-backflip-login.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install Playwright
+        run: |
+          python -m pip install --quiet playwright
+          python -m playwright install chromium --with-deps
+      - name: Probe login page
+        run: |
+          cat > /tmp/probe.py <<'PY'
+          import asyncio, json
+          from pathlib import Path
+          from playwright.async_api import async_playwright
+
+          async def main():
+              out = Path('backflip_probe')
+              out.mkdir(exist_ok=True)
+              async with async_playwright() as p:
+                  browser = await p.chromium.launch(headless=True)
+                  context = await browser.new_context(viewport={"width": 1440, "height": 1000})
+                  page = await context.new_page()
+                  events=[]
+                  page.on('request', lambda r: events.append({'kind':'request','method':r.method,'url':r.url}) if ('backflip.ai' in r.url) else None)
+                  page.on('response', lambda r: events.append({'kind':'response','status':r.status,'url':r.url}) if ('backflip.ai' in r.url) else None)
+                  try:
+                      await page.goto('https://login.backflip.ai/', wait_until='networkidle', timeout=90000)
+                  except Exception as e:
+                      events.append({'kind':'goto_error','error':repr(e)})
+                  await page.wait_for_timeout(3000)
+                  info={
+                      'url': page.url,
+                      'title': await page.title(),
+                      'body_text': (await page.locator('body').inner_text())[:30000],
+                      'inputs': await page.locator('input').evaluate_all("els => els.map(e => ({type:e.type,name:e.name,placeholder:e.placeholder,autocomplete:e.autocomplete,aria:e.getAttribute('aria-label')}))"),
+                      'buttons': await page.locator('button').evaluate_all("els => els.map(e => ({text:(e.innerText||'').trim(),type:e.type,aria:e.getAttribute('aria-label')}))"),
+                      'links': await page.locator('a').evaluate_all("els => els.map(e => ({text:(e.innerText||'').trim(),href:e.href})).slice(0,100)"),
+                  }
+                  (out/'page_info.json').write_text(json.dumps(info,indent=2), encoding='utf-8')
+                  (out/'network.json').write_text(json.dumps(events,indent=2), encoding='utf-8')
+                  (out/'page.html').write_text(await page.content(), encoding='utf-8')
+                  await page.screenshot(path=str(out/'page.png'), full_page=True)
+                  print(json.dumps(info, indent=2))
+                  await browser.close()
+          asyncio.run(main())
+          PY
+          python /tmp/probe.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: backflip-login-probe
+          path: backflip_probe/
+          retention-days: 7
