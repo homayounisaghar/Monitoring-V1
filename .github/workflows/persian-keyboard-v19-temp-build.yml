@@ -1,4 +1,4 @@
-name: Persian Keyboard Android v1.16 Test APK
+name: Persian Keyboard Android v1.17 Test APK
 
 on:
   push:
@@ -47,7 +47,7 @@ jobs:
           echo 'Expected persistent v1.9+ signing cache was not restored.' >&2
           exit 1
 
-      - name: Apply v1.8 through v1.16 patches
+      - name: Apply v1.8 through v1.17 patches
         working-directory: android/persian-keyboard-v19
         run: |
           set -euo pipefail
@@ -60,8 +60,9 @@ jobs:
           python3 tools/apply_v114_preserve_floating_on_manual_key_patch.py
           python3 tools/apply_v115_clear_field_button_patch.py
           python3 tools/apply_v116_copy_button_patch.py
+          python3 tools/apply_v117_copy_icon_mic_emoji_patch.py
 
-      - name: Verify v1.16 source invariants
+      - name: Verify v1.17 source invariants
         working-directory: android/persian-keyboard-v19
         run: |
           set -euo pipefail
@@ -74,11 +75,14 @@ jobs:
               'FrameLayout inputShell;',
               'floatingButton = toolbarButton("▱", v -> setCollapsed(!collapsed));',
               'floatingButton.setOnTouchListener(this::handleFloatingHandleTouch);',
-              'Button copy = toolbarButton("Copy", v -> copyCurrentText());',
+              'Button copy = toolbarButton("⧉", v -> copyCurrentText());',
               'copy.setContentDescription("Copy selected text or entire field");',
               'private void copyCurrentText(){',
               'CharSequence selected=ic.getSelectedText(0);',
               'cm.setPrimaryClip(ClipData.newPlainText("Persian keyboard copy",toCopy==null?"":toCopy));',
+              'mic = toolbarButton("🎙", v -> toggleVoice());',
+              'compactMic = smallButton("🎙 " + badge(), v -> toggleVoice());',
+              'String label=running?"🎙 "+badge():"🎙";',
               'Button clearField = toolbarButton("×", v -> clearCurrentTextField());',
               'clearField.setContentDescription("Clear text field");',
               'private void clearCurrentTextField(){',
@@ -102,14 +106,18 @@ jobs:
               'root.getLocationInWindow(loc);',
               'enable_endpoint_detection",false',
               'language_hints_strict",true',
-              'versionCode 26',
-              "versionName '1.16'",
+              'versionCode 27',
+              "versionName '1.17'",
           ]
           text = src + '\n' + gradle
           for needle in required:
               if needle not in text:
-                  raise SystemExit(f'Missing v1.16 invariant: {needle}')
+                  raise SystemExit(f'Missing v1.17 invariant: {needle}')
           forbidden = [
+              'Button copy = toolbarButton("Copy", v -> copyCurrentText());',
+              'mic = toolbarButton("🎤", v -> toggleVoice());',
+              'compactMic = smallButton("🎤 " + badge(), v -> toggleVoice());',
+              'String label=running?"🎙 "+badge():"🎤";',
               'toolbarButton("G⇄"',
               'Translate: next build',
               'setContentDescription("Translate")',
@@ -129,16 +137,16 @@ jobs:
               'if (full != null) full.setVisibility(value ? View.GONE : View.VISIBLE);',
               'Floating mode: next build',
               'MAX_CAPTURE_MS',
-              'versionCode 25',
-              "versionName '1.15'",
+              'versionCode 26',
+              "versionName '1.16'",
           ]
           for needle in forbidden:
               if needle in text:
                   raise SystemExit(f'Forbidden old behavior remains: {needle}')
-          print('v1.16 source invariants OK')
+          print('v1.17 source invariants OK')
           PY
 
-      - name: Build Android v1.16 debug APK
+      - name: Build Android v1.17 debug APK
         run: gradle -p android/persian-keyboard-v19 --no-daemon assembleDebug --stacktrace
 
       - name: Verify APK, signer continuity, and metadata
@@ -151,19 +159,19 @@ jobs:
           grep -q 'Signer #1 certificate SHA-256 digest: c557bdc60de4100720d6f122789b51c2889661ef0b76886d5b08c1f44cf023cf' apk-signing.txt
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | head -n 30 | tee apk-badging.txt
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump xmltree "$APK" AndroidManifest.xml > apk-manifest.txt
-          grep -q "package: name='com.najme.perplexityprobe' versionCode='26' versionName='1.16'" apk-badging.txt
+          grep -q "package: name='com.najme.perplexityprobe' versionCode='27' versionName='1.17'" apk-badging.txt
           grep -q 'PersianKeyboardService' apk-manifest.txt
           grep -q 'android.permission.BIND_INPUT_METHOD' apk-manifest.txt
           grep -q 'android.view.InputMethod' apk-manifest.txt
           sha256sum "$APK" | tee apk-sha256.txt
-          cp "$APK" Persian-keyboard-Android-v1.16.apk
+          cp "$APK" Persian-keyboard-Android-v1.17.apk
 
       - name: Upload verified APK and evidence
         uses: actions/upload-artifact@v4
         with:
-          name: Persian-keyboard-Android-v1.16-stable-signed
+          name: Persian-keyboard-Android-v1.17-stable-signed
           path: |
-            Persian-keyboard-Android-v1.16.apk
+            Persian-keyboard-Android-v1.17.apk
             apk-signing.txt
             apk-badging.txt
             apk-manifest.txt
