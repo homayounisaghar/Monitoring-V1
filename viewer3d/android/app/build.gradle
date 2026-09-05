@@ -7,7 +7,7 @@ android {
     compileSdk 35
 
     defaultConfig {
-        applicationId 'com.capabilityfabric.tracepartsgrabber'
+        applicationId 'com.capabilityfabric.viewer3dextractor'
         minSdk 29
         targetSdk 35
         versionCode 3
