@@ -27,3 +27,4 @@ assert "@xml/cp_accessibility_service_v51" in ms
 assert "ControlPlaneAccessibilityServiceV52" not in ms
 m.write_text(ms)
 print("generated v0.50 effort-popup human model bridge; accessibility component remains V51")
+# build trigger after workflow registration
