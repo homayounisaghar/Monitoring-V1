@@ -2,7 +2,6 @@ package com.homayoun.mousebuttontoggle;
 
 import android.content.ContentResolver;
 import android.content.Context;
-import android.content.pm.ApplicationInfo;
 import android.os.Build;
 import android.provider.Settings;
 
@@ -14,25 +13,12 @@ public final class MouseSettingsController {
     }
 
     public static boolean hasWritePermission(Context context) {
-        try {
-            return Settings.System.canWrite(context);
-        } catch (Throwable ignored) {
-            return false;
-        }
+        return Settings.System.canWrite(context);
     }
 
     public static boolean isSamsungDevice() {
         return "samsung".equalsIgnoreCase(Build.MANUFACTURER)
                 || "samsung".equalsIgnoreCase(Build.BRAND);
-    }
-
-    public static int appTargetSdk(Context context) {
-        try {
-            ApplicationInfo info = context.getApplicationInfo();
-            return info == null ? -1 : info.targetSdkVersion;
-        } catch (Throwable ignored) {
-            return -1;
-        }
     }
 
     public static int readPrimaryButton(Context context) {
@@ -46,17 +32,17 @@ public final class MouseSettingsController {
     }
 
     public static int togglePrimaryButtonDirect(Context context) {
+        if (isSamsungDevice()) {
+            throw new IllegalStateException(
+                    "Samsung primary mouse setting is private; use the Samsung Settings helper");
+        }
         if (!hasWritePermission(context)) {
             throw new IllegalStateException("Modify system settings permission is not granted");
         }
         ContentResolver resolver = context.getContentResolver();
         int current = readPrimaryButton(context);
         int next = current == 1 ? 0 : 1;
-        String key = isSamsungDevice() ? SAMSUNG_KEY : AOSP_KEY;
-        String label = isSamsungDevice()
-                ? "Samsung legacy direct primary mouse setting"
-                : "Android primary mouse setting";
-        writeAndVerify(resolver, key, next, label);
+        writeAndVerify(resolver, AOSP_KEY, next, "Android primary mouse setting");
         return next;
     }
 
@@ -71,13 +57,13 @@ public final class MouseSettingsController {
                 + "\ndevice=" + Build.DEVICE
                 + "\nsdk=" + Build.VERSION.SDK_INT
                 + "\nrelease=" + Build.VERSION.RELEASE
-                + "\napp_target_sdk=" + appTargetSdk(context)
                 + "\nselected_backend="
-                + (samsungDevice ? "samsung-legacy-direct" : "android-system-direct")
+                + (samsungDevice ? "samsung-settings-accessibility" : "android-system")
                 + "\nmodify_system_settings=" + hasWritePermission(context)
                 + "\n" + SAMSUNG_KEY + "=" + valueText(samsung)
                 + "\n" + AOSP_KEY + "=" + valueText(aosp)
-                + "\nreported_primary=" + readPrimaryButton(context);
+                + "\nreported_primary=" + readPrimaryButton(context)
+                + "\n" + SamsungMouseAccessibilityService.diagnostics(context);
     }
 
     private static void writeAndVerify(ContentResolver resolver, String key, int value, String label) {
@@ -85,7 +71,7 @@ public final class MouseSettingsController {
         try {
             wrote = Settings.System.putInt(resolver, key, value);
         } catch (SecurityException | IllegalArgumentException e) {
-            throw new IllegalStateException(label + " is blocked by this Android/One UI build: " + message(e), e);
+            throw new IllegalStateException(label + " is blocked by this Android build", e);
         } catch (Throwable e) {
             throw new IllegalStateException(label + " write failed: " + message(e), e);
         }
