@@ -1,0 +1,58 @@
+name: ChatGPT WebView v45 generic telemetry readback
+
+on:
+  push:
+    branches:
+      - project/chatgpt-webview-poc
+    paths:
+      - '.github/workflows/chatgpt-webview-v45-readback-generic.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  readback:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Download v0.43 telemetry metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p telemetry out
+          gh run download 33950193229 \
+            --repo "${GITHUB_REPOSITORY}" \
+            --name chatgpt-webview-v0.43-slider-value-census-stable-diag-telemetry \
+            --dir telemetry
+          test -s telemetry/read-url.txt
+      - name: Fetch collector payloads
+        shell: bash
+        run: |
+          set -euo pipefail
+          URL="$(cat telemetry/read-url.txt)"
+          curl -fsS --retry 3 --retry-delay 2 "$URL" -o out/v45-requests.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          p = Path('out/v45-requests.json')
+          obj = json.loads(p.read_text())
+          data = obj.get('data', [])
+          print(f'V45_READBACK_COUNT={len(data)}')
+          for i, r in enumerate(data):
+              content = r.get('content', '')
+              try:
+                  payload = json.loads(content) if isinstance(content, str) and content else content
+              except Exception:
+                  payload = {'raw_content': content}
+              print(json.dumps({'index': i, 'created_at': r.get('created_at'), 'payload': payload}, ensure_ascii=False, sort_keys=True))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: chatgpt-webview-v45-readback
+          path: out/v45-requests.json
+          if-no-files-found: error
+          retention-days: 7
