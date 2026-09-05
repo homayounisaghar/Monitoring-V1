@@ -63,6 +63,7 @@ jobs:
           python3 tools/apply_v117_copy_icon_mic_emoji_patch.py
           python3 tools/apply_v118_caps_lock_patch.py
           python3 tools/apply_v119_persistent_speech_recovery_patch.py
+          python3 tools/apply_v1191_recovery_retry_race_patch.py
 
       - name: Verify v1.19 source invariants
         working-directory: android/persian-keyboard-v19
@@ -94,6 +95,8 @@ jobs:
               'pendingAudio.peekFirst()',
               'private static final int PREBUFFER_MAX = SAMPLE_RATE * 2 * 60;',
               'main.postDelayed(()->{if(running&&!stopRequested&&!completed)startAudioCapture();},350L);',
+              'if(running&&awaitingCredential&&!speechRecovering)',
+              'speechRecovering=false;startSoniox(apiKey);',
               'enable_endpoint_detection",false',
               'language_hints_strict",true',
               'versionCode 29',
