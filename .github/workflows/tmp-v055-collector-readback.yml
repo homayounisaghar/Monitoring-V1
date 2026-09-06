@@ -1,0 +1,38 @@
+name: TEMP v0.55 collector readback
+
+on:
+  push:
+    branches:
+      - project/chatgpt-webview-poc
+    paths:
+      - .github/workflows/tmp-v055-collector-readback.yml
+
+permissions:
+  contents: read
+
+jobs:
+  readback:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fetch and summarize v0.55 collector
+        env:
+          READ_URL: https://webhook.site/token/a6003add-3f52-440f-91b0-c98821ee8c71/requests?sorting=oldest&per_page=100
+        run: |
+          python3 - <<'PY'
+          import json, os, urllib.request
+          with urllib.request.urlopen(os.environ['READ_URL'], timeout=30) as r:
+              root=json.load(r)
+          rows=root.get('data', [])
+          print('COLLECTOR_TOTAL', root.get('total', len(rows)))
+          print('PAGE_ROWS', len(rows))
+          for i,row in enumerate(rows,1):
+              print('=== REQUEST', i, '===')
+              print('UUID', row.get('uuid','-'))
+              print('CREATED_AT', row.get('created_at','-'))
+              content=row.get('content','')
+              try:
+                  obj=json.loads(content)
+                  print(json.dumps(obj, sort_keys=True, separators=(',',':')))
+              except Exception:
+                  print(content)
+          PY
