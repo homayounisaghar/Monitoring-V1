@@ -1,0 +1,146 @@
+name: ChatGPT WebView Stable v0.72 Semantic Planner Format Repair Unsigned
+
+on:
+  push:
+    branches: [project/chatgpt-webview-poc]
+    paths:
+      - '.github/workflows/chatgpt-webview-stable-v74-semantic-planner-format-repair-unsigned.yml'
+      - 'ci/generate_chatgpt_webview_v74_planner_format_repair.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify checkout identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+
+      - name: Generate v0.72 source
+        run: python3 ci/generate_chatgpt_webview_v74_planner_format_repair.py
+
+      - name: Create fresh telemetry collector
+        shell: bash
+        run: |
+          set -euo pipefail
+          CFG=runtime_probes/chatgpt-webview-stable-probe/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/TelemetryConfigV74.java
+          TOKEN=$(curl -fsS -X POST https://webhook.site/token -H 'Accept: application/json' -H 'Content-Type: application/json' -d '{"default_status":200,"default_content":"OK","default_content_type":"text/plain"}' | python3 -c 'import json,sys;x=json.load(sys.stdin).get("uuid");assert x;print(x)')
+          ENDPOINT="https://webhook.site/$TOKEN"
+          READ="https://webhook.site/token/$TOKEN/requests?sorting=oldest&per_page=100"
+          python3 - "$CFG" "$ENDPOINT" "$GITHUB_SHA" "$TOKEN" <<'PY'
+          from pathlib import Path
+          import re,sys
+          p=Path(sys.argv[1]); s=p.read_text(); ep,sha,cid=sys.argv[2:]
+          s=re.sub(r'WEBHOOK_URL=".*?"',f'WEBHOOK_URL="{ep}"',s)
+          s=re.sub(r'SOURCE_REF=".*?"',f'SOURCE_REF="{sha}"',s)
+          s=re.sub(r'COLLECTOR_ID=".*?"',f'COLLECTOR_ID="{cid}"',s)
+          s=s.replace('CONFIGURED=false','CONFIGURED=true')
+          p.write_text(s)
+          PY
+          mkdir -p ci/v74-planner-format-repair-telemetry
+          printf '%s\n' "$TOKEN" > ci/v74-planner-format-repair-telemetry/collector-id.txt
+          printf '%s\n' "$READ" > ci/v74-planner-format-repair-telemetry/read-url.txt
+          printf '%s\n' "$GITHUB_SHA" > ci/v74-planner-format-repair-telemetry/source-ref.txt
+          printf '{"kind":"BUILD_SMOKE","schema_version":"cp-v74-planner-core-format-repair-v1","scenario_id":"same-apk-semantic-planner-core-format-repair","blind_build_marker":"PUZZLE_UNKNOWN_AT_BUILD_TIME","control_sync":"EVENT_DRIVEN_NO_FIXED_DELAY_POLL_TIMEOUT","audit":"PLANNER_FORMAT_REPAIR_HARDENED"}\n' | curl -fsS -X POST "$ENDPOINT" -H 'Content-Type: application/json' --data-binary @- >/dev/null
+
+      - name: End-to-end parser and execution contract audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT=runtime_probes/chatgpt-webview-stable-probe
+          PKG=$ROOT/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe
+          ACT=$PKG/OrchestratorPlannerCoreV74Activity.java
+          MAN=$ROOT/app/src/main/AndroidManifest.xml
+          GRADLE=$ROOT/app/build.gradle
+          grep -Fq "applicationId 'com.homayounisaghar.chatgptwebviewprobe.diag'" "$GRADLE"
+          grep -Fq 'versionCode 75' "$GRADLE"
+          grep -Fq "versionName '0.72-stable-diag-semantic-planner-format-repair'" "$GRADLE"
+          grep -Fq 'OrchestratorPlannerCoreV74Activity' "$MAN"
+          grep -Fq 'ControlPlaneAccessibilityServiceV51' "$MAN"
+          grep -Fq '@xml/cp_accessibility_service_v51' "$MAN"
+          grep -Fq 'buildPlannerFormatRepairPrompt' "$ACT"
+          grep -Fq 'plannerFormatRepairAttempts<1' "$ACT"
+          grep -Fq 'PLANNER_RESPONSE_FORMAT_REPAIR_REQUESTED' "$ACT"
+          grep -Fq 'PLANNER_RESPONSE_INVALID_AFTER_FORMAT_REPAIR' "$ACT"
+          grep -Fq 'PLANNER_RESPONSE_AMBIGUOUS_MULTIPLE_ACTIONS' "$ACT"
+          grep -Fq 'planner_parse_segments' "$ACT"
+          grep -Fq 'FORMAT_ERROR' "$ACT"
+          grep -Fq 'autoWriteAndSend(repair,"PLANNER_PROMPT")' "$ACT"
+          grep -Fq 'executePlannerAction(action,o);' "$ACT"
+          grep -Fq 'pageFinishedEpoch==documentEpoch' "$ACT"
+          grep -Fq 'if(serial!=activeReadSerial||epoch!=documentEpoch)return;' "$ACT"
+          grep -Fq 'PLANNER_ACTION_SOURCE_NOT_PROVEN_FRESH_TEMP' "$ACT"
+          grep -Fq 'PASS_TARGET_RESPONSE_COMPLETE_BY_ACTION_RECEIPT' "$ACT"
+          test "$(grep -o '\.click();' "$ACT" | wc -l)" -eq 2
+          for bad in postDelayed Thread.sleep 'setTimeout(' 'setInterval(' SAMPLE_MS SEND_POLL_MS RESPONSE_TIMEOUT_MS ScheduledExecutorService TimerTask pollPlannerNormalHome pollPlannerTempReceipt pollAutoComposerReceipt pollAutoSendReceipt pollAutoResponse pollPlannerNavReceipt pollSendReceipt confirmAutoSendReceipt elementFromPoint document.evaluate dispatchTouchEvent 'performClick(' ACTION_SET_PROGRESS CookieManager 'getCookie(' addJavascriptInterface; do
+            ! grep -Fq "$bad" "$ACT"
+          done
+          python3 - "$ACT" <<'PY'
+          import pathlib,sys
+          s=pathlib.Path(sys.argv[1]).read_text()
+          assert 'The first character of your response MUST be {' in s
+          assert 'Do NOT re-plan, reconsider, choose a different action' in s
+          assert 'if(plannerParseValidCount>1)' in s
+          assert 'if(plannerFormatRepairAttempts<1)' in s
+          assert 'autoWriteAndSend(repair,"PLANNER_PROMPT");return;' in s
+          assert 'executePlannerAction(action,o);' in s
+          assert 'pageFinishedReady&&pageFinishedEpoch==documentEpoch' in s
+          assert 'plannerPhase="WAIT_PLANNER_NAV_RECEIPT";web.loadUrl("https://chatgpt.com"+path);plannerActionInFlight=false;' in s
+          print('PASS v0.72 parser-family + execution-family static audit')
+          PY
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+
+      - name: Build and prove exact artifact identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          sdkmanager "platforms;android-35" "build-tools;35.0.0"
+          echo "sdk.dir=$ANDROID_SDK_ROOT" > runtime_probes/chatgpt-webview-stable-probe/local.properties
+          curl -fsSL https://services.gradle.org/distributions/gradle-8.10.2-bin.zip -o /tmp/gradle.zip
+          unzip -q /tmp/gradle.zip -d /tmp
+          cd runtime_probes/chatgpt-webview-stable-probe
+          /tmp/gradle-8.10.2/bin/gradle --no-daemon :app:assembleRelease --stacktrace
+          cd ../..
+          OUT=ci/v74-planner-format-repair-out
+          mkdir -p "$OUT"
+          UNSIGNED=runtime_probes/chatgpt-webview-stable-probe/app/build/outputs/apk/release/app-release-unsigned.apk
+          ALIGNED="$OUT/chatgpt-webview-v0.72-semantic-planner-format-repair-exact-source-aligned-unsigned.apk"
+          BT="$ANDROID_SDK_ROOT/build-tools/35.0.0"
+          "$BT/zipalign" -f -p 4 "$UNSIGNED" "$ALIGNED"
+          "$BT/zipalign" -c -v 4 "$ALIGNED" > "$OUT/zipalign-verify.txt"
+          "$BT/aapt" dump badging "$ALIGNED" > "$OUT/badging.txt"
+          "$BT/aapt" dump permissions "$ALIGNED" > "$OUT/permissions.txt"
+          grep -Fq "package: name='com.homayounisaghar.chatgptwebviewprobe.diag' versionCode='75' versionName='0.72-stable-diag-semantic-planner-format-repair'" "$OUT/badging.txt"
+          grep -Fq "launchable-activity: name='com.homayounisaghar.chatgptwebviewprobe.OrchestratorPlannerCoreV74Activity'" "$OUT/badging.txt"
+          test "$(grep -c '^uses-permission:' "$OUT/permissions.txt")" -eq 3
+          printf '%s\n' "$GITHUB_SHA" > "$OUT/SOURCE_REF.txt"
+          printf '%s\n' 'PUZZLE_UNKNOWN_AT_BUILD_TIME' > "$OUT/BLIND_BUILD_MARKER.txt"
+          printf '%s\n' 'EVENT_DRIVEN_NO_FIXED_DELAY_POLL_TIMEOUT' > "$OUT/CONTROL_SYNC.txt"
+          printf '%s\n' 'b7aea08158252dcad79345608ce2e76e970e4cf613414db299579f46d9924c48' > "$OUT/EXPECTED_SIGNER_CERT_SHA256.txt"
+          sha256sum "$ALIGNED" > "$OUT/ALIGNED_UNSIGNED_SHA256.txt"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: chatgpt-webview-v0.72-semantic-planner-format-repair-${{ github.run_id }}-unsigned
+          path: ci/v74-planner-format-repair-out
+          if-no-files-found: error
+          retention-days: 30
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: chatgpt-webview-v0.72-semantic-planner-format-repair-${{ github.run_id }}-telemetry
+          path: ci/v74-planner-format-repair-telemetry
+          if-no-files-found: error
+          retention-days: 30
