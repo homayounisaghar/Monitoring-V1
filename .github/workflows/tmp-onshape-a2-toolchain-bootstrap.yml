@@ -60,7 +60,7 @@ jobs:
           echo "sdk.dir=$ANDROID_SDK_ROOT" > "$D/local.properties"
           cd "$D"
           /tmp/gradle-8.10.2/bin/gradle --no-daemon :app:testDebugUnitTest :app:assembleRelease
-      - name: Package source-agnostic offline toolchain
+      - name: Package and split source-agnostic offline toolchain
         shell: bash
         run: |
           set -euo pipefail
@@ -76,11 +76,35 @@ jobs:
           printf '%s\n' 'AGP=8.8.2' 'GRADLE=8.10.2' 'COMPILE_SDK=35' 'BUILD_TOOLS=35.0.0' 'OKHTTP=4.12.0' 'JUNIT=4.13.2' 'ORG_JSON=20240303' > "$OUT/TOOLCHAIN_CONTRACT.txt"
           tar -C /tmp -czf /tmp/onshape-a2-android-toolchain.tar.gz a2-toolchain
           sha256sum /tmp/onshape-a2-android-toolchain.tar.gz > /tmp/onshape-a2-android-toolchain.tar.gz.sha256
+          split -b 180M /tmp/onshape-a2-android-toolchain.tar.gz /tmp/onshape-a2-toolchain.part-
+          ls -lh /tmp/onshape-a2-toolchain.part-*
       - uses: actions/upload-artifact@v4
         with:
-          name: onshape-a2-android-toolchain
-          path: |
-            /tmp/onshape-a2-android-toolchain.tar.gz
-            /tmp/onshape-a2-android-toolchain.tar.gz.sha256
+          name: onshape-a2-toolchain-part-aa
+          path: /tmp/onshape-a2-toolchain.part-aa
+          if-no-files-found: error
+          retention-days: 1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: onshape-a2-toolchain-part-ab
+          path: /tmp/onshape-a2-toolchain.part-ab
+          if-no-files-found: error
+          retention-days: 1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: onshape-a2-toolchain-part-ac
+          path: /tmp/onshape-a2-toolchain.part-ac
+          if-no-files-found: error
+          retention-days: 1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: onshape-a2-toolchain-part-ad
+          path: /tmp/onshape-a2-toolchain.part-ad
+          if-no-files-found: error
+          retention-days: 1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: onshape-a2-toolchain-sha256
+          path: /tmp/onshape-a2-android-toolchain.tar.gz.sha256
           if-no-files-found: error
           retention-days: 1
