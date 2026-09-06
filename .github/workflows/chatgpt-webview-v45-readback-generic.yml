@@ -1,4 +1,4 @@
-name: ChatGPT WebView v45 generic telemetry readback
+name: ChatGPT WebView generic telemetry readback
 
 on:
   push:
@@ -7,6 +7,15 @@ on:
     paths:
       - '.github/workflows/chatgpt-webview-v45-readback-generic.yml'
   workflow_dispatch:
+    inputs:
+      run_id:
+        description: 'Stage A workflow run id that owns the telemetry artifact'
+        required: true
+        default: '34030881699'
+      artifact_name:
+        description: 'Exact telemetry artifact name from that run'
+        required: true
+        default: 'chatgpt-webview-v0.71-semantic-planner-execution-hardened-34030881699-telemetry'
 
 permissions:
   contents: read
@@ -18,30 +27,36 @@ jobs:
     timeout-minutes: 5
     env:
       GH_TOKEN: ${{ github.token }}
+      TARGET_RUN_ID: ${{ github.event_name == 'workflow_dispatch' && inputs.run_id || '34030881699' }}
+      TARGET_ARTIFACT_NAME: ${{ github.event_name == 'workflow_dispatch' && inputs.artifact_name || 'chatgpt-webview-v0.71-semantic-planner-execution-hardened-34030881699-telemetry' }}
     steps:
-      - name: Download v0.43 telemetry metadata
+      - name: Download telemetry metadata
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p telemetry out
-          gh run download 33950193229 \
+          gh run download "$TARGET_RUN_ID" \
             --repo "${GITHUB_REPOSITORY}" \
-            --name chatgpt-webview-v0.43-slider-value-census-stable-diag-telemetry \
+            --name "$TARGET_ARTIFACT_NAME" \
             --dir telemetry
           test -s telemetry/read-url.txt
+          test -s telemetry/source-ref.txt
+          printf 'TARGET_RUN_ID=%s\n' "$TARGET_RUN_ID"
+          printf 'TARGET_ARTIFACT_NAME=%s\n' "$TARGET_ARTIFACT_NAME"
+          printf 'SOURCE_REF=%s\n' "$(cat telemetry/source-ref.txt)"
       - name: Fetch collector payloads
         shell: bash
         run: |
           set -euo pipefail
           URL="$(cat telemetry/read-url.txt)"
-          curl -fsS --retry 3 --retry-delay 2 "$URL" -o out/v45-requests.json
+          curl -fsS --retry 3 --retry-delay 2 "$URL" -o out/requests.json
           python3 - <<'PY'
           import json
           from pathlib import Path
-          p = Path('out/v45-requests.json')
+          p = Path('out/requests.json')
           obj = json.loads(p.read_text())
           data = obj.get('data', [])
-          print(f'V45_READBACK_COUNT={len(data)}')
+          print(f'READBACK_COUNT={len(data)}')
           for i, r in enumerate(data):
               content = r.get('content', '')
               try:
@@ -52,7 +67,7 @@ jobs:
           PY
       - uses: actions/upload-artifact@v4
         with:
-          name: chatgpt-webview-v45-readback
-          path: out/v45-requests.json
+          name: chatgpt-webview-telemetry-readback-${{ github.run_id }}
+          path: out/requests.json
           if-no-files-found: error
           retention-days: 7
