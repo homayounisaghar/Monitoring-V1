@@ -104,20 +104,18 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          OUT="$RUNNER_TEMP/android-offline-toolchain"
-          mkdir -p "$OUT/android-sdk/platforms" "$OUT/android-sdk/build-tools" "$OUT/gradle-home"
+          CORE="$RUNNER_TEMP/android-offline-core"
+          CACHE="$RUNNER_TEMP/android-offline-cache"
+          mkdir -p "$CORE/android-sdk/platforms" "$CORE/android-sdk/build-tools" "$CACHE/gradle-home"
 
           GRADLE_BIN=$(readlink -f "$(command -v gradle)")
           GRADLE_ROOT=$(cd "$(dirname "$GRADLE_BIN")/.." && pwd)
-          cp -a "$GRADLE_ROOT" "$OUT/gradle"
-          cp -a "$ANDROID_SDK_ROOT/platforms/android-35" "$OUT/android-sdk/platforms/"
-          cp -a "$ANDROID_SDK_ROOT/build-tools/35.0.0" "$OUT/android-sdk/build-tools/"
+          cp -a "$GRADLE_ROOT" "$CORE/gradle"
+          cp -a "$ANDROID_SDK_ROOT/platforms/android-35" "$CORE/android-sdk/platforms/"
+          cp -a "$ANDROID_SDK_ROOT/build-tools/35.0.0" "$CORE/android-sdk/build-tools/"
+          cp -a "$HOME/.gradle/caches" "$CACHE/gradle-home/"
 
-          # Preserve the exact dependency/plugin cache hydrated above so the
-          # downstream private/local build can run with --offline and no network.
-          cp -a "$HOME/.gradle/caches" "$OUT/gradle-home/"
-
-          cat > "$OUT/TOOLCHAIN_MANIFEST.txt" <<EOF
+          cat > "$CORE/TOOLCHAIN_MANIFEST.txt" <<EOF
           gradle=8.10.2
           agp=8.8.2
           compileSdk=35
@@ -127,15 +125,28 @@ jobs:
           purpose=offline private Android compile without publishing private source
           EOF
 
-          tar -C "$RUNNER_TEMP" -czf "$GITHUB_WORKSPACE/android-offline-toolchain-agp882-api35.tar.gz" android-offline-toolchain
-          sha256sum "$GITHUB_WORKSPACE/android-offline-toolchain-agp882-api35.tar.gz" > "$GITHUB_WORKSPACE/android-offline-toolchain-agp882-api35.tar.gz.sha256"
+          tar -C "$RUNNER_TEMP" -czf "$GITHUB_WORKSPACE/android-offline-core-agp882-api35.tar.gz" android-offline-core
+          tar -C "$RUNNER_TEMP" -czf "$GITHUB_WORKSPACE/android-offline-gradle-cache-agp882.tar.gz" android-offline-cache
+          sha256sum "$GITHUB_WORKSPACE/android-offline-core-agp882-api35.tar.gz" > "$GITHUB_WORKSPACE/android-offline-core-agp882-api35.tar.gz.sha256"
+          sha256sum "$GITHUB_WORKSPACE/android-offline-gradle-cache-agp882.tar.gz" > "$GITHUB_WORKSPACE/android-offline-gradle-cache-agp882.tar.gz.sha256"
+          ls -lh "$GITHUB_WORKSPACE"/*.tar.gz
 
-      - name: Upload toolchain bundle
+      - name: Upload core toolchain
         uses: actions/upload-artifact@v4
         with:
-          name: android-offline-toolchain-agp882-api35
+          name: android-offline-core-agp882-api35
           path: |
-            android-offline-toolchain-agp882-api35.tar.gz
-            android-offline-toolchain-agp882-api35.tar.gz.sha256
+            android-offline-core-agp882-api35.tar.gz
+            android-offline-core-agp882-api35.tar.gz.sha256
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Upload Gradle dependency cache
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-offline-gradle-cache-agp882
+          path: |
+            android-offline-gradle-cache-agp882.tar.gz
+            android-offline-gradle-cache-agp882.tar.gz.sha256
           if-no-files-found: error
           retention-days: 7
