@@ -23,15 +23,17 @@ jobs:
         run: |
           set -euo pipefail
           sdkmanager "build-tools;35.0.0"
+          BT="$ANDROID_SDK_ROOT/build-tools/35.0.0"
           mkdir -p out/lib
-          cp "$ANDROID_SDK_ROOT/build-tools/35.0.0/apksigner" out/apksigner
-          cp "$ANDROID_SDK_ROOT/build-tools/35.0.0/lib/apksigner.jar" out/lib/apksigner.jar
-          cp "$ANDROID_SDK_ROOT/build-tools/35.0.0/zipalign" out/zipalign
-          cp "$ANDROID_SDK_ROOT/build-tools/35.0.0/aapt" out/aapt
+          cp "$BT/apksigner" out/apksigner
+          cp "$BT/lib/apksigner.jar" out/lib/apksigner.jar
+          cp "$BT/zipalign" out/zipalign
+          cp "$BT/aapt" out/aapt
+          cp -a "$BT/lib64" out/lib64
           chmod +x out/apksigner out/zipalign out/aapt
           out/apksigner version > out/version.txt
           out/zipalign -h > out/zipalign-help.txt 2>&1 || true
-          out/aapt version > out/aapt-version.txt
+          LD_LIBRARY_PATH="$PWD/out/lib64${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" out/aapt version > out/aapt-version.txt
       - uses: actions/upload-artifact@v4
         with:
           name: android-apksigner-35
