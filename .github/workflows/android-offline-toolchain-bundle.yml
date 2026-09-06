@@ -44,7 +44,7 @@ jobs:
         run: |
           set -euo pipefail
           P="$RUNNER_TEMP/offline-probe"
-          mkdir -p "$P/app/src/main/java/dev/probe"
+          mkdir -p "$P/app/src/main/java/dev/probe" "$P/app/src/test/java/dev/probe"
           cat > "$P/settings.gradle.kts" <<'EOF'
           pluginManagement {
               repositories {
@@ -96,6 +96,17 @@ jobs:
           EOF
           cat > "$P/app/src/main/java/dev/probe/Probe.java" <<'EOF'
           package dev.probe; public final class Probe { private Probe() {} }
+          EOF
+          cat > "$P/app/src/test/java/dev/probe/DependencyProbeTest.java" <<'EOF'
+          package dev.probe;
+          import org.json.JSONObject;
+          import org.junit.Test;
+          import static org.junit.Assert.assertEquals;
+          public final class DependencyProbeTest {
+              @Test public void resolvesTestDependencies() throws Exception {
+                  assertEquals(1, new JSONObject("{\"value\":1}").getInt("value"));
+              }
+          }
           EOF
           cd "$P"
           gradle --no-daemon :app:assembleRelease :app:testDebugUnitTest
