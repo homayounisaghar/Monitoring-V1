@@ -1,0 +1,30 @@
+name: Temporary v0.67 telemetry readback
+on:
+  push:
+    branches: [project/chatgpt-webview-poc]
+    paths: ['.github/workflows/tmp-v067-telemetry-readback.yml']
+permissions:
+  contents: read
+jobs:
+  readback:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Read sanitized collector telemetry
+        shell: bash
+        env:
+          COLLECTOR_ID: 9369afe1-d81a-43f7-acc7-3bf8697e7971
+        run: |
+          set -euo pipefail
+          curl -fsS "https://webhook.site/token/${COLLECTOR_ID}/requests?sorting=oldest&per_page=100" -o telemetry.json
+          python3 - <<'PY'
+          import json
+          p='telemetry.json'
+          x=json.load(open(p))
+          print('count', len(x.get('data', [])))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v067-telemetry-readback
+          path: telemetry.json
+          if-no-files-found: error
+          retention-days: 1
