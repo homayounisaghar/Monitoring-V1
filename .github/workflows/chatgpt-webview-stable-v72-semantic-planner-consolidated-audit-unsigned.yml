@@ -1,0 +1,155 @@
+name: ChatGPT WebView Stable v0.70 Semantic Planner Consolidated Audit Unsigned
+
+on:
+  push:
+    branches: [project/chatgpt-webview-poc]
+    paths:
+      - '.github/workflows/chatgpt-webview-stable-v72-semantic-planner-consolidated-audit-unsigned.yml'
+      - 'ci/generate_chatgpt_webview_v72_planner_consolidated_audit.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify checkout identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+
+      - name: Generate v0.70 source
+        run: python3 ci/generate_chatgpt_webview_v72_planner_consolidated_audit.py
+
+      - name: Create fresh telemetry collector
+        shell: bash
+        run: |
+          set -euo pipefail
+          CFG=runtime_probes/chatgpt-webview-stable-probe/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/TelemetryConfigV72.java
+          TOKEN=$(curl -fsS -X POST https://webhook.site/token -H 'Accept: application/json' -H 'Content-Type: application/json' -d '{"default_status":200,"default_content":"OK","default_content_type":"text/plain"}' | python3 -c 'import json,sys;x=json.load(sys.stdin).get("uuid");assert x;print(x)')
+          ENDPOINT="https://webhook.site/$TOKEN"
+          READ="https://webhook.site/token/$TOKEN/requests?sorting=oldest&per_page=100"
+          python3 - "$CFG" "$ENDPOINT" "$GITHUB_SHA" "$TOKEN" <<'PY'
+          from pathlib import Path
+          import re,sys
+          p=Path(sys.argv[1]); s=p.read_text(); ep,sha,cid=sys.argv[2:]
+          s=re.sub(r'WEBHOOK_URL=".*?"',f'WEBHOOK_URL="{ep}"',s)
+          s=re.sub(r'SOURCE_REF=".*?"',f'SOURCE_REF="{sha}"',s)
+          s=re.sub(r'COLLECTOR_ID=".*?"',f'COLLECTOR_ID="{cid}"',s)
+          s=s.replace('CONFIGURED=false','CONFIGURED=true')
+          p.write_text(s)
+          PY
+          mkdir -p ci/v72-planner-consolidated-telemetry
+          printf '%s\n' "$TOKEN" > ci/v72-planner-consolidated-telemetry/collector-id.txt
+          printf '%s\n' "$READ" > ci/v72-planner-consolidated-telemetry/read-url.txt
+          printf '%s\n' "$GITHUB_SHA" > ci/v72-planner-consolidated-telemetry/source-ref.txt
+          printf '{"kind":"BUILD_SMOKE","schema_version":"cp-v72-planner-core-consolidated-v1","scenario_id":"same-apk-semantic-planner-core-consolidated-audit","blind_build_marker":"PUZZLE_UNKNOWN_AT_BUILD_TIME","control_sync":"EVENT_DRIVEN_NO_FIXED_DELAY_POLL_TIMEOUT","audit":"CONSOLIDATED_V70"}\n' | curl -fsS -X POST "$ENDPOINT" -H 'Content-Type: application/json' --data-binary @- >/dev/null
+
+      - name: Consolidated contract audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT=runtime_probes/chatgpt-webview-stable-probe
+          PKG=$ROOT/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe
+          ACT=$PKG/OrchestratorPlannerCoreV72Activity.java
+          MAN=$ROOT/app/src/main/AndroidManifest.xml
+          GRADLE=$ROOT/app/build.gradle
+          grep -Fq "applicationId 'com.homayounisaghar.chatgptwebviewprobe.diag'" "$GRADLE"
+          grep -Fq 'versionCode 73' "$GRADLE"
+          grep -Fq "versionName '0.70-stable-diag-semantic-planner-consolidated-audit'" "$GRADLE"
+          grep -Fq 'OrchestratorPlannerCoreV72Activity' "$MAN"
+          grep -Fq 'ControlPlaneAccessibilityServiceV51' "$MAN"
+          grep -Fq '@xml/cp_accessibility_service_v51' "$MAN"
+          grep -Fq 'WAIT_PLANNER_CONTENT_READY' "$ACT"
+          grep -Fq 'PASS_PLANNER_SEMANTIC_CONTENT_HYDRATED' "$ACT"
+          grep -Fq 'composer_resolution_mode' "$ACT"
+          grep -Fq 'prompt-textarea' "$ACT"
+          grep -Fq 'PLANNER_RESPONSE_READY' "$ACT"
+          grep -Fq 'PLAN_ACCEPTED' "$ACT"
+          grep -Fq 'TARGET_ROUTE_PLUS_ASSISTANT_EVENT' "$ACT"
+          grep -Fq 'WRAPPED_ONE_VALID_ACTION' "$ACT"
+          grep -Fq 'diagnosticRing' "$ACT"
+          grep -Fq 'shouldRemoteEmit' "$ACT"
+          grep -Fq 'CONTROL_READ_FAILED_FAIL_CLOSED' "$ACT"
+          grep -Fq 'window.__cpEventPort=ev.ports[0]' "$ACT"
+          ! grep -Fq '[contenteditable=true]' "$ACT"
+          ! grep -Fq 'responseArmedAtMs' "$ACT"
+          ! grep -Fq 'responseStableHits' "$ACT"
+          ! grep -Fq 'responseTimeoutEmitted' "$ACT"
+          test "$(grep -o '\.click();' "$ACT" | wc -l)" -eq 2
+          for bad in postDelayed Thread.sleep 'setTimeout(' 'setInterval(' SAMPLE_MS SEND_POLL_MS RESPONSE_TIMEOUT_MS ScheduledExecutorService TimerTask pollPlannerNormalHome pollPlannerTempReceipt pollAutoComposerReceipt pollAutoSendReceipt pollAutoResponse pollPlannerNavReceipt pollSendReceipt confirmAutoSendReceipt elementFromPoint document.evaluate dispatchTouchEvent 'performClick(' ACTION_SET_PROGRESS CookieManager 'getCookie(' addJavascriptInterface; do
+            ! grep -Fq "$bad" "$ACT"
+          done
+          ! grep -Fq 'Tehran' "$ACT"
+          ! grep -Fq 'تهران' "$ACT"
+          test "$(grep -c '<uses-permission' "$MAN")" -eq 3
+          python3 - "$ACT" <<'PY'
+          import pathlib,re,sys
+          s=pathlib.Path(sys.argv[1]).read_text()
+          # Prompt source must produce real JSON examples at runtime, not literal backslash-quoted JSON.
+          line=next(x for x in s.splitlines() if 'String rules=' in x)
+          assert 'Allowed actions: {\\"version\\":1' in line
+          assert 'Allowed actions: {\\\\\\"version' not in line
+          # Route receipt is not authorization to write; semantic hydration is a separate state.
+          assert 'WAIT_PLANNER_NAV_RECEIPT' in s and 'WAIT_PLANNER_CONTENT_READY' in s
+          assert 'composer_candidate_count",0)==1' in s and 'turn_count",0)>=plannerNavExpectedMinTurns' in s
+          # Completed Planner response is consumed before execution, preventing repeated DOM-event re-entry.
+          assert 'plannerPhase="PLANNER_RESPONSE_READY"' in s
+          assert 'plannerPhase="PLAN_ACCEPTED"' in s
+          # One bounded action among unrelated JSON is accepted; >1 bounded actions remains rejected by valid!=1.
+          assert 'if(valid!=1)return null;' in s
+          print('PASS consolidated static audit')
+          PY
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+
+      - name: Build and prove exact artifact identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          sdkmanager "platforms;android-35" "build-tools;35.0.0"
+          echo "sdk.dir=$ANDROID_SDK_ROOT" > runtime_probes/chatgpt-webview-stable-probe/local.properties
+          curl -fsSL https://services.gradle.org/distributions/gradle-8.10.2-bin.zip -o /tmp/gradle.zip
+          unzip -q /tmp/gradle.zip -d /tmp
+          cd runtime_probes/chatgpt-webview-stable-probe
+          /tmp/gradle-8.10.2/bin/gradle --no-daemon :app:assembleRelease --stacktrace
+          cd ../..
+          OUT=ci/v72-planner-consolidated-out
+          mkdir -p "$OUT"
+          UNSIGNED=runtime_probes/chatgpt-webview-stable-probe/app/build/outputs/apk/release/app-release-unsigned.apk
+          ALIGNED="$OUT/chatgpt-webview-v0.70-semantic-planner-consolidated-audit-exact-source-aligned-unsigned.apk"
+          BT="$ANDROID_SDK_ROOT/build-tools/35.0.0"
+          "$BT/zipalign" -f -p 4 "$UNSIGNED" "$ALIGNED"
+          "$BT/zipalign" -c -v 4 "$ALIGNED" > "$OUT/zipalign-verify.txt"
+          "$BT/aapt" dump badging "$ALIGNED" > "$OUT/badging.txt"
+          "$BT/aapt" dump permissions "$ALIGNED" > "$OUT/permissions.txt"
+          grep -Fq "package: name='com.homayounisaghar.chatgptwebviewprobe.diag' versionCode='73' versionName='0.70-stable-diag-semantic-planner-consolidated-audit'" "$OUT/badging.txt"
+          grep -Fq "launchable-activity: name='com.homayounisaghar.chatgptwebviewprobe.OrchestratorPlannerCoreV72Activity'" "$OUT/badging.txt"
+          test "$(grep -c '^uses-permission:' "$OUT/permissions.txt")" -eq 3
+          printf '%s\n' "$GITHUB_SHA" > "$OUT/SOURCE_REF.txt"
+          printf '%s\n' 'PUZZLE_UNKNOWN_AT_BUILD_TIME' > "$OUT/BLIND_BUILD_MARKER.txt"
+          printf '%s\n' 'EVENT_DRIVEN_NO_FIXED_DELAY_POLL_TIMEOUT' > "$OUT/CONTROL_SYNC.txt"
+          sha256sum "$ALIGNED" > "$OUT/ALIGNED_UNSIGNED_SHA256.txt"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: chatgpt-webview-v0.70-semantic-planner-consolidated-audit-${{ github.run_id }}-unsigned
+          path: ci/v72-planner-consolidated-out
+          if-no-files-found: error
+          retention-days: 30
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: chatgpt-webview-v0.70-semantic-planner-consolidated-audit-${{ github.run_id }}-telemetry
+          path: ci/v72-planner-consolidated-telemetry
+          if-no-files-found: error
+          retention-days: 30
