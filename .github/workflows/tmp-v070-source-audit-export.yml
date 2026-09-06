@@ -1,0 +1,27 @@
+name: Temporary v0.70 exact source audit export
+on:
+  push:
+    branches: [project/chatgpt-webview-poc]
+    paths: ['.github/workflows/tmp-v070-source-audit-export.yml']
+permissions:
+  contents: read
+jobs:
+  export:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Generate exact v0.70 source
+        run: python3 ci/generate_chatgpt_webview_v72_planner_consolidated_audit.py
+      - name: Export audit source
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p audit
+          cp runtime_probes/chatgpt-webview-stable-probe/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/OrchestratorPlannerCoreV72Activity.java audit/
+          cp runtime_probes/chatgpt-webview-stable-probe/app/src/main/AndroidManifest.xml audit/
+          cp runtime_probes/chatgpt-webview-stable-probe/app/build.gradle audit/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v070-exact-generated-source-audit
+          path: audit
+          retention-days: 1
