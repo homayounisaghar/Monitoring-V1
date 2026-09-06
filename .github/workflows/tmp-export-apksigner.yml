@@ -1,0 +1,34 @@
+name: Temporary Export Android apksigner
+
+on:
+  push:
+    branches: [project/chatgpt-webview-poc]
+    paths:
+      - '.github/workflows/tmp-export-apksigner.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  export:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: android-actions/setup-android@v3
+      - name: Install and package official apksigner
+        shell: bash
+        run: |
+          set -euo pipefail
+          sdkmanager "build-tools;35.0.0"
+          BT="$ANDROID_SDK_ROOT/build-tools/35.0.0"
+          mkdir -p out/lib
+          cp "$BT/apksigner" out/apksigner
+          cp "$BT/lib/apksigner.jar" out/lib/apksigner.jar
+          chmod +x out/apksigner
+          sha256sum out/apksigner out/lib/apksigner.jar > out/SHA256.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: official-android-apksigner-35.0.0-${{ github.run_id }}
+          path: out
+          if-no-files-found: error
+          retention-days: 1
