@@ -1,0 +1,174 @@
+name: ChatGPT WebView Stable v0.67 Semantic Planner Event Driven Final Unsigned
+
+on:
+  push:
+    branches: [project/chatgpt-webview-poc]
+    paths:
+      - '.github/workflows/chatgpt-webview-stable-v69-semantic-planner-event-driven-final-unsigned.yml'
+      - 'ci/generate_chatgpt_webview_v69_planner_event_driven_final.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify checkout identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+
+      - name: Generate v0.67 final source
+        run: python3 ci/generate_chatgpt_webview_v69_planner_event_driven_final.py
+
+      - name: Create fresh telemetry collector
+        shell: bash
+        run: |
+          set -euo pipefail
+          CFG=runtime_probes/chatgpt-webview-stable-probe/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/TelemetryConfigV69.java
+          TOKEN=$(curl -fsS -X POST https://webhook.site/token -H 'Accept: application/json' -H 'Content-Type: application/json' -d '{"default_status":200,"default_content":"OK","default_content_type":"text/plain"}' | python3 -c 'import json,sys;x=json.load(sys.stdin).get("uuid");assert x;print(x)')
+          ENDPOINT="https://webhook.site/$TOKEN"
+          READ="https://webhook.site/token/$TOKEN/requests?sorting=oldest&per_page=100"
+          python3 - "$CFG" "$ENDPOINT" "$GITHUB_SHA" "$TOKEN" <<'PY'
+          from pathlib import Path
+          import re,sys
+          p=Path(sys.argv[1]); s=p.read_text(); ep,sha,cid=sys.argv[2:]
+          s=re.sub(r'WEBHOOK_URL=".*?"',f'WEBHOOK_URL="{ep}"',s)
+          s=re.sub(r'SOURCE_REF=".*?"',f'SOURCE_REF="{sha}"',s)
+          s=re.sub(r'COLLECTOR_ID=".*?"',f'COLLECTOR_ID="{cid}"',s)
+          s=s.replace('CONFIGURED=false','CONFIGURED=true')
+          p.write_text(s)
+          PY
+          mkdir -p ci/v69-semantic-planner-event-driven-final-telemetry
+          printf '%s\n' "$TOKEN" > ci/v69-semantic-planner-event-driven-final-telemetry/collector-id.txt
+          printf '%s\n' "$READ" > ci/v69-semantic-planner-event-driven-final-telemetry/read-url.txt
+          printf '%s\n' "$GITHUB_SHA" > ci/v69-semantic-planner-event-driven-final-telemetry/source-ref.txt
+          printf '{"kind":"BUILD_SMOKE","schema_version":"cp-v69-planner-core-event-driven-v1","scenario_id":"same-apk-semantic-planner-core-event-driven","blind_build_marker":"PUZZLE_UNKNOWN_AT_BUILD_TIME","control_sync":"EVENT_DRIVEN_NO_FIXED_DELAY_POLL_TIMEOUT","source_ref":"%s"}\n' "$GITHUB_SHA" | curl -fsS -X POST "$ENDPOINT" -H 'Content-Type: application/json' --data-binary @- >/dev/null
+
+      - name: Contract checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT=runtime_probes/chatgpt-webview-stable-probe
+          PKG=$ROOT/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe
+          ACT=$PKG/OrchestratorPlannerCoreV69Activity.java
+          MAN=$ROOT/app/src/main/AndroidManifest.xml
+          GRADLE=$ROOT/app/build.gradle
+
+          grep -Fq "applicationId 'com.homayounisaghar.chatgptwebviewprobe.diag'" "$GRADLE"
+          grep -Fq 'versionCode 70' "$GRADLE"
+          grep -Fq "versionName '0.67-stable-diag-semantic-planner-event-driven'" "$GRADLE"
+          grep -Fq 'OrchestratorPlannerCoreV69Activity' "$MAN"
+          grep -Fq 'ControlPlaneAccessibilityServiceV51' "$MAN"
+          grep -Fq '@xml/cp_accessibility_service_v51' "$MAN"
+          ! grep -Fq 'ControlPlaneAccessibilityServiceV69' "$MAN"
+          ! grep -Fq 'REQUEST_INSTALL_PACKAGES' "$MAN"
+          ! grep -Fq 'UPDATE_PACKAGES_WITHOUT_USER_ACTION' "$MAN"
+
+          grep -Fq 'PUZZLE_UNKNOWN_AT_BUILD_TIME' "$ACT"
+          grep -Fq 'WebMessagePort' "$ACT"
+          grep -Fq 'MutationObserver' "$ACT"
+          grep -Fq 'PASS_EVENT_BRIDGE_CHANNEL_CONNECTED' "$ACT"
+          grep -Fq 'control_event_driven' "$ACT"
+          grep -Fq 'control_clock_driven' "$ACT"
+          grep -Fq 'PASS_PAGE_FINISHED_PLUS_EXACT_NORMAL_TEMP_ENTRY_GATE' "$ACT"
+          grep -Fq 'PASS_FRESH_TEMP_ROOM_EVENT_RECEIPT' "$ACT"
+          grep -Fq 'PASS_AUTO_COMPOSER_HASH_EVENT_RECEIPT' "$ACT"
+          grep -Fq 'PASS_AUTO_EXACT_USER_TURN_EVENT_RECEIPT' "$ACT"
+          grep -Fq 'PASS_RESPONSE_CORRELATED_AUTO_SEND_EVENT_RECEIPT' "$ACT"
+          grep -Fq 'copy-turn-action-button' "$ACT"
+          grep -Fq 'PASS_RESPONSE_COMPLETE_BY_ASSISTANT_ACTION_RECEIPT' "$ACT"
+          grep -Fq 'PASS_PLANNER_RESPONSE_COMPLETE_BY_ACTION_RECEIPT' "$ACT"
+          grep -Fq 'PASS_TARGET_RESPONSE_COMPLETE_BY_ACTION_RECEIPT' "$ACT"
+          grep -Fq 'PASS_PLANNER_CHAT_NAVIGATION_EVENT_RECEIPT' "$ACT"
+          grep -Fq 'PASS_BOUNDED_PLANNER_ACTION_PARSED' "$ACT"
+          grep -Fq 'PASS_PLANNER_DONE_RETURNED_TO_MAIN' "$ACT"
+          grep -Fq 'setDecorFitsSystemWindows(false)' "$ACT"
+          grep -Fq 'safe_top_inset_px' "$ACT"
+          grep -Fq 'raw_chat_text_remote' "$ACT"
+          test "$(grep -o '\.click();' "$ACT" | wc -l)" -eq 2
+
+          ! grep -Fq 'postDelayed' "$ACT"
+          ! grep -Fq 'Thread.sleep' "$ACT"
+          ! grep -Fq 'setTimeout(' "$ACT"
+          ! grep -Fq 'setInterval(' "$ACT"
+          ! grep -Fq 'SAMPLE_MS' "$ACT"
+          ! grep -Fq 'SEND_POLL_MS' "$ACT"
+          ! grep -Fq 'RESPONSE_TIMEOUT_MS' "$ACT"
+          ! grep -Fq 'pollPlannerNormalHome' "$ACT"
+          ! grep -Fq 'pollPlannerTempReceipt' "$ACT"
+          ! grep -Fq 'pollAutoComposerReceipt' "$ACT"
+          ! grep -Fq 'pollAutoSendReceipt' "$ACT"
+          ! grep -Fq 'pollAutoResponse' "$ACT"
+          ! grep -Fq 'pollPlannerNavReceipt' "$ACT"
+          ! grep -Fq 'pollSendReceipt' "$ACT"
+          ! grep -Fq 'ScheduledExecutorService' "$ACT"
+          ! grep -Fq 'TimerTask' "$ACT"
+          ! grep -Fq 'elementFromPoint' "$ACT"
+          ! grep -Fq 'document.evaluate' "$ACT"
+          ! grep -Fq 'dispatchTouchEvent' "$ACT"
+          ! grep -Fq 'performClick(' "$ACT"
+          ! grep -Fq 'ACTION_SET_PROGRESS' "$ACT"
+          ! grep -Fq 'CookieManager' "$ACT"
+          ! grep -Fq 'addJavascriptInterface' "$ACT"
+          ! grep -Fq 'setAttribute("aria-value' "$ACT"
+          ! grep -Fq 'put(st,"last_user_text"' "$ACT"
+          ! grep -Fq 'put(st,"last_assistant_text"' "$ACT"
+          ! grep -Fq 'Tehran' "$ACT"
+          ! grep -Fq 'تهران' "$ACT"
+          test "$(grep -c '<uses-permission' "$MAN")" -eq 3
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+
+      - name: Build and prove exact artifact identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          sdkmanager "platforms;android-35" "build-tools;35.0.0"
+          echo "sdk.dir=$ANDROID_SDK_ROOT" > runtime_probes/chatgpt-webview-stable-probe/local.properties
+          curl -fsSL https://services.gradle.org/distributions/gradle-8.10.2-bin.zip -o /tmp/gradle.zip
+          unzip -q /tmp/gradle.zip -d /tmp
+          cd runtime_probes/chatgpt-webview-stable-probe
+          /tmp/gradle-8.10.2/bin/gradle --no-daemon :app:assembleRelease --stacktrace
+          cd ../..
+          OUT=ci/v69-semantic-planner-event-driven-final-out
+          mkdir -p "$OUT"
+          UNSIGNED=runtime_probes/chatgpt-webview-stable-probe/app/build/outputs/apk/release/app-release-unsigned.apk
+          ALIGNED="$OUT/chatgpt-webview-v0.67-semantic-planner-event-driven-exact-source-aligned-unsigned.apk"
+          BT="$ANDROID_SDK_ROOT/build-tools/35.0.0"
+          "$BT/zipalign" -f -p 4 "$UNSIGNED" "$ALIGNED"
+          "$BT/zipalign" -c -v 4 "$ALIGNED" > "$OUT/zipalign-verify.txt"
+          "$BT/aapt" dump badging "$ALIGNED" > "$OUT/badging.txt"
+          "$BT/aapt" dump permissions "$ALIGNED" > "$OUT/permissions.txt"
+          grep -Fq "package: name='com.homayounisaghar.chatgptwebviewprobe.diag' versionCode='70' versionName='0.67-stable-diag-semantic-planner-event-driven'" "$OUT/badging.txt"
+          grep -Fq "launchable-activity: name='com.homayounisaghar.chatgptwebviewprobe.OrchestratorPlannerCoreV69Activity'" "$OUT/badging.txt"
+          test "$(grep -c '^uses-permission:' "$OUT/permissions.txt")" -eq 3
+          printf '%s\n' "$GITHUB_SHA" > "$OUT/SOURCE_REF.txt"
+          printf '%s\n' 'PUZZLE_UNKNOWN_AT_BUILD_TIME' > "$OUT/BLIND_BUILD_MARKER.txt"
+          printf '%s\n' 'CONTROL_EVENT_DRIVEN_NO_FIXED_DELAY_POLL_TIMEOUT' > "$OUT/CONTROL_SYNC_MARKER.txt"
+          sha256sum "$ALIGNED" > "$OUT/ALIGNED_UNSIGNED_SHA256.txt"
+          cp "$OUT/badging.txt" "$OUT/IDENTITY_PROOF.txt"
+          printf 'SOURCE_REF=%s\nRUN_ID=%s\nBLIND_BUILD_MARKER=PUZZLE_UNKNOWN_AT_BUILD_TIME\nCONTROL_SYNC=EVENT_DRIVEN_NO_FIXED_DELAY_POLL_TIMEOUT\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" >> "$OUT/IDENTITY_PROOF.txt"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: chatgpt-webview-v0.67-semantic-planner-event-driven-${{ github.run_id }}-unsigned
+          path: ci/v69-semantic-planner-event-driven-final-out
+          if-no-files-found: error
+          retention-days: 30
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: chatgpt-webview-v0.67-semantic-planner-event-driven-${{ github.run_id }}-telemetry
+          path: ci/v69-semantic-planner-event-driven-final-telemetry
+          if-no-files-found: error
+          retention-days: 30
