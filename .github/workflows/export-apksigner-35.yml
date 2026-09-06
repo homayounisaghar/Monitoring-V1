@@ -1,4 +1,4 @@
-# Tool export refreshed for v0.72 durable-signer promotion.
+# Android 35 promotion/verification tool export for durable-signer APKs.
 name: Export Android apksigner 35
 
 on:
@@ -18,7 +18,7 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: android-actions/setup-android@v3
-      - name: Install build tools and stage apksigner
+      - name: Install build tools and stage promotion verification tools
         shell: bash
         run: |
           set -euo pipefail
@@ -26,8 +26,12 @@ jobs:
           mkdir -p out/lib
           cp "$ANDROID_SDK_ROOT/build-tools/35.0.0/apksigner" out/apksigner
           cp "$ANDROID_SDK_ROOT/build-tools/35.0.0/lib/apksigner.jar" out/lib/apksigner.jar
-          chmod +x out/apksigner
+          cp "$ANDROID_SDK_ROOT/build-tools/35.0.0/zipalign" out/zipalign
+          cp "$ANDROID_SDK_ROOT/build-tools/35.0.0/aapt" out/aapt
+          chmod +x out/apksigner out/zipalign out/aapt
           out/apksigner version > out/version.txt
+          out/zipalign -h > out/zipalign-help.txt 2>&1 || true
+          out/aapt version > out/aapt-version.txt
       - uses: actions/upload-artifact@v4
         with:
           name: android-apksigner-35
