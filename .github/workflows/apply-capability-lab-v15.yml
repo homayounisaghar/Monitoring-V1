@@ -1,0 +1,49 @@
+name: Apply Capability Lab v0.15 Result Evidence
+
+on:
+  push:
+    branches:
+      - build/pebble-chat-bridge-v019
+    paths:
+      - '.github/workflows/apply-capability-lab-v15.yml'
+      - 'build_tools/apply_capability_lab_v15_result_evidence_receipt.py'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Apply v0.15 patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 build_tools/apply_capability_lab_v15_result_evidence_receipt.py
+          git diff --check
+          ROOT=runtime_probes/native-capability-lab
+          SVC="$ROOT/app/src/main/java/com/openai/controlplane/capabilitylab/LabAccessibilityService.java"
+          grep -Fq "versionCode 15" "$ROOT/app/build.gradle"
+          grep -Fq "conversation_search_binding_v10_result_evidence_receipt" "$ROOT/plans/default.json"
+          grep -Fq "GLOBAL_SEARCH_QUERY_RECEIPT_DEFERRED_TO_RESULT_EVIDENCE" "$SVC"
+          grep -Fq "findRuntimeSearchSurfaceRoot" "$SVC"
+
+      - name: Commit patched runtime source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add runtime_probes/native-capability-lab
+          if git diff --cached --quiet; then
+            echo "No runtime patch changes to commit"
+            exit 0
+          fi
+          git commit -m "Use Search result evidence when query readback is unavailable"
+          git push origin HEAD:build/pebble-chat-bridge-v019

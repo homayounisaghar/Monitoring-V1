@@ -1,0 +1,163 @@
+name: Android Offline Toolchain Bundle
+
+on:
+  push:
+    branches:
+      - build/pebble-chat-bridge-v019
+    paths:
+      - '.github/workflows/android-offline-toolchain-bundle.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  bundle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle 8.10.2
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.10.2'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android 35 toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+
+      - name: Hydrate AGP 8.8.2 and Session Bridge dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          P="$RUNNER_TEMP/offline-probe"
+          mkdir -p "$P/app/src/main/java/dev/probe" "$P/app/src/test/java/dev/probe"
+          cat > "$P/settings.gradle.kts" <<'EOF'
+          pluginManagement {
+              repositories {
+                  google()
+                  mavenCentral()
+                  gradlePluginPortal()
+              }
+          }
+          dependencyResolutionManagement {
+              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+          }
+          rootProject.name = "OfflineProbe"
+          include(":app")
+          EOF
+          cat > "$P/build.gradle.kts" <<'EOF'
+          plugins {
+              id("com.android.application") version "8.8.2" apply false
+          }
+          EOF
+          cat > "$P/app/build.gradle.kts" <<'EOF'
+          plugins { id("com.android.application") }
+          android {
+              namespace = "dev.probe"
+              compileSdk = 35
+              defaultConfig {
+                  applicationId = "dev.probe"
+                  minSdk = 26
+                  targetSdk = 35
+                  versionCode = 1
+                  versionName = "1.0"
+              }
+              compileOptions {
+                  sourceCompatibility = JavaVersion.VERSION_17
+                  targetCompatibility = JavaVersion.VERSION_17
+              }
+          }
+          dependencies {
+              implementation("com.squareup.okhttp3:okhttp:4.12.0")
+              testImplementation("junit:junit:4.13.2")
+              testImplementation("org.json:json:20240303")
+          }
+          EOF
+          cat > "$P/app/src/main/AndroidManifest.xml" <<'EOF'
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android"><application android:theme="@android:style/Theme.Material.Light.NoActionBar" /></manifest>
+          EOF
+          cat > "$P/app/src/main/java/dev/probe/Probe.java" <<'EOF'
+          package dev.probe; public final class Probe { private Probe() {} }
+          EOF
+          cat > "$P/app/src/test/java/dev/probe/DependencyProbeTest.java" <<'EOF'
+          package dev.probe;
+          import org.json.JSONObject;
+          import org.junit.Test;
+          import static org.junit.Assert.assertEquals;
+          public final class DependencyProbeTest {
+              @Test public void resolvesTestDependencies() throws Exception {
+                  assertEquals(1, new JSONObject("{\"value\":1}").getInt("value"));
+              }
+          }
+          EOF
+          cd "$P"
+          gradle --no-daemon :app:assembleRelease :app:testDebugUnitTest
+
+      - name: Package portable offline toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          CORE="$RUNNER_TEMP/android-offline-core"
+          CACHE="$RUNNER_TEMP/android-offline-cache"
+          mkdir -p "$CORE/android-sdk/platforms" "$CORE/android-sdk/build-tools" "$CACHE/gradle-home"
+
+          GRADLE_BIN=$(readlink -f "$(command -v gradle)")
+          GRADLE_ROOT=$(cd "$(dirname "$GRADLE_BIN")/.." && pwd)
+          cp -a "$GRADLE_ROOT" "$CORE/gradle"
+          cp -a "$ANDROID_SDK_ROOT/platforms/android-35" "$CORE/android-sdk/platforms/"
+          cp -a "$ANDROID_SDK_ROOT/build-tools/35.0.0" "$CORE/android-sdk/build-tools/"
+          cp -a "$HOME/.gradle/caches" "$CACHE/gradle-home/"
+
+          cat > "$CORE/TOOLCHAIN_MANIFEST.txt" <<EOF
+          gradle=8.10.2
+          agp=8.8.2
+          compileSdk=35
+          buildTools=35.0.0
+          javaTarget=17
+          dependencies=okhttp:4.12.0,junit:4.13.2,org.json:20240303
+          purpose=offline private Android compile without publishing private source
+          EOF
+
+          tar -C "$RUNNER_TEMP" -czf "$GITHUB_WORKSPACE/android-offline-core-agp882-api35.tar.gz" android-offline-core
+          tar -C "$RUNNER_TEMP" -czf "$GITHUB_WORKSPACE/android-offline-gradle-cache-agp882.tar.gz" android-offline-cache
+          sha256sum "$GITHUB_WORKSPACE/android-offline-core-agp882-api35.tar.gz" > "$GITHUB_WORKSPACE/android-offline-core-agp882-api35.tar.gz.sha256"
+          sha256sum "$GITHUB_WORKSPACE/android-offline-gradle-cache-agp882.tar.gz" > "$GITHUB_WORKSPACE/android-offline-gradle-cache-agp882.tar.gz.sha256"
+          ls -lh "$GITHUB_WORKSPACE"/*.tar.gz
+
+      - name: Upload core toolchain
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-offline-core-agp882-api35
+          path: |
+            android-offline-core-agp882-api35.tar.gz
+            android-offline-core-agp882-api35.tar.gz.sha256
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Upload Gradle dependency cache
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-offline-gradle-cache-agp882
+          path: |
+            android-offline-gradle-cache-agp882.tar.gz
+            android-offline-gradle-cache-agp882.tar.gz.sha256
+          if-no-files-found: error
+          retention-days: 7

@@ -1,0 +1,3 @@
+Native Adapter P1 build trigger
+ChatGPT APK target: 1.2026.237
+Architecture: explicit deeplink autosend + notification-tag conversation binding + read-only receipt verification

@@ -1,0 +1,55 @@
+name: Apply Capability Lab v0.16 Probe Close State
+
+on:
+  push:
+    branches:
+      - build/pebble-chat-bridge-v019
+    paths:
+      - '.github/workflows/apply-capability-lab-v16-probe-close-state.yml'
+      - 'build_tools/apply_capability_lab_v16_probe_close_state.py'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.event_name == 'workflow_dispatch' || github.event.head_commit.message == 'Add v0.16 probe-close state calibration workflow'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Apply probe-close state calibration
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 build_tools/apply_capability_lab_v16_probe_close_state.py
+          git diff --check
+          SVC=runtime_probes/native-capability-lab/app/src/main/java/com/openai/controlplane/capabilitylab/LabAccessibilityService.java
+          grep -Fq 'WAITING_GLOBAL_SEARCH_PROBE_CLOSE' "$SVC"
+          ! grep -Fq 'dispatchGesture' "$SVC"
+          ! grep -Fq 'getBoundsInScreen' "$SVC"
+          ! grep -Fq 'GLOBAL_ACTION_' "$SVC"
+          python3 - <<'PY'
+          from pathlib import Path
+          s = Path('runtime_probes/native-capability-lab/app/src/main/java/com/openai/controlplane/capabilitylab/LabAccessibilityService.java').read_text()
+          assert s.count('performAction(AccessibilityNodeInfo.ACTION_CLICK)') == 2
+          assert s.count('performAction(AccessibilityNodeInfo.ACTION_SET_TEXT') == 1
+          PY
+
+      - name: Commit patched runtime source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add runtime_probes/native-capability-lab/app/src/main/java/com/openai/controlplane/capabilitylab/LabAccessibilityService.java
+          if git diff --cached --quiet; then
+            echo "No runtime patch changes to commit"
+            exit 0
+          fi
+          git commit -m "Freeze probe attribution before closing Search"
+          git push origin HEAD:build/pebble-chat-bridge-v019

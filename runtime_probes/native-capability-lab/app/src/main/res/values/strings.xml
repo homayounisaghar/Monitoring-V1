@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="accessibility_description">Bounded semantic test service for the exact installed ChatGPT build. It observes ChatGPT UI semantics and only performs allowlisted test actions with durable claim-before-write safety.</string>
+</resources>
