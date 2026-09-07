@@ -39,8 +39,8 @@ s = rep(s,
     'pressed-state key feedback')
 
 s = rep(s,
-'''        boundConnection=ic; activeGeneration=inputGeneration;\n        synchronized(textLock){finalTranscript.setLength(0);finalTokenIds.clear();partialTranscript="";}\n''',
-'''        boundConnection=ic; activeGeneration=inputGeneration;\n        captureVoiceInsertionBoundary();\n        synchronized(textLock){finalTranscript.setLength(0);finalTokenIds.clear();partialTranscript="";}\n''',
+'''        boundConnection=ic; activeGeneration=inputGeneration;\n''',
+'''        boundConnection=ic; activeGeneration=inputGeneration;\n        captureVoiceInsertionBoundary();\n''',
     'capture insertion boundary at voice start')
 
 old_guard = r'''    private String ownedVoiceRecoveryGuard(){
