@@ -1,0 +1,54 @@
+name: ChatGPT WebView v0.80 telemetry source audit
+
+on:
+  push:
+    branches:
+      - project/chatgpt-webview-poc-v080-telemetry-audit
+    paths:
+      - '.github/workflows/chatgpt-webview-v080-telemetry-source-audit.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Generate exact v0.80 source
+        run: python3 ci/generate_chatgpt_webview_v82_calibrated_actuator_resource_fix1.py
+      - name: Print telemetry and action control methods
+        shell: bash
+        run: |
+          set -euo pipefail
+          ACT=runtime_probes/chatgpt-webview-stable-probe/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/OrchestratorResourceToolsV82Activity.java
+          CFG=runtime_probes/chatgpt-webview-stable-probe/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/TelemetryConfigV82.java
+          python3 - "$ACT" "$CFG" <<'PY'
+          import pathlib,re,sys
+          s=pathlib.Path(sys.argv[1]).read_text()
+          cfg=pathlib.Path(sys.argv[2]).read_text()
+          print('=== TELEMETRY_CONFIG_TEMPLATE ===')
+          print(cfg)
+          names=['shouldRemoteEmit','emit','postRemote','postRemoteTelemetry','sendTelemetry','runResourceActionV82','startResourceActuatorCalibrationV82','advanceCalibrationV82','selectCalibrationV82','driveResourceV82OnObservedState','beginResourceV82AfterCalibration','driveResourceV82']
+          for name in names:
+              hits=[m.start() for m in re.finditer(r'\b'+re.escape(name)+r'\s*\(',s)]
+              if not hits: continue
+              print('\n=== METHOD',name,'HITS',len(hits),'===')
+              for pos in hits[:4]:
+                  start=s.rfind('\n    ',0,pos)
+                  if start<0: start=max(0,pos-500)
+                  depth=0; begun=False; end=min(len(s),pos+8000)
+                  for i in range(pos,end):
+                      if s[i]=='{': depth+=1; begun=True
+                      elif s[i]=='}' and begun:
+                          depth-=1
+                          if depth==0:
+                              end=i+1; break
+                  print(s[start:end])
+          print('\n=== REMOTE CALL SITES ===')
+          for i,line in enumerate(s.splitlines(),1):
+              if any(x in line for x in ['shouldRemoteEmit','WEBHOOK_URL','CONFIGURED','remoteTelemetryPosts','recent_events','HttpURLConnection','URL(']):
+                  print(f'{i}: {line}')
+          PY
