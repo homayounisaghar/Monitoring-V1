@@ -48,6 +48,9 @@ jobs:
           cat > "$B/build.gradle.kts" <<'EOF'
           plugins { id("com.android.application") version "8.8.2" apply false }
           EOF
+          cat > "$B/gradle.properties" <<'EOF'
+          android.useAndroidX=true
+          EOF
           cat > "$B/app/build.gradle.kts" <<'EOF'
           plugins { id("com.android.application") }
           android {
