@@ -11,6 +11,25 @@ def rep(text, old, new, label):
         raise SystemExit(f'v1.33 patch: missing pattern: {label}')
     return text.replace(old, new, 1)
 
+
+# v1.32 device evidence changed the diagnosis: the microphone UI can remain in
+# the active/navy state while live transcript publication has stopped. Since
+# v1.27, loss of livePartialTail ownership deliberately returns from publish()
+# without stopping transport. That protects text from unsafe mutation, but can
+# leave running=true while the user sees no new text.
+#
+# v1.33 adds a fail-safe recovery path. It first re-anchors to the last cursor
+# position proven to be IME-owned. If editor offsets shifted, it searches for a
+# bounded, sufficiently long UNIQUE suffix of the text already owned by the voice
+# session in ExtractedText. Text is mutated only after ownership is verified. If
+# recovery remains impossible, the session/UI is explicitly stopped instead of
+# pretending to keep recording.
+#
+# Fast manual typing is fixed independently: key views now fill their entire
+# weighted slots (visual spacing moves inside the drawable), and ordinary
+# character keys commit on ACTION_DOWN. Keys with long-press variants retain the
+# old click/long-click semantics so variants are not regressed.
+
 s = rep(s,
 '''import android.graphics.drawable.GradientDrawable;\n''',
 '''import android.graphics.drawable.GradientDrawable;\nimport android.graphics.drawable.InsetDrawable;\n''',
@@ -22,19 +41,21 @@ s = rep(s,
     'live sync recovery state')
 
 s = rep(s,
-'''    private LinearLayout.LayoutParams keyLp(float weight) {\n        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, dp(35), weight); lp.setMargins(dp(2),dp(1),dp(2),dp(1)); return lp;\n    }\n\n    private Button charKey(String label) {\n        Button b=baseKey(label,false);\n        b.setOnClickListener(v -> { stopVoiceForManualInput(); commitText(label); });\n        String[] vars=longPress.get(label);\n        if (vars!=null) b.setOnLongClickListener(v -> { stopVoiceForManualInput(); showVariants(b,vars); return true; });\n        return b;\n    }\n''',
-'''    private LinearLayout.LayoutParams keyLp(float weight) {\n        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, dp(38), weight);\n        lp.setMargins(0,0,0,0);\n        return lp;\n    }\n\n    private Button charKey(String label) {\n        Button b=baseKey(label,false);\n        final boolean[] downCommitted=new boolean[]{false};\n        b.setOnTouchListener((v,event) -> {\n            int action=event.getActionMasked();\n            if(action==MotionEvent.ACTION_DOWN){\n                downCommitted[0]=true;\n                stopVoiceForManualInput();\n                commitText(label);\n            }else if(action==MotionEvent.ACTION_CANCEL){\n                downCommitted[0]=false;\n            }\n            return false;\n        });\n        b.setOnClickListener(v -> {\n            if(downCommitted[0]){downCommitted[0]=false;return;}\n            stopVoiceForManualInput();\n            commitText(label);\n        });\n        String[] vars=longPress.get(label);\n        if(vars!=null) b.setOnLongClickListener(v -> {\n            backspaceOnce();\n            showVariants(b,vars);\n            return true;\n        });\n        return b;\n    }\n''',
-    'full-slot touch targets and ACTION_DOWN character dispatch')
+'''    private LinearLayout.LayoutParams keyLp(float weight) {\n        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, keyHeightPx(), weight); lp.setMargins(dp(2),dp(1),dp(2),dp(1)); return lp;\n    }\n''',
+'''    private LinearLayout.LayoutParams keyLp(float weight) {\n        // The View owns the whole weighted slot. Visual separation is drawn by\n        // InsetDrawable in baseKey(), so fast taps cannot land in a dead margin.\n        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, keyHeightPx(), weight);\n        lp.setMargins(0,0,0,0);\n        return lp;\n    }\n''',
+    'full-slot key touch targets')
+
+s = rep(s,
+'''    private Button charKey(String label) {\n        Button b=baseKey(label,false);\n        b.setOnClickListener(v -> { stopVoiceForManualInput(); commitText(label); });\n        String[] vars=longPress.get(label);\n        if (vars!=null) b.setOnLongClickListener(v -> { stopVoiceForManualInput(); showVariants(b,vars); return true; });\n        return b;\n    }\n''',
+'''    private Button charKey(String label) {\n        Button b=baseKey(label,false);\n        String[] vars=longPress.get(label);\n        if(vars==null){\n            // Low-latency physical-key path. Consume the gesture so ACTION_UP does\n            // not generate a second click; the OnClick listener remains available\n            // to accessibility/programmatic activation.\n            b.setOnTouchListener((v,event) -> {\n                int action=event.getActionMasked();\n                if(action==MotionEvent.ACTION_DOWN){\n                    v.setPressed(true);\n                    stopVoiceForManualInput();\n                    commitText(label);\n                    return true;\n                }\n                if(action==MotionEvent.ACTION_UP||action==MotionEvent.ACTION_CANCEL){\n                    v.setPressed(false);\n                    return true;\n                }\n                return true;\n            });\n            b.setOnClickListener(v -> { stopVoiceForManualInput(); commitText(label); });\n        }else{\n            // Preserve the established long-press popup behavior exactly for the\n            // small set of keys that expose character variants.\n            b.setOnClickListener(v -> { stopVoiceForManualInput(); commitText(label); });\n            b.setOnLongClickListener(v -> { stopVoiceForManualInput(); showVariants(b,vars); return true; });\n        }\n        return b;\n    }\n''',
+    'ACTION_DOWN ordinary character dispatch')
 
 s = rep(s,
 '''        b.setTypeface(Typeface.create("sans-serif",Typeface.NORMAL)); b.setBackground(round(action?ACTION:KEY,dp(8))); return b;\n''',
-'''        b.setTypeface(Typeface.create("sans-serif",Typeface.NORMAL));\n        b.setBackground(new InsetDrawable(round(action?ACTION:KEY,dp(8)),dp(2),dp(1),dp(2),dp(1)));\n        return b;\n''',
+'''        b.setTypeface(Typeface.create("sans-serif",Typeface.NORMAL));\n        // Preserve the old visual gutters but keep them inside the clickable view.\n        b.setBackground(new InsetDrawable(round(action?ACTION:KEY,dp(8)),dp(2),dp(1),dp(2),dp(1)));\n        return b;\n''',
     'visual inset without dead touch margins')
 
-old_manual = '''    private void stopVoiceForManualInput(){\n        if(!running)return;\n        sendAfterVoiceStop=false;\n        running=false; completed=true; stopRequested=true; awaitingCredential=false; retryAfterPageLoad=false;\n        backspaceHeld=false; main.removeCallbacks(backspaceRepeater);\n        stopAudioRecord(); clearPending();\n        WebSocket ws=webSocket; webSocket=null; if(ws!=null)ws.cancel();\n        InputConnection old=boundConnection; boundConnection=null;\n        if(old!=null)try{old.finishComposingText();}catch(Exception ignored){}\n        synchronized(expectedSelectionUpdates){expectedSelectionUpdates.clear();}\n        hasComposingTail=false;\n        updateMicUi(); setStatus(readyText());\n    }\n'''
-new_manual = '''    private void stopVoiceForManualInput(){\n        if(!running)return;\n        sendAfterVoiceStop=false;\n        running=false; completed=true; stopRequested=true; awaitingCredential=false; retryAfterPageLoad=false;\n        selectionConfirmationEpoch++; selectionConfirmationPending=false;\n        internalSelectionReanchorEpoch++; liveSyncRecoveryEpoch++; liveSyncFailureSince=0L;\n        backspaceHeld=false; main.removeCallbacks(backspaceRepeater);\n\n        AudioRecord detachedAudio=audioRecord; audioRecord=null;\n        WebSocket detachedSocket=webSocket; webSocket=null;\n        boundConnection=null;\n        clearPending();\n        synchronized(expectedSelectionUpdates){expectedSelectionUpdates.clear();}\n        hasComposingTail=false; livePartialTail="";\n        updateMicUi(); setStatus(readyText());\n\n        if(detachedAudio!=null||detachedSocket!=null){\n            new Thread(()->{\n                if(detachedAudio!=null){\n                    try{if(detachedAudio.getRecordingState()==AudioRecord.RECORDSTATE_RECORDING)detachedAudio.stop();}catch(Exception ignored){}\n                    try{detachedAudio.release();}catch(Exception ignored){}\n                }\n                if(detachedSocket!=null)try{detachedSocket.cancel();}catch(Exception ignored){}\n            },"persian-keyboard-manual-stop").start();\n        }\n    }\n'''
-s = rep(s, old_manual, new_manual, 'non-blocking manual voice interruption')
-
+# Insert publisher-side recovery immediately before the existing publish method.
 marker = '    private void publish(boolean finish){\n'
 if marker not in s:
     raise SystemExit('v1.33 patch: missing publish marker')
@@ -78,6 +99,8 @@ helpers = r'''    private String ownedVoiceRecoveryGuard(){
         InputConnection ic=boundConnection;
         if(ic==null||getCurrentInputConnection()!=ic)return false;
         String guard=ownedVoiceRecoveryGuard();
+
+        // Fast path: editor text is intact and only its reported selection drifted.
         if(hasLastProgrammaticSelection&&lastProgrammaticSelectionStart>=0&&lastProgrammaticSelectionEnd>=0){
             if(setRecoverySelection(ic,lastProgrammaticSelectionStart,lastProgrammaticSelectionEnd)){
                 if(livePartialTail.isEmpty()||editorEndsWithLiveTail()){
@@ -85,6 +108,8 @@ helpers = r'''    private String ownedVoiceRecoveryGuard(){
                 }
             }
         }
+
+        // Offset-shift fallback. Never guess from a short/repeated suffix.
         if(guard.length()<8)return false;
         try{
             android.view.inputmethod.ExtractedTextRequest req=new android.view.inputmethod.ExtractedTextRequest();
@@ -130,7 +155,7 @@ s = s[:insert_at] + helpers + s[insert_at:]
 
 s = rep(s,
 '''            if(!editorEndsWithLiveTail()){\n                // Do not mutate text if ownership cannot be proven. This remains\n                // fail-closed for duplicate/deletion safety, but it must not stop\n                // an otherwise healthy recording session. A later transcript\n                // update can retry once the editor snapshot is coherent again.\n                return;\n            }\n\n            boolean batch=false;\n''',
-'''            if(!editorEndsWithLiveTail()&&!recoverOwnedVoiceCursor()){\n                noteLiveSyncFailure();\n                return;\n            }\n            clearLiveSyncFailure();\n\n            boolean batch=false;\n''',
+'''            if(!editorEndsWithLiveTail()&&!recoverOwnedVoiceCursor()){\n                // Stay fail-closed for text mutation, but actively recover the\n                // owned cursor instead of silently leaving running=true forever.\n                noteLiveSyncFailure();\n                return;\n            }\n            clearLiveSyncFailure();\n\n            boolean batch=false;\n''',
     'recover instead of silently stalling live publisher')
 
 s = rep(s,
@@ -148,12 +173,12 @@ required=[
     'import android.graphics.drawable.InsetDrawable;',
     'private int liveSyncRecoveryEpoch;',
     'private long liveSyncFailureSince;',
-    'new LinearLayout.LayoutParams(0, dp(38), weight)',
+    'new LinearLayout.LayoutParams(0, keyHeightPx(), weight)',
     'lp.setMargins(0,0,0,0);',
+    'if(vars==null){',
     'if(action==MotionEvent.ACTION_DOWN)',
+    'v.setPressed(true);',
     'b.setBackground(new InsetDrawable(',
-    'AudioRecord detachedAudio=audioRecord; audioRecord=null;',
-    'persian-keyboard-manual-stop',
     'private String ownedVoiceRecoveryGuard(){',
     'private boolean recoverOwnedVoiceCursor(){',
     'snapshot.lastIndexOf(guard)',
@@ -166,9 +191,9 @@ required=[
 for needle in required:
     if needle not in text:
         raise SystemExit(f'v1.33 patch: required invariant missing: {needle}')
+
 for forbidden in [
     'lp.setMargins(dp(2),dp(1),dp(2),dp(1));',
-    'b.setOnClickListener(v -> { stopVoiceForManualInput(); commitText(label); });',
     'MAX_CAPTURE_MS',
     'boundConnection.setComposingText(partial,1);',
     'versionCode 42',
