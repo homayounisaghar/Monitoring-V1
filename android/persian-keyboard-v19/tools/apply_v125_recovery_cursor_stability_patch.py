@@ -221,26 +221,6 @@ new_bridge = r'''    private final class CredentialBridge {
 '''
 s = s[:bridge_start] + new_bridge + s[bridge_end:]
 
-# Do not leak a previous hidden WebView if Android asks the IME to recreate its
-# input view while the service process itself remains alive.
-replace_once(
-'''        auth = new WebView(this);
-        auth.setAlpha(0.01f);
-        root.addView(auth, new LinearLayout.LayoutParams(1, 1));
-''',
-'''        if(auth!=null){
-            try{auth.stopLoading();}catch(Exception ignored){}
-            try{auth.removeJavascriptInterface("AndroidKeyboard");}catch(Exception ignored){}
-            try{auth.destroy();}catch(Exception ignored){}
-            auth=null;
-        }
-        auth = new WebView(this);
-        auth.setAlpha(0.01f);
-        root.addView(auth, new LinearLayout.LayoutParams(1, 1));
-''',
-    'destroy stale hidden WebView when input view is recreated',
-)
-
 if 'versionCode 34' not in g or "versionName '1.24'" not in g:
     raise SystemExit('v1.25 patch: expected v1.24 version markers missing')
 g = g.replace('versionCode 34', 'versionCode 35', 1)
