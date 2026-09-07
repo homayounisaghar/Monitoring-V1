@@ -1,0 +1,64 @@
+name: ChatGPT WebView v0.73 telemetry readback
+
+on:
+  push:
+    branches:
+      - project/chatgpt-webview-poc
+    paths:
+      - '.github/workflows/chatgpt-webview-v75-readback.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  readback:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TARGET_RUN_ID: '34109232317'
+      TARGET_ARTIFACT_NAME: 'chatgpt-webview-v0.73-unified-breadth-frontier-34109232317-telemetry'
+    steps:
+      - name: Download telemetry metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p telemetry out
+          gh run download "$TARGET_RUN_ID" \
+            --repo "${GITHUB_REPOSITORY}" \
+            --name "$TARGET_ARTIFACT_NAME" \
+            --dir telemetry
+          test -s telemetry/read-url.txt
+          test -s telemetry/source-ref.txt
+          printf 'TARGET_RUN_ID=%s\n' "$TARGET_RUN_ID"
+          printf 'TARGET_ARTIFACT_NAME=%s\n' "$TARGET_ARTIFACT_NAME"
+          printf 'SOURCE_REF=%s\n' "$(cat telemetry/source-ref.txt)"
+      - name: Fetch collector payloads
+        shell: bash
+        run: |
+          set -euo pipefail
+          URL="$(cat telemetry/read-url.txt)"
+          curl -fsS --retry 3 --retry-delay 2 "$URL" -o out/requests.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path('out/requests.json')
+          obj=json.loads(p.read_text())
+          data=obj.get('data',[])
+          print(f'READBACK_COUNT={len(data)}')
+          for i,r in enumerate(data):
+              content=r.get('content','')
+              try:
+                  payload=json.loads(content) if isinstance(content,str) and content else content
+              except Exception:
+                  payload={'raw_content':content}
+              print(json.dumps({'index':i,'created_at':r.get('created_at'),'payload':payload},ensure_ascii=False,sort_keys=True))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: chatgpt-webview-v0.73-telemetry-readback-${{ github.run_id }}
+          path: out/requests.json
+          if-no-files-found: error
+          retention-days: 7
