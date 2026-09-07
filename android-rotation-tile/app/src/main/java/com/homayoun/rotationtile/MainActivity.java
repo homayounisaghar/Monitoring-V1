@@ -66,7 +66,8 @@ public class MainActivity extends Activity {
                 "Long-press the Quick Settings tile to toggle the rotation override. " +
                 "Turning it on locks the exact angle the display already has; turning it off releases the lock without choosing another angle.\n\n" +
                 "While override is ON, short taps rotate through 0° / 90° / 180° / 270°. " +
-                "Rapid taps are grouped for about 0.4 seconds after the last tap.");
+                "Rapid taps are grouped for about 0.4 seconds after the last tap.\n\n" +
+                "This build uses Android system rotation settings directly and does not run a persistent foreground service.");
         description.setTextSize(16);
         description.setTextColor(Color.DKGRAY);
         description.setPadding(0, dp(18), 0, dp(20));
@@ -79,18 +80,13 @@ public class MainActivity extends Activity {
         status.setPadding(0, 0, 0, dp(14));
         root.addView(status, matchWrap());
 
-        Button overlay = new Button(this);
-        overlay.setText("1. Allow display over other apps");
-        overlay.setOnClickListener(v -> startActivity(RotationController.overlayPermissionIntent(this)));
-        root.addView(overlay, matchWrap());
-
         Button writeSettings = new Button(this);
-        writeSettings.setText("2. Allow modify system settings");
+        writeSettings.setText("1. Allow modify system settings");
         writeSettings.setOnClickListener(v -> startActivity(RotationController.writeSettingsPermissionIntent(this)));
         root.addView(writeSettings, matchWrap());
 
         Button addTile = new Button(this);
-        addTile.setText("3. Add Quick Settings tile");
+        addTile.setText("2. Add Quick Settings tile");
         addTile.setOnClickListener(v -> requestTileIfSupported());
         root.addView(addTile, matchWrap());
 
@@ -121,15 +117,13 @@ public class MainActivity extends Activity {
     }
 
     private void refresh() {
-        boolean overlay = Settings.canDrawOverlays(this);
         boolean write = Settings.System.canWrite(this);
         boolean enabled = RotationController.isEnabled(this);
         RotationMode locked = RotationController.getLockedMode(this);
         RotationMode current = RotationController.getCurrentDisplayMode(this);
 
         status.setText(
-                "Overlay: " + (overlay ? "OK" : "needed") +
-                "   •   Modify settings: " + (write ? "OK" : "needed") +
+                "Modify settings: " + (write ? "OK" : "needed") +
                 "\nOverride: " + (enabled ? "ON" : "OFF") +
                 (enabled ? "   •   Locked: " + locked.label : "   •   Display now: " + current.label));
 
