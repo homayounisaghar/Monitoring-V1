@@ -1,0 +1,34 @@
+name: Android apksig Tool Export
+
+on:
+  push:
+    branches: [project/chatgpt-webview-poc]
+    paths:
+      - '.github/workflows/android-apksig-tool-export.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  export:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: android-actions/setup-android@v3
+      - name: Export apksig jar
+        shell: bash
+        run: |
+          set -euo pipefail
+          sdkmanager "build-tools;35.0.0"
+          mkdir -p ci/android-apksig-tool
+          cp "$ANDROID_SDK_ROOT/build-tools/35.0.0/lib/apksigner.jar" ci/android-apksig-tool/apksigner.jar
+          sha256sum ci/android-apksig-tool/apksigner.jar > ci/android-apksig-tool/apksigner.jar.sha256
+          printf '%s\n' '35.0.0' > ci/android-apksig-tool/build-tools-version.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-apksig-35-tool
+          path: ci/android-apksig-tool
+          if-no-files-found: error
+          retention-days: 7
