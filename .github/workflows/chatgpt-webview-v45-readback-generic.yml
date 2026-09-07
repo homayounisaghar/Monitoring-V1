@@ -11,11 +11,11 @@ on:
       run_id:
         description: 'Stage A workflow run id that owns the telemetry artifact'
         required: true
-        default: '34167852587'
+        default: '34169519799'
       artifact_name:
         description: 'Exact telemetry artifact name from that run'
         required: true
-        default: 'chatgpt-webview-v0.80-calibrated-actuator-resource-fix1-34167852587-telemetry'
+        default: 'chatgpt-webview-v0.81-resource-observable-terminal-34169519799-telemetry'
 
 permissions:
   contents: read
@@ -27,8 +27,8 @@ jobs:
     timeout-minutes: 5
     env:
       GH_TOKEN: ${{ github.token }}
-      TARGET_RUN_ID: ${{ github.event_name == 'workflow_dispatch' && inputs.run_id || '34167852587' }}
-      TARGET_ARTIFACT_NAME: ${{ github.event_name == 'workflow_dispatch' && inputs.artifact_name || 'chatgpt-webview-v0.80-calibrated-actuator-resource-fix1-34167852587-telemetry' }}
+      TARGET_RUN_ID: ${{ github.event_name == 'workflow_dispatch' && inputs.run_id || '34169519799' }}
+      TARGET_ARTIFACT_NAME: ${{ github.event_name == 'workflow_dispatch' && inputs.artifact_name || 'chatgpt-webview-v0.81-resource-observable-terminal-34169519799-telemetry' }}
     steps:
       - name: Download telemetry metadata
         shell: bash
