@@ -1,0 +1,71 @@
+name: Build Rotation Tile v1.0.3
+
+on:
+  push:
+    branches:
+      - build/android-rotation-tile-v102
+    paths:
+      - 'android-rotation-tile/**'
+      - '.github/workflows/build-rotation-tile-v103.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android 35 platform and build tools
+        run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+
+      - name: Set up Gradle 8.10.2
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.10.2'
+
+      - name: Build unsigned release APK
+        working-directory: android-rotation-tile
+        run: gradle --no-daemon :app:clean :app:assembleRelease
+
+      - name: Prepare Stage-A signing kit
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT='android-rotation-tile/app/build/outputs/apk/release/app-release-unsigned.apk'
+          test -f "$OUT"
+          mkdir -p stage-a
+          "$ANDROID_HOME/build-tools/35.0.0/zipalign" -p -f 4 "$OUT" stage-a/RotationTile-v1.0.3-unsigned-aligned.apk
+          "$ANDROID_HOME/build-tools/35.0.0/zipalign" -c -v 4 stage-a/RotationTile-v1.0.3-unsigned-aligned.apk
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging stage-a/RotationTile-v1.0.3-unsigned-aligned.apk > stage-a/aapt-badging.txt
+          sha256sum stage-a/RotationTile-v1.0.3-unsigned-aligned.apk > stage-a/unsigned-sha256.txt
+          {
+            echo "source_commit=${GITHUB_SHA}"
+            echo "source_ref=${GITHUB_REF_NAME}"
+            echo "package=com.homayoun.rotationtile"
+            echo "versionCode=4"
+            echo "versionName=1.0.3"
+            echo "expected_signer_cert_sha256=096de8878432ebe1173a9e3ae52ff47d3fb1c6bf9a432339276b0d0a839a1f8a"
+            echo "artifact=RotationTile-v1.0.3-unsigned-aligned.apk"
+            echo "installable=false"
+          } > stage-a/STAGE_A_PROVENANCE.txt
+          grep -q "package: name='com.homayoun.rotationtile' versionCode='4' versionName='1.0.3'" stage-a/aapt-badging.txt
+
+      - name: Upload unsigned signing kit
+        uses: actions/upload-artifact@v4
+        with:
+          name: RotationTile-v1.0.3-stage-a-signing-kit
+          path: stage-a/
+          if-no-files-found: error
+          retention-days: 7
