@@ -39,13 +39,9 @@ s=replace_method_body(
     '        // v1.35: deliberately disabled. Selection is not a stop-causality signal.',
     'external selection confirmation')
 
-for forbidden in [
-    'scheduleInternalSelectionReanchor();',
-    'stopVoiceForManualInput();\n            setStatus("Voice stopped — selection',
-]:
-    if forbidden in s:
-        raise SystemExit(f'v1.35 selection decoupling: legacy causality remains: {forbidden}')
-
+# Do not reject old call sites here: the main v1.35 architecture patch replaces
+# onUpdateSelection entirely. The final workflow gate verifies that no active
+# re-anchor/selection-stop call survives after the complete v1.35 patch chain.
 for required in [
     'private void scheduleInternalSelectionReanchor(){',
     'private void scheduleExternalSelectionConfirmation(int start,int end){',
