@@ -82,6 +82,7 @@ jobs:
           python3 tools/apply_v1350_selection_decoupling_prepatch.py
           python3 tools/apply_v135_stability_architecture_patch.py
           python3 tools/apply_v1351_socket_epoch_hardening.py
+          python3 tools/apply_v1352_preserve_clear_toolbar.py
 
       - name: Verify v1.35 architecture invariants
         working-directory: android/persian-keyboard-v19
@@ -127,6 +128,8 @@ jobs:
               'Recording — live text sync paused',
               'Intentionally informational only',
               'deliberately disabled. Same-editor selection never forces',
+              'private void clearCurrentTextField(){',
+              'performContextMenuAction(android.R.id.selectAll)',
               'import android.graphics.drawable.StateListDrawable;',
               'android.R.attr.state_pressed',
               'if(action==MotionEvent.ACTION_DOWN)',
