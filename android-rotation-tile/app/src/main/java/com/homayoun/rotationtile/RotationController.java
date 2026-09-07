@@ -5,7 +5,6 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.hardware.display.DisplayManager;
 import android.net.Uri;
-import android.os.Build;
 import android.provider.Settings;
 import android.view.Display;
 
@@ -42,8 +41,6 @@ public final class RotationController {
                 .remove(LEGACY_KEY_USER)
                 .apply();
 
-        // In v1.0.2, Off explicitly means follow the device sensors. Migrate
-        // legacy Off into that behavior as soon as the new state model is read.
         if (!enabled && Settings.System.canWrite(context)) {
             try {
                 Settings.System.putInt(
@@ -89,7 +86,7 @@ public final class RotationController {
     }
 
     public static boolean hasRequiredPermissions(Context context) {
-        return Settings.canDrawOverlays(context) && Settings.System.canWrite(context);
+        return Settings.System.canWrite(context);
     }
 
     public static boolean toggleOverride(Context context) {
@@ -110,19 +107,7 @@ public final class RotationController {
         // Preserve the exact visible angle while enabling: write the current
         // rotation first, then disable sensor rotation. This avoids a transient
         // jump to an older USER_ROTATION value during the long-press toggle.
-        try {
-            Settings.System.putInt(
-                    app.getContentResolver(),
-                    Settings.System.USER_ROTATION,
-                    current.userRotation);
-            Settings.System.putInt(
-                    app.getContentResolver(),
-                    Settings.System.ACCELEROMETER_ROTATION,
-                    0);
-        } catch (Throwable ignored) {
-        }
-
-        startOrUpdateService(app, current);
+        enforceSystemSettings(app, current);
         return true;
     }
 
@@ -147,8 +132,6 @@ public final class RotationController {
             } catch (Throwable ignored) {
             }
         }
-
-        app.stopService(new Intent(app, RotationService.class));
         return true;
     }
 
@@ -160,8 +143,13 @@ public final class RotationController {
 
         prefs(app).edit().putInt(KEY_LOCKED_MODE, target.id).apply();
         enforceSystemSettings(app, target);
-        startOrUpdateService(app, target);
         return true;
+    }
+
+    public static void reassertIfEnabled(Context context) {
+        Context app = context.getApplicationContext();
+        if (!isEnabled(app) || !hasRequiredPermissions(app)) return;
+        enforceSystemSettings(app, getLockedMode(app));
     }
 
     public static void enforceSystemSettings(Context context, RotationMode mode) {
@@ -189,26 +177,6 @@ public final class RotationController {
             }
         } catch (Throwable ignored) {
         }
-    }
-
-    private static void startOrUpdateService(Context context, RotationMode mode) {
-        Intent intent = new Intent(context, RotationService.class)
-                .setAction(RotationService.ACTION_SET_MODE)
-                .putExtra(RotationService.EXTRA_MODE, mode.id);
-        try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                context.startForegroundService(intent);
-            } else {
-                context.startService(intent);
-            }
-        } catch (Throwable ignored) {
-        }
-    }
-
-    public static Intent overlayPermissionIntent(Context context) {
-        return new Intent(
-                Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                Uri.parse("package:" + context.getPackageName()));
     }
 
     public static Intent writeSettingsPermissionIntent(Context context) {
