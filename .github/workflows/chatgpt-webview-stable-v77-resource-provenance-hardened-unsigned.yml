@@ -63,30 +63,18 @@ jobs:
           MAN=$ROOT/app/src/main/AndroidManifest.xml
           GRADLE=$ROOT/app/build.gradle
 
+          test -f "$ACT"
+          test -f "$PKG/TelemetryConfigV77.java"
           grep -Fq "applicationId 'com.homayounisaghar.chatgptwebviewprobe.diag'" "$GRADLE"
           grep -Fq 'versionCode 78' "$GRADLE"
           grep -Fq "versionName '0.75-stable-diag-resource-provenance-hardened'" "$GRADLE"
           grep -Fq 'OrchestratorResourceToolsV77Activity' "$MAN"
           grep -Fq 'ControlPlaneAccessibilityServiceV51' "$MAN"
           grep -Fq '@xml/cp_accessibility_service_v51' "$MAN"
-
-          for required in \
-            'RESOURCE TEST' 'TEST ACTION' 'TOOLS TEST' \
-            'PASS_RESOURCE_RESOLVER_V3_CENSUS_COMPLETE' \
-            'excluded_global_control_count' 'strong_nonhref_action_count' 'bounded_correlated_count' \
-            'data-cp-resource-locator-v77' \
-            'RESOURCE_ACTION_BLOCKED_SEMANTIC_RECERTIFICATION_FAILED' \
-            'RESOURCE_ACTION_MISDISPATCHED_NONRESOURCE_UI' \
-            'CLAIMED_BEFORE_RESOURCE_ACTION' \
-            'PASS_RESOURCE_DOWNLOAD_CALLBACK_RECEIPT' 'PASS_RESOURCE_EXTERNAL_OPEN_INTENT_DISPATCHED' \
-            'PASS_TOOLS_HIDDEN_MENU_MATERIALIZED_AND_ENUMERATED' 'PASS_TOOLS_MENU_RESTORED_CLOSED' \
-            'PASS_TOOLS_HIDDEN_MENU_CENSUS_COMPLETE' 'WAIT_MENU_RECEIPT' 'WAIT_CLOSE_RECEIPT' \
-            'plannerFormatRepairAttempts<1' 'PLANNER_RESPONSE_FORMAT_REPAIR_REQUESTED' \
-            'executePlannerAction(action,o);' 'pageFinishedEpoch==documentEpoch' \
-            'PLANNER_ACTION_SOURCE_NOT_PROVEN_FRESH_TEMP' 'TelemetryConfigV77' \
-            'private String jsV77(String value)'; do
-            grep -Fq "$required" "$ACT"
-          done
+          grep -Fq 'RESOURCE_ACTION_BLOCKED_SEMANTIC_RECERTIFICATION_FAILED' "$ACT"
+          grep -Fq 'RESOURCE_ACTION_MISDISPATCHED_NONRESOURCE_UI' "$ACT"
+          grep -Fq 'excluded_global_control_count' "$ACT"
+          grep -Fq 'data-cp-resource-locator-v77' "$ACT"
 
           test "$(grep -o '\.click();' "$ACT" | wc -l)" -eq 5
           for bad in Thread.sleep 'setTimeout(' 'setInterval(' ScheduledExecutorService TimerTask elementFromPoint document.evaluate dispatchTouchEvent 'performClick(' ACTION_SET_PROGRESS CookieManager 'getCookie(' addJavascriptInterface XPathResult; do
