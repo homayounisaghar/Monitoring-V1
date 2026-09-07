@@ -1,0 +1,155 @@
+name: ChatGPT WebView Stable v0.75 Resource Provenance Hardened Fix1 Unsigned
+
+on:
+  push:
+    branches: [project/chatgpt-webview-poc]
+    paths:
+      - '.github/workflows/chatgpt-webview-stable-v77-resource-provenance-hardened-fix1-unsigned.yml'
+      - 'ci/generate_chatgpt_webview_v77_resource_provenance_hardened.py'
+      - 'ci/generate_chatgpt_webview_v77_resource_provenance_hardened_fix1.py'
+      - 'ci/generate_chatgpt_webview_v76_resource_tools_consolidated.py'
+      - 'ci/generate_chatgpt_webview_v76_resource_tools_consolidated_fix1.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify checkout identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+
+      - name: Generate v0.75 source with compile repair
+        run: python3 ci/generate_chatgpt_webview_v77_resource_provenance_hardened_fix1.py
+
+      - name: Create fresh telemetry collector
+        shell: bash
+        run: |
+          set -euo pipefail
+          CFG=runtime_probes/chatgpt-webview-stable-probe/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/TelemetryConfigV77.java
+          TOKEN=$(curl -fsS -X POST https://webhook.site/token -H 'Accept: application/json' -H 'Content-Type: application/json' -d '{"default_status":200,"default_content":"OK","default_content_type":"text/plain"}' | python3 -c 'import json,sys;x=json.load(sys.stdin).get("uuid");assert x;print(x)')
+          ENDPOINT="https://webhook.site/$TOKEN"
+          READ="https://webhook.site/token/$TOKEN/requests?sorting=oldest&per_page=100"
+          python3 - "$CFG" "$ENDPOINT" "$GITHUB_SHA" "$TOKEN" <<'PY'
+          from pathlib import Path
+          import re,sys
+          p=Path(sys.argv[1]); s=p.read_text(); ep,sha,cid=sys.argv[2:]
+          s=re.sub(r'WEBHOOK_URL=".*?"',f'WEBHOOK_URL="{ep}"',s)
+          s=re.sub(r'SOURCE_REF=".*?"',f'SOURCE_REF="{sha}"',s)
+          s=re.sub(r'COLLECTOR_ID=".*?"',f'COLLECTOR_ID="{cid}"',s)
+          s=s.replace('CONFIGURED=false','CONFIGURED=true')
+          p.write_text(s)
+          PY
+          mkdir -p ci/v77-resource-provenance-telemetry
+          printf '%s\n' "$TOKEN" > ci/v77-resource-provenance-telemetry/collector-id.txt
+          printf '%s\n' "$READ" > ci/v77-resource-provenance-telemetry/read-url.txt
+          printf '%s\n' "$GITHUB_SHA" > ci/v77-resource-provenance-telemetry/source-ref.txt
+          printf '{"kind":"BUILD_SMOKE","schema_version":"cp-v77-resource-provenance-hardened-v1","scenario_id":"resource-provenance-action-recertification","control_sync":"EVENT_DRIVEN_NO_FIXED_DELAY_POLL_TIMEOUT","audit":"RESOURCE_PROVENANCE_ACTION_RECERTIFICATION_FIX1"}\n' | curl -fsS -X POST "$ENDPOINT" -H 'Content-Type: application/json' --data-binary @- >/dev/null
+
+      - name: End-to-end static audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT=runtime_probes/chatgpt-webview-stable-probe
+          PKG=$ROOT/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe
+          ACT=$PKG/OrchestratorResourceToolsV77Activity.java
+          MAN=$ROOT/app/src/main/AndroidManifest.xml
+          GRADLE=$ROOT/app/build.gradle
+
+          test -f "$ACT"
+          test -f "$PKG/TelemetryConfigV77.java"
+          grep -Fq "applicationId 'com.homayounisaghar.chatgptwebviewprobe.diag'" "$GRADLE"
+          grep -Fq 'versionCode 78' "$GRADLE"
+          grep -Fq "versionName '0.75-stable-diag-resource-provenance-hardened'" "$GRADLE"
+          grep -Fq 'OrchestratorResourceToolsV77Activity' "$MAN"
+          grep -Fq 'ControlPlaneAccessibilityServiceV51' "$MAN"
+          grep -Fq '@xml/cp_accessibility_service_v51' "$MAN"
+
+          python3 - "$ACT" <<'PY'
+          import pathlib,sys
+          s=pathlib.Path(sys.argv[1]).read_text()
+          required=[
+            'RESOURCE TEST','TEST ACTION','TOOLS TEST',
+            'RESOURCE_RESOLVER_V3','excluded_global_control_count','strong_nonhref_action_count','bounded_correlated_count',
+            'data-cp-resource-locator-v77','RESOURCE_ACTION_BLOCKED_SEMANTIC_RECERTIFICATION_FAILED',
+            'RESOURCE_ACTION_MISDISPATCHED_NONRESOURCE_UI','CLAIMED_BEFORE_RESOURCE_ACTION',
+            'PASS_RESOURCE_DOWNLOAD_CALLBACK_RECEIPT','PASS_RESOURCE_EXTERNAL_OPEN_INTENT_DISPATCHED',
+            'PASS_TOOLS_HIDDEN_MENU_MATERIALIZED_AND_ENUMERATED','PASS_TOOLS_MENU_RESTORED_CLOSED',
+            'PASS_TOOLS_HIDDEN_MENU_CENSUS_COMPLETE','TelemetryConfigV77','private String jsV77(String value)',
+            "prev&&next&&prev.role==='assistant'","if(!da||isComposer(e)){excludedGlobal++;return;}",
+            'FILE_ACTION:40','CROSS_ORIGIN_LINK:55',
+            "x.kind==='FILE_ACTION'&&(x.ownerMode!=='DIRECT'||x.evidence!=='STRONG_DIRECT_NONHREF')"
+          ]
+          for x in required: assert x in s,x
+          assert s.count('.click();')==5,s.count('.click();')
+          for bad in ['Thread.sleep','setTimeout(','setInterval(','ScheduledExecutorService','TimerTask','elementFromPoint','document.evaluate','dispatchTouchEvent(','performClick(','ACTION_SET_PROGRESS','CookieManager','getCookie(','addJavascriptInterface','XPathResult']:
+            assert bad not in s,bad
+          assert 'raw_url_remote",false' in s and 'raw_text_remote",false' in s
+          print('PASS v0.75 fix1 provenance-hardened static audit')
+          PY
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Build and prove exact artifact identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          sdkmanager "platforms;android-35" "build-tools;35.0.0"
+          echo "sdk.dir=$ANDROID_SDK_ROOT" > runtime_probes/chatgpt-webview-stable-probe/local.properties
+          curl -fsSL https://services.gradle.org/distributions/gradle-8.10.2-bin.zip -o /tmp/gradle.zip
+          unzip -q /tmp/gradle.zip -d /tmp
+          cd runtime_probes/chatgpt-webview-stable-probe
+          /tmp/gradle-8.10.2/bin/gradle --no-daemon :app:assembleRelease --stacktrace
+          cd ../..
+
+          OUT=ci/v77-resource-provenance-out
+          mkdir -p "$OUT"
+          UNSIGNED=runtime_probes/chatgpt-webview-stable-probe/app/build/outputs/apk/release/app-release-unsigned.apk
+          ALIGNED="$OUT/chatgpt-webview-v0.75-resource-provenance-hardened-exact-source-aligned-unsigned.apk"
+          BT="$ANDROID_SDK_ROOT/build-tools/35.0.0"
+          "$BT/zipalign" -f -p 4 "$UNSIGNED" "$ALIGNED"
+          "$BT/zipalign" -c -v 4 "$ALIGNED" > "$OUT/zipalign-verify.txt"
+          "$BT/aapt" dump badging "$ALIGNED" > "$OUT/badging.txt"
+          "$BT/aapt" dump permissions "$ALIGNED" > "$OUT/permissions.txt"
+          grep -Fq "package: name='com.homayounisaghar.chatgptwebviewprobe.diag' versionCode='78' versionName='0.75-stable-diag-resource-provenance-hardened'" "$OUT/badging.txt"
+          grep -Fq "launchable-activity: name='com.homayounisaghar.chatgptwebviewprobe.OrchestratorResourceToolsV77Activity'" "$OUT/badging.txt"
+          test "$(grep -c '^uses-permission:' "$OUT/permissions.txt")" -eq 3
+          grep -Fq 'android.permission.INTERNET' "$OUT/permissions.txt"
+          grep -Fq 'android.permission.RECORD_AUDIO' "$OUT/permissions.txt"
+          grep -Fq 'android.permission.MODIFY_AUDIO_SETTINGS' "$OUT/permissions.txt"
+
+          cp "$BT/lib/apksigner.jar" "$OUT/apksigner.jar"
+          java -jar "$OUT/apksigner.jar" --version > "$OUT/APKSIGNER_VERSION.txt"
+          sha256sum "$OUT/apksigner.jar" > "$OUT/APKSIGNER_JAR_SHA256.txt"
+          printf '%s\n' "$GITHUB_SHA" > "$OUT/SOURCE_REF.txt"
+          printf '%s\n' 'RESOURCE_RESOLVER_V3_PROVENANCE_BOUNDED_PLUS_ACTION_RECERTIFICATION_PLUS_EVENT_DRIVEN_TOOLS' > "$OUT/FRONTIER_MODE.txt"
+          printf '%s\n' 'EVENT_DRIVEN_NO_FIXED_DELAY_POLL_TIMEOUT' > "$OUT/CONTROL_SYNC.txt"
+          printf '%s\n' 'b7aea08158252dcad79345608ce2e76e970e4cf613414db299579f46d9924c48' > "$OUT/EXPECTED_SIGNER_CERT_SHA256.txt"
+          sha256sum "$ALIGNED" > "$OUT/ALIGNED_UNSIGNED_SHA256.txt"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: chatgpt-webview-v0.75-resource-provenance-hardened-fix1-${{ github.run_id }}-unsigned
+          path: ci/v77-resource-provenance-out
+          if-no-files-found: error
+          retention-days: 30
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: chatgpt-webview-v0.75-resource-provenance-hardened-fix1-${{ github.run_id }}-telemetry
+          path: ci/v77-resource-provenance-telemetry
+          if-no-files-found: error
+          retention-days: 30
