@@ -1,0 +1,39 @@
+name: Export Android 35 apksigner
+
+on:
+  push:
+    branches:
+      - build/android-rotation-tile-v102
+    paths:
+      - '.github/workflows/export-apksigner-v35.yml'
+  workflow_dispatch:
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install build tools 35.0.0
+        run: sdkmanager 'build-tools;35.0.0'
+
+      - name: Prepare apksigner bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p apksigner-bundle/lib
+          cp "$ANDROID_HOME/build-tools/35.0.0/apksigner" apksigner-bundle/apksigner
+          cp "$ANDROID_HOME/build-tools/35.0.0/lib/apksigner.jar" apksigner-bundle/lib/apksigner.jar
+          chmod +x apksigner-bundle/apksigner
+          sha256sum apksigner-bundle/apksigner apksigner-bundle/lib/apksigner.jar > apksigner-bundle/SHA256SUMS.txt
+
+      - name: Upload apksigner bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-build-tools-35-apksigner
+          path: apksigner-bundle/
+          if-no-files-found: error
+          retention-days: 7
