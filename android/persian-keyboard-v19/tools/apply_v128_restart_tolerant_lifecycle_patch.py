@@ -1,4 +1,5 @@
 from pathlib import Path
+import re
 
 service = Path('app/src/main/java/com/najme/perplexityprobe/PersianKeyboardService.java')
 gradle_file = Path('app/build.gradle')
@@ -13,32 +14,26 @@ def replace_once(old, new, label):
     s = s.replace(old, new, 1)
 
 
-# v1.27 ruled out one false-stop source (selection-coordinate mismatch) but
-# real-device testing still reproduced an involuntary microphone stop while all
-# v1.26 live-text behavior remained healthy. Android explicitly reports
-# onStartInput(..., restarting=true) when input is restarting in the SAME editor,
-# for example after the application changes editor text. The old code aborted any
-# running voice session on every onStartInput call, so a benign same-editor
-# restart was indistinguishable from a genuine editor/focus change.
-replace_once(
-'''    @Override public void onStartInput(EditorInfo attribute, boolean restarting) {
-        super.onStartInput(attribute, restarting);
-        editorInfo = attribute;
-        inputGeneration++;
-        if (running) abortForEditorChange();
-        shift = false;
-        int klass = attribute == null ? InputType.TYPE_CLASS_TEXT : (attribute.inputType & InputType.TYPE_MASK_CLASS);
-        layer = (klass == InputType.TYPE_CLASS_NUMBER || klass == InputType.TYPE_CLASS_PHONE) ? Layer.NUMPAD : Layer.ALPHA;
-        main.post(this::render);
-    }
-''',
+def regex_replace_once(pattern, new, label):
+    global s
+    updated, count = re.subn(pattern, lambda _m: new, s, count=1, flags=re.S)
+    if count != 1:
+        raise SystemExit(f'v1.28 patch: expected one regex match for {label}, got {count}')
+    s = updated
+
+
+# Device validation showed v1.27 still auto-stops, while v1.26/v1.27 live text
+# remains fast and duplicate-free. Keep that publisher untouched and close a
+# separate lifecycle stop path: Android reports restarting=true when input is
+# restarted in the SAME editor. onFinishInput is not called for that same-editor
+# restart, so an active speech session can safely survive it by rebinding the
+# current InputConnection rather than treating it as a focus/editor change.
+regex_replace_once(
+    r'    @Override public void onStartInput\(EditorInfo attribute, boolean restarting\) \{\n.*?\n    \}\n',
 '''    @Override public void onStartInput(EditorInfo attribute, boolean restarting) {
         super.onStartInput(attribute, restarting);
         editorInfo = attribute;
 
-        // Android guarantees restarting=true means input is restarting in the
-        // same editor. Preserve the active speech session and only rebind the
-        // InputConnection; do not bump inputGeneration or tear down transport.
         if(running&&restarting){
             InputConnection current=getCurrentInputConnection();
             if(current!=null){
@@ -63,45 +58,30 @@ replace_once(
         }
 
         inputGeneration++;
-        if (running) abortForEditorChange("new input");
+        if(running)abortForEditorChange("new input");
         shift = false;
         int klass = attribute == null ? InputType.TYPE_CLASS_TEXT : (attribute.inputType & InputType.TYPE_MASK_CLASS);
         layer = (klass == InputType.TYPE_CLASS_NUMBER || klass == InputType.TYPE_CLASS_PHONE) ? Layer.NUMPAD : Layer.ALPHA;
         main.post(this::render);
     }
 ''',
-    'same-editor restart must not cancel voice',
+    'same-editor restart lifecycle',
 )
 
-replace_once(
+regex_replace_once(
+    r'    @Override public void onFinishInput\(\) \{\n.*?\n    \}\n',
 '''    @Override public void onFinishInput() {
         inputGeneration++;
-        if (running) abortForEditorChange();
+        if(running)abortForEditorChange("finish input");
         editorInfo = null;
         super.onFinishInput();
     }
 ''',
-'''    @Override public void onFinishInput() {
-        inputGeneration++;
-        if (running) abortForEditorChange("finish input");
-        editorInfo = null;
-        super.onFinishInput();
-    }
-''',
-    'diagnose true finish-input cancellation',
+    'finish-input diagnostic',
 )
 
-# Keep the old no-argument helper for existing call sites, but make automatic
-# cancellations self-identifying on the keyboard status line. If v1.28 still
-# stops on-device, the next reproduction will distinguish lifecycle, connection,
-# selection, and Soniox causes instead of forcing another guess.
-replace_once(
-'''    private void abortForEditorChange(){
-        sendAfterVoiceStop=false;
-        InputConnection old=boundConnection;running=false;stopRequested=true;awaitingCredential=false;stopAudioRecord();clearPending();WebSocket ws=webSocket;webSocket=null;if(ws!=null)ws.cancel();if(old!=null)try{old.finishComposingText();}catch(Exception ignored){} boundConnection=null;
-        main.post(()->{setCollapsed(false);updateMicUi();setStatus("Voice cancelled — editor changed");});
-    }
-''',
+regex_replace_once(
+    r'    private void abortForEditorChange\(\)\{\n.*?\n    \}\n',
 '''    private void abortForEditorChange(){abortForEditorChange("editor changed");}
     private void abortForEditorChange(String reason){
         sendAfterVoiceStop=false;
@@ -110,7 +90,7 @@ replace_once(
         main.post(()->{setCollapsed(false);updateMicUi();setStatus("Voice cancelled — "+why);});
     }
 ''',
-    'reasoned automatic cancellation diagnostics',
+    'reasoned automatic cancellation diagnostic',
 )
 
 replace_once(
@@ -118,7 +98,7 @@ replace_once(
 ''',
 '''            if(boundConnection==null||activeGeneration!=inputGeneration||getCurrentInputConnection()!=boundConnection){if(running)abortForEditorChange("connection mismatch");return;}
 ''',
-    'diagnose publish connection mismatch',
+    'publish connection mismatch diagnostic',
 )
 
 replace_once(
@@ -131,13 +111,13 @@ replace_once(
         setStatus("Voice stopped — selection changed");
     }
 ''',
-    'diagnose selection-triggered stop',
+    'selection-stop diagnostic',
 )
 
 replace_once(
 '''if(o.has("error_code")&&!o.isNull("error_code")){if(recoverableSonioxError(o)){recoverSpeechTransport(o.optString("error_type","Soniox error"));return;}finishWithText("Soniox error");return;}''',
 '''if(o.has("error_code")&&!o.isNull("error_code")){if(recoverableSonioxError(o)){recoverSpeechTransport(o.optString("error_type","Soniox error"));return;}finishWithText("Soniox stop "+o.optInt("error_code",0)+" / "+o.optString("error_type","unknown"));return;}''',
-    'diagnose unrecoverable Soniox stop',
+    'unrecoverable Soniox diagnostic',
 )
 
 if 'versionCode 37' not in g or "versionName '1.27'" not in g:
