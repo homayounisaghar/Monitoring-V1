@@ -1,0 +1,27 @@
+name: Capability Fabric Read Probe
+
+on:
+  push:
+    branches:
+      - ci/android-toolchain-bootstrap-a2
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Probe read-only private-repo visibility
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          code=$(curl -sS -o /dev/null -w '%{http_code}' \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H 'Accept: application/vnd.github+json' \
+            https://api.github.com/repos/homayounisaghar/capability-fabric)
+          echo "CAPABILITY_FABRIC_READ_HTTP=$code"
+          test "$code" = 200
