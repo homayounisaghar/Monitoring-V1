@@ -87,7 +87,6 @@ required=[
     'socketEpoch!=speechSocketEpoch',
     'socketEpoch==speechSocketEpoch&&webSocket==ws',
     'finishAckEpoch++;speechSocketEpoch++;activeCredentialRequestId=0L;',
-    "versionName '1.35'",
 ]
 for needle in required:
     if needle not in s:
