@@ -11,11 +11,11 @@ on:
       run_id:
         description: 'Stage A workflow run id that owns the telemetry artifact'
         required: true
-        default: '34030881699'
+        default: '34059111381'
       artifact_name:
         description: 'Exact telemetry artifact name from that run'
         required: true
-        default: 'chatgpt-webview-v0.71-semantic-planner-execution-hardened-34030881699-telemetry'
+        default: 'chatgpt-webview-v0.72-semantic-planner-format-repair-34059111381-telemetry'
 
 permissions:
   contents: read
@@ -27,8 +27,8 @@ jobs:
     timeout-minutes: 5
     env:
       GH_TOKEN: ${{ github.token }}
-      TARGET_RUN_ID: ${{ github.event_name == 'workflow_dispatch' && inputs.run_id || '34030881699' }}
-      TARGET_ARTIFACT_NAME: ${{ github.event_name == 'workflow_dispatch' && inputs.artifact_name || 'chatgpt-webview-v0.71-semantic-planner-execution-hardened-34030881699-telemetry' }}
+      TARGET_RUN_ID: ${{ github.event_name == 'workflow_dispatch' && inputs.run_id || '34059111381' }}
+      TARGET_ARTIFACT_NAME: ${{ github.event_name == 'workflow_dispatch' && inputs.artifact_name || 'chatgpt-webview-v0.72-semantic-planner-format-repair-34059111381-telemetry' }}
     steps:
       - name: Download telemetry metadata
         shell: bash
