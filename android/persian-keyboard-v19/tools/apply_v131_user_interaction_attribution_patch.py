@@ -11,22 +11,17 @@ a = accessibility_xml.read_text()
 g = gradle_file.read_text()
 
 
-def replace_once(text, old, new, label):
+def rep(text, old, new, label):
     if old not in text:
         raise SystemExit(f'v1.31 patch: missing pattern: {label}')
     return text.replace(old, new, 1)
 
 
-# v1.30 proved that a browser/contenteditable editor can move its selection
-# persistently away from the IME-owned voice tail without any user touch. A
-# selection position therefore describes state, not causality. v1.31 changes
-# attribution: selection alone can never stop speech. It must be accompanied by
-# independently observed user interaction with the editor/screen. Internal
-# off-tail churn is re-anchored to the last IME-owned cursor instead of stopping
-# AudioRecord/WebSocket or permanently stalling live publication.
-
-s = replace_once(
-    s,
+# v1.30 device evidence proved that persistent off-tail selection is editor state,
+# not proof of user intent. v1.31 requires an independently observed user touch/
+# editor click before selection is allowed to stop speech. Otherwise it restores
+# the last cursor position owned by the IME and keeps speech transport alive.
+s = rep(s,
 '''    private int selectionConfirmationEpoch;
     private boolean selectionConfirmationPending;
 ''',
@@ -38,12 +33,9 @@ s = replace_once(
     private int lastProgrammaticSelectionStart=-1;
     private int lastProgrammaticSelectionEnd=-1;
     private int internalSelectionReanchorEpoch;
-''',
-    'user-interaction attribution state',
-)
+''', 'user interaction attribution state')
 
-s = replace_once(
-    s,
+s = rep(s,
 '''                lastProgrammaticSelectionKey=key;
                 hasLastProgrammaticSelection=true;
                 while(expectedSelectionUpdates.size()>=10)expectedSelectionUpdates.removeFirst();
@@ -53,12 +45,9 @@ s = replace_once(
                 lastProgrammaticSelectionEnd=end;
                 hasLastProgrammaticSelection=true;
                 while(expectedSelectionUpdates.size()>=10)expectedSelectionUpdates.removeFirst();
-''',
-    'remember absolute owned cursor coordinates',
-)
+''', 'remember absolute owned cursor')
 
-s = replace_once(
-    s,
+s = rep(s,
 '''    private void scheduleExternalSelectionConfirmation(int start,int end){
 ''',
 '''    private boolean hasRecentEditorUserInteraction(){
@@ -95,12 +84,9 @@ s = replace_once(
     }
 
     private void scheduleExternalSelectionConfirmation(int start,int end){
-''',
-    'interaction attribution and internal re-anchor helpers',
-)
+''', 'interaction attribution helpers')
 
-s = replace_once(
-    s,
+s = rep(s,
 '''            if(!selectionCallbackMatchesEditorNow(start,end)){
                 selectionConfirmationPending=false;
                 return;
@@ -121,8 +107,6 @@ s = replace_once(
                 selectionConfirmationPending=false;
                 return;
             }
-            // Selection state is not proof of user intent. Only an independently
-            // observed touch/editor click may authorize the manual-stop path.
             if(!hasRecentEditorUserInteraction()){
                 selectionConfirmationPending=false;
                 scheduleInternalSelectionReanchor();
@@ -131,12 +115,9 @@ s = replace_once(
             selectionConfirmationPending=false;
             stopVoiceForManualInput();
             setStatus("Voice stopped — selection after user interaction");
-''',
-    'require independently observed user interaction before selection stop',
-)
+''', 'require user interaction before confirmed selection stop')
 
-s = replace_once(
-    s,
+s = rep(s,
 '''        if(withinComposing)return;
         // Do not attribute causality from one callback. Browser/contenteditable
         // editors can transiently move selection while applying the IME's own
@@ -147,43 +128,32 @@ s = replace_once(
 ''',
 '''        if(withinComposing)return;
         if(currentSelectionAtOwnedVoiceTail(newSelStart,newSelEnd))return;
-        // v1.30 device evidence proved that persistent off-tail selection can be
-        // editor-generated. Do not even start the stop-confirmation gate unless
-        // a separate user-interaction signal exists. Otherwise restore the last
-        // IME-owned cursor and keep speech/live publication alive.
         if(!hasRecentEditorUserInteraction()){
             scheduleInternalSelectionReanchor();
             return;
         }
         scheduleExternalSelectionConfirmation(newSelStart,newSelEnd);
-''',
-    'selection callback must have user-interaction evidence',
-)
+''', 'selection callback user attribution gate')
 
-s = replace_once(
-    s,
-'''    @Override public void onUpdateSelection(int oldSelStart,int oldSelEnd,int newSelStart,int newSelEnd,int candidatesStart,int candidatesEnd){
-''',
-'''    @Override public void onUpdateEditorToolType(int toolType){
+# Insert by stable method-prefix rather than a full signature: historical patches
+# use different whitespace/parameter formatting for onUpdateSelection.
+selection_marker = '    @Override public void onUpdateSelection('
+if selection_marker not in s:
+    raise SystemExit('v1.31 patch: missing onUpdateSelection method prefix')
+insert_at = s.index(selection_marker)
+s = s[:insert_at] + '''    @Override public void onUpdateEditorToolType(int toolType){
         lastEditorToolInteractionUptime=android.os.SystemClock.uptimeMillis();
     }
 
-    @Override public void onUpdateSelection(int oldSelStart,int oldSelEnd,int newSelStart,int newSelEnd,int candidatesStart,int candidatesEnd){
-''',
-    'direct editor tap/click attribution callback',
-)
+''' + s[insert_at:]
 
-s = replace_once(
-    s,
+s = rep(s,
 '''        resetAudio(); running=true; stopRequested=false; completed=false; awaitingCredential=true; credentialAttempt=0; retryAfterPageLoad=false; lastCredentialError=""; speechRecovering=false; speechRecoveryEpoch++; credentialWatchdogEpoch++; credentialWebViewResets=0; livePartialTail=""; programmaticSelectionEditDepth=0; hasLastProgrammaticSelection=false; selectionConfirmationEpoch++; selectionConfirmationPending=false; sendAfterVoiceStop=false; updateMicUi();
 ''',
 '''        resetAudio(); running=true; stopRequested=false; completed=false; awaitingCredential=true; credentialAttempt=0; retryAfterPageLoad=false; lastCredentialError=""; speechRecovering=false; speechRecoveryEpoch++; credentialWatchdogEpoch++; credentialWebViewResets=0; livePartialTail=""; programmaticSelectionEditDepth=0; hasLastProgrammaticSelection=false; lastProgrammaticSelectionStart=-1; lastProgrammaticSelectionEnd=-1; selectionConfirmationEpoch++; selectionConfirmationPending=false; internalSelectionReanchorEpoch++; voiceStartedUptime=android.os.SystemClock.uptimeMillis(); voiceStartTouchGeneration=SendAccessibilityService.userTouchGeneration(); lastEditorToolInteractionUptime=0L; sendAfterVoiceStop=false; updateMicUi();
-''',
-    'snapshot touch generation at voice start',
-)
+''', 'voice start interaction snapshot')
 
-h = replace_once(
-    h,
+h = rep(h,
 '''    private static volatile SendAccessibilityService instance;
     private static volatile String lastResult = "";
 ''',
@@ -191,12 +161,9 @@ h = replace_once(
     private static volatile String lastResult = "";
     private static volatile long latestUserTouchUptime;
     private static volatile long userTouchGeneration;
-''',
-    'Accessibility user-touch state',
-)
+''', 'accessibility touch state')
 
-h = replace_once(
-    h,
+h = rep(h,
 '''    public static String getLastResult() {
         return lastResult;
     }
@@ -212,12 +179,9 @@ h = replace_once(
     public static long userTouchGeneration() {
         return userTouchGeneration;
     }
-''',
-    'Accessibility touch accessors',
-)
+''', 'accessibility touch accessors')
 
-h = replace_once(
-    h,
+h = rep(h,
 '''    @Override public void onAccessibilityEvent(AccessibilityEvent event) {
         // Deliberately idle: no continuous screen processing.
     }
@@ -231,27 +195,23 @@ h = replace_once(
         }else if(type==AccessibilityEvent.TYPE_TOUCH_INTERACTION_END){
             latestUserTouchUptime=android.os.SystemClock.uptimeMillis();
         }
-        // Other accessibility events remain ignored. This service still does no
-        // continuous node/text processing outside an explicit Send request.
+        // All other accessibility events remain ignored; no continuous node/text
+        // inspection is introduced by this change.
     }
-''',
-    'system user-touch event attribution',
-)
+''', 'system touch interaction attribution')
 
-a = replace_once(
-    a,
+a = rep(a,
 '''    android:accessibilityEventTypes="typeWindowStateChanged|typeWindowContentChanged|typeViewFocused"
 ''',
 '''    android:accessibilityEventTypes="typeWindowStateChanged|typeWindowContentChanged|typeViewFocused|typeTouchInteractionStart|typeTouchInteractionEnd"
-''',
-    'subscribe to system touch-interaction events',
-)
+''', 'touch interaction event subscription')
 
 if 'versionCode 40' not in g or "versionName '1.30'" not in g:
     raise SystemExit('v1.31 patch: expected v1.30 version markers missing')
 g = g.replace('versionCode 40', 'versionCode 41', 1)
 g = g.replace("versionName '1.30'", "versionName '1.31'", 1)
 
+text = s + '\n' + h + '\n' + a + '\n' + g
 required = [
     'private long voiceStartedUptime;',
     'private long voiceStartTouchGeneration;',
@@ -261,7 +221,6 @@ required = [
     'private void scheduleInternalSelectionReanchor(){',
     'ic.setSelection(lastProgrammaticSelectionStart,lastProgrammaticSelectionEnd);',
     '@Override public void onUpdateEditorToolType(int toolType){',
-    'if(!hasRecentEditorUserInteraction()){',
     'Voice stopped — selection after user interaction',
     'public static long latestUserTouchUptime()',
     'public static long userTouchGeneration()',
@@ -270,7 +229,6 @@ required = [
     'versionCode 41',
     "versionName '1.31'",
 ]
-text = s + '\n' + h + '\n' + a + '\n' + g
 for needle in required:
     if needle not in text:
         raise SystemExit(f'v1.31 patch: required invariant missing: {needle}')
