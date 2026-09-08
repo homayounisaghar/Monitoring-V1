@@ -1,0 +1,199 @@
+name: ChatGPT WebView Stable v0.86 WebMessage Bridge Acceptance Unsigned
+
+on:
+  push:
+    branches:
+      - project/chatgpt-webview-poc
+    paths:
+      - '.github/workflows/chatgpt-webview-stable-v88-resource-webmessage-bridge-acceptance-unsigned.yml'
+      - 'ci/generate_chatgpt_webview_v88_resource_webmessage_bridge_acceptance.py'
+      - 'ci/generate_chatgpt_webview_v87_resource_parse_boundary_probe.py'
+      - 'ci/generate_chatgpt_webview_v86_resource_final_stage_probe.py'
+      - 'ci/generate_chatgpt_webview_v85_resource_fingerprint_drift_probe_fix2.py'
+      - 'ci/generate_chatgpt_webview_v85_resource_fingerprint_drift_probe.py'
+      - 'ci/generate_chatgpt_webview_v84_resource_semantic_turn_identity.py'
+      - 'ci/generate_chatgpt_webview_v83_resource_observable_terminal.py'
+      - 'ci/generate_chatgpt_webview_v82_calibrated_actuator_resource_fix1.py'
+      - 'ci/generate_chatgpt_webview_v82_calibrated_actuator_resource.py'
+      - 'ci/generate_chatgpt_webview_v81_assistant_local_resource_acceptance.py'
+      - 'ci/generate_chatgpt_webview_v80_assistant_local_interaction_probe.py'
+      - 'ci/generate_chatgpt_webview_v79_resource_topology_probe.py'
+      - 'ci/generate_chatgpt_webview_v78_resource_final_bounded_wrapped.py'
+      - 'ci/generate_chatgpt_webview_v77_resource_provenance_hardened.py'
+      - 'ci/generate_chatgpt_webview_v77_resource_provenance_hardened_fix1.py'
+      - 'ci/generate_chatgpt_webview_v76_resource_tools_consolidated.py'
+      - 'ci/generate_chatgpt_webview_v76_resource_tools_consolidated_fix1.py'
+      - 'ci/generate_chatgpt_webview_v64_conversation_runtime.py'
+      - 'ci/v51_model_observer/ControlPlaneAccessibilityServiceV51.java'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify checkout identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+
+      - name: Generate v0.86 WebMessagePort-certified acceptance source
+        run: python3 ci/generate_chatgpt_webview_v88_resource_webmessage_bridge_acceptance.py
+
+      - name: Syntax-check exact cert and effect JavaScript templates
+        shell: bash
+        run: |
+          set -euo pipefail
+          D=ci/v88-resource-webmessage-bridge-acceptance
+          CERT="$D/resource-cert-sentinel.js"
+          EFFECT="$D/resource-effect-sentinel.js"
+          CERT_T="$D/resource-cert-template-sha256-input.txt"
+          EFFECT_T="$D/resource-effect-template-sha256-input.txt"
+          test -s "$CERT" && test -s "$EFFECT" && test -s "$CERT_T" && test -s "$EFFECT_T"
+          ! grep -Fq '__CP_' "$CERT"
+          ! grep -Fq '__CP_' "$EFFECT"
+          grep -Fq '__CP_EXPECTED_JSON__' "$CERT_T"
+          grep -Fq '__CP_TX_JSON__' "$CERT_T"
+          grep -Fq '__CP_CERT_JSON__' "$CERT_T"
+          grep -Fq '__CP_EFFECT_JSON__' "$EFFECT_T"
+          grep -Fq '__CP_CANDIDATE_JSON__' "$EFFECT_T"
+          node --check "$CERT"
+          node --check "$EFFECT"
+          sha256sum "$CERT" > "$D/resource-cert-sentinel-SHA256.txt"
+          sha256sum "$EFFECT" > "$D/resource-effect-sentinel-SHA256.txt"
+          sha256sum "$CERT_T" > "$D/resource-cert-template-SHA256.txt"
+          sha256sum "$EFFECT_T" > "$D/resource-effect-template-SHA256.txt"
+          printf '%s\n' 'PASS_EXACT_WEBMESSAGE_CERT_AND_SAME_TASK_EFFECT_TEMPLATE_SYNTAX' > "$D/RESOURCE_JS_SYNTAX_GATE.txt"
+
+      - name: Create fresh telemetry collector
+        shell: bash
+        run: |
+          set -euo pipefail
+          CFG=runtime_probes/chatgpt-webview-stable-probe/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/TelemetryConfigV88.java
+          TOKEN=$(curl -fsS -X POST https://webhook.site/token -H 'Accept: application/json' -H 'Content-Type: application/json' -d '{"default_status":200,"default_content":"OK","default_content_type":"text/plain"}' | python3 -c 'import json,sys;x=json.load(sys.stdin).get("uuid");assert x;print(x)')
+          ENDPOINT="https://webhook.site/$TOKEN"
+          READ="https://webhook.site/token/$TOKEN/requests?sorting=oldest&per_page=100"
+          python3 - "$CFG" "$ENDPOINT" "$GITHUB_SHA" "$TOKEN" <<'PY'
+          from pathlib import Path
+          import re,sys
+          p=Path(sys.argv[1]); s=p.read_text(); ep,sha,cid=sys.argv[2:]
+          s=re.sub(r'WEBHOOK_URL=".*?"',f'WEBHOOK_URL="{ep}"',s)
+          s=re.sub(r'SOURCE_REF=".*?"',f'SOURCE_REF="{sha}"',s)
+          s=re.sub(r'COLLECTOR_ID=".*?"',f'COLLECTOR_ID="{cid}"',s)
+          s=s.replace('CONFIGURED=false','CONFIGURED=true')
+          p.write_text(s)
+          PY
+          mkdir -p ci/v88-resource-webmessage-bridge-acceptance-telemetry
+          printf '%s\n' "$TOKEN" > ci/v88-resource-webmessage-bridge-acceptance-telemetry/collector-id.txt
+          printf '%s\n' "$READ" > ci/v88-resource-webmessage-bridge-acceptance-telemetry/read-url.txt
+          printf '%s\n' "$GITHUB_SHA" > ci/v88-resource-webmessage-bridge-acceptance-telemetry/source-ref.txt
+          cp ci/v88-resource-webmessage-bridge-acceptance/RESOURCE_JS_SYNTAX_GATE.txt ci/v88-resource-webmessage-bridge-acceptance-telemetry/
+          cp ci/v88-resource-webmessage-bridge-acceptance/resource-cert-sentinel-SHA256.txt ci/v88-resource-webmessage-bridge-acceptance-telemetry/
+          cp ci/v88-resource-webmessage-bridge-acceptance/resource-effect-sentinel-SHA256.txt ci/v88-resource-webmessage-bridge-acceptance-telemetry/
+          cp ci/v88-resource-webmessage-bridge-acceptance/resource-cert-template-SHA256.txt ci/v88-resource-webmessage-bridge-acceptance-telemetry/
+          cp ci/v88-resource-webmessage-bridge-acceptance/resource-effect-template-SHA256.txt ci/v88-resource-webmessage-bridge-acceptance-telemetry/
+          printf '{"kind":"BUILD_SMOKE","schema_version":"cp-v88-resource-webmessage-bridge-acceptance-v1","scenario_id":"resource-webmessage-bridge-certified-acceptance","control_sync":"WEBMESSAGE_CERT_THEN_SAME_TASK_RECERT_EFFECT_THEN_RECEIPT","audit":"STRICT_NONCE_EPOCH_SCHEMA_EXACTLY_ONCE_NO_REPLAY"}\n' | curl -fsS -X POST "$ENDPOINT" -H 'Content-Type: application/json' --data-binary @- >/dev/null
+
+      - name: End-to-end bridge acceptance static audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT=runtime_probes/chatgpt-webview-stable-probe
+          PKG=$ROOT/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe
+          ACT=$PKG/OrchestratorResourceToolsV88Activity.java
+          SVC=$PKG/ControlPlaneAccessibilityServiceV51.java
+          MAN=$ROOT/app/src/main/AndroidManifest.xml
+          GRADLE=$ROOT/app/build.gradle
+          test -f "$ACT" && test -f "$SVC" && test -f "$PKG/TelemetryConfigV88.java"
+          grep -Fq "applicationId 'com.homayounisaghar.chatgptwebviewprobe.diag'" "$GRADLE"
+          grep -Fq 'versionCode 89' "$GRADLE"
+          grep -Fq "versionName '0.86-stable-diag-resource-webmessage-bridge-acceptance'" "$GRADLE"
+          grep -Fq 'OrchestratorResourceToolsV88Activity' "$MAN"
+          grep -Fq 'ControlPlaneAccessibilityServiceV51' "$MAN"
+          python3 - "$ACT" <<'PY'
+          import pathlib,re,sys
+          s=pathlib.Path(sys.argv[1]).read_text()
+          required=['cp-v88-resource-webmessage-bridge-acceptance-v1','resource-webmessage-bridge-certified-acceptance','CP_RESOURCE_CERT_V88','CP_RESOURCE_EFFECT_V88','createWebMessageChannel','CP_CONNECT','window.__cpEventPort','handleResourceBridgeMessageV88','handleResourceCertMessageV88','handleResourceEffectMessageV88','^[0-9a-f]{8}$','^[0-9a-f]{32}$','PASS_RESOURCE_BRIDGE_CERT_ACCEPTED','RESOURCE_EFFECT_ATTEMPT_ARMED_AFTER_BRIDGE_CERT','PASS_RESOURCE_JS_SAME_TASK_RECERT_AND_CLICK_DISPATCHED_WAITING_RECEIPT','RESOURCE_ACTION_NO_FINAL_CERT_RECEIPT_NO_ACTION','RESOURCE_ACTION_EFFECT_BLOCKED_TARGET_CHANGED_NO_ACTION','RESOURCE_ACTION_UNCERTAIN_EFFECT_ATTEMPT_NO_BRIDGE_RESULT_NO_REPLAY','receipt_listening_armed_before_effect_script','armResourceReceiptDeadlineV88(resourceV82Actuator)','V64_NORMALIZED_FNV_CONTEXT','diagnostic_only",false','raw_url_remote",false','raw_text_remote",false','raw_html_remote",false']
+          for x in required: assert x in s,x
+          dm=re.search(r'    private void driveResourceV82\([^\n]*\)\{.*?\n    \}\n\n',s,re.S); assert dm
+          assert 'evalResourceFinalV88' not in dm.group(0)
+          assert 'assistantLocalResourceFinalV82Js' not in dm.group(0)
+          assert 'web.evaluateJavascript(js,null)' in dm.group(0)
+          em=re.search(r'private static final String RESOURCE_EFFECT_JS_V88_TEMPLATE=.*?;\n',s,re.S); assert em
+          assert em.group(0).count('.click();')==1
+          assert 'if("DOM".equals(data)){requestEventRead("DOM_EVENT");return;}' in s
+          assert s.count('resourceV88EffectAttempted=true;')==1
+          assert s.count('armResourceReceiptDeadlineV88(resourceV82Actuator)')==1
+          for bad in ['elementFromPoint','document.evaluate','XPathResult','getCookie(','CookieManager','addJavascriptInterface','Thread.sleep','ScheduledExecutorService','TimerTask']:
+              assert bad not in s,bad
+          print('PASS v0.86 static audit: existing WebMessagePort carries bounded final cert/effect receipts; same-task JS recert+one click; receipt-first no replay; privacy guards preserved')
+          PY
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Build and prove exact artifact identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          sdkmanager "platforms;android-35" "build-tools;35.0.0"
+          echo "sdk.dir=$ANDROID_SDK_ROOT" > runtime_probes/chatgpt-webview-stable-probe/local.properties
+          curl -fsSL https://services.gradle.org/distributions/gradle-8.10.2-bin.zip -o /tmp/gradle.zip
+          unzip -q /tmp/gradle.zip -d /tmp
+          cd runtime_probes/chatgpt-webview-stable-probe
+          /tmp/gradle-8.10.2/bin/gradle --no-daemon :app:assembleRelease --stacktrace
+          cd ../..
+          OUT=ci/v88-resource-webmessage-bridge-acceptance-out
+          mkdir -p "$OUT"
+          UNSIGNED=runtime_probes/chatgpt-webview-stable-probe/app/build/outputs/apk/release/app-release-unsigned.apk
+          ALIGNED="$OUT/chatgpt-webview-v0.86-resource-webmessage-bridge-acceptance-exact-source-aligned-unsigned.apk"
+          BT="$ANDROID_SDK_ROOT/build-tools/35.0.0"
+          "$BT/zipalign" -f -p 4 "$UNSIGNED" "$ALIGNED"
+          "$BT/zipalign" -c -v 4 "$ALIGNED" > "$OUT/zipalign-verify.txt"
+          "$BT/aapt" dump badging "$ALIGNED" > "$OUT/badging.txt"
+          "$BT/aapt" dump permissions "$ALIGNED" > "$OUT/permissions.txt"
+          grep -Fq "package: name='com.homayounisaghar.chatgptwebviewprobe.diag' versionCode='89' versionName='0.86-stable-diag-resource-webmessage-bridge-acceptance'" "$OUT/badging.txt"
+          grep -Fq "launchable-activity: name='com.homayounisaghar.chatgptwebviewprobe.OrchestratorResourceToolsV88Activity'" "$OUT/badging.txt"
+          test "$(grep -c '^uses-permission:' "$OUT/permissions.txt")" -eq 3
+          grep -Fq 'android.permission.INTERNET' "$OUT/permissions.txt"
+          grep -Fq 'android.permission.RECORD_AUDIO' "$OUT/permissions.txt"
+          grep -Fq 'android.permission.MODIFY_AUDIO_SETTINGS' "$OUT/permissions.txt"
+          cp "$BT/lib/apksigner.jar" "$OUT/apksigner.jar"
+          java -jar "$OUT/apksigner.jar" --version > "$OUT/APKSIGNER_VERSION.txt"
+          sha256sum "$OUT/apksigner.jar" > "$OUT/APKSIGNER_JAR_SHA256.txt"
+          cp ci/v88-resource-webmessage-bridge-acceptance/RESOURCE_JS_SYNTAX_GATE.txt "$OUT/"
+          cp ci/v88-resource-webmessage-bridge-acceptance/resource-cert-sentinel-SHA256.txt "$OUT/"
+          cp ci/v88-resource-webmessage-bridge-acceptance/resource-effect-sentinel-SHA256.txt "$OUT/"
+          cp ci/v88-resource-webmessage-bridge-acceptance/resource-cert-template-SHA256.txt "$OUT/"
+          cp ci/v88-resource-webmessage-bridge-acceptance/resource-effect-template-SHA256.txt "$OUT/"
+          printf '%s\n' "$GITHUB_SHA" > "$OUT/SOURCE_REF.txt"
+          printf '%s\n' 'WEBMESSAGEPORT_FINAL_CERTIFICATION_RETURN_VALUE_NONAUTHORITATIVE' > "$OUT/FRONTIER_MODE.txt"
+          printf '%s\n' 'V64_AUTHORITY_PLUS_EXACT_CANDIDATE_TOKEN_SAME_TASK_EFFECT_RECERT' > "$OUT/TURN_IDENTITY_POLICY.txt"
+          printf '%s\n' 'CERT_RECEIPT_THEN_ONE_EFFECT_ATTEMPT_THEN_EXTERNAL_RECEIPT_NO_REPLAY' > "$OUT/CONTROL_SYNC.txt"
+          printf '%s\n' 'NO_GEOMETRY_DISCOVERY_SELECTION_JS_SAME_TASK_EFFECT_ONLY' > "$OUT/GEOMETRY_POLICY.txt"
+          printf '%s\n' 'b7aea08158252dcad79345608ce2e76e970e4cf613414db299579f46d9924c48' > "$OUT/EXPECTED_SIGNER_CERT_SHA256.txt"
+          sha256sum "$ALIGNED" > "$OUT/ALIGNED_UNSIGNED_SHA256.txt"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: chatgpt-webview-v0.86-resource-webmessage-bridge-acceptance-${{ github.run_id }}-unsigned
+          path: ci/v88-resource-webmessage-bridge-acceptance-out
+          if-no-files-found: error
+          retention-days: 30
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: chatgpt-webview-v0.86-resource-webmessage-bridge-acceptance-${{ github.run_id }}-telemetry
+          path: ci/v88-resource-webmessage-bridge-acceptance-telemetry
+          if-no-files-found: error
+          retention-days: 30
