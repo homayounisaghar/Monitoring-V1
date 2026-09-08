@@ -1,0 +1,159 @@
+name: ChatGPT WebView Stable v0.84 Final Stage Probe Unsigned
+
+on:
+  push:
+    branches:
+      - project/chatgpt-webview-poc-v084-final-stage-probe-staging11
+      - project/chatgpt-webview-poc
+    paths:
+      - '.github/workflows/chatgpt-webview-stable-v86-resource-final-stage-probe-unsigned.yml'
+      - 'ci/generate_chatgpt_webview_v86_resource_final_stage_probe.py'
+      - 'ci/generate_chatgpt_webview_v85_resource_fingerprint_drift_probe_fix2.py'
+      - 'ci/generate_chatgpt_webview_v85_resource_fingerprint_drift_probe.py'
+      - 'ci/generate_chatgpt_webview_v84_resource_semantic_turn_identity.py'
+      - 'ci/generate_chatgpt_webview_v83_resource_observable_terminal.py'
+      - 'ci/generate_chatgpt_webview_v82_calibrated_actuator_resource_fix1.py'
+      - 'ci/generate_chatgpt_webview_v82_calibrated_actuator_resource.py'
+      - 'ci/generate_chatgpt_webview_v81_assistant_local_resource_acceptance.py'
+      - 'ci/generate_chatgpt_webview_v80_assistant_local_interaction_probe.py'
+      - 'ci/generate_chatgpt_webview_v79_resource_topology_probe.py'
+      - 'ci/generate_chatgpt_webview_v78_resource_final_bounded_wrapped.py'
+      - 'ci/generate_chatgpt_webview_v77_resource_provenance_hardened.py'
+      - 'ci/generate_chatgpt_webview_v77_resource_provenance_hardened_fix1.py'
+      - 'ci/generate_chatgpt_webview_v76_resource_tools_consolidated.py'
+      - 'ci/generate_chatgpt_webview_v76_resource_tools_consolidated_fix1.py'
+      - 'ci/generate_chatgpt_webview_v64_conversation_runtime.py'
+      - 'ci/v51_model_observer/ControlPlaneAccessibilityServiceV51.java'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify checkout identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+
+      - name: Generate v0.84 final stage diagnostic source
+        run: python3 ci/generate_chatgpt_webview_v86_resource_final_stage_probe.py
+
+      - name: Create fresh telemetry collector
+        shell: bash
+        run: |
+          set -euo pipefail
+          CFG=runtime_probes/chatgpt-webview-stable-probe/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/TelemetryConfigV86.java
+          TOKEN=$(curl -fsS -X POST https://webhook.site/token -H 'Accept: application/json' -H 'Content-Type: application/json' -d '{"default_status":200,"default_content":"OK","default_content_type":"text/plain"}' | python3 -c 'import json,sys;x=json.load(sys.stdin).get("uuid");assert x;print(x)')
+          ENDPOINT="https://webhook.site/$TOKEN"
+          READ="https://webhook.site/token/$TOKEN/requests?sorting=oldest&per_page=100"
+          python3 - "$CFG" "$ENDPOINT" "$GITHUB_SHA" "$TOKEN" <<'PY'
+          from pathlib import Path
+          import re,sys
+          p=Path(sys.argv[1]); s=p.read_text(); ep,sha,cid=sys.argv[2:]
+          s=re.sub(r'WEBHOOK_URL=".*?"',f'WEBHOOK_URL="{ep}"',s)
+          s=re.sub(r'SOURCE_REF=".*?"',f'SOURCE_REF="{sha}"',s)
+          s=re.sub(r'COLLECTOR_ID=".*?"',f'COLLECTOR_ID="{cid}"',s)
+          s=s.replace('CONFIGURED=false','CONFIGURED=true')
+          p.write_text(s)
+          PY
+          mkdir -p ci/v86-resource-final-stage-probe-telemetry
+          printf '%s\n' "$TOKEN" > ci/v86-resource-final-stage-probe-telemetry/collector-id.txt
+          printf '%s\n' "$READ" > ci/v86-resource-final-stage-probe-telemetry/read-url.txt
+          printf '%s\n' "$GITHUB_SHA" > ci/v86-resource-final-stage-probe-telemetry/source-ref.txt
+          printf '{"kind":"BUILD_SMOKE","schema_version":"cp-v86-resource-final-stage-probe-v1","scenario_id":"resource-final-recert-stage-probe","control_sync":"DIAGNOSTIC_ONLY_ZERO_RESOURCE_EFFECT","audit":"SANITIZED_FINAL_STAGE_EXCEPTION_LOCALIZATION"}\n' | curl -fsS -X POST "$ENDPOINT" -H 'Content-Type: application/json' --data-binary @- >/dev/null
+
+      - name: End-to-end final stage diagnostic static audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT=runtime_probes/chatgpt-webview-stable-probe
+          PKG=$ROOT/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe
+          ACT=$PKG/OrchestratorResourceToolsV86Activity.java
+          SVC=$PKG/ControlPlaneAccessibilityServiceV51.java
+          MAN=$ROOT/app/src/main/AndroidManifest.xml
+          GRADLE=$ROOT/app/build.gradle
+          test -f "$ACT" && test -f "$SVC" && test -f "$PKG/TelemetryConfigV86.java"
+          grep -Fq "applicationId 'com.homayounisaghar.chatgptwebviewprobe.diag'" "$GRADLE"
+          grep -Fq 'versionCode 87' "$GRADLE"
+          grep -Fq "versionName '0.84-stable-diag-resource-final-stage-probe'" "$GRADLE"
+          grep -Fq 'OrchestratorResourceToolsV86Activity' "$MAN"
+          grep -Fq 'ControlPlaneAccessibilityServiceV51' "$MAN"
+          python3 - "$ACT" <<'PY'
+          import pathlib,re,sys
+          s=pathlib.Path(sys.argv[1]).read_text()
+          required=['V64_NORMALIZED_FNV_CONTEXT','resourceV86DiagnosticOnly()','FINAL_STAGE_TURN_QUERY','FINAL_STAGE_TURN_MAP','FINAL_STAGE_FINGERPRINT_BUILD','FINAL_STAGE_MATCH_SCAN','FINAL_STAGE_DIAG_BUILD','FINAL_STAGE_RESOURCE_SCAN','FINAL_STAGE_READY_CHECK','FINAL_STAGE_COMPLETE','ASSISTANT_LOCAL_RESOURCE_FINAL_EXCEPTION','failure_stage','exception_name_class','exception_family_hash','final_eval_success','final_error_class','final_failure_stage','final_stage','RESOURCE_ACTION_ABORTED_FINAL_RECERTIFICATION_EXCEPTION_DIAGNOSTIC','diagnostic_only','raw_url_remote",false','raw_text_remote",false','raw_html_remote",false']
+          for x in required: assert x in s,x
+          fm=re.search(r'    private String assistantLocalResourceFinalV82Js\([^\n]*\)\{.*?\n    \}\n\n',s,re.S); assert fm
+          f=fm.group(0)
+          assert '.click();' not in f
+          assert 'e.message' not in f and '.stack' not in f
+          assert s.index('if(resourceV86DiagnosticOnly())') < s.index('if(js){boolean clicked=')
+          for bad in ['elementFromPoint','document.evaluate','XPathResult','getCookie(','CookieManager','addJavascriptInterface','Thread.sleep','ScheduledExecutorService','TimerTask']:
+              assert bad not in s,bad
+          print('PASS v0.84 static audit: stage-localized sanitized final exception diagnostics, zero Resource effect')
+          PY
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Build and prove exact artifact identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          sdkmanager "platforms;android-35" "build-tools;35.0.0"
+          echo "sdk.dir=$ANDROID_SDK_ROOT" > runtime_probes/chatgpt-webview-stable-probe/local.properties
+          curl -fsSL https://services.gradle.org/distributions/gradle-8.10.2-bin.zip -o /tmp/gradle.zip
+          unzip -q /tmp/gradle.zip -d /tmp
+          cd runtime_probes/chatgpt-webview-stable-probe
+          /tmp/gradle-8.10.2/bin/gradle --no-daemon :app:assembleRelease --stacktrace
+          cd ../..
+          OUT=ci/v86-resource-final-stage-probe-out
+          mkdir -p "$OUT"
+          UNSIGNED=runtime_probes/chatgpt-webview-stable-probe/app/build/outputs/apk/release/app-release-unsigned.apk
+          ALIGNED="$OUT/chatgpt-webview-v0.84-resource-final-stage-probe-exact-source-aligned-unsigned.apk"
+          BT="$ANDROID_SDK_ROOT/build-tools/35.0.0"
+          "$BT/zipalign" -f -p 4 "$UNSIGNED" "$ALIGNED"
+          "$BT/zipalign" -c -v 4 "$ALIGNED" > "$OUT/zipalign-verify.txt"
+          "$BT/aapt" dump badging "$ALIGNED" > "$OUT/badging.txt"
+          "$BT/aapt" dump permissions "$ALIGNED" > "$OUT/permissions.txt"
+          grep -Fq "package: name='com.homayounisaghar.chatgptwebviewprobe.diag' versionCode='87' versionName='0.84-stable-diag-resource-final-stage-probe'" "$OUT/badging.txt"
+          grep -Fq "launchable-activity: name='com.homayounisaghar.chatgptwebviewprobe.OrchestratorResourceToolsV86Activity'" "$OUT/badging.txt"
+          test "$(grep -c '^uses-permission:' "$OUT/permissions.txt")" -eq 3
+          grep -Fq 'android.permission.INTERNET' "$OUT/permissions.txt"
+          grep -Fq 'android.permission.RECORD_AUDIO' "$OUT/permissions.txt"
+          grep -Fq 'android.permission.MODIFY_AUDIO_SETTINGS' "$OUT/permissions.txt"
+          cp "$BT/lib/apksigner.jar" "$OUT/apksigner.jar"
+          java -jar "$OUT/apksigner.jar" --version > "$OUT/APKSIGNER_VERSION.txt"
+          sha256sum "$OUT/apksigner.jar" > "$OUT/APKSIGNER_JAR_SHA256.txt"
+          printf '%s\n' "$GITHUB_SHA" > "$OUT/SOURCE_REF.txt"
+          printf '%s\n' 'FINAL_RECERTIFICATION_STAGE_EXCEPTION_DIAGNOSTIC_ONLY' > "$OUT/FRONTIER_MODE.txt"
+          printf '%s\n' 'V64_AUTHORITY_UNCHANGED_STAGE_MARKERS_NONAUTHORITATIVE' > "$OUT/TURN_IDENTITY_POLICY.txt"
+          printf '%s\n' 'ZERO_RESOURCE_EFFECT_DIAGNOSTIC' > "$OUT/CONTROL_SYNC.txt"
+          printf '%s\n' 'NO_GEOMETRY_DISCOVERY_SELECTION_OR_EFFECT' > "$OUT/GEOMETRY_POLICY.txt"
+          printf '%s\n' 'b7aea08158252dcad79345608ce2e76e970e4cf613414db299579f46d9924c48' > "$OUT/EXPECTED_SIGNER_CERT_SHA256.txt"
+          sha256sum "$ALIGNED" > "$OUT/ALIGNED_UNSIGNED_SHA256.txt"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: chatgpt-webview-v0.84-resource-final-stage-probe-${{ github.run_id }}-unsigned
+          path: ci/v86-resource-final-stage-probe-out
+          if-no-files-found: error
+          retention-days: 30
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: chatgpt-webview-v0.84-resource-final-stage-probe-${{ github.run_id }}-telemetry
+          path: ci/v86-resource-final-stage-probe-telemetry
+          if-no-files-found: error
+          retention-days: 30
