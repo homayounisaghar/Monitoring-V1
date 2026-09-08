@@ -4,10 +4,12 @@ on:
   push:
     branches:
       - project/chatgpt-webview-poc-v083-fingerprint-drift-probe-staging9
+      - project/chatgpt-webview-poc-v083-fingerprint-drift-fix2-staging
       - project/chatgpt-webview-poc
     paths:
       - '.github/workflows/chatgpt-webview-stable-v85-resource-fingerprint-drift-probe-unsigned.yml'
       - 'ci/generate_chatgpt_webview_v85_resource_fingerprint_drift_probe.py'
+      - 'ci/generate_chatgpt_webview_v85_resource_fingerprint_drift_probe_fix2.py'
       - 'ci/generate_chatgpt_webview_v84_resource_semantic_turn_identity.py'
       - 'ci/generate_chatgpt_webview_v83_resource_observable_terminal.py'
       - 'ci/generate_chatgpt_webview_v82_calibrated_actuator_resource_fix1.py'
@@ -41,7 +43,7 @@ jobs:
           test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
 
       - name: Generate v0.83 fingerprint drift diagnostic source
-        run: python3 ci/generate_chatgpt_webview_v85_resource_fingerprint_drift_probe.py
+        run: python3 ci/generate_chatgpt_webview_v85_resource_fingerprint_drift_probe_fix2.py
 
       - name: Create fresh telemetry collector
         shell: bash
