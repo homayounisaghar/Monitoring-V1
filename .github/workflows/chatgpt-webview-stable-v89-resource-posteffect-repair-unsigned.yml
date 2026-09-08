@@ -1,0 +1,116 @@
+name: ChatGPT WebView Stable v0.87 Resource Post-Effect Repair Unsigned
+
+on:
+  push:
+    branches:
+      - project/chatgpt-webview-poc
+    paths:
+      - '.github/workflows/chatgpt-webview-stable-v89-resource-posteffect-repair-unsigned.yml'
+      - 'ci/generate_chatgpt_webview_v89_resource_posteffect_repair.py'
+      - 'ci/generate_chatgpt_webview_v88_resource_webmessage_bridge_acceptance_fix1.py'
+      - 'ci/generate_chatgpt_webview_v88_resource_webmessage_bridge_acceptance.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify checkout identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+      - name: Generate v0.87 post-effect repair
+        run: python3 ci/generate_chatgpt_webview_v89_resource_posteffect_repair.py
+      - name: Static repair audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT=runtime_probes/chatgpt-webview-stable-probe
+          PKG=$ROOT/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe
+          ACT=$PKG/OrchestratorResourceToolsV89Activity.java
+          MAN=$ROOT/app/src/main/AndroidManifest.xml
+          GRADLE=$ROOT/app/build.gradle
+          test -f "$ACT" && test -f "$PKG/TelemetryConfigV89.java"
+          grep -Fq "applicationId 'com.homayounisaghar.chatgptwebviewprobe.diag'" "$GRADLE"
+          grep -Fq 'versionCode 90' "$GRADLE"
+          grep -Fq "versionName '0.87-stable-diag-resource-posteffect-repair'" "$GRADLE"
+          grep -Fq 'OrchestratorResourceToolsV89Activity' "$MAN"
+          python3 - "$ACT" <<'PY'
+          import pathlib,re,sys
+          s=pathlib.Path(sys.argv[1]).read_text()
+          required=[
+            'cp-v89-resource-posteffect-repair-v1','resource-posteffect-provenance-continuation',
+            'CP_RESOURCE_CERT_V88','CP_RESOURCE_EFFECT_V88','createWebMessageChannel','window.__cpEventPort',
+            'RESOURCE_TOOLS_MISDISPATCH_GUARD_V89_JS','trigger_certified','trigger_expanded','surface_owned',
+            'RESOURCE_POST_EFFECT_GENERIC_UI_NOT_TOOLS_AUTHORITY','RESOURCE_ACTION_MISDISPATCHED_NONRESOURCE_UI',
+            'RESOURCE_CONTINUATION_CERT_V89_JS','RESOURCE_CONTINUATION_EFFECT_V89_TEMPLATE',
+            'RESOURCE_CONTINUATION_SUBCLAIM_COMMITTED','EFFECT_ATTEMPTED_NO_REPLAY',
+            'RESOURCE_INTERSTITIAL_CONTINUATION_DISPATCHED_WAITING_INDEPENDENT_RECEIPT',
+            'android.content.Intent.ACTION_VIEW','PASS_RESOURCE_DOWNLOAD_CALLBACK_RECEIPT',
+            'armResourceReceiptDeadlineV88(resourceV82Actuator)'
+          ]
+          for x in required: assert x in s,x
+          m=re.search(r'    private void driveResourcePendingOnEventV79\([^\n]*\)\{.*?\n    \}\n\n',s,re.S); assert m
+          assert 'toolsMenuCensusV79Js()' not in m.group(0)
+          assert 'resourceToolsMisdispatchGuardV89Js()' in m.group(0)
+          assert all(x in m.group(0) for x in ['trigger_certified','trigger_expanded','surface_owned'])
+          em=re.search(r'private static final String RESOURCE_CONTINUATION_EFFECT_V89_TEMPLATE=.*?;\n',s,re.S); assert em and em.group(0).count('.click();')==1
+          assert s.count('resourceV89ContinuationEffectAttempted=true;')==1
+          assert s.count('dispatchTouchEvent(')==2,s.count('dispatchTouchEvent(')
+          for bad in ['elementFromPoint','document.evaluate','XPathResult','getCookie(','CookieManager','addJavascriptInterface','Thread.sleep','ScheduledExecutorService','TimerTask']:
+              assert bad not in s,bad
+          print('PASS v0.87 static repair audit')
+          PY
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - name: Build and prove exact artifact identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          sdkmanager "platforms;android-35" "build-tools;35.0.0"
+          echo "sdk.dir=$ANDROID_SDK_ROOT" > runtime_probes/chatgpt-webview-stable-probe/local.properties
+          curl -fsSL https://services.gradle.org/distributions/gradle-8.10.2-bin.zip -o /tmp/gradle.zip
+          unzip -q /tmp/gradle.zip -d /tmp
+          cd runtime_probes/chatgpt-webview-stable-probe
+          /tmp/gradle-8.10.2/bin/gradle --no-daemon :app:assembleRelease --stacktrace
+          cd ../..
+          OUT=ci/v89-resource-posteffect-repair-out
+          mkdir -p "$OUT"
+          UNSIGNED=runtime_probes/chatgpt-webview-stable-probe/app/build/outputs/apk/release/app-release-unsigned.apk
+          ALIGNED="$OUT/chatgpt-webview-v0.87-resource-posteffect-repair-exact-source-aligned-unsigned.apk"
+          BT="$ANDROID_SDK_ROOT/build-tools/35.0.0"
+          "$BT/zipalign" -f -p 4 "$UNSIGNED" "$ALIGNED"
+          "$BT/zipalign" -c -v 4 "$ALIGNED" > "$OUT/zipalign-verify.txt"
+          "$BT/aapt" dump badging "$ALIGNED" > "$OUT/badging.txt"
+          "$BT/aapt" dump permissions "$ALIGNED" > "$OUT/permissions.txt"
+          grep -Fq "package: name='com.homayounisaghar.chatgptwebviewprobe.diag' versionCode='90' versionName='0.87-stable-diag-resource-posteffect-repair'" "$OUT/badging.txt"
+          grep -Fq "launchable-activity: name='com.homayounisaghar.chatgptwebviewprobe.OrchestratorResourceToolsV89Activity'" "$OUT/badging.txt"
+          test "$(grep -c '^uses-permission:' "$OUT/permissions.txt")" -eq 3
+          grep -Fq 'android.permission.INTERNET' "$OUT/permissions.txt"
+          grep -Fq 'android.permission.RECORD_AUDIO' "$OUT/permissions.txt"
+          grep -Fq 'android.permission.MODIFY_AUDIO_SETTINGS' "$OUT/permissions.txt"
+          cp "$BT/lib/apksigner.jar" "$OUT/apksigner.jar"
+          java -jar "$OUT/apksigner.jar" --version > "$OUT/APKSIGNER_VERSION.txt"
+          sha256sum "$OUT/apksigner.jar" > "$OUT/APKSIGNER_JAR_SHA256.txt"
+          printf '%s\n' "$GITHUB_SHA" > "$OUT/SOURCE_REF.txt"
+          printf '%s\n' 'b7aea08158252dcad79345608ce2e76e970e4cf613414db299579f46d9924c48' > "$OUT/EXPECTED_SIGNER_CERT_SHA256.txt"
+          printf '%s\n' 'ORIGINAL_RESOURCE_EFFECT_EXACTLY_ONCE_WEBMESSAGEPORT_NO_REPLAY' > "$OUT/ORIGINAL_EFFECT_POLICY.txt"
+          printf '%s\n' 'TOOLS_TERMINAL_ONLY_WITH_FRESH_EXPANDED_TRIGGER_AND_OWNED_SURFACE' > "$OUT/TOOLS_GUARD_POLICY.txt"
+          printf '%s\n' 'OPEN_LINK_CONTINUATION_SEPARATE_DURABLE_SUBCLAIM_ONE_ATTEMPT' > "$OUT/CONTINUATION_POLICY.txt"
+          printf '%s\n' 'SUCCESS_ONLY_BY_INDEPENDENT_NAVIGATION_NEW_WINDOW_DOWNLOAD_OR_ACTION_VIEW_RECEIPT' > "$OUT/SUCCESS_POLICY.txt"
+          sha256sum "$ALIGNED" > "$OUT/ALIGNED_UNSIGNED_SHA256.txt"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: chatgpt-webview-v0.87-resource-posteffect-repair-${{ github.run_id }}-unsigned
+          path: ci/v89-resource-posteffect-repair-out
+          if-no-files-found: error
+          retention-days: 30
