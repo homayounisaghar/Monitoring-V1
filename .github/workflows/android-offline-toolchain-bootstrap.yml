@@ -38,9 +38,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/cf-toolchain"
-          curl -fL --retry 5 --retry-delay 2 \
-            https://services.gradle.org/distributions/gradle-8.10.2-bin.zip \
-            -o "$RUNNER_TEMP/cf-toolchain/gradle-8.10.2-bin.zip"
+          curl -fL --retry 5 --retry-delay 2 https://services.gradle.org/distributions/gradle-8.10.2-bin.zip -o "$RUNNER_TEMP/cf-toolchain/gradle-8.10.2-bin.zip"
           unzip -q "$RUNNER_TEMP/cf-toolchain/gradle-8.10.2-bin.zip" -d "$RUNNER_TEMP/cf-toolchain"
 
       - name: Hydrate AGP and app dependencies
@@ -50,13 +48,8 @@ jobs:
           P="$RUNNER_TEMP/hydrate"
           mkdir -p "$P/app/src/main/java/bootstrap" "$P/app/src/test/java/bootstrap"
           cat > "$P/settings.gradle.kts" <<'EOF'
-          pluginManagement {
-              repositories { google(); mavenCentral(); gradlePluginPortal() }
-          }
-          dependencyResolutionManagement {
-              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
-              repositories { google(); mavenCentral() }
-          }
+          pluginManagement { repositories { google(); mavenCentral(); gradlePluginPortal() } }
+          dependencyResolutionManagement { repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS); repositories { google(); mavenCentral() } }
           rootProject.name = "AndroidOfflineBootstrap"
           include(":app")
           EOF
@@ -89,14 +82,13 @@ jobs:
           echo "sdk.dir=$ANDROID_SDK_ROOT" > "$P/local.properties"
           "$RUNNER_TEMP/cf-toolchain/gradle-8.10.2/bin/gradle" -p "$P" --no-daemon :app:testDebugUnitTest :app:assembleRelease
 
-      - name: Package source-agnostic offline toolchain
+      - name: Package split source-agnostic toolchain
         shell: bash
         run: |
           set -euo pipefail
           OUT="$RUNNER_TEMP/out"
-          ROOT="$OUT/android-offline-toolchain"
-          mkdir -p "$ROOT/gradle" "$ROOT/android-sdk/platforms" "$ROOT/android-sdk/build-tools" "$ROOT/android-sdk/licenses" "$ROOT/gradle-user-home"
-          cp "$RUNNER_TEMP/cf-toolchain/gradle-8.10.2-bin.zip" "$ROOT/gradle/"
+          ROOT="$OUT/android-offline-core"
+          mkdir -p "$ROOT/android-sdk/platforms" "$ROOT/android-sdk/build-tools" "$ROOT/android-sdk/licenses" "$ROOT/gradle-user-home"
           cp -a "$ANDROID_SDK_ROOT/platforms/android-35" "$ROOT/android-sdk/platforms/"
           cp -a "$ANDROID_SDK_ROOT/build-tools/35.0.0" "$ROOT/android-sdk/build-tools/"
           if [ -d "$ANDROID_SDK_ROOT/licenses" ]; then cp -a "$ANDROID_SDK_ROOT/licenses/." "$ROOT/android-sdk/licenses/"; fi
@@ -105,16 +97,28 @@ jobs:
           cat > "$ROOT/TOOLCHAIN.json" <<'EOF'
           {"schema":"capability-fabric.android-offline-toolchain.v1","gradle":"8.10.2","agp":"8.8.2","compileSdk":35,"buildTools":"35.0.0","dependencies":["com.squareup.okhttp3:okhttp:4.12.0","junit:junit:4.13.2","org.json:json:20240303"],"containsPrivateAppSource":false,"containsSigningSecrets":false}
           EOF
-          tar -C "$OUT" -czf "$OUT/android-offline-toolchain-linux.tar.gz" android-offline-toolchain
-          sha256sum "$OUT/android-offline-toolchain-linux.tar.gz" > "$OUT/android-offline-toolchain-linux.tar.gz.sha256"
-          du -h "$OUT/android-offline-toolchain-linux.tar.gz"
+          tar -C "$OUT" -czf "$OUT/android-offline-core-linux.tar.gz" android-offline-core
+          cp "$RUNNER_TEMP/cf-toolchain/gradle-8.10.2-bin.zip" "$OUT/gradle-8.10.2-bin.zip"
+          sha256sum "$OUT/android-offline-core-linux.tar.gz" > "$OUT/android-offline-core-linux.tar.gz.sha256"
+          sha256sum "$OUT/gradle-8.10.2-bin.zip" > "$OUT/gradle-8.10.2-bin.zip.sha256"
+          du -h "$OUT/android-offline-core-linux.tar.gz" "$OUT/gradle-8.10.2-bin.zip"
 
-      - name: Upload toolchain
+      - name: Upload Android core and Gradle cache
         uses: actions/upload-artifact@v4
         with:
-          name: android-offline-toolchain-linux-agp882
+          name: android-offline-core-linux-agp882
           path: |
-            ${{ runner.temp }}/out/android-offline-toolchain-linux.tar.gz
-            ${{ runner.temp }}/out/android-offline-toolchain-linux.tar.gz.sha256
+            ${{ runner.temp }}/out/android-offline-core-linux.tar.gz
+            ${{ runner.temp }}/out/android-offline-core-linux.tar.gz.sha256
+          retention-days: 7
+          if-no-files-found: error
+
+      - name: Upload Gradle distribution
+        uses: actions/upload-artifact@v4
+        with:
+          name: gradle-8.10.2-bin
+          path: |
+            ${{ runner.temp }}/out/gradle-8.10.2-bin.zip
+            ${{ runner.temp }}/out/gradle-8.10.2-bin.zip.sha256
           retention-days: 7
           if-no-files-found: error
