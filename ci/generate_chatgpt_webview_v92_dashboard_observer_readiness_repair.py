@@ -34,7 +34,9 @@ new.write_text(s)
 cfg91=PKG/'TelemetryConfigV91.java'
 cfg92=PKG/'TelemetryConfigV92.java'
 cs=cfg91.read_text(); assert 'class TelemetryConfigV91' in cs
-cfg92.write_text(cs.replace('class TelemetryConfigV91','class TelemetryConfigV92',1))
+cs=cs.replace('class TelemetryConfigV91','class TelemetryConfigV92',1)
+cs=cs.replace('TelemetryConfigV91()','TelemetryConfigV92()',1)
+cfg92.write_text(cs)
 
 man=ROOT/'app/src/main/AndroidManifest.xml'; ms=man.read_text(); assert ms.count('OrchestratorDashboardV91Activity')==1
 man.write_text(ms.replace('OrchestratorDashboardV91Activity','OrchestratorDashboardV92Activity',1))
