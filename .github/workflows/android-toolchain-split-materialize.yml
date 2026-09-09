@@ -1,0 +1,156 @@
+name: Android Toolchain Split Materialize
+
+on:
+  push:
+    branches:
+      - ci/android-toolchain-split-materialize-20260910
+    paths:
+      - '.github/workflows/android-toolchain-split-materialize.yml'
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  split:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Download previously verified Android core artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: android-offline-core-linux-agp882
+          repository: homayounisaghar/Monitoring-V1
+          run-id: 34228945362
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/input/core
+
+      - name: Download previously verified Gradle artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: gradle-8.10.2-bin
+          repository: homayounisaghar/Monitoring-V1
+          run-id: 34228945362
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/input/gradle
+
+      - name: Verify original artifact payloads before splitting
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "${RUNNER_TEMP}/input/core"
+          sha256sum -c android-offline-core-linux.tar.gz.sha256
+          cd "${RUNNER_TEMP}/input/gradle"
+          sha256sum -c gradle-8.10.2-bin.zip.sha256
+
+      - name: Split verified payloads into bounded parts
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="${RUNNER_TEMP}/split"
+          mkdir -p "$OUT/core" "$OUT/gradle" "$OUT/meta"
+          split -b 60M -d -a 2 \
+            "${RUNNER_TEMP}/input/core/android-offline-core-linux.tar.gz" \
+            "$OUT/core/android-offline-core-linux.tar.gz.part."
+          split -b 60M -d -a 2 \
+            "${RUNNER_TEMP}/input/gradle/gradle-8.10.2-bin.zip" \
+            "$OUT/gradle/gradle-8.10.2-bin.zip.part."
+          cp "${RUNNER_TEMP}/input/core/android-offline-core-linux.tar.gz.sha256" "$OUT/meta/"
+          cp "${RUNNER_TEMP}/input/gradle/gradle-8.10.2-bin.zip.sha256" "$OUT/meta/"
+          sha256sum "$OUT"/core/* "$OUT"/gradle/* > "$OUT/meta/parts.sha256"
+          printf '%s\n' \
+            'schema=capability-fabric.android-toolchain-split.v1' \
+            'source_run_id=34228945362' \
+            'source_head_sha=e7218b82e1422bc52bc8acddeeaba9de3d5e1748' \
+            'split_size=60M' \
+            'contains_private_app_source=false' \
+            'contains_signing_secrets=false' \
+            > "$OUT/meta/SPLIT_INFO.txt"
+          ls -lh "$OUT"/core "$OUT"/gradle "$OUT"/meta
+
+      - name: Upload split metadata
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-toolchain-split-metadata
+          path: ${{ runner.temp }}/split/meta/
+          retention-days: 3
+          if-no-files-found: error
+
+      - name: Upload Android core part 00
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-offline-core-part00
+          path: ${{ runner.temp }}/split/core/android-offline-core-linux.tar.gz.part.00
+          retention-days: 3
+          if-no-files-found: error
+      - name: Upload Android core part 01
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-offline-core-part01
+          path: ${{ runner.temp }}/split/core/android-offline-core-linux.tar.gz.part.01
+          retention-days: 3
+          if-no-files-found: error
+      - name: Upload Android core part 02
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-offline-core-part02
+          path: ${{ runner.temp }}/split/core/android-offline-core-linux.tar.gz.part.02
+          retention-days: 3
+          if-no-files-found: error
+      - name: Upload Android core part 03
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-offline-core-part03
+          path: ${{ runner.temp }}/split/core/android-offline-core-linux.tar.gz.part.03
+          retention-days: 3
+          if-no-files-found: error
+      - name: Upload Android core part 04
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-offline-core-part04
+          path: ${{ runner.temp }}/split/core/android-offline-core-linux.tar.gz.part.04
+          retention-days: 3
+          if-no-files-found: error
+      - name: Upload Android core part 05
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-offline-core-part05
+          path: ${{ runner.temp }}/split/core/android-offline-core-linux.tar.gz.part.05
+          retention-days: 3
+          if-no-files-found: error
+      - name: Upload Android core part 06
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-offline-core-part06
+          path: ${{ runner.temp }}/split/core/android-offline-core-linux.tar.gz.part.06
+          retention-days: 3
+          if-no-files-found: error
+      - name: Upload Android core part 07 if present
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-offline-core-part07
+          path: ${{ runner.temp }}/split/core/android-offline-core-linux.tar.gz.part.07
+          retention-days: 3
+          if-no-files-found: ignore
+
+      - name: Upload Gradle part 00
+        uses: actions/upload-artifact@v4
+        with:
+          name: gradle-8.10.2-part00
+          path: ${{ runner.temp }}/split/gradle/gradle-8.10.2-bin.zip.part.00
+          retention-days: 3
+          if-no-files-found: error
+      - name: Upload Gradle part 01
+        uses: actions/upload-artifact@v4
+        with:
+          name: gradle-8.10.2-part01
+          path: ${{ runner.temp }}/split/gradle/gradle-8.10.2-bin.zip.part.01
+          retention-days: 3
+          if-no-files-found: error
+      - name: Upload Gradle part 02 if present
+        uses: actions/upload-artifact@v4
+        with:
+          name: gradle-8.10.2-part02
+          path: ${{ runner.temp }}/split/gradle/gradle-8.10.2-bin.zip.part.02
+          retention-days: 3
+          if-no-files-found: ignore
