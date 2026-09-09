@@ -14,7 +14,6 @@ permissions:
 
 jobs:
   bootstrap:
-    if: false
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -104,13 +103,17 @@ jobs:
           set -euo pipefail
           OUT="$RUNNER_TEMP/onshape-a2-toolchain"
           mkdir -p "$OUT/gradle" "$OUT/android-sdk/platforms" "$OUT/android-sdk/build-tools" "$OUT/gradle-user-home/caches"
+
           GRADLE_BIN="$(readlink -f "$(command -v gradle)")"
           GRADLE_HOME="$(cd "$(dirname "$GRADLE_BIN")/.." && pwd)"
           cp -a "$GRADLE_HOME" "$OUT/gradle/gradle-8.10.2"
+
           cp -a "$ANDROID_SDK_ROOT/platforms/android-35" "$OUT/android-sdk/platforms/"
           cp -a "$ANDROID_SDK_ROOT/build-tools/35.0.0" "$OUT/android-sdk/build-tools/"
           if [ -d "$ANDROID_SDK_ROOT/licenses" ]; then cp -a "$ANDROID_SDK_ROOT/licenses" "$OUT/android-sdk/"; fi
+
           cp -a "$HOME/.gradle/caches/modules-2" "$OUT/gradle-user-home/caches/"
+
           cat > "$OUT/TOOLCHAIN_PROVENANCE.txt" <<'EOF'
           Source-agnostic Android build bootstrap only.
           No Capability Fabric private application source is included.
@@ -121,6 +124,7 @@ jobs:
           Hydrated dependencies: okhttp 4.12.0, junit 4.13.2, org.json 20240303
           Cache scope: immutable Gradle modules-2 only; transforms/scripts regenerate offline.
           EOF
+
           cd "$RUNNER_TEMP"
           tar -czf onshape-a2-toolchain.tar.gz onshape-a2-toolchain
           mkdir -p "$GITHUB_WORKSPACE/a2-out"
@@ -128,30 +132,60 @@ jobs:
           split -b 80m onshape-a2-toolchain.tar.gz "$GITHUB_WORKSPACE/a2-out/onshape-a2-toolchain.part-"
           test -f "$GITHUB_WORKSPACE/a2-out/onshape-a2-toolchain.part-af"
 
-  cross-repo-probe:
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - name: Probe private repository access without exposing body
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          URL='https://api.github.com/repos/homayounisaghar/capability-fabric/contents/android/onshape-session-bridge/ci/portable-ci-contract.json?ref=experiment/onshape-native-session-bridge'
-          CODE=$(curl -sS -o /tmp/probe.json -w '%{http_code}' \
-            -H "Authorization: Bearer $GH_TOKEN" \
-            -H 'Accept: application/vnd.github+json' \
-            "$URL")
-          echo "cross_repo_http_status=$CODE"
-          if [ "$CODE" = '200' ]; then
-            python3 - <<'PY'
-          import json
-          p=json.load(open('/tmp/probe.json'))
-          assert p.get('name') == 'portable-ci-contract.json'
-          print('CROSS_REPO_PRIVATE_READ=PASS')
-          PY
-          else
-            echo 'CROSS_REPO_PRIVATE_READ=DENIED'
-            exit 3
-          fi
+      - name: Upload checksum
+        uses: actions/upload-artifact@v4
+        with:
+          name: onshape-a2-toolchain-checksum
+          path: a2-out/onshape-a2-toolchain.tar.gz.sha256
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 2
+
+      - name: Upload part aa
+        uses: actions/upload-artifact@v4
+        with:
+          name: onshape-a2-toolchain-part-aa
+          path: a2-out/onshape-a2-toolchain.part-aa
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 2
+      - name: Upload part ab
+        uses: actions/upload-artifact@v4
+        with:
+          name: onshape-a2-toolchain-part-ab
+          path: a2-out/onshape-a2-toolchain.part-ab
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 2
+      - name: Upload part ac
+        uses: actions/upload-artifact@v4
+        with:
+          name: onshape-a2-toolchain-part-ac
+          path: a2-out/onshape-a2-toolchain.part-ac
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 2
+      - name: Upload part ad
+        uses: actions/upload-artifact@v4
+        with:
+          name: onshape-a2-toolchain-part-ad
+          path: a2-out/onshape-a2-toolchain.part-ad
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 2
+      - name: Upload part ae
+        uses: actions/upload-artifact@v4
+        with:
+          name: onshape-a2-toolchain-part-ae
+          path: a2-out/onshape-a2-toolchain.part-ae
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 2
+      - name: Upload part af
+        uses: actions/upload-artifact@v4
+        with:
+          name: onshape-a2-toolchain-part-af
+          path: a2-out/onshape-a2-toolchain.part-af
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 2
