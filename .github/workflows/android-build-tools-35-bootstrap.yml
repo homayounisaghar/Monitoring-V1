@@ -1,0 +1,39 @@
+name: Android build-tools 35 bootstrap
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [project/chatgpt-webview-poc]
+    paths:
+      - '.github/workflows/android-build-tools-35-bootstrap.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  bundle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: android-actions/setup-android@v3
+      - name: Bundle generic build-tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          sdkmanager "build-tools;35.0.0"
+          SRC="$ANDROID_SDK_ROOT/build-tools/35.0.0"
+          OUT=ci/android-build-tools-35-bootstrap
+          mkdir -p "$OUT/lib"
+          cp "$SRC/apksigner" "$OUT/"
+          cp "$SRC/zipalign" "$OUT/"
+          cp "$SRC/lib/apksigner.jar" "$OUT/lib/"
+          chmod +x "$OUT/apksigner" "$OUT/zipalign"
+          sha256sum "$OUT/apksigner" "$OUT/zipalign" "$OUT/lib/apksigner.jar" > "$OUT/SHA256SUMS.txt"
+          printf 'android_build_tools=35.0.0\ngeneric_source_only=true\ncontains_signing_secrets=false\n' > "$OUT/METADATA.txt"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: 'android-build-tools-35-bootstrap-${{ github.run_id }}'
+          path: ci/android-build-tools-35-bootstrap
+          if-no-files-found: error
+          retention-days: 30
