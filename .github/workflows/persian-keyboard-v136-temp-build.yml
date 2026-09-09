@@ -88,18 +88,6 @@ jobs:
           python3 tools/apply_v138_active_session_touch_order_rebase_patch.py
           python3 tools/apply_v139_direct_selection_and_host_send_stop_patch.py
           python3 tools/apply_v140_true_caret_cutover_and_composer_clear_stop_patch.py
-          python3 - <<'PY'
-          from pathlib import Path
-          p=Path('tools/apply_v141_diagnostic_event_trace_patch.py')
-          t=p.read_text()
-          needle='toolbarButton("Copy"'
-          replacement='toolbarButton("⧉"'
-          count=t.count(needle)
-          if count != 2:
-              raise SystemExit(f'v1.41 Copy-icon compatibility expected 2 markers, found {count}')
-          p.write_text(t.replace(needle,replacement))
-          print('Prepared v1.41 Copy-icon compatibility')
-          PY
           python3 tools/apply_v141_diagnostic_event_trace_patch.py
 
       - name: Verify v1.41 invariants
