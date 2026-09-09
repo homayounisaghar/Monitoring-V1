@@ -111,6 +111,8 @@ jobs:
           OUT=ci/v105-dashboard-stage-a
           mkdir -p "$OUT"
           BT="$ANDROID_SDK_ROOT/build-tools/35.0.0"
+          SRC="$ROOT/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/OrchestratorDashboardV105PlannerJsEscapeFixActivity.java"
+          TELE="$ROOT/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/TelemetryConfigV105.java"
           U="$ROOT/app/build/outputs/apk/release/app-release-unsigned.apk"
           A="$OUT/app-release-aligned-unsigned.apk"
           "$BT/zipalign" -f -p 4 "$U" "$A"
