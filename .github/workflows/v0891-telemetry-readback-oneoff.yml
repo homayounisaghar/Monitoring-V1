@@ -1,5 +1,6 @@
 name: v0.89.1 telemetry readback oneoff
 
+# rerun: 2
 on:
   push:
     branches:
