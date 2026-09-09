@@ -79,6 +79,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          SRC="$ROOT/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/OrchestratorDashboardV95PlannerReceiptRepairActivity.java"; CFG="$ROOT/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/TelemetryConfigV95.java"; GRADLE="$ROOT/app/build.gradle"; MAN="$ROOT/app/src/main/AndroidManifest.xml"
           OUT=ci/v95-dashboard-stage-a; mkdir -p "$OUT"; BT="$ANDROID_SDK_ROOT/build-tools/35.0.0"; U="$ROOT/app/build/outputs/apk/release/app-release-unsigned.apk"; A="$OUT/app-release-aligned-unsigned.apk"
           "$BT/zipalign" -f -p 4 "$U" "$A"; "$BT/zipalign" -c -v 4 "$A" > "$OUT/zipalign-verify.txt"; "$BT/aapt" dump badging "$A" > "$OUT/badging.txt"; "$BT/aapt" dump permissions "$A" > "$OUT/permissions.txt"
           grep -Fq "package: name='$EXPECTED_PACKAGE' versionCode='$EXPECTED_VERSION_CODE' versionName='$EXPECTED_VERSION'" "$OUT/badging.txt"; grep -Fq "launchable-activity: name='$EXPECTED_LAUNCHER'" "$OUT/badging.txt"; test "$(grep -c '^uses-permission:' "$OUT/permissions.txt")" -eq 3
