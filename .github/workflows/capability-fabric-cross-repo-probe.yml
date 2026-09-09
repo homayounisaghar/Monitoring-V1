@@ -1,0 +1,40 @@
+name: Capability Fabric Cross-Repo Access Probe
+
+on:
+  push:
+    branches:
+      - work/onshape-a2-bootstrap-20260909-01
+    paths:
+      - '.github/workflows/capability-fabric-cross-repo-probe.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Probe private repository access without exposing response
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          URL='https://api.github.com/repos/homayounisaghar/capability-fabric/contents/android/onshape-session-bridge/ci/portable-ci-contract.json?ref=experiment/onshape-native-session-bridge'
+          CODE=$(curl -sS -o /tmp/probe.json -w '%{http_code}' \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H 'Accept: application/vnd.github+json' \
+            "$URL")
+          echo "cross_repo_http_status=$CODE"
+          if [ "$CODE" = '200' ]; then
+            python3 - <<'PY'
+import json
+p=json.load(open('/tmp/probe.json'))
+assert p.get('name') == 'portable-ci-contract.json'
+print('CROSS_REPO_PRIVATE_READ=PASS')
+PY
+          else
+            echo 'CROSS_REPO_PRIVATE_READ=DENIED'
+            exit 3
+          fi
