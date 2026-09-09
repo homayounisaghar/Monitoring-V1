@@ -1,0 +1,175 @@
+name: ChatGPT WebView v0.91.0 live Temporary control fixed unsigned
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [project/chatgpt-webview-poc]
+    paths:
+      - '.github/workflows/chatgpt-webview-stable-v104-dashboard-live-temp-control-fixed-unsigned.yml'
+      - 'ci/generate_chatgpt_webview_v104_dashboard_live_temp_control_fixed.py'
+      - 'ci/generate_chatgpt_webview_v104_dashboard_live_temp_control.py'
+      - 'ci/generate_chatgpt_webview_v103_dashboard_assistant_repair.py'
+      - 'ci/generate_chatgpt_webview_v102_dashboard_assistant_prototype_fixed2.py'
+      - 'ci/generate_chatgpt_webview_v102_dashboard_assistant_prototype_fixed.py'
+      - 'ci/generate_chatgpt_webview_v102_dashboard_reply_read_aloud.py'
+      - 'ci/generate_chatgpt_webview_v101_dashboard_exact_text_workflow_fixed.py'
+      - 'ci/generate_chatgpt_webview_v101_dashboard_exact_text_workflow.py'
+      - 'ci/check_assistant_infrastructure_v1.py'
+      - 'ci/check_reply_speech_infrastructure_v1.py'
+      - 'runtime_probes/chatgpt-webview-stable-probe/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/ExactTextV1.java'
+      - 'runtime_probes/chatgpt-webview-stable-probe/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/WorkflowJournalV1.java'
+      - 'runtime_probes/chatgpt-webview-stable-probe/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/WorkflowJournalGuardV1.java'
+      - 'runtime_probes/chatgpt-webview-stable-probe/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/AssistantInfrastructureBoundariesV1.java'
+      - 'runtime_probes/chatgpt-webview-stable-probe/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/SpeechOutputSessionV1.java'
+      - 'runtime_probes/chatgpt-webview-stable-probe/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/SpeechTextChunkerV1.java'
+      - 'runtime_probes/chatgpt-webview-stable-probe/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/CorrelatedAssistantReplyTrackerV1.java'
+      - 'runtime_probes/chatgpt-webview-stable-probe/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/AssistantReplyWaitJournalV1.java'
+      - 'runtime_probes/chatgpt-webview-stable-probe/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/TemporaryChatSignaturesV1.java'
+      - 'runtime_probes/chatgpt-webview-stable-probe/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/TemporaryPlannerJournalV1.java'
+      - 'runtime_probes/chatgpt-webview-stable-probe/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/WebChatFreshnessGuardV1.java'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      ROOT: runtime_probes/chatgpt-webview-stable-probe
+      EXPECTED_PACKAGE: com.homayounisaghar.chatgptwebviewprobe.diag
+      EXPECTED_VERSION: 0.91.0-stable-dashboard-live-temp-control
+      EXPECTED_VERSION_CODE: '105'
+      EXPECTED_LAUNCHER: com.homayounisaghar.chatgptwebviewprobe.OrchestratorDashboardV104LiveTempControlActivity
+      EXPECTED_SIGNER_SHA256: b7aea08158252dcad79345608ce2e76e970e4cf613414db299579f46d9924c48
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.x'}
+
+      - name: Create ephemeral runtime telemetry collector
+        shell: bash
+        run: |
+          set -euo pipefail
+          TOKEN_JSON="$(curl -fsS -X POST -H 'Accept: application/json' -H 'Content-Type: application/json' https://webhook.site/token)"
+          UUID="$(printf '%s' "$TOKEN_JSON" | python3 -c 'import json,sys; print(json.load(sys.stdin)["uuid"])')"
+          test -n "$UUID"
+          echo "CP_TELEMETRY_COLLECTOR_ID=$UUID" >> "$GITHUB_ENV"
+          echo "CP_TELEMETRY_ENDPOINT=https://webhook.site/$UUID" >> "$GITHUB_ENV"
+          echo "CP_TELEMETRY_READ_URL=https://webhook.site/token/$UUID/requests?sorting=newest&per_page=100" >> "$GITHUB_ENV"
+          echo "CP_TELEMETRY_SOURCE_REF=$GITHUB_SHA" >> "$GITHUB_ENV"
+
+      - name: Generate v0.91.0 fixed source
+        run: python3 ci/generate_chatgpt_webview_v104_dashboard_live_temp_control_fixed.py
+
+      - name: Prove telemetry collector write and readback
+        shell: bash
+        run: |
+          set -euo pipefail
+          PROBE="{\"event\":\"BUILD_TELEMETRY_PROBE\",\"source_ref\":\"$GITHUB_SHA\",\"raw_text_remote\":false,\"raw_path_remote\":false}"
+          curl -fsS -X POST -H 'Content-Type: application/json' --data "$PROBE" "$CP_TELEMETRY_ENDPOINT" >/dev/null
+          sleep 2
+          curl -fsS -H 'Accept: application/json' "$CP_TELEMETRY_READ_URL" > /tmp/telemetry-readback.json
+          grep -Fq 'BUILD_TELEMETRY_PROBE' /tmp/telemetry-readback.json
+          grep -Fq "$GITHUB_SHA" /tmp/telemetry-readback.json
+
+      - name: Check assistant infrastructure invariants
+        run: |
+          python3 ci/check_assistant_infrastructure_v1.py
+          python3 ci/check_reply_speech_infrastructure_v1.py
+
+      - name: Static live-control telemetry no-replay safe-area audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          SRC="$ROOT/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/OrchestratorDashboardV104LiveTempControlActivity.java"
+          VOICE="$ROOT/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/DashboardSpeechTranscriberV100.java"
+          TEMP="$ROOT/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/TemporaryChatSignaturesV1.java"
+          TELE="$ROOT/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/TelemetryConfigV104.java"
+          GRADLE="$ROOT/app/build.gradle"
+          MAN="$ROOT/app/src/main/AndroidManifest.xml"
+          grep -Fq "applicationId 'com.homayounisaghar.chatgptwebviewprobe.diag'" "$GRADLE"
+          grep -Eq 'versionCode[[:space:]]+105([^0-9]|$)' "$GRADLE"
+          grep -Fq "versionName '0.91.0-stable-dashboard-live-temp-control'" "$GRADLE"
+          grep -Fq 'OrchestratorDashboardV104LiveTempControlActivity' "$MAN"
+          test "$(grep -c '<uses-permission' "$MAN")" -eq 3
+          grep -Fq 'CONFIGURED = true' "$TELE"
+          grep -Fq "$CP_TELEMETRY_ENDPOINT" "$TELE"
+          grep -Fq 'PLANNER_ENTRY_SCAN' "$SRC"
+          grep -Fq 'UNIQUE_SEMANTIC_TEMP_CONTROL_CLICK' "$SRC"
+          grep -Fq 'candidate_active_hint' "$SRC"
+          grep -Fq 'candidate_active_hint' "$TEMP"
+          grep -Fq 'LEGACY-COMPATIBILITY-ONLY' "$TEMP"
+          grep -Fq 'AudioRecord' "$VOICE"
+          grep -Fq 'EXTRA_AUDIO_SOURCE' "$VOICE"
+          ! grep -Fq 'scheduleRestart' "$VOICE"
+          for h in 1a957a52 b9c97d1e ae0e16e6 34d052a8 811c9dc5; do ! grep -Fq "$h" "$SRC"; done
+          python3 - "$SRC" <<'PY'
+          from pathlib import Path
+          import sys
+          s=Path(sys.argv[1]).read_text()
+          required=[
+            'TemporaryPlannerJournalV1','WAIT_TEMP_RECEIPT','WAIT_NORMAL_RESTORE','TEMP PLANNER CLEANUP: CONFIRMED',
+            'WebChatFreshnessGuardV1','markControlledReloadDispatched','FRESHNESS_UNPROVEN','TARGET_REPLY_FRESHNESS_RELOAD',
+            'TARGET_ASSISTANT_REPLY_CAPTURED','speakCapturedReply();','SPEECH_OUTPUT_RECEIPT','turn_sequence_digest',
+            'setOnApplyWindowInsetsListener','DisplayCutout','getSafeInsetTop','TARGET_SEND_RECEIPT','PREVIEW — NOT COMMITTED','WorkflowJournalGuardV1',
+            'targetSetDraftExactJs','targetSendExactJs','composer_exact_hash','last_user_exact_hash','No target action executed or replayed',
+            'PLANNER_ENTRY_SCAN','UNIQUE_SEMANTIC_TEMP_CONTROL_CLICK','TelemetryConfigV104.CONFIGURED'
+          ]
+          for x in required: assert x in s,x
+          assert s.count('targetChatEffectDispatches++')==1
+          assert s.count('.click()')==3,s.count('.click()')
+          assert s.count('foreground.loadUrl("https://chatgpt.com"+targetExpectedPath)')==2
+          for bad in ['elementFromPoint','document.evaluate','XPathResult','dispatchTouchEvent','addJavascriptInterface','sendCurrentDraft']:
+              assert bad not in s,bad
+          print('PASS v0.91.0 fixed live semantic Temporary control + telemetry + no-replay + safe-area audit')
+          PY
+
+      - uses: actions/setup-java@v4
+        with: {distribution: temurin, java-version: '17'}
+      - uses: android-actions/setup-android@v3
+
+      - name: Build unsigned release
+        shell: bash
+        run: |
+          set -euo pipefail
+          sdkmanager "platforms;android-35" "build-tools;35.0.0"
+          echo "sdk.dir=$ANDROID_SDK_ROOT" > "$ROOT/local.properties"
+          curl -fsSL https://services.gradle.org/distributions/gradle-8.10.2-bin.zip -o /tmp/gradle.zip
+          unzip -q /tmp/gradle.zip -d /tmp
+          cd "$ROOT"
+          /tmp/gradle-8.10.2/bin/gradle --no-daemon :app:assembleRelease --stacktrace
+
+      - name: Build Stage-A kit
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT=ci/v104-dashboard-stage-a
+          mkdir -p "$OUT"
+          BT="$ANDROID_SDK_ROOT/build-tools/35.0.0"
+          U="$ROOT/app/build/outputs/apk/release/app-release-unsigned.apk"
+          A="$OUT/app-release-aligned-unsigned.apk"
+          "$BT/zipalign" -f -p 4 "$U" "$A"
+          "$BT/zipalign" -c -v 4 "$A" > "$OUT/zipalign-verify.txt"
+          "$BT/aapt" dump badging "$A" > "$OUT/badging.txt"
+          "$BT/aapt" dump permissions "$A" > "$OUT/permissions.txt"
+          grep -Fq "package: name='$EXPECTED_PACKAGE' versionCode='$EXPECTED_VERSION_CODE' versionName='$EXPECTED_VERSION'" "$OUT/badging.txt"
+          grep -Fq "launchable-activity: name='$EXPECTED_LAUNCHER'" "$OUT/badging.txt"
+          test "$(grep -c '^uses-permission:' "$OUT/permissions.txt")" -eq 3
+          sha256sum "$A" | tee "$OUT/UNSIGNED_SHA256.txt"
+          printf '%s\n' "$GITHUB_SHA" > "$OUT/SOURCE_REF.txt"
+          printf '%s\n' "$EXPECTED_SIGNER_SHA256" > "$OUT/EXPECTED_SIGNER_CERT_SHA256.txt"
+          printf '%s\n' "$CP_TELEMETRY_COLLECTOR_ID" > "$OUT/TELEMETRY_COLLECTOR_ID.txt"
+          printf '%s\n' "$CP_TELEMETRY_READ_URL" > "$OUT/TELEMETRY_READ_URL.txt"
+          cp /tmp/telemetry-readback.json "$OUT/TELEMETRY_BUILD_PROBE_READBACK.json"
+          printf 'source_ref=%s\npackage=%s\nversion_code=%s\nversion_name=%s\nlauncher=%s\nexpected_signer_sha256=%s\nstage=unsigned_aligned_release\nbehavior=live_unique_semantic_temp_control_scan_telemetry_audio_source_voice_exact_send_correlated_freshness_auto_read_aloud_safe_interactive_insets\n' "$GITHUB_SHA" "$EXPECTED_PACKAGE" "$EXPECTED_VERSION_CODE" "$EXPECTED_VERSION" "$EXPECTED_LAUNCHER" "$EXPECTED_SIGNER_SHA256" > "$OUT/BUILD_METADATA.txt"
+          for f in OrchestratorDashboardV104LiveTempControlActivity.java ExactTextV1.java WorkflowJournalV1.java WorkflowJournalGuardV1.java AssistantInfrastructureBoundariesV1.java SpeechOutputSessionV1.java SpeechTextChunkerV1.java CorrelatedAssistantReplyTrackerV1.java AssistantReplyWaitJournalV1.java TemporaryChatSignaturesV1.java TemporaryPlannerJournalV1.java WebChatFreshnessGuardV1.java DashboardSpeechTranscriberV100.java TelemetryConfigV104.java; do cp "$ROOT/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/$f" "$OUT/"; done
+          cp "$ROOT/app/src/main/AndroidManifest.xml" "$OUT/"
+          cp "$ROOT/app/build.gradle" "$OUT/"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: 'chatgpt-webview-v0.91.0-live-temp-control-fixed-${{ github.run_id }}-unsigned'
+          path: ci/v104-dashboard-stage-a
+          if-no-files-found: error
+          retention-days: 30
