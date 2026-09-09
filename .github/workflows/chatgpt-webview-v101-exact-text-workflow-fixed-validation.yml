@@ -1,0 +1,99 @@
+name: ChatGPT WebView v0.90.7 hardened exact-text workflow validation
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [project/chatgpt-webview-poc]
+    paths:
+      - '.github/workflows/chatgpt-webview-v101-exact-text-workflow-fixed-validation.yml'
+      - 'ci/generate_chatgpt_webview_v101_dashboard_exact_text_workflow_fixed.py'
+      - 'ci/generate_chatgpt_webview_v101_dashboard_exact_text_workflow.py'
+      - 'ci/generate_chatgpt_webview_v100_dashboard_voice_manual_stop_atomic.py'
+      - 'ci/check_assistant_infrastructure_v1.py'
+      - 'runtime_probes/chatgpt-webview-stable-probe/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/ExactTextV1.java'
+      - 'runtime_probes/chatgpt-webview-stable-probe/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/WorkflowJournalV1.java'
+      - 'runtime_probes/chatgpt-webview-stable-probe/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/AssistantInfrastructureBoundariesV1.java'
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      ROOT: runtime_probes/chatgpt-webview-stable-probe
+      EXPECTED_PACKAGE: com.homayounisaghar.chatgptwebviewprobe.diag
+      EXPECTED_VERSION: 0.90.7-stable-dashboard-exact-text-workflow-journal
+      EXPECTED_VERSION_CODE: '102'
+      EXPECTED_LAUNCHER: com.homayounisaghar.chatgptwebviewprobe.OrchestratorDashboardV101ExactTextWorkflowActivity
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.x'}
+      - name: Generate hardened v0.90.7 source
+        run: python3 ci/generate_chatgpt_webview_v101_dashboard_exact_text_workflow_fixed.py
+      - name: Static infrastructure audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 ci/check_assistant_infrastructure_v1.py
+          SRC="$ROOT/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/OrchestratorDashboardV101ExactTextWorkflowActivity.java"
+          python3 - "$SRC" <<'PY'
+          from pathlib import Path
+          import sys
+          s=Path(sys.argv[1]).read_text()
+          for x in [
+              "composer_exact_hash:c?H(XT(c))",
+              "const raw=X(e.innerText||e.textContent||'');if(!N(raw))continue",
+              'targetSendDispatchedThisAttempt=true;eval(foreground,targetSendExactJs',
+              'targetSetDraftExactJs', 'targetSendExactJs',
+              'markDispatchInFlight', 'markWaitingReceipt', 'confirmReceipt',
+              'TARGET FROZEN: YES', 'PREVIEW — NOT COMMITTED', 'No blind replay'
+          ]:
+              assert x in s,x
+          assert s.count('targetChatEffectDispatches++')==1
+          assert s.count('.click()')==2
+          for bad in ['elementFromPoint','document.evaluate','XPathResult','dispatchTouchEvent','addJavascriptInterface','sendCurrentDraft']:
+              assert bad not in s,bad
+          print('PASS hardened exact-text/workflow static audit')
+          PY
+      - uses: actions/setup-java@v4
+        with: {distribution: temurin, java-version: '17'}
+      - uses: android-actions/setup-android@v3
+      - name: Build unsigned release
+        shell: bash
+        run: |
+          set -euo pipefail
+          sdkmanager "platforms;android-35" "build-tools;35.0.0"
+          echo "sdk.dir=$ANDROID_SDK_ROOT" > "$ROOT/local.properties"
+          curl -fsSL https://services.gradle.org/distributions/gradle-8.10.2-bin.zip -o /tmp/gradle.zip
+          unzip -q /tmp/gradle.zip -d /tmp
+          cd "$ROOT"
+          /tmp/gradle-8.10.2/bin/gradle --no-daemon :app:assembleRelease --stacktrace
+      - name: Verify and stage unsigned artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT=ci/v101-fixed-stage-a
+          mkdir -p "$OUT"
+          BT="$ANDROID_SDK_ROOT/build-tools/35.0.0"
+          U="$ROOT/app/build/outputs/apk/release/app-release-unsigned.apk"
+          A="$OUT/app-release-aligned-unsigned.apk"
+          "$BT/zipalign" -f -p 4 "$U" "$A"
+          "$BT/zipalign" -c -v 4 "$A" > "$OUT/zipalign-verify.txt"
+          "$BT/aapt" dump badging "$A" > "$OUT/badging.txt"
+          grep -Fq "package: name='$EXPECTED_PACKAGE' versionCode='$EXPECTED_VERSION_CODE' versionName='$EXPECTED_VERSION'" "$OUT/badging.txt"
+          grep -Fq "launchable-activity: name='$EXPECTED_LAUNCHER'" "$OUT/badging.txt"
+          sha256sum "$A" > "$OUT/UNSIGNED_SHA256.txt"
+          printf '%s\n' "$GITHUB_SHA" > "$OUT/SOURCE_REF.txt"
+          cp "$ROOT/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/OrchestratorDashboardV101ExactTextWorkflowActivity.java" "$OUT/"
+          cp "$ROOT/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/ExactTextV1.java" "$OUT/"
+          cp "$ROOT/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/WorkflowJournalV1.java" "$OUT/"
+          cp "$ROOT/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/AssistantInfrastructureBoundariesV1.java" "$OUT/"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: 'chatgpt-webview-v0.90.7-hardened-exact-text-workflow-${{ github.run_id }}-unsigned'
+          path: ci/v101-fixed-stage-a
+          if-no-files-found: error
+          retention-days: 30
