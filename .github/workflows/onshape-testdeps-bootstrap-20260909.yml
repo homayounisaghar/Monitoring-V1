@@ -1,0 +1,36 @@
+name: Onshape test deps bootstrap 20260909
+
+on:
+  push:
+    branches:
+      - work/onshape-testdeps-bootstrap-20260909-01
+
+permissions:
+  contents: read
+
+jobs:
+  package-test-deps:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fetch pinned public test dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p out
+          curl -fsSL --retry 3 https://repo.maven.apache.org/maven2/junit/junit/4.13.2/junit-4.13.2.jar -o out/junit-4.13.2.jar
+          curl -fsSL --retry 3 https://repo.maven.apache.org/maven2/org/hamcrest/hamcrest-core/1.3/hamcrest-core-1.3.jar -o out/hamcrest-core-1.3.jar
+          curl -fsSL --retry 3 https://repo.maven.apache.org/maven2/org/json/json/20240303/json-20240303.jar -o out/json-20240303.jar
+          printf '%s  %s\n' \
+            8e495b634469d64fb8acfa3495a065cbacc8a0fff55ce1e31007be4c16dc57d3 out/junit-4.13.2.jar \
+            66fdef91e9739348df7a096aa384a5685f4e875584cce89386a7a47251c4d8e9 out/hamcrest-core-1.3.jar \
+            3cf6cd6892e32e2b4c1c39e0f52f5248a2f5b37646fdfbb79a66b46b618414ed out/json-20240303.jar \
+            > SHA256SUMS
+          sha256sum -c SHA256SUMS
+          cp SHA256SUMS out/SHA256SUMS
+      - name: Upload pinned test dependencies
+        uses: actions/upload-artifact@v4
+        with:
+          name: onshape-v067-test-deps
+          path: out/
+          if-no-files-found: error
+          retention-days: 1
