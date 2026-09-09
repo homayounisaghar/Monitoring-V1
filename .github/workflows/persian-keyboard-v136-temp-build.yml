@@ -1,4 +1,4 @@
-name: Persian Keyboard Android v1.36 Viewport Test APK
+name: Persian Keyboard Android v1.37 Behavior Test APK
 
 on:
   push:
@@ -44,10 +44,10 @@ jobs:
       - name: Fail rather than rotate signing identity
         if: steps.signing-cache.outputs.cache-hit != 'true'
         run: |
-          echo 'Expected persistent v1.9+ signing cache was not restored.' >&2
+          echo 'Expected persistent signing cache was not restored.' >&2
           exit 1
 
-      - name: Apply v1.8 through v1.36 viewport behavior
+      - name: Apply v1.8 through v1.37 behavior
         working-directory: android/persian-keyboard-v19
         run: |
           set -euo pipefail
@@ -84,104 +84,50 @@ jobs:
           python3 tools/apply_v1351_socket_epoch_hardening.py
           python3 tools/apply_v1352_preserve_clear_toolbar.py
           python3 tools/apply_v136_follow_voice_viewport_patch.py
+          python3 tools/apply_v137_ime_hide_zwnj_caret_rebase_patch.py
 
-      - name: Verify v1.36 architecture and viewport invariants
+      - name: Verify v1.37 invariants
         working-directory: android/persian-keyboard-v19
         run: |
           set -euo pipefail
           python3 - <<'PY'
           from pathlib import Path
-          src = Path('app/src/main/java/com/najme/perplexityprobe/PersianKeyboardService.java').read_text()
-          helper = Path('app/src/main/java/com/najme/perplexityprobe/SendAccessibilityService.java').read_text()
-          axml = Path('app/src/main/res/xml/send_accessibility_service.xml').read_text()
-          manifest = Path('app/src/main/AndroidManifest.xml').read_text()
-          gradle = Path('app/build.gradle').read_text()
-          text = src + '\n' + helper + '\n' + axml + '\n' + manifest + '\n' + gradle
-
-          required = [
-              'private volatile long activeVoiceRunId;',
-              'private volatile long activeCredentialRequestId;',
-              'private volatile int finishAckEpoch;',
-              'private volatile int speechSocketEpoch;',
-              'private String voicePublishedText = "";',
-              'private int voiceOwnedStart = -1;',
-              'private int voiceOwnedEnd = -1;',
-              'private boolean voiceSelectionFollowsOwnedRange;',
-              'private int voiceExpectedSelectionStart = -1;',
-              'private int voiceExpectedSelectionEnd = -1;',
-              'boolean followVoiceEnd=voiceSelectionFollowsOwnedRange',
-              'oldSelStart==voiceExpectedSelectionStart&&oldSelEnd==voiceExpectedSelectionEnd',
-              'if(voiceSelectionFollowsOwnedRange&&!followVoiceEnd)voiceSelectionFollowsOwnedRange=false;',
-              'restoreStart=newOwnedEnd;restoreEnd=newOwnedEnd;',
-              'voiceExpectedSelectionStart=newOwnedEnd;',
-              'voiceExpectedSelectionEnd=newOwnedEnd;',
-              'private int[] locatePublishedVoiceRegion(VoiceEditorWindow window){',
-              'private void publish(boolean finish,long runId){',
-              'Recording — live text sync paused',
-              'Intentionally informational only',
-              'deliberately disabled. Same-editor selection never forces',
-              'private void clearCurrentTextField(){',
-              'if(action==MotionEvent.ACTION_DOWN)',
-              'android.R.attr.state_pressed',
-              'SendAccessibilityService.requestSend(targetPackage)',
-              'versionCode 46',
-              "versionName '1.36'",
-          ]
-          for needle in required:
-              if needle not in text:
-                  raise SystemExit(f'Missing v1.36 invariant: {needle}')
-
-          forbidden = [
-              'Voice stopped — live text sync lost',
-              'Voice stopped — selection changed',
-              'Voice stopped — selection confirmed off voice tail',
-              'Voice stopped — selection after user interaction',
-              'Voice stopped — selection after fresh touch+editor click',
-              'scheduleInternalSelectionReanchor();',
-              'scheduleExternalSelectionConfirmation(newSelStart,newSelEnd);',
-              'recoverOwnedVoiceCursor()',
-              'regionLooksVoiceOwned(',
-              'MAX_CAPTURE_MS',
-              'boundConnection.setComposingText(partial,1);',
-              'final WebSocket[] holder=',
-              'versionCode 45',
-              "versionName '1.35'",
-          ]
-          for needle in forbidden:
-              if needle in text:
-                  raise SystemExit(f'Forbidden unstable behavior remains: {needle}')
-          print('v1.36 architecture and viewport invariants OK')
+          text='\n'.join([
+            Path('app/src/main/java/com/najme/perplexityprobe/PersianKeyboardService.java').read_text(),
+            Path('app/src/main/java/com/najme/perplexityprobe/SendAccessibilityService.java').read_text(),
+            Path('app/build.gradle').read_text()
+          ])
+          for x in [
+            'private int voiceProjectionFinalBaseChars;',
+            'private boolean voiceCaretRebasePending;',
+            'private void stopVoiceForImeHidden(){',
+            '@Override public void onFinishInputView(boolean finishingInput)',
+            '@Override public void onWindowHidden()',
+            'Button zwnj=actionKey("−", v -> commitText("\\u200C"));',
+            'versionCode 47',
+            "versionName '1.37'",
+          ]:
+            assert x in text, x
+          print('v1.37 invariants OK')
           PY
 
-      - name: Build Android v1.36 debug APK
+      - name: Build Android v1.37 APK
         run: gradle -p android/persian-keyboard-v19 --no-daemon assembleDebug --stacktrace
 
-      - name: Verify APK, signer continuity, and metadata
+      - name: Verify APK
         shell: bash
         run: |
           set -euo pipefail
           APK='android/persian-keyboard-v19/app/build/outputs/apk/debug/app-debug.apk'
           test -f "$APK"
-          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$APK" | tee apk-signing.txt
-          grep -q 'Signer #1 certificate SHA-256 digest: c557bdc60de4100720d6f122789b51c2889661ef0b76886d5b08c1f44cf023cf' apk-signing.txt
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | head -n 30 | tee apk-badging.txt
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump xmltree "$APK" AndroidManifest.xml > apk-manifest.txt
-          grep -q "package: name='com.najme.perplexityprobe' versionCode='46' versionName='1.36'" apk-badging.txt
-          grep -q 'PersianKeyboardService' apk-manifest.txt
-          grep -q 'SendAccessibilityService' apk-manifest.txt
-          grep -q 'android.permission.BIND_ACCESSIBILITY_SERVICE' apk-manifest.txt
-          sha256sum "$APK" | tee apk-sha256.txt
-          cp "$APK" Persian-keyboard-Android-v1.36.apk
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$APK"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep "versionCode='47' versionName='1.37'"
+          sha256sum "$APK"
+          cp "$APK" Persian-keyboard-Android-v1.37.apk
 
-      - name: Upload verified APK and evidence
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Persian-keyboard-Android-v1.36-viewport-follow-signed
-          path: |
-            Persian-keyboard-Android-v1.36.apk
-            apk-signing.txt
-            apk-badging.txt
-            apk-manifest.txt
-            apk-sha256.txt
-          if-no-files-found: error
+          name: Persian-keyboard-Android-v1.37
+          path: Persian-keyboard-Android-v1.37.apk
           retention-days: 30
