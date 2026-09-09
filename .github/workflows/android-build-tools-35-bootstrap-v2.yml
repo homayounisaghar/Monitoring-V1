@@ -1,0 +1,42 @@
+name: Android build-tools 35 bootstrap v2
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [project/chatgpt-webview-poc]
+    paths:
+      - '.github/workflows/android-build-tools-35-bootstrap-v2.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  bundle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: android-actions/setup-android@v3
+      - name: Bundle generic build-tools and native runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          sdkmanager "build-tools;35.0.0"
+          SRC="$ANDROID_SDK_ROOT/build-tools/35.0.0"
+          OUT=ci/android-build-tools-35-bootstrap-v2
+          mkdir -p "$OUT/lib" "$OUT/lib64"
+          cp "$SRC/apksigner" "$OUT/"
+          cp "$SRC/zipalign" "$OUT/"
+          cp "$SRC/lib/apksigner.jar" "$OUT/lib/"
+          CXX=$(find "$SRC" -type f -name 'libc++.so' -print -quit)
+          test -n "$CXX"
+          cp "$CXX" "$OUT/lib64/libc++.so"
+          chmod +x "$OUT/apksigner" "$OUT/zipalign"
+          sha256sum "$OUT/apksigner" "$OUT/zipalign" "$OUT/lib/apksigner.jar" "$OUT/lib64/libc++.so" > "$OUT/SHA256SUMS.txt"
+          printf 'android_build_tools=35.0.0\ngeneric_source_only=true\ncontains_signing_secrets=false\nzipalign_runtime_included=true\n' > "$OUT/METADATA.txt"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: 'android-build-tools-35-bootstrap-v2-${{ github.run_id }}'
+          path: ci/android-build-tools-35-bootstrap-v2
+          if-no-files-found: error
+          retention-days: 30
