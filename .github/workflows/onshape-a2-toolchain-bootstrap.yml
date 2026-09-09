@@ -112,9 +112,6 @@ jobs:
           cp -a "$ANDROID_SDK_ROOT/build-tools/35.0.0" "$OUT/android-sdk/build-tools/"
           if [ -d "$ANDROID_SDK_ROOT/licenses" ]; then cp -a "$ANDROID_SDK_ROOT/licenses" "$OUT/android-sdk/"; fi
 
-          # Only immutable downloaded modules are needed to resolve AGP and project dependencies offline.
-          # Gradle recreates transform/script/build caches locally, so excluding them keeps this artifact
-          # comfortably below the connector's 512 MiB transfer ceiling without changing dependency bytes.
           cp -a "$HOME/.gradle/caches/modules-2" "$OUT/gradle-user-home/caches/"
 
           cat > "$OUT/TOOLCHAIN_PROVENANCE.txt" <<'EOF'
@@ -130,15 +127,65 @@ jobs:
 
           cd "$RUNNER_TEMP"
           tar -czf onshape-a2-toolchain.tar.gz onshape-a2-toolchain
-          sha256sum onshape-a2-toolchain.tar.gz > onshape-a2-toolchain.tar.gz.sha256
           mkdir -p "$GITHUB_WORKSPACE/a2-out"
-          cp onshape-a2-toolchain.tar.gz onshape-a2-toolchain.tar.gz.sha256 "$GITHUB_WORKSPACE/a2-out/"
+          sha256sum onshape-a2-toolchain.tar.gz > "$GITHUB_WORKSPACE/a2-out/onshape-a2-toolchain.tar.gz.sha256"
+          split -b 80m onshape-a2-toolchain.tar.gz "$GITHUB_WORKSPACE/a2-out/onshape-a2-toolchain.part-"
+          test -f "$GITHUB_WORKSPACE/a2-out/onshape-a2-toolchain.part-af"
 
-      - name: Upload toolchain bundle
+      - name: Upload checksum
         uses: actions/upload-artifact@v4
         with:
-          name: onshape-a2-toolchain-gradle8.10.2-agp8.8.2-api35-slim
-          path: a2-out/*
+          name: onshape-a2-toolchain-checksum
+          path: a2-out/onshape-a2-toolchain.tar.gz.sha256
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 2
+
+      - name: Upload part aa
+        uses: actions/upload-artifact@v4
+        with:
+          name: onshape-a2-toolchain-part-aa
+          path: a2-out/onshape-a2-toolchain.part-aa
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 2
+      - name: Upload part ab
+        uses: actions/upload-artifact@v4
+        with:
+          name: onshape-a2-toolchain-part-ab
+          path: a2-out/onshape-a2-toolchain.part-ab
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 2
+      - name: Upload part ac
+        uses: actions/upload-artifact@v4
+        with:
+          name: onshape-a2-toolchain-part-ac
+          path: a2-out/onshape-a2-toolchain.part-ac
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 2
+      - name: Upload part ad
+        uses: actions/upload-artifact@v4
+        with:
+          name: onshape-a2-toolchain-part-ad
+          path: a2-out/onshape-a2-toolchain.part-ad
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 2
+      - name: Upload part ae
+        uses: actions/upload-artifact@v4
+        with:
+          name: onshape-a2-toolchain-part-ae
+          path: a2-out/onshape-a2-toolchain.part-ae
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 2
+      - name: Upload part af
+        uses: actions/upload-artifact@v4
+        with:
+          name: onshape-a2-toolchain-part-af
+          path: a2-out/onshape-a2-toolchain.part-af
           if-no-files-found: error
           compression-level: 0
           retention-days: 2
