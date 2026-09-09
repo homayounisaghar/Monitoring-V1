@@ -38,10 +38,17 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          cd "${RUNNER_TEMP}/input/core"
-          sha256sum -c android-offline-core-linux.tar.gz.sha256
-          cd "${RUNNER_TEMP}/input/gradle"
-          sha256sum -c gradle-8.10.2-bin.zip.sha256
+          CORE_FILE="${RUNNER_TEMP}/input/core/android-offline-core-linux.tar.gz"
+          CORE_SUM="${RUNNER_TEMP}/input/core/android-offline-core-linux.tar.gz.sha256"
+          GRADLE_FILE="${RUNNER_TEMP}/input/gradle/gradle-8.10.2-bin.zip"
+          GRADLE_SUM="${RUNNER_TEMP}/input/gradle/gradle-8.10.2-bin.zip.sha256"
+          CORE_EXPECTED="$(awk 'NR==1 {print $1}' "$CORE_SUM")"
+          GRADLE_EXPECTED="$(awk 'NR==1 {print $1}' "$GRADLE_SUM")"
+          CORE_ACTUAL="$(sha256sum "$CORE_FILE" | awk '{print $1}')"
+          GRADLE_ACTUAL="$(sha256sum "$GRADLE_FILE" | awk '{print $1}')"
+          test "$CORE_ACTUAL" = "$CORE_EXPECTED"
+          test "$GRADLE_ACTUAL" = "$GRADLE_EXPECTED"
+          printf 'core_sha256=%s\ngradle_sha256=%s\n' "$CORE_ACTUAL" "$GRADLE_ACTUAL"
 
       - name: Split verified payloads into bounded parts
         shell: bash
