@@ -1,0 +1,64 @@
+name: ChatGPT WebView assistant infrastructure v1 validation
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [project/chatgpt-webview-poc]
+    paths:
+      - '.github/workflows/chatgpt-webview-assistant-infrastructure-v1-validation.yml'
+      - 'ci/check_assistant_infrastructure_v1.py'
+      - 'ci/check_reply_speech_infrastructure_v1.py'
+      - 'ci/generate_chatgpt_webview_v101_dashboard_exact_text_workflow_fixed.py'
+      - 'runtime_probes/chatgpt-webview-stable-probe/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/ExactTextV1.java'
+      - 'runtime_probes/chatgpt-webview-stable-probe/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/WorkflowJournalV1.java'
+      - 'runtime_probes/chatgpt-webview-stable-probe/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/WorkflowJournalGuardV1.java'
+      - 'runtime_probes/chatgpt-webview-stable-probe/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/AssistantInfrastructureBoundariesV1.java'
+      - 'runtime_probes/chatgpt-webview-stable-probe/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/TemporaryChatSignaturesV1.java'
+      - 'runtime_probes/chatgpt-webview-stable-probe/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/TemporaryPlannerJournalV1.java'
+      - 'runtime_probes/chatgpt-webview-stable-probe/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/SpeechTextChunkerV1.java'
+      - 'runtime_probes/chatgpt-webview-stable-probe/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/CorrelatedAssistantReplyTrackerV1.java'
+      - 'runtime_probes/chatgpt-webview-stable-probe/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/AssistantReplyWaitJournalV1.java'
+      - 'runtime_probes/chatgpt-webview-stable-probe/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/SpeechOutputSessionV1.java'
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.x'}
+      - name: Regenerate current hardened app source
+        run: python3 ci/generate_chatgpt_webview_v101_dashboard_exact_text_workflow_fixed.py
+      - name: Static infrastructure checks
+        run: |
+          python3 ci/check_assistant_infrastructure_v1.py
+          python3 ci/check_reply_speech_infrastructure_v1.py
+      - uses: actions/setup-java@v4
+        with: {distribution: temurin, java-version: '17'}
+      - uses: android-actions/setup-android@v3
+      - name: Compile all assistant infrastructure with current app
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT=runtime_probes/chatgpt-webview-stable-probe
+          sdkmanager "platforms;android-35" "build-tools;35.0.0"
+          echo "sdk.dir=$ANDROID_SDK_ROOT" > "$ROOT/local.properties"
+          curl -fsSL https://services.gradle.org/distributions/gradle-8.10.2-bin.zip -o /tmp/gradle.zip
+          unzip -q /tmp/gradle.zip -d /tmp
+          cd "$ROOT"
+          /tmp/gradle-8.10.2/bin/gradle --no-daemon :app:assembleRelease --stacktrace
+      - name: Verify current package identity unchanged
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT=runtime_probes/chatgpt-webview-stable-probe
+          A="$ROOT/app/build/outputs/apk/release/app-release-unsigned.apk"
+          BT="$ANDROID_SDK_ROOT/build-tools/35.0.0"
+          "$BT/aapt" dump badging "$A" > /tmp/badging.txt
+          grep -Fq "package: name='com.homayounisaghar.chatgptwebviewprobe.diag' versionCode='102' versionName='0.90.7-stable-dashboard-exact-text-workflow-journal'" /tmp/badging.txt
+          grep -Fq "launchable-activity: name='com.homayounisaghar.chatgptwebviewprobe.OrchestratorDashboardV101ExactTextWorkflowActivity'" /tmp/badging.txt
+          echo PASS
