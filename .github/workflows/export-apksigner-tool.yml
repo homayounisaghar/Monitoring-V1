@@ -1,0 +1,30 @@
+name: Export Android apksigner tool
+on:
+  push:
+    branches: [project/chatgpt-webview-poc]
+    paths:
+      - '.github/workflows/export-apksigner-tool.yml'
+permissions:
+  contents: read
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: android-actions/setup-android@v3
+      - name: Install build tools
+        shell: bash
+        run: sdkmanager "build-tools;35.0.0"
+      - name: Stage apksigner
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p out/lib
+          cp "$ANDROID_SDK_ROOT/build-tools/35.0.0/apksigner" out/
+          cp "$ANDROID_SDK_ROOT/build-tools/35.0.0/lib/apksigner.jar" out/lib/
+          chmod +x out/apksigner
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-apksigner-35.0.0
+          path: out
+          if-no-files-found: error
+          retention-days: 7
