@@ -38,7 +38,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          sdkmanager 'platforms;android-35' 'build-tools;35.0.0' 'platform-tools'
+          sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
 
           WORK="$RUNNER_TEMP/onshape-a2-generic"
           mkdir -p "$WORK/app/src/main"
@@ -102,7 +102,7 @@ jobs:
         run: |
           set -euo pipefail
           OUT="$RUNNER_TEMP/onshape-a2-toolchain"
-          mkdir -p "$OUT/gradle" "$OUT/android-sdk/platforms" "$OUT/android-sdk/build-tools" "$OUT/gradle-user-home"
+          mkdir -p "$OUT/gradle" "$OUT/android-sdk/platforms" "$OUT/android-sdk/build-tools" "$OUT/gradle-user-home/caches"
 
           GRADLE_BIN="$(readlink -f "$(command -v gradle)")"
           GRADLE_HOME="$(cd "$(dirname "$GRADLE_BIN")/.." && pwd)"
@@ -110,11 +110,12 @@ jobs:
 
           cp -a "$ANDROID_SDK_ROOT/platforms/android-35" "$OUT/android-sdk/platforms/"
           cp -a "$ANDROID_SDK_ROOT/build-tools/35.0.0" "$OUT/android-sdk/build-tools/"
-          cp -a "$ANDROID_SDK_ROOT/platform-tools" "$OUT/android-sdk/"
           if [ -d "$ANDROID_SDK_ROOT/licenses" ]; then cp -a "$ANDROID_SDK_ROOT/licenses" "$OUT/android-sdk/"; fi
 
-          cp -a "$HOME/.gradle/caches" "$OUT/gradle-user-home/"
-          if [ -d "$HOME/.gradle/native" ]; then cp -a "$HOME/.gradle/native" "$OUT/gradle-user-home/"; fi
+          # Only immutable downloaded modules are needed to resolve AGP and project dependencies offline.
+          # Gradle recreates transform/script/build caches locally, so excluding them keeps this artifact
+          # comfortably below the connector's 512 MiB transfer ceiling without changing dependency bytes.
+          cp -a "$HOME/.gradle/caches/modules-2" "$OUT/gradle-user-home/caches/"
 
           cat > "$OUT/TOOLCHAIN_PROVENANCE.txt" <<'EOF'
           Source-agnostic Android build bootstrap only.
@@ -124,6 +125,7 @@ jobs:
           compileSdk: 35
           build-tools: 35.0.0
           Hydrated dependencies: okhttp 4.12.0, junit 4.13.2, org.json 20240303
+          Cache scope: immutable Gradle modules-2 only; transforms/scripts regenerate offline.
           EOF
 
           cd "$RUNNER_TEMP"
@@ -135,7 +137,7 @@ jobs:
       - name: Upload toolchain bundle
         uses: actions/upload-artifact@v4
         with:
-          name: onshape-a2-toolchain-gradle8.10.2-agp8.8.2-api35
+          name: onshape-a2-toolchain-gradle8.10.2-agp8.8.2-api35-slim
           path: a2-out/*
           if-no-files-found: error
           compression-level: 0
