@@ -92,8 +92,8 @@ jobs:
           from pathlib import Path
           p=Path('tools/apply_v141_diagnostic_event_trace_patch.py')
           t=p.read_text()
-          needle=r'toolbarButton(\"Copy\"'
-          replacement=r'toolbarButton(\"⧉\"'
+          needle='toolbarButton("Copy"'
+          replacement='toolbarButton("⧉"'
           count=t.count(needle)
           if count != 2:
               raise SystemExit(f'v1.41 Copy-icon compatibility expected 2 markers, found {count}')
