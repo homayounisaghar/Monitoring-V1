@@ -40,3 +40,5 @@ jobs:
           path: out
           if-no-files-found: error
           retention-days: 7
+
+# Refreshed on 2026-09-09 for v0.89.2 Stage-B promotion.
