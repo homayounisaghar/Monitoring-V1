@@ -1,0 +1,142 @@
+name: Onshape A2 Android Toolchain Bootstrap
+
+on:
+  push:
+    branches:
+      - work/onshape-a2-bootstrap-20260909-01
+    paths:
+      - '.github/workflows/onshape-a2-toolchain-bootstrap.yml'
+      - 'onshape-a2-bootstrap-trigger.txt'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  bootstrap:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout public bootstrap repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle 8.10.2
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.10.2'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Hydrate generic Android toolchain and dependency cache
+        shell: bash
+        run: |
+          set -euo pipefail
+          sdkmanager 'platforms;android-35' 'build-tools;35.0.0' 'platform-tools'
+
+          WORK="$RUNNER_TEMP/onshape-a2-generic"
+          mkdir -p "$WORK/app/src/main"
+          cat > "$WORK/settings.gradle.kts" <<'EOF'
+          pluginManagement {
+              repositories {
+                  google()
+                  mavenCentral()
+                  gradlePluginPortal()
+              }
+          }
+          dependencyResolutionManagement {
+              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+          }
+          rootProject.name = "GenericAndroidToolchainHydrator"
+          include(":app")
+          EOF
+          cat > "$WORK/build.gradle.kts" <<'EOF'
+          plugins {
+              id("com.android.application") version "8.8.2" apply false
+          }
+          EOF
+          cat > "$WORK/app/build.gradle.kts" <<'EOF'
+          plugins {
+              id("com.android.application")
+          }
+          android {
+              namespace = "dev.capabilityfabric.toolchainbootstrap"
+              compileSdk = 35
+              defaultConfig {
+                  applicationId = "dev.capabilityfabric.toolchainbootstrap"
+                  minSdk = 26
+                  targetSdk = 35
+                  versionCode = 1
+                  versionName = "1.0"
+              }
+              compileOptions {
+                  sourceCompatibility = JavaVersion.VERSION_17
+                  targetCompatibility = JavaVersion.VERSION_17
+              }
+          }
+          dependencies {
+              implementation("com.squareup.okhttp3:okhttp:4.12.0")
+              testImplementation("junit:junit:4.13.2")
+              testImplementation("org.json:json:20240303")
+          }
+          EOF
+          cat > "$WORK/app/src/main/AndroidManifest.xml" <<'EOF'
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android"><application android:label="ToolchainBootstrap"/></manifest>
+          EOF
+
+          cd "$WORK"
+          gradle --no-daemon --stacktrace :app:testDebugUnitTest :app:assembleRelease
+
+      - name: Package reusable source-agnostic toolchain bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="$RUNNER_TEMP/onshape-a2-toolchain"
+          mkdir -p "$OUT/gradle" "$OUT/android-sdk" "$OUT/gradle-user-home"
+
+          GRADLE_BIN="$(readlink -f "$(command -v gradle)")"
+          GRADLE_HOME="$(cd "$(dirname "$GRADLE_BIN")/.." && pwd)"
+          cp -a "$GRADLE_HOME" "$OUT/gradle/gradle-8.10.2"
+
+          cp -a "$ANDROID_SDK_ROOT/platforms" "$OUT/android-sdk/"
+          cp -a "$ANDROID_SDK_ROOT/build-tools" "$OUT/android-sdk/"
+          cp -a "$ANDROID_SDK_ROOT/platform-tools" "$OUT/android-sdk/"
+          if [ -d "$ANDROID_SDK_ROOT/licenses" ]; then cp -a "$ANDROID_SDK_ROOT/licenses" "$OUT/android-sdk/"; fi
+
+          cp -a "$HOME/.gradle/caches" "$OUT/gradle-user-home/"
+          if [ -d "$HOME/.gradle/native" ]; then cp -a "$HOME/.gradle/native" "$OUT/gradle-user-home/"; fi
+
+          cat > "$OUT/TOOLCHAIN_PROVENANCE.txt" <<'EOF'
+          Source-agnostic Android build bootstrap only.
+          No Capability Fabric private application source is included.
+          Gradle: 8.10.2
+          Android Gradle Plugin: 8.8.2
+          compileSdk: 35
+          build-tools: 35.0.0
+          Hydrated dependencies: okhttp 4.12.0, junit 4.13.2, org.json 20240303
+          EOF
+
+          cd "$RUNNER_TEMP"
+          tar -czf onshape-a2-toolchain.tar.gz onshape-a2-toolchain
+          sha256sum onshape-a2-toolchain.tar.gz > onshape-a2-toolchain.tar.gz.sha256
+          mkdir -p "$GITHUB_WORKSPACE/a2-out"
+          cp onshape-a2-toolchain.tar.gz onshape-a2-toolchain.tar.gz.sha256 "$GITHUB_WORKSPACE/a2-out/"
+
+      - name: Upload toolchain bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: onshape-a2-toolchain-gradle8.10.2-agp8.8.2-api35
+          path: a2-out/*
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 2
