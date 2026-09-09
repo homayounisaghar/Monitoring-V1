@@ -1,0 +1,41 @@
+name: Export v93 Dashboard source for recipe successor
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - project/chatgpt-webview-poc
+    paths:
+      - '.github/workflows/export-v93-generated-source-for-recipe-successor.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - name: Generate v93 Dashboard source
+        run: python3 ci/generate_chatgpt_webview_v93_dashboard_telemetry_budget_repair.py
+      - name: Collect generated source
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT=runtime_probes/chatgpt-webview-stable-probe
+          PKG="$ROOT/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe"
+          mkdir -p ci/v93-source-export
+          cp "$PKG/OrchestratorDashboardV93Activity.java" ci/v93-source-export/
+          cp "$PKG/TelemetryConfigV93.java" ci/v93-source-export/
+          cp "$ROOT/app/src/main/AndroidManifest.xml" ci/v93-source-export/
+          cp "$ROOT/app/build.gradle" ci/v93-source-export/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v93-dashboard-generated-source-${{ github.run_id }}
+          path: ci/v93-source-export
+          if-no-files-found: error
+          retention-days: 1
