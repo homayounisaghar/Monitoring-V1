@@ -6,6 +6,7 @@ on:
     branches: [project/chatgpt-webview-poc]
     paths:
       - '.github/workflows/chatgpt-webview-stable-v102-dashboard-assistant-prototype-unsigned.yml'
+      - 'ci/generate_chatgpt_webview_v102_dashboard_assistant_prototype_fixed2.py'
       - 'ci/generate_chatgpt_webview_v102_dashboard_assistant_prototype_fixed.py'
       - 'ci/generate_chatgpt_webview_v102_dashboard_reply_read_aloud.py'
       - 'ci/generate_chatgpt_webview_v101_dashboard_exact_text_workflow_fixed.py'
@@ -43,7 +44,7 @@ jobs:
       - uses: actions/setup-python@v5
         with: {python-version: '3.x'}
       - name: Generate v0.90.8 assistant prototype source
-        run: python3 ci/generate_chatgpt_webview_v102_dashboard_assistant_prototype_fixed.py
+        run: python3 ci/generate_chatgpt_webview_v102_dashboard_assistant_prototype_fixed2.py
       - name: Check assistant infrastructure invariants
         run: |
           python3 ci/check_assistant_infrastructure_v1.py
@@ -73,7 +74,7 @@ jobs:
           ]
           for x in required: assert x in s,x
           assert s.count('targetChatEffectDispatches++')==1
-          assert s.count('.click()')==4,s.count('.click()')
+          assert s.count('.click()')==3,s.count('.click()')
           assert s.count('foreground.loadUrl("https://chatgpt.com"+targetExpectedPath)')==1
           for bad in ['elementFromPoint','document.evaluate','XPathResult','dispatchTouchEvent','addJavascriptInterface','sendCurrentDraft']:
               assert bad not in s,bad
