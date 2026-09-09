@@ -1,0 +1,35 @@
+name: Read v0.91.0 runtime telemetry
+on:
+  push:
+    branches:
+      - project/chatgpt-webview-poc
+    paths:
+      - .github/workflows/read-v0910-runtime-telemetry.yml
+permissions:
+  contents: read
+jobs:
+  read:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fetch and summarize v0.91.0 telemetry
+        shell: bash
+        run: |
+          set -euo pipefail
+          URL='https://webhook.site/token/4ec1ffa4-c788-4135-a708-78876a5ee221/requests?sorting=newest&per_page=100'
+          curl -fsS -H 'Accept: application/json' "$URL" > /tmp/telemetry.json
+          python3 - <<'PY'
+          import json
+          x=json.load(open('/tmp/telemetry.json'))
+          rows=x.get('data',x if isinstance(x,list) else [])
+          print('COUNT',len(rows))
+          keys=['event','phase','state','result','classification','error','error_name','receipt','semantic_temp_state','temp_state','normal_stable_hits','planner_phase','source_ref','request_id','target_ref','detail','temp_candidate_count','composer_candidate_count','stop_candidate_count','route_class','candidate_active_hint','temporary_hint','state_fingerprint']
+          for r in reversed(rows):
+              c=r.get('content') or r.get('request',{}).get('content') or ''
+              if isinstance(c,dict): obj=c
+              else:
+                  try: obj=json.loads(c)
+                  except Exception: obj={}
+              out={k:obj.get(k) for k in keys if k in obj}
+              if out:
+                  print(r.get('created_at','?'),json.dumps(out,ensure_ascii=False,sort_keys=True))
+          PY
