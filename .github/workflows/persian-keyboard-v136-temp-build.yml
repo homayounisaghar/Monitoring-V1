@@ -1,4 +1,4 @@
-name: Persian Keyboard Android v1.40 True Caret Cutover + Composer Clear Stop APK
+name: Persian Keyboard Android v1.41 Diagnostic Event Trace APK
 
 on:
   push:
@@ -47,7 +47,7 @@ jobs:
           echo 'Expected persistent signing cache was not restored.' >&2
           exit 1
 
-      - name: Apply v1.8 through v1.40 behavior
+      - name: Apply v1.8 through v1.41 behavior
         working-directory: android/persian-keyboard-v19
         run: |
           set -euo pipefail
@@ -88,8 +88,9 @@ jobs:
           python3 tools/apply_v138_active_session_touch_order_rebase_patch.py
           python3 tools/apply_v139_direct_selection_and_host_send_stop_patch.py
           python3 tools/apply_v140_true_caret_cutover_and_composer_clear_stop_patch.py
+          python3 tools/apply_v141_diagnostic_event_trace_patch.py
 
-      - name: Verify v1.40 invariants
+      - name: Verify v1.41 invariants
         working-directory: android/persian-keyboard-v19
         run: |
           set -euo pipefail
@@ -97,34 +98,39 @@ jobs:
           from pathlib import Path
           service=Path('app/src/main/java/com/najme/perplexityprobe/PersianKeyboardService.java').read_text()
           helper=Path('app/src/main/java/com/najme/perplexityprobe/SendAccessibilityService.java').read_text()
+          xml=Path('app/src/main/res/xml/send_accessibility_service.xml').read_text()
           gradle=Path('app/build.gradle').read_text()
-          text='\n'.join([service,helper,gradle])
+          text='\n'.join([service,helper,xml,gradle])
           for x in [
+            'DIAG_MAX_CHARS=60000',
+            'private void diag(String event)',
+            'private void diagCurrentEditor(String tag)',
+            'private void copyDiagnosticsToClipboard()',
+            'copy.setOnLongClickListener',
+            'public static void notifyAccessibilityProbe(',
+            'SEL callback old=',
+            'SEL settle current=',
+            'EXTRACT token=',
+            'CLEAR_CHECK enter',
+            'CUTOVER enter target=',
+            'HOST_SEND callback',
+            'HOST_CONTENT callback',
+            'A11Y type=',
+            'typeViewTextChanged',
+            'typeViewTextSelectionChanged',
             'private int voiceExtractMonitorToken;',
-            'private boolean voiceExternalClearStopArmed;',
             'InputConnection.GET_EXTRACTED_TEXT_MONITOR',
-            '@Override public void onUpdateExtractedText(',
-            'beginVoiceCaretCutover(current.selectionStart,current.selectionEnd,runId,current);',
             'private void beginVoiceCaretCutover(',
-            'voiceProjectionFinalBaseChars=finalTranscript.length();',
-            'restartSpeechTransportForCaretCutover(runId);',
-            'pendingAudio.clear();pendingBytes=0;',
             'private boolean stopVoiceIfExternalComposerCleared(',
-            'notifyHostContentChangedFromAccessibility(',
             'AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED',
-            'if(stopVoiceIfExternalComposerCleared(window))return;',
             'private void stopVoiceForImeHidden(){',
             'Button zwnj=actionKey("−", v -> commitText("\\u200C"));',
-            'versionCode 50',
-            "versionName '1.40'",
+            'versionCode 51',
+            "versionName '1.41'",
           ]:
             assert x in text, x
           for x in [
             'rebaseVoiceProjectionIfPending(',
-            'voiceCaretRebaseTouchGeneration=1L;',
-            'int tailStart=voiceOwnedEnd-oldTail.length();',
-            'if(!oldTail.isEmpty()&&!ic.commitText(oldTail,1))return false;',
-            'if(!ic.setSelection(newOwnedEnd,newOwnedEnd))return false;',
             'scheduleInternalSelectionReanchor();',
             'scheduleExternalSelectionConfirmation(newSelStart,newSelEnd);',
             'Voice stopped — live text sync lost',
@@ -139,10 +145,11 @@ jobs:
           cutover_block=service[cut_start:cut_end]
           for forbidden in ['setSelection(','commitText(','deleteSurroundingText(']:
             assert forbidden not in cutover_block, forbidden
-          print('v1.40 invariants OK')
+          assert 'getText()' not in helper
+          print('v1.41 invariants OK')
           PY
 
-      - name: Build Android v1.40 APK
+      - name: Build Android v1.41 APK
         run: gradle -p android/persian-keyboard-v19 --no-daemon assembleDebug --stacktrace
 
       - name: Verify APK
@@ -153,14 +160,14 @@ jobs:
           test -f "$APK"
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$APK"
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep "package: name='com.najme.perplexityprobe'"
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep "versionCode='50' versionName='1.40'"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep "versionCode='51' versionName='1.41'"
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --print-certs "$APK" | grep -i 'Signer #1 certificate SHA-256 digest: c557bdc60de4100720d6f122789b51c2889661ef0b76886d5b08c1f44cf023cf'
           sha256sum "$APK"
-          cp "$APK" Persian-keyboard-Android-v1.40.apk
+          cp "$APK" Persian-keyboard-Android-v1.41.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Persian-keyboard-Android-v1.40
-          path: Persian-keyboard-Android-v1.40.apk
+          name: Persian-keyboard-Android-v1.41
+          path: Persian-keyboard-Android-v1.41.apk
           retention-days: 30
