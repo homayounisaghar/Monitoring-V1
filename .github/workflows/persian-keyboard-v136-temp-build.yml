@@ -92,18 +92,12 @@ jobs:
           from pathlib import Path
           p=Path('tools/apply_v141_diagnostic_event_trace_patch.py')
           t=p.read_text()
-          old='''        Button copy = toolbarButton("Copy", v -> copyCurrentText());\n        copy.setContentDescription("Copy selected text or entire field");\n        left.addView(copy, toolbarLp(1f));\n'''
-          new_old='''        Button copy = toolbarButton("⧉", v -> copyCurrentText());\n        copy.setContentDescription("Copy selected text or entire field");\n        left.addView(copy, toolbarLp(1f));\n'''
-          replacement='''        Button copy = toolbarButton("⧉", v -> copyCurrentText());\n        copy.setContentDescription("Copy selected text or entire field; long press copies diagnostics");\n        copy.setOnLongClickListener(v -> {copyDiagnosticsToClipboard();return true;});\n        left.addView(copy, toolbarLp(1f));\n'''
-          if old not in t:
-              raise SystemExit('v1.41 workflow compatibility: expected old Copy patch block missing')
-          t=t.replace(old,new_old,1)
-          old2='''        Button copy = toolbarButton("Copy", v -> copyCurrentText());\n        copy.setContentDescription("Copy selected text or entire field; long press copies diagnostics");\n        copy.setOnLongClickListener(v -> {copyDiagnosticsToClipboard();return true;});\n        left.addView(copy, toolbarLp(1f));\n'''
-          new2=replacement
-          if old2 not in t:
-              raise SystemExit('v1.41 workflow compatibility: expected replacement Copy patch block missing')
-          t=t.replace(old2,new2,1)
-          p.write_text(t)
+          needle=r'toolbarButton(\"Copy\"'
+          replacement=r'toolbarButton(\"⧉\"'
+          count=t.count(needle)
+          if count != 2:
+              raise SystemExit(f'v1.41 Copy-icon compatibility expected 2 markers, found {count}')
+          p.write_text(t.replace(needle,replacement))
           print('Prepared v1.41 Copy-icon compatibility')
           PY
           python3 tools/apply_v141_diagnostic_event_trace_patch.py
