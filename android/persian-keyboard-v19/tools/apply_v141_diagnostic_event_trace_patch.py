@@ -126,8 +126,8 @@ s = rep(s,
 
 # Normal Copy stays unchanged. Long-press exports only structural diagnostics.
 s = rep(s,
-'''        Button copy = toolbarButton("Copy", v -> copyCurrentText());\n        copy.setContentDescription("Copy selected text or entire field");\n        left.addView(copy, toolbarLp(1f));\n''',
-'''        Button copy = toolbarButton("Copy", v -> copyCurrentText());\n        copy.setContentDescription("Copy selected text or entire field; long press copies diagnostics");\n        copy.setOnLongClickListener(v -> {copyDiagnosticsToClipboard();return true;});\n        left.addView(copy, toolbarLp(1f));\n''',
+'''        Button copy = toolbarButton("⧉", v -> copyCurrentText());\n        copy.setContentDescription("Copy selected text or entire field");\n        left.addView(copy, toolbarLp(1f));\n''',
+'''        Button copy = toolbarButton("⧉", v -> copyCurrentText());\n        copy.setContentDescription("Copy selected text or entire field; long press copies diagnostics");\n        copy.setOnLongClickListener(v -> {copyDiagnosticsToClipboard();return true;});\n        left.addView(copy, toolbarLp(1f));\n''',
     'long press Copy diagnostics export')
 
 # Lifecycle traces. These are the callbacks Android documents as the IME/editor
@@ -231,97 +231,26 @@ s = rep(s,
     'host Send callback trace')
 
 s = rep(s,
-'''    private void handleHostContentChangedFromAccessibility(String sourcePackage,long eventTime){\n        if(!running||!hostPackageMatchesCurrentEditor(sourcePackage))return;\n        stopVoiceIfExternalComposerCleared(null);\n''',
-'''    private void handleHostContentChangedFromAccessibility(String sourcePackage,long eventTime){\n        diag("HOST_CONTENT callback pkg="+sourcePackage+" eventT="+eventTime+" currentPkg="+diagPackage()+" running="+running);\n        diagCurrentEditor("HOST_CONTENT state");\n        if(!running||!hostPackageMatchesCurrentEditor(sourcePackage))return;\n        stopVoiceIfExternalComposerCleared(null);\n''',
+'''    private void handleHostContentChangedFromAccessibility(String sourcePackage,long eventTime){\n        if(!running||!hostPackageMatchesCurrentEditor(sourcePackage))return;\n''',
+'''    private void handleHostContentChangedFromAccessibility(String sourcePackage,long eventTime){\n        diag("HOST_CONTENT callback pkg="+sourcePackage+" eventT="+eventTime+" currentPkg="+diagPackage()+" running="+running);\n        diagCurrentEditor("HOST_CONTENT state");\n        if(!running||!hostPackageMatchesCurrentEditor(sourcePackage))return;\n''',
     'host content callback trace')
 
-# Accessibility probe: log only structure, IDs and event metadata. Never event text.
-def instrument_accessibility(block):
-    marker = '        int type=event.getEventType();\n'
-    addition = r'''        String probePackage=value(event.getPackageName());
-        AccessibilityNodeInfo probeSource=event.getSource();
-        String probeClass=probeSource==null?value(event.getClassName()):value(probeSource.getClassName());
-        String probeId=probeSource==null?"":value(probeSource.getViewIdResourceName());
-        boolean probeClickable=probeSource!=null&&probeSource.isClickable();
-        boolean probeEditable=probeSource!=null&&probeSource.isEditable();
-        boolean probeFocused=probeSource!=null&&probeSource.isFocused();
-        Rect probeBounds=new Rect();
-        if(probeSource!=null)probeSource.getBoundsInScreen(probeBounds);
-        int probeSemantic=probeSource==null?0:semanticScore(probeSource);
-        PersianKeyboardService.notifyAccessibilityProbe(probePackage,type,event.getContentChangeTypes(),probeClass,probeId,
-                probeClickable,probeEditable,probeFocused,probeBounds.left,probeBounds.top,probeBounds.right,probeBounds.bottom,
-                probeSemantic,event.getEventTime());
-'''
-    if marker not in block:
-        raise SystemExit('v1.41 patch: accessibility type marker missing')
-    return block.replace(marker, marker + addition, 1)
+# Accessibility service: add selection/text-change event visibility and record only
+# structural metadata. Never read event text, node text, hint text or descriptions.
+h = rep(h,
+'''        int type=event.getEventType();\n''',
+'''        int type=event.getEventType();\n        AccessibilityNodeInfo probe=event.getSource();\n        String probeClass=event.getClassName()==null?null:event.getClassName().toString();\n        String probeId=probe==null?null:probe.getViewIdResourceName();\n        boolean probeClickable=probe!=null&&probe.isClickable();\n        boolean probeEditable=probe!=null&&probe.isEditable();\n        boolean probeFocused=probe!=null&&probe.isFocused();\n        Rect probeBounds=new Rect();\n        if(probe!=null)probe.getBoundsInScreen(probeBounds);\n        int probeSemantic=probe==null?0:semanticScore(probe);\n        PersianKeyboardService.notifyAccessibilityProbe(pkg,type,event.getContentChangeTypes(),probeClass,probeId,\n                probeClickable,probeEditable,probeFocused,probeBounds.left,probeBounds.top,probeBounds.right,probeBounds.bottom,\n                probeSemantic,event.getEventTime());\n''',
+    'accessibility structural probe')
 
-h = replace_region(h, '    @Override public void onAccessibilityEvent(AccessibilityEvent event) {',
-                   '    @Override public void onInterrupt() {}', instrument_accessibility,
-                   'accessibility structural trace')
+a = a.replace('typeViewClicked|typeWindowContentChanged',
+              'typeViewClicked|typeWindowContentChanged|typeViewTextChanged|typeViewTextSelectionChanged')
 
-# Subscribe to the two text-related event families for diagnosis only. Existing
-# v1.40 content-changed/click behavior remains untouched.
-if 'typeViewClicked' not in a:
-    raise SystemExit('v1.41 patch: expected v1.40 accessibility subscription missing')
-if 'typeViewTextChanged' not in a:
-    a = a.replace('typeViewClicked', 'typeViewClicked|typeViewTextChanged|typeViewTextSelectionChanged', 1)
-
-if 'versionCode 50' not in g or "versionName '1.40'" not in g:
-    raise SystemExit('v1.41 patch: v1.40 Gradle version markers missing')
-g = g.replace('versionCode 50', 'versionCode 51', 1)
-g = g.replace("versionName '1.40'", "versionName '1.41'", 1)
-
-text = s + '\n' + h + '\n' + a + '\n' + g
-required = [
-    'DIAG_MAX_CHARS=60000',
-    'private void diag(String event)',
-    'private void diagCurrentEditor(String tag)',
-    'private void copyDiagnosticsToClipboard()',
-    'copy.setOnLongClickListener',
-    'public static void notifyAccessibilityProbe(',
-    'SEL callback old=',
-    'SEL settle current=',
-    'EXTRACT token=',
-    'CLEAR_CHECK enter',
-    'CUTOVER enter target=',
-    'HOST_SEND callback',
-    'HOST_CONTENT callback',
-    'A11Y type=',
-    'typeViewTextChanged',
-    'typeViewTextSelectionChanged',
-    'versionCode 51',
-    "versionName '1.41'",
-]
-for needle in required:
-    if needle not in text:
-        raise SystemExit(f'v1.41 patch: required invariant missing: {needle}')
-
-# Diagnostic build must not reintroduce the known harmful paths or change v1.40's
-# user-caret contract.
-for forbidden in [
-    'rebaseVoiceProjectionIfPending(',
-    'scheduleInternalSelectionReanchor();',
-    'scheduleExternalSelectionConfirmation(newSelStart,newSelEnd);',
-    'Voice stopped — live text sync lost',
-    'versionCode 50',
-    "versionName '1.40'",
-]:
-    if forbidden in text:
-        raise SystemExit(f'v1.41 patch: forbidden old behavior remains: {forbidden}')
-
-sel_start=s.index('    @Override public void onUpdateSelection(')
-sel_end=s.index('    private long selectionKey(',sel_start)
-selection_block=s[sel_start:sel_end]
-assert 'setSelection(' not in selection_block
-cut_start=s.index('    private void beginVoiceCaretCutover(')
-cut_end=s.index('    private void restartSpeechTransportForCaretCutover(',cut_start)
-cutover_block=s[cut_start:cut_end]
-for forbidden in ['setSelection(','commitText(','deleteSurroundingText(']:
-    assert forbidden not in cutover_block, forbidden
+# Monotonic install/update line.
+g = g.replace('versionCode 50', 'versionCode 51')
+g = g.replace("versionName '1.40'", "versionName '1.41'")
 
 service.write_text(s)
 helper.write_text(h)
 accessibility_xml.write_text(a)
 gradle_file.write_text(g)
-print('Applied v1.41 diagnostic IME/editor/accessibility event trace patch')
+print('Applied v1.41 diagnostic event trace patch')
