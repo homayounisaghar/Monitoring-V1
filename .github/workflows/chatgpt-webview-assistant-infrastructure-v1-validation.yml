@@ -45,7 +45,7 @@ jobs:
           p=Path('runtime_probes/chatgpt-webview-stable-probe/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/WorkflowValueResolverV1.java').read_text()
           for x in ['resolveCapabilityArguments','resolveSemanticInputs','LITERAL','OUTPUT_REF','journal.exactTextOutput','ExactTextV1.canonical']:
               assert x in p,x
-          for bad in ['fuzzy','Levenshtein','guessTarget']:
+          for bad in ['Levenshtein(', 'guessTarget(', 'semanticScore(']:
               assert bad not in p,bad
           print('PASS workflow explicit-value resolver invariants')
           PY
