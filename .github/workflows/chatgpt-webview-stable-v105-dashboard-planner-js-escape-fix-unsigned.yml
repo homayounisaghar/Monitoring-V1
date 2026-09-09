@@ -1,0 +1,141 @@
+name: ChatGPT WebView v0.91.1 Planner JS escape fix unsigned
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [project/chatgpt-webview-poc]
+    paths:
+      - '.github/workflows/chatgpt-webview-stable-v105-dashboard-planner-js-escape-fix-unsigned.yml'
+      - 'ci/generate_chatgpt_webview_v105_dashboard_planner_js_escape_fix.py'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      ROOT: runtime_probes/chatgpt-webview-stable-probe
+      EXPECTED_PACKAGE: com.homayounisaghar.chatgptwebviewprobe.diag
+      EXPECTED_VERSION: 0.91.1-stable-dashboard-planner-js-escape-fix
+      EXPECTED_VERSION_CODE: '106'
+      EXPECTED_LAUNCHER: com.homayounisaghar.chatgptwebviewprobe.OrchestratorDashboardV105PlannerJsEscapeFixActivity
+      EXPECTED_SIGNER_SHA256: b7aea08158252dcad79345608ce2e76e970e4cf613414db299579f46d9924c48
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.x'}
+
+      - name: Create ephemeral runtime telemetry collector
+        shell: bash
+        run: |
+          set -euo pipefail
+          TOKEN_JSON="$(curl -fsS -X POST -H 'Accept: application/json' -H 'Content-Type: application/json' https://webhook.site/token)"
+          UUID="$(printf '%s' "$TOKEN_JSON" | python3 -c 'import json,sys; print(json.load(sys.stdin)["uuid"])')"
+          test -n "$UUID"
+          echo "CP_TELEMETRY_COLLECTOR_ID=$UUID" >> "$GITHUB_ENV"
+          echo "CP_TELEMETRY_ENDPOINT=https://webhook.site/$UUID" >> "$GITHUB_ENV"
+          echo "CP_TELEMETRY_READ_URL=https://webhook.site/token/$UUID/requests?sorting=newest&per_page=100" >> "$GITHUB_ENV"
+          echo "CP_TELEMETRY_SOURCE_REF=$GITHUB_SHA" >> "$GITHUB_ENV"
+
+      - name: Generate v0.91.1 source
+        run: python3 ci/generate_chatgpt_webview_v105_dashboard_planner_js_escape_fix.py
+
+      - name: Syntax-check runtime Planner JavaScript
+        shell: bash
+        run: |
+          set -euo pipefail
+          SRC="$ROOT/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/OrchestratorDashboardV105PlannerJsEscapeFixActivity.java"
+          python3 - "$SRC" <<'PY'
+          from pathlib import Path
+          import re,json,sys
+          p=Path(sys.argv[1]).read_text()
+          a=p.index('    private String plannerReadJs(){')
+          b=p.index('\n    private JSONObject buildOneStepWorkflowPlan',a)
+          block=p[a:b]
+          parts=[]
+          for m in re.finditer(r'"(?:\\.|[^"\\])*"',block):
+              parts.append(json.loads(m.group(0)))
+          Path('/tmp/plannerRead.js').write_text(''.join(parts))
+          PY
+          node --check /tmp/plannerRead.js
+
+      - name: Prove telemetry collector write and readback
+        shell: bash
+        run: |
+          set -euo pipefail
+          PROBE="{\"event\":\"BUILD_TELEMETRY_PROBE\",\"source_ref\":\"$GITHUB_SHA\",\"raw_text_remote\":false,\"raw_path_remote\":false}"
+          curl -fsS -X POST -H 'Content-Type: application/json' --data "$PROBE" "$CP_TELEMETRY_ENDPOINT" >/dev/null
+          sleep 2
+          curl -fsS -H 'Accept: application/json' "$CP_TELEMETRY_READ_URL" > /tmp/telemetry-readback.json
+          grep -Fq 'BUILD_TELEMETRY_PROBE' /tmp/telemetry-readback.json
+          grep -Fq "$GITHUB_SHA" /tmp/telemetry-readback.json
+
+      - name: Static invariants
+        shell: bash
+        run: |
+          set -euo pipefail
+          SRC="$ROOT/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/OrchestratorDashboardV105PlannerJsEscapeFixActivity.java"
+          TELE="$ROOT/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/TelemetryConfigV105.java"
+          GRADLE="$ROOT/app/build.gradle"
+          MAN="$ROOT/app/src/main/AndroidManifest.xml"
+          grep -Fq "applicationId 'com.homayounisaghar.chatgptwebviewprobe.diag'" "$GRADLE"
+          grep -Eq 'versionCode[[:space:]]+106([^0-9]|$)' "$GRADLE"
+          grep -Fq "versionName '0.91.1-stable-dashboard-planner-js-escape-fix'" "$GRADLE"
+          grep -Fq 'OrchestratorDashboardV105PlannerJsEscapeFixActivity' "$MAN"
+          grep -Fq 'CONFIGURED = true' "$TELE"
+          grep -Fq 'PLANNER_ENTRY_SCAN' "$SRC"
+          test "$(grep -c 'targetChatEffectDispatches++' "$SRC")" -eq 1
+          test "$(grep -c '<uses-permission' "$MAN")" -eq 3
+
+      - uses: actions/setup-java@v4
+        with: {distribution: temurin, java-version: '17'}
+      - uses: android-actions/setup-android@v3
+
+      - name: Build unsigned release
+        shell: bash
+        run: |
+          set -euo pipefail
+          sdkmanager "platforms;android-35" "build-tools;35.0.0"
+          echo "sdk.dir=$ANDROID_SDK_ROOT" > "$ROOT/local.properties"
+          curl -fsSL https://services.gradle.org/distributions/gradle-8.10.2-bin.zip -o /tmp/gradle.zip
+          unzip -q /tmp/gradle.zip -d /tmp
+          cd "$ROOT"
+          /tmp/gradle-8.10.2/bin/gradle --no-daemon :app:assembleRelease --stacktrace
+
+      - name: Build Stage-A kit
+        shell: bash
+        run: |
+          set -euo pipefail
+          SRC="$ROOT/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/OrchestratorDashboardV105PlannerJsEscapeFixActivity.java"
+          TELE="$ROOT/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/TelemetryConfigV105.java"
+          OUT=ci/v105-dashboard-stage-a
+          mkdir -p "$OUT"
+          BT="$ANDROID_SDK_ROOT/build-tools/35.0.0"
+          U="$ROOT/app/build/outputs/apk/release/app-release-unsigned.apk"
+          A="$OUT/app-release-aligned-unsigned.apk"
+          "$BT/zipalign" -f -p 4 "$U" "$A"
+          "$BT/zipalign" -c -v 4 "$A" > "$OUT/zipalign-verify.txt"
+          "$BT/aapt" dump badging "$A" > "$OUT/badging.txt"
+          "$BT/aapt" dump permissions "$A" > "$OUT/permissions.txt"
+          grep -Fq "package: name='$EXPECTED_PACKAGE' versionCode='$EXPECTED_VERSION_CODE' versionName='$EXPECTED_VERSION'" "$OUT/badging.txt"
+          grep -Fq "launchable-activity: name='$EXPECTED_LAUNCHER'" "$OUT/badging.txt"
+          sha256sum "$A" | tee "$OUT/UNSIGNED_SHA256.txt"
+          printf '%s\n' "$GITHUB_SHA" > "$OUT/SOURCE_REF.txt"
+          printf '%s\n' "$EXPECTED_SIGNER_SHA256" > "$OUT/EXPECTED_SIGNER_CERT_SHA256.txt"
+          printf '%s\n' "$CP_TELEMETRY_COLLECTOR_ID" > "$OUT/TELEMETRY_COLLECTOR_ID.txt"
+          printf '%s\n' "$CP_TELEMETRY_READ_URL" > "$OUT/TELEMETRY_READ_URL.txt"
+          cp /tmp/telemetry-readback.json "$OUT/TELEMETRY_BUILD_PROBE_READBACK.json"
+          printf 'source_ref=%s\npackage=%s\nversion_code=%s\nversion_name=%s\nlauncher=%s\nexpected_signer_sha256=%s\nstage=unsigned_aligned_release\nbehavior=planner_js_escape_fix_with_runtime_syntax_gate\n' "$GITHUB_SHA" "$EXPECTED_PACKAGE" "$EXPECTED_VERSION_CODE" "$EXPECTED_VERSION" "$EXPECTED_LAUNCHER" "$EXPECTED_SIGNER_SHA256" > "$OUT/BUILD_METADATA.txt"
+          cp "$SRC" "$OUT/"
+          cp "$TELE" "$OUT/"
+          cp "$ROOT/app/src/main/AndroidManifest.xml" "$OUT/"
+          cp "$ROOT/app/build.gradle" "$OUT/"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: 'chatgpt-webview-v0.91.1-planner-js-escape-fix-${{ github.run_id }}-unsigned'
+          path: ci/v105-dashboard-stage-a
+          if-no-files-found: error
+          retention-days: 30
