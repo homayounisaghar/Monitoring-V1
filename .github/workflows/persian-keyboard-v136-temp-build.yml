@@ -1,4 +1,4 @@
-name: Persian Keyboard Android v1.37 Behavior Test APK
+name: Persian Keyboard Android v1.38 Active-session Caret Rebase APK
 
 on:
   push:
@@ -47,7 +47,7 @@ jobs:
           echo 'Expected persistent signing cache was not restored.' >&2
           exit 1
 
-      - name: Apply v1.8 through v1.37 behavior
+      - name: Apply v1.8 through v1.38 behavior
         working-directory: android/persian-keyboard-v19
         run: |
           set -euo pipefail
@@ -85,8 +85,9 @@ jobs:
           python3 tools/apply_v1352_preserve_clear_toolbar.py
           python3 tools/apply_v136_follow_voice_viewport_patch.py
           python3 tools/apply_v137_ime_hide_zwnj_caret_rebase_patch.py
+          python3 tools/apply_v138_active_session_touch_order_rebase_patch.py
 
-      - name: Verify v1.37 invariants
+      - name: Verify v1.38 invariants
         working-directory: android/persian-keyboard-v19
         run: |
           set -euo pipefail
@@ -98,20 +99,28 @@ jobs:
             Path('app/build.gradle').read_text()
           ])
           for x in [
-            'private int voiceProjectionFinalBaseChars;',
-            'private boolean voiceCaretRebasePending;',
+            'private long voiceCaretRebaseSelectionUptime;',
+            'private boolean confirmVoiceCaretRebaseCandidate(',
+            'long correlation=Math.abs(candidateTime-touchEventTime);',
+            'if(voiceCaretRebaseTouchGeneration<=0L)return true;',
+            'if(voiceCaretRebasePending&&voiceCaretRebaseTouchGeneration<=0L)',
+            'confirmVoiceCaretRebaseCandidate(ic,window,runId);',
             'private void stopVoiceForImeHidden(){',
-            '@Override public void onFinishInputView(boolean finishingInput)',
-            '@Override public void onWindowHidden()',
             'Button zwnj=actionKey("−", v -> commitText("\\u200C"));',
-            'versionCode 47',
-            "versionName '1.37'",
+            'versionCode 48',
+            "versionName '1.38'",
           ]:
             assert x in text, x
-          print('v1.37 invariants OK')
+          for x in [
+            'scheduleInternalSelectionReanchor();',
+            'scheduleExternalSelectionConfirmation(newSelStart,newSelEnd);',
+            'Voice stopped — live text sync lost',
+          ]:
+            assert x not in text, x
+          print('v1.38 invariants OK')
           PY
 
-      - name: Build Android v1.37 APK
+      - name: Build Android v1.38 APK
         run: gradle -p android/persian-keyboard-v19 --no-daemon assembleDebug --stacktrace
 
       - name: Verify APK
@@ -121,13 +130,15 @@ jobs:
           APK='android/persian-keyboard-v19/app/build/outputs/apk/debug/app-debug.apk'
           test -f "$APK"
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$APK"
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep "versionCode='47' versionName='1.37'"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep "package: name='com.najme.perplexityprobe'"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep "versionCode='48' versionName='1.38'"
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --print-certs "$APK" | grep -i 'Signer #1 certificate SHA-256 digest: c557bdc60de4100720d6f122789b51c2889661ef0b76886d5b08c1f44cf023cf'
           sha256sum "$APK"
-          cp "$APK" Persian-keyboard-Android-v1.37.apk
+          cp "$APK" Persian-keyboard-Android-v1.38.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Persian-keyboard-Android-v1.37
-          path: Persian-keyboard-Android-v1.37.apk
+          name: Persian-keyboard-Android-v1.38
+          path: Persian-keyboard-Android-v1.38.apk
           retention-days: 30
