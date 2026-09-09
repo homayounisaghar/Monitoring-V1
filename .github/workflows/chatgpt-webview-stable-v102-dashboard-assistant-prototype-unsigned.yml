@@ -75,7 +75,7 @@ jobs:
           for x in required: assert x in s,x
           assert s.count('targetChatEffectDispatches++')==1
           assert s.count('.click()')==3,s.count('.click()')
-          assert s.count('foreground.loadUrl("https://chatgpt.com"+targetExpectedPath)')==1
+          assert s.count('foreground.loadUrl("https://chatgpt.com"+targetExpectedPath)')==2
           for bad in ['elementFromPoint','document.evaluate','XPathResult','dispatchTouchEvent','addJavascriptInterface','sendCurrentDraft']:
               assert bad not in s,bad
           print('PASS v0.90.8 disposable planner + freshness-safe reply + auto speech + safe interactive insets audit')
