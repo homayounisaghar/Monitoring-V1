@@ -15,7 +15,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          URL='https://webhook.site/token/4ec1ffa4-c788-4135-a708-78876a5ee221/requests?sorting=newest&per_page=100'
+          URL='https://webhook.site/token/4ec1ffa5-4917-448b-8c6c-9746856a74b0/requests?sorting=newest&per_page=100'
           curl -fsS -H 'Accept: application/json' "$URL" > /tmp/telemetry.json
           python3 - <<'PY'
           import json
