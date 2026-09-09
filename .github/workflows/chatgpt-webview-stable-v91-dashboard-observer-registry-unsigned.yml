@@ -1,0 +1,175 @@
+name: ChatGPT WebView v0.89 Dashboard observer-registry unsigned
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - project/chatgpt-webview-poc
+    paths:
+      - '.github/workflows/chatgpt-webview-stable-v91-dashboard-observer-registry-unsigned.yml'
+      - 'ci/generate_chatgpt_webview_v91_dashboard_observer_registry.py'
+      - 'ci/generate_chatgpt_webview_v90_resource_posteffect_telemetry_repair.py'
+      - 'ci/generate_chatgpt_webview_v89_resource_posteffect_repair.py'
+      - 'ci/generate_chatgpt_webview_v88_resource_webmessage_bridge_acceptance.py'
+      - 'ci/generate_chatgpt_webview_v88_resource_webmessage_bridge_acceptance_fix1.py'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      ROOT: runtime_probes/chatgpt-webview-stable-probe
+      EXPECTED_PACKAGE: com.homayounisaghar.chatgptwebviewprobe.diag
+      EXPECTED_VERSION: 0.89-stable-dashboard-observer-registry
+      EXPECTED_VERSION_CODE: '92'
+      EXPECTED_LAUNCHER: com.homayounisaghar.chatgptwebviewprobe.OrchestratorDashboardV91Activity
+      EXPECTED_SIGNER_SHA256: b7aea08158252dcad79345608ce2e76e970e4cf613414db299579f46d9924c48
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Generate v0.89 Dashboard source
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 ci/generate_chatgpt_webview_v91_dashboard_observer_registry.py
+
+      - name: Create fresh telemetry collector and inject V91 config
+        shell: bash
+        run: |
+          set -euo pipefail
+          CFG="$ROOT/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/TelemetryConfigV91.java"
+          TOKEN=$(curl -fsS -X POST https://webhook.site/token -H 'Accept: application/json' -H 'Content-Type: application/json' -d '{"default_status":200,"default_content":"OK","default_content_type":"text/plain"}' | python3 -c 'import json,sys;x=json.load(sys.stdin).get("uuid");assert x;print(x)')
+          ENDPOINT="https://webhook.site/$TOKEN"
+          READ="https://webhook.site/token/$TOKEN/requests?sorting=oldest&per_page=100"
+          python3 - "$CFG" "$ENDPOINT" "$GITHUB_SHA" "$TOKEN" <<'PY'
+          from pathlib import Path
+          import sys
+          p=Path(sys.argv[1]); s=p.read_text(); ep,sha,cid=sys.argv[2:]
+          assert s.count('CONFIGURED=false')==1
+          assert s.count('COLLECTOR_ID=""')==1
+          assert s.count('ENDPOINT=""')==1
+          assert s.count('SOURCE_REF=""')==1
+          s=s.replace('CONFIGURED=false','CONFIGURED=true',1)
+          s=s.replace('COLLECTOR_ID=""',f'COLLECTOR_ID="{cid}"',1)
+          s=s.replace('ENDPOINT=""',f'ENDPOINT="{ep}"',1)
+          s=s.replace('SOURCE_REF=""',f'SOURCE_REF="{sha}"',1)
+          p.write_text(s)
+          PY
+          mkdir -p ci/v91-dashboard-telemetry
+          printf '%s\n' "$TOKEN" > ci/v91-dashboard-telemetry/collector-id.txt
+          printf '%s\n' "$READ" > ci/v91-dashboard-telemetry/read-url.txt
+          printf '%s\n' "$GITHUB_SHA" > ci/v91-dashboard-telemetry/source-ref.txt
+          printf '{"kind":"BUILD_SMOKE","schema_version":"cp-v91-dashboard-observer-registry-v1","scenario_id":"dashboard-multichat-read-plane","source_ref":"%s","raw_text_remote":false,"raw_path_remote":false,"chat_effect_dispatches":0}\n' "$GITHUB_SHA" | curl -fsS -X POST "$ENDPOINT" -H 'Content-Type: application/json' --data-binary @- >/dev/null
+
+      - name: Static Dashboard safety and identity audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          SRC="$ROOT/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/OrchestratorDashboardV91Activity.java"
+          CFG="$ROOT/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/TelemetryConfigV91.java"
+          GRADLE="$ROOT/app/build.gradle"
+          MAN="$ROOT/app/src/main/AndroidManifest.xml"
+          grep -Fq "applicationId 'com.homayounisaghar.chatgptwebviewprobe.diag'" "$GRADLE"
+          grep -Eq 'versionCode[[:space:]]+92([^0-9]|$)' "$GRADLE"
+          grep -Fq "versionName '0.89-stable-dashboard-observer-registry'" "$GRADLE"
+          grep -Fq 'OrchestratorDashboardV91Activity' "$MAN"
+          grep -Fq 'CONFIGURED=true' "$CFG"
+          grep -Fq 'AtomicFile' "$SRC"
+          grep -Fq 'OBSERVE_ONLY' "$SRC"
+          grep -Fq 'REFRESH ALL' "$SRC"
+          grep -Fq 'BIND CURRENT' "$SRC"
+          grep -Fq 'QUIET_ASSISTANT_LAST' "$SRC"
+          grep -Fq 'QUIET_USER_LAST' "$SRC"
+          test "$(grep -c '<uses-permission' "$MAN")" -eq 3
+          python3 - "$SRC" <<'PY'
+          from pathlib import Path
+          import sys
+          s=Path(sys.argv[1]).read_text()
+          for bad in ['elementFromPoint','document.evaluate','XPathResult','dispatchTouchEvent','addJavascriptInterface','CookieManager.getCookie','setDraft','sendCurrentDraft']:
+              assert bad not in s,bad
+          assert '.click()' not in s
+          assert 'chat_effect_dispatches",0' in s
+          assert 'raw_text_remote",false' in s and 'raw_path_remote",false' in s
+          assert 'loadUrl("https://chatgpt.com"+activePath)' in s
+          assert s.count('worker.loadUrl(')==1
+          print('PASS v0.89 observe-only dashboard static audit')
+          PY
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Build deterministic unsigned release
+        shell: bash
+        run: |
+          set -euo pipefail
+          sdkmanager "platforms;android-35" "build-tools;35.0.0"
+          echo "sdk.dir=$ANDROID_SDK_ROOT" > "$ROOT/local.properties"
+          curl -fsSL https://services.gradle.org/distributions/gradle-8.10.2-bin.zip -o /tmp/gradle.zip
+          unzip -q /tmp/gradle.zip -d /tmp
+          cd "$ROOT"
+          /tmp/gradle-8.10.2/bin/gradle --no-daemon :app:assembleRelease --stacktrace
+
+      - name: Align, verify Stage-A contract, and assemble signing kit
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT=ci/v91-dashboard-stage-a
+          mkdir -p "$OUT"
+          UNSIGNED="$ROOT/app/build/outputs/apk/release/app-release-unsigned.apk"
+          ALIGNED="$OUT/app-release-aligned-unsigned.apk"
+          BT="$ANDROID_SDK_ROOT/build-tools/35.0.0"
+          "$BT/zipalign" -f -p 4 "$UNSIGNED" "$ALIGNED"
+          "$BT/zipalign" -c -v 4 "$ALIGNED" > "$OUT/zipalign-verify.txt"
+          "$BT/aapt" dump badging "$ALIGNED" > "$OUT/badging.txt"
+          "$BT/aapt" dump permissions "$ALIGNED" > "$OUT/permissions.txt"
+          grep -Fq "package: name='$EXPECTED_PACKAGE' versionCode='$EXPECTED_VERSION_CODE' versionName='$EXPECTED_VERSION'" "$OUT/badging.txt"
+          grep -Fq "launchable-activity: name='$EXPECTED_LAUNCHER'" "$OUT/badging.txt"
+          test "$(grep -c '^uses-permission:' "$OUT/permissions.txt")" -eq 3
+          sha256sum "$ALIGNED" | tee "$OUT/UNSIGNED_SHA256.txt"
+          printf '%s\n' "$GITHUB_SHA" > "$OUT/SOURCE_REF.txt"
+          printf '%s\n' "$EXPECTED_SIGNER_SHA256" > "$OUT/EXPECTED_SIGNER_CERT_SHA256.txt"
+          cat > "$OUT/BUILD_METADATA.txt" <<EOF
+          source_ref=$GITHUB_SHA
+          package=$EXPECTED_PACKAGE
+          version_code=$EXPECTED_VERSION_CODE
+          version_name=$EXPECTED_VERSION
+          launcher=$EXPECTED_LAUNCHER
+          expected_signer_sha256=$EXPECTED_SIGNER_SHA256
+          stage=unsigned_aligned_release
+          behavior=dashboard_observer_registry_observe_only
+          EOF
+          cat > "$OUT/SIGNING_KIT.txt" <<EOF
+          This Stage-A artifact is unsigned and not the user-installable deliverable.
+          Promote this exact aligned APK without recompilation using the durable diagnostic-v2 signer whose certificate SHA-256 is:
+          $EXPECTED_SIGNER_SHA256
+          Then verify package/version/launcher/signer, APK integrity, payload continuity, and final SHA-256.
+          EOF
+          cp "$ROOT/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/OrchestratorDashboardV91Activity.java" "$OUT/"
+          cp "$ROOT/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/TelemetryConfigV91.java" "$OUT/"
+          cp "$ROOT/app/src/main/AndroidManifest.xml" "$OUT/"
+          cp "$ROOT/app/build.gradle" "$OUT/"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: chatgpt-webview-v0.89-dashboard-observer-registry-${{ github.run_id }}-unsigned
+          path: ci/v91-dashboard-stage-a
+          if-no-files-found: error
+          retention-days: 30
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: chatgpt-webview-v0.89-dashboard-observer-registry-${{ github.run_id }}-telemetry
+          path: ci/v91-dashboard-telemetry
+          if-no-files-found: error
+          retention-days: 30
