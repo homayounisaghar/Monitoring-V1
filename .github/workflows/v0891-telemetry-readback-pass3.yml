@@ -45,3 +45,5 @@ jobs:
           path: v0891-readback.json
           if-no-files-found: error
           retention-days: 7
+
+# second readback after user-confirmed Refresh all completion
