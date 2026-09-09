@@ -12,9 +12,12 @@ on:
       - 'runtime_probes/chatgpt-webview-stable-probe/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/ExactTextV1.java'
       - 'runtime_probes/chatgpt-webview-stable-probe/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/WorkflowJournalV1.java'
       - 'runtime_probes/chatgpt-webview-stable-probe/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/WorkflowJournalGuardV1.java'
+      - 'runtime_probes/chatgpt-webview-stable-probe/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/WorkflowValueResolverV1.java'
       - 'runtime_probes/chatgpt-webview-stable-probe/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/AssistantInfrastructureBoundariesV1.java'
       - 'runtime_probes/chatgpt-webview-stable-probe/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/TemporaryChatSignaturesV1.java'
       - 'runtime_probes/chatgpt-webview-stable-probe/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/TemporaryPlannerJournalV1.java'
+      - 'runtime_probes/chatgpt-webview-stable-probe/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/TemporaryChatDomV1.java'
+      - 'runtime_probes/chatgpt-webview-stable-probe/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/DisposablePlannerLifecycleControllerV1.java'
       - 'runtime_probes/chatgpt-webview-stable-probe/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/SpeechTextChunkerV1.java'
       - 'runtime_probes/chatgpt-webview-stable-probe/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/CorrelatedAssistantReplyTrackerV1.java'
       - 'runtime_probes/chatgpt-webview-stable-probe/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/AssistantReplyWaitJournalV1.java'
@@ -37,6 +40,15 @@ jobs:
         run: |
           python3 ci/check_assistant_infrastructure_v1.py
           python3 ci/check_reply_speech_infrastructure_v1.py
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('runtime_probes/chatgpt-webview-stable-probe/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/WorkflowValueResolverV1.java').read_text()
+          for x in ['resolveCapabilityArguments','resolveSemanticInputs','LITERAL','OUTPUT_REF','journal.exactTextOutput','ExactTextV1.canonical']:
+              assert x in p,x
+          for bad in ['fuzzy','Levenshtein','guessTarget']:
+              assert bad not in p,bad
+          print('PASS workflow explicit-value resolver invariants')
+          PY
       - uses: actions/setup-java@v4
         with: {distribution: temurin, java-version: '17'}
       - uses: android-actions/setup-android@v3
