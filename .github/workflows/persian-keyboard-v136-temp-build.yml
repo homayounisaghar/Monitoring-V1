@@ -89,6 +89,7 @@ jobs:
           python3 tools/apply_v139_direct_selection_and_host_send_stop_patch.py
           python3 tools/apply_v140_true_caret_cutover_and_composer_clear_stop_patch.py
           python3 tools/apply_v141_diagnostic_event_trace_patch.py
+          python3 tools/apply_v1411_accessibility_event_subscription_fix.py
 
       - name: Verify v1.41 invariants
         working-directory: android/persian-keyboard-v19
