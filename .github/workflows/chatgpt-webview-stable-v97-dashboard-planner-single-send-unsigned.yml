@@ -1,0 +1,114 @@
+name: ChatGPT WebView v0.90.3 Dashboard Planner explicit single-send unsigned
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [project/chatgpt-webview-poc]
+    paths:
+      - '.github/workflows/chatgpt-webview-stable-v97-dashboard-planner-single-send-unsigned.yml'
+      - 'ci/generate_chatgpt_webview_v97_dashboard_planner_single_send.py'
+      - 'ci/generate_chatgpt_webview_v96_dashboard_planner_contract_self_description.py'
+      - 'ci/generate_chatgpt_webview_v95_dashboard_planner_correlation_readback_repair.py'
+      - 'ci/generate_chatgpt_webview_v94_dashboard_stateless_planner_recipe_only_fixed.py'
+      - 'ci/generate_chatgpt_webview_v94_dashboard_stateless_planner_recipe_only.py'
+      - 'ci/v94_planner_dom_primitives.java.inc'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      ROOT: runtime_probes/chatgpt-webview-stable-probe
+      EXPECTED_PACKAGE: com.homayounisaghar.chatgptwebviewprobe.diag
+      EXPECTED_VERSION: 0.90.3-stable-dashboard-planner-single-send
+      EXPECTED_VERSION_CODE: '98'
+      EXPECTED_LAUNCHER: com.homayounisaghar.chatgptwebviewprobe.OrchestratorDashboardV97PlannerSingleSendActivity
+      EXPECTED_SIGNER_SHA256: b7aea08158252dcad79345608ce2e76e970e4cf613414db299579f46d9924c48
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.x'}
+      - name: Generate v0.90.3 explicit single-send source
+        run: python3 ci/generate_chatgpt_webview_v97_dashboard_planner_single_send.py
+      - name: Inject fresh telemetry collector
+        shell: bash
+        run: |
+          set -euo pipefail
+          CFG="$ROOT/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/TelemetryConfigV97.java"
+          TOKEN=$(curl -fsS -X POST https://webhook.site/token -H 'Accept: application/json' -H 'Content-Type: application/json' -d '{"default_status":200,"default_content":"OK","default_content_type":"text/plain"}' | python3 -c 'import json,sys;x=json.load(sys.stdin).get("uuid");assert x;print(x)')
+          ENDPOINT="https://webhook.site/$TOKEN"; READ="https://webhook.site/token/$TOKEN/requests?sorting=oldest&per_page=100"
+          python3 - "$CFG" "$ENDPOINT" "$GITHUB_SHA" "$TOKEN" <<'PY'
+          from pathlib import Path
+          import sys
+          p=Path(sys.argv[1]);s=p.read_text();ep,sha,cid=sys.argv[2:]
+          for old in ['CONFIGURED=false','COLLECTOR_ID=""','ENDPOINT=""','SOURCE_REF=""']: assert s.count(old)==1,old
+          p.write_text(s.replace('CONFIGURED=false','CONFIGURED=true',1).replace('COLLECTOR_ID=""',f'COLLECTOR_ID="{cid}"',1).replace('ENDPOINT=""',f'ENDPOINT="{ep}"',1).replace('SOURCE_REF=""',f'SOURCE_REF="{sha}"',1))
+          PY
+          mkdir -p ci/v97-dashboard-telemetry
+          printf '%s\n' "$TOKEN" > ci/v97-dashboard-telemetry/collector-id.txt
+          printf '%s\n' "$READ" > ci/v97-dashboard-telemetry/read-url.txt
+          printf '%s\n' "$GITHUB_SHA" > ci/v97-dashboard-telemetry/source-ref.txt
+          printf '{"kind":"BUILD_SMOKE","schema_version":"cp-v97-dashboard-planner-single-send-v1","scenario_id":"dashboard-planner-single-send","source_ref":"%s","raw_text_remote":false,"raw_path_remote":false,"planner_chat_effect_dispatches":0,"target_chat_effect_dispatches":0}\n' "$GITHUB_SHA" | curl -fsS -X POST "$ENDPOINT" -H 'Content-Type: application/json' --data-binary @- >/dev/null
+      - name: Static single-send safety audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          SRC="$ROOT/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/OrchestratorDashboardV97PlannerSingleSendActivity.java"; CFG="$ROOT/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/TelemetryConfigV97.java"; GRADLE="$ROOT/app/build.gradle"; MAN="$ROOT/app/src/main/AndroidManifest.xml"
+          grep -Fq "applicationId 'com.homayounisaghar.chatgptwebviewprobe.diag'" "$GRADLE"
+          grep -Eq 'versionCode[[:space:]]+98([^0-9]|$)' "$GRADLE"
+          grep -Fq "versionName '0.90.3-stable-dashboard-planner-single-send'" "$GRADLE"
+          grep -Fq 'OrchestratorDashboardV97PlannerSingleSendActivity' "$MAN"
+          grep -Fq 'CONFIGURED=true' "$CFG"
+          test "$(grep -c '<uses-permission' "$MAN")" -eq 3
+          python3 - "$SRC" <<'PY'
+          from pathlib import Path
+          import sys
+          s=Path(sys.argv[1]).read_text()
+          for x in ['CF_PLANNER_REQUEST v1','cf-planner-recipe.v1','EXECUTE','TARGET_EXECUTION_STARTED','TARGET_COMPOSER_WRITE','TARGET_SEND_DISPATCH','TARGET_SEND_RECEIPT','EXACT_LAST_USER_HASH_AND_TURN_INCREMENT','RECIPE_ACCEPTED_AWAITING_EXPLICIT_EXECUTE','No blind replay','pendingTargetBindingId','pendingTargetPathHash']:
+              assert x in s,x
+          for bad in ['elementFromPoint','document.evaluate','XPathResult','dispatchTouchEvent','addJavascriptInterface','sendCurrentDraft']:
+              assert bad not in s,bad
+          assert s.count('.click()')==1
+          assert s.count('worker.loadUrl(')==1
+          assert s.count('targetChatEffectDispatches++')==1
+          assert 'raw_text_remote",false' in s and 'raw_path_remote",false' in s
+          print('PASS v0.90.3 explicit single-send safety audit')
+          PY
+      - uses: actions/setup-java@v4
+        with: {distribution: temurin, java-version: '17'}
+      - uses: android-actions/setup-android@v3
+      - name: Build unsigned release
+        shell: bash
+        run: |
+          set -euo pipefail
+          sdkmanager "platforms;android-35" "build-tools;35.0.0"
+          echo "sdk.dir=$ANDROID_SDK_ROOT" > "$ROOT/local.properties"
+          curl -fsSL https://services.gradle.org/distributions/gradle-8.10.2-bin.zip -o /tmp/gradle.zip
+          unzip -q /tmp/gradle.zip -d /tmp
+          cd "$ROOT"
+          /tmp/gradle-8.10.2/bin/gradle --no-daemon :app:assembleRelease --stacktrace
+      - name: Build Stage-A kit
+        shell: bash
+        run: |
+          set -euo pipefail
+          SRC="$ROOT/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/OrchestratorDashboardV97PlannerSingleSendActivity.java"; CFG="$ROOT/app/src/main/java/com/homayounisaghar/chatgptwebviewprobe/TelemetryConfigV97.java"; GRADLE="$ROOT/app/build.gradle"; MAN="$ROOT/app/src/main/AndroidManifest.xml"
+          OUT=ci/v97-dashboard-stage-a; mkdir -p "$OUT"; BT="$ANDROID_SDK_ROOT/build-tools/35.0.0"; U="$ROOT/app/build/outputs/apk/release/app-release-unsigned.apk"; A="$OUT/app-release-aligned-unsigned.apk"
+          "$BT/zipalign" -f -p 4 "$U" "$A"
+          "$BT/zipalign" -c -v 4 "$A" > "$OUT/zipalign-verify.txt"
+          "$BT/aapt" dump badging "$A" > "$OUT/badging.txt"
+          "$BT/aapt" dump permissions "$A" > "$OUT/permissions.txt"
+          grep -Fq "package: name='$EXPECTED_PACKAGE' versionCode='$EXPECTED_VERSION_CODE' versionName='$EXPECTED_VERSION'" "$OUT/badging.txt"
+          grep -Fq "launchable-activity: name='$EXPECTED_LAUNCHER'" "$OUT/badging.txt"
+          test "$(grep -c '^uses-permission:' "$OUT/permissions.txt")" -eq 3
+          sha256sum "$A" | tee "$OUT/UNSIGNED_SHA256.txt"
+          printf '%s\n' "$GITHUB_SHA" > "$OUT/SOURCE_REF.txt"
+          printf '%s\n' "$EXPECTED_SIGNER_SHA256" > "$OUT/EXPECTED_SIGNER_CERT_SHA256.txt"
+          printf 'source_ref=%s\npackage=%s\nversion_code=%s\nversion_name=%s\nlauncher=%s\nexpected_signer_sha256=%s\nstage=unsigned_aligned_release\nbehavior=planner_ready_then_explicit_one_shot_target_send_with_receipt_no_blind_replay\n' "$GITHUB_SHA" "$EXPECTED_PACKAGE" "$EXPECTED_VERSION_CODE" "$EXPECTED_VERSION" "$EXPECTED_LAUNCHER" "$EXPECTED_SIGNER_SHA256" > "$OUT/BUILD_METADATA.txt"
+          cp "$SRC" "$OUT/"; cp "$CFG" "$OUT/"; cp "$MAN" "$OUT/"; cp "$GRADLE" "$OUT/"
+      - uses: actions/upload-artifact@v4
+        with: {name: 'chatgpt-webview-v0.90.3-dashboard-planner-single-send-${{ github.run_id }}-unsigned', path: ci/v97-dashboard-stage-a, if-no-files-found: error, retention-days: 30}
+      - uses: actions/upload-artifact@v4
+        with: {name: 'chatgpt-webview-v0.90.3-dashboard-planner-single-send-${{ github.run_id }}-telemetry', path: ci/v97-dashboard-telemetry, if-no-files-found: error, retention-days: 30}
