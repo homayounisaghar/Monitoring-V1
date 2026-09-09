@@ -102,14 +102,14 @@ jobs:
         run: |
           set -euo pipefail
           OUT="$RUNNER_TEMP/onshape-a2-toolchain"
-          mkdir -p "$OUT/gradle" "$OUT/android-sdk" "$OUT/gradle-user-home"
+          mkdir -p "$OUT/gradle" "$OUT/android-sdk/platforms" "$OUT/android-sdk/build-tools" "$OUT/gradle-user-home"
 
           GRADLE_BIN="$(readlink -f "$(command -v gradle)")"
           GRADLE_HOME="$(cd "$(dirname "$GRADLE_BIN")/.." && pwd)"
           cp -a "$GRADLE_HOME" "$OUT/gradle/gradle-8.10.2"
 
-          cp -a "$ANDROID_SDK_ROOT/platforms" "$OUT/android-sdk/"
-          cp -a "$ANDROID_SDK_ROOT/build-tools" "$OUT/android-sdk/"
+          cp -a "$ANDROID_SDK_ROOT/platforms/android-35" "$OUT/android-sdk/platforms/"
+          cp -a "$ANDROID_SDK_ROOT/build-tools/35.0.0" "$OUT/android-sdk/build-tools/"
           cp -a "$ANDROID_SDK_ROOT/platform-tools" "$OUT/android-sdk/"
           if [ -d "$ANDROID_SDK_ROOT/licenses" ]; then cp -a "$ANDROID_SDK_ROOT/licenses" "$OUT/android-sdk/"; fi
 
