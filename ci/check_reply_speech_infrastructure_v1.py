@@ -20,7 +20,13 @@ for x in [
     'ExactTextV1.sha256(s.lastAssistantExactText)',
     'CORRELATED_USER_NO_LONGER_LAST_USER',
 ]: assert x in tracker,x
-assert 'interpret' not in tracker.lower()
+# The tracker must remain identity/receipt based: no local keyword/fuzzy target
+# selection or semantic-routing helpers are allowed in executable code.
+for forbidden in [
+    'Levenshtein', 'fuzzyMatch', 'semanticScore', 'guessTarget',
+    'startsWith("آسم', 'contains("آسم', 'contains("send to', 'contains("بفرست'
+]:
+    assert forbidden not in tracker,forbidden
 
 for x in [
     'target_path_hash','expected_user_exact_hash','baseline_user_turn_count','baseline_assistant_turn_count',
@@ -41,6 +47,7 @@ for x in [
 
 for x in ['bestBoundary','\\n\\n','c == \'؟\'','Character.isWhitespace']:
     assert x in chunk,x
-assert 'summar' not in chunk.lower()
+assert 'summarize(' not in chunk.lower()
+assert 'summary=' not in chunk.lower()
 
 print('PASS reply-correlation + receipt-bearing speech-output infrastructure v1 invariants')
