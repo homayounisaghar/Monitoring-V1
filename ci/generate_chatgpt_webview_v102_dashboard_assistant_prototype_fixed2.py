@@ -22,8 +22,11 @@ try:
     src=FIX1.read_text()
     assert src.count("assert s.count('.click()')==4") == 1
     src=src.replace("assert s.count('.click()')==4, s.count('.click()')","assert s.count('.click()')==3, s.count('.click()')",1)
+    old_reload='assert s.count(\'foreground.loadUrl("https://chatgpt.com"+targetExpectedPath)\')==1'
+    assert src.count(old_reload)==1
+    src=src.replace(old_reload,'assert s.count(\'foreground.loadUrl("https://chatgpt.com"+targetExpectedPath)\')==2',1)
     exec(compile(src,str(FIX1),'exec'),{'__name__':'__main__','__file__':str(FIX1)})
 finally:
     runpy.run_path=orig
 
-print('PASS v0.90.8 fixed2: current v0.90.7 visibility shape adapted; three unique JS click actuators statically bounded')
+print('PASS v0.90.8 fixed2: current dashboard shape adapted; three unique JS click actuators and two bounded target-route navigations')
