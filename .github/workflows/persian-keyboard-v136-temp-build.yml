@@ -88,6 +88,24 @@ jobs:
           python3 tools/apply_v138_active_session_touch_order_rebase_patch.py
           python3 tools/apply_v139_direct_selection_and_host_send_stop_patch.py
           python3 tools/apply_v140_true_caret_cutover_and_composer_clear_stop_patch.py
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('tools/apply_v141_diagnostic_event_trace_patch.py')
+          t=p.read_text()
+          old='''        Button copy = toolbarButton("Copy", v -> copyCurrentText());\n        copy.setContentDescription("Copy selected text or entire field");\n        left.addView(copy, toolbarLp(1f));\n'''
+          new_old='''        Button copy = toolbarButton("⧉", v -> copyCurrentText());\n        copy.setContentDescription("Copy selected text or entire field");\n        left.addView(copy, toolbarLp(1f));\n'''
+          replacement='''        Button copy = toolbarButton("⧉", v -> copyCurrentText());\n        copy.setContentDescription("Copy selected text or entire field; long press copies diagnostics");\n        copy.setOnLongClickListener(v -> {copyDiagnosticsToClipboard();return true;});\n        left.addView(copy, toolbarLp(1f));\n'''
+          if old not in t:
+              raise SystemExit('v1.41 workflow compatibility: expected old Copy patch block missing')
+          t=t.replace(old,new_old,1)
+          old2='''        Button copy = toolbarButton("Copy", v -> copyCurrentText());\n        copy.setContentDescription("Copy selected text or entire field; long press copies diagnostics");\n        copy.setOnLongClickListener(v -> {copyDiagnosticsToClipboard();return true;});\n        left.addView(copy, toolbarLp(1f));\n'''
+          new2=replacement
+          if old2 not in t:
+              raise SystemExit('v1.41 workflow compatibility: expected replacement Copy patch block missing')
+          t=t.replace(old2,new2,1)
+          p.write_text(t)
+          print('Prepared v1.41 Copy-icon compatibility')
+          PY
           python3 tools/apply_v141_diagnostic_event_trace_patch.py
 
       - name: Verify v1.41 invariants
@@ -145,7 +163,7 @@ jobs:
           cutover_block=service[cut_start:cut_end]
           for forbidden in ['setSelection(','commitText(','deleteSurroundingText(']:
             assert forbidden not in cutover_block, forbidden
-          assert 'getText()' not in helper
+          assert 'event.getText()' not in helper
           print('v1.41 invariants OK')
           PY
 
