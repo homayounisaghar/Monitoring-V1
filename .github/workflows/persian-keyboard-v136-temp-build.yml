@@ -91,6 +91,7 @@ jobs:
           python3 tools/apply_v141_diagnostic_event_trace_patch.py
           python3 tools/apply_v1411_accessibility_event_subscription_fix.py
           python3 tools/apply_v1412_accessibility_probe_package_fix.py
+          python3 tools/apply_v1420_auth_view_compatibility_prepatch.py
           python3 tools/apply_v142_resilient_broker_mic_preemption_base_layer_patch.py
 
       - name: Verify v1.42 invariants
