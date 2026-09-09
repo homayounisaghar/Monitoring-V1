@@ -93,6 +93,7 @@ jobs:
           python3 tools/apply_v1412_accessibility_probe_package_fix.py
           python3 tools/apply_v1420_auth_view_compatibility_prepatch.py
           python3 tools/apply_v142_resilient_broker_mic_preemption_base_layer_patch.py
+          python3 tools/apply_v1421_restore_broker_helpers_patch.py
 
       - name: Verify v1.42 invariants
         working-directory: android/persian-keyboard-v19
@@ -111,6 +112,9 @@ jobs:
             'private void ensureCredentialWebView(){',
             'private void prefetchWarmCredential(){',
             'private boolean warmCredentialUsable(){',
+            'private void recreateCredentialWebView(String reason){',
+            'private void armCredentialWatchdog(){',
+            'private long bridgeLong(String value){',
             'parseCredentialExpiry(expiresAt)',
             'public static void notifyPerplexitySessionChanged(){',
             'onRenderProcessGone(WebView view,android.webkit.RenderProcessGoneDetail detail)',
