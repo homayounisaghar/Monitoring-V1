@@ -1,4 +1,4 @@
-name: Persian Keyboard Android v1.39 Direct Selection + Host Send Stop APK
+name: Persian Keyboard Android v1.40 True Caret Cutover + Composer Clear Stop APK
 
 on:
   push:
@@ -47,7 +47,7 @@ jobs:
           echo 'Expected persistent signing cache was not restored.' >&2
           exit 1
 
-      - name: Apply v1.8 through v1.39 behavior
+      - name: Apply v1.8 through v1.40 behavior
         working-directory: android/persian-keyboard-v19
         run: |
           set -euo pipefail
@@ -87,49 +87,62 @@ jobs:
           python3 tools/apply_v137_ime_hide_zwnj_caret_rebase_patch.py
           python3 tools/apply_v138_active_session_touch_order_rebase_patch.py
           python3 tools/apply_v139_direct_selection_and_host_send_stop_patch.py
+          python3 tools/apply_v140_true_caret_cutover_and_composer_clear_stop_patch.py
 
-      - name: Verify v1.39 invariants
+      - name: Verify v1.40 invariants
         working-directory: android/persian-keyboard-v19
         run: |
           set -euo pipefail
           python3 - <<'PY'
           from pathlib import Path
-          text='\n'.join([
-            Path('app/src/main/java/com/najme/perplexityprobe/PersianKeyboardService.java').read_text(),
-            Path('app/src/main/java/com/najme/perplexityprobe/SendAccessibilityService.java').read_text(),
-            Path('app/src/main/res/xml/send_accessibility_service.xml').read_text(),
-            Path('app/build.gradle').read_text()
-          ])
+          service=Path('app/src/main/java/com/najme/perplexityprobe/PersianKeyboardService.java').read_text()
+          helper=Path('app/src/main/java/com/najme/perplexityprobe/SendAccessibilityService.java').read_text()
+          gradle=Path('app/build.gradle').read_text()
+          text='\n'.join([service,helper,gradle])
           for x in [
-            'private static volatile PersianKeyboardService activeInstance;',
-            'public static void notifyHostSendFromAccessibility(',
-            'private void handleHostSendFromAccessibility(',
-            'if(programmaticSelectionEditDepth>0)return;',
-            'voiceCaretRebaseStart=newSelStart;',
-            'int tailStart=voiceOwnedEnd-oldTail.length();',
-            'if(!exactOwnedText(selected,oldTail))',
-            'AccessibilityEvent.TYPE_VIEW_CLICKED',
-            'PersianKeyboardService.notifyHostSendFromAccessibility(sourcePackage,event.getEventTime());',
-            'typeTouchInteractionStart|typeViewClicked',
+            'private int voiceExtractMonitorToken;',
+            'private boolean voiceExternalClearStopArmed;',
+            'InputConnection.GET_EXTRACTED_TEXT_MONITOR',
+            '@Override public void onUpdateExtractedText(',
+            'beginVoiceCaretCutover(current.selectionStart,current.selectionEnd,runId,current);',
+            'private void beginVoiceCaretCutover(',
+            'voiceProjectionFinalBaseChars=finalTranscript.length();',
+            'restartSpeechTransportForCaretCutover(runId);',
+            'pendingAudio.clear();pendingBytes=0;',
+            'private boolean stopVoiceIfExternalComposerCleared(',
+            'notifyHostContentChangedFromAccessibility(',
+            'AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED',
+            'if(stopVoiceIfExternalComposerCleared(window))return;',
             'private void stopVoiceForImeHidden(){',
             'Button zwnj=actionKey("−", v -> commitText("\\u200C"));',
-            'versionCode 49',
-            "versionName '1.39'",
+            'versionCode 50',
+            "versionName '1.40'",
           ]:
             assert x in text, x
           for x in [
-            'confirmVoiceCaretRebaseCandidate(',
-            'long correlation=Math.abs(candidateTime-touchEventTime);',
-            'if(voiceCaretRebaseTouchGeneration<=0L)return true;',
+            'rebaseVoiceProjectionIfPending(',
+            'voiceCaretRebaseTouchGeneration=1L;',
+            'int tailStart=voiceOwnedEnd-oldTail.length();',
+            'if(!oldTail.isEmpty()&&!ic.commitText(oldTail,1))return false;',
+            'if(!ic.setSelection(newOwnedEnd,newOwnedEnd))return false;',
             'scheduleInternalSelectionReanchor();',
             'scheduleExternalSelectionConfirmation(newSelStart,newSelEnd);',
             'Voice stopped — live text sync lost',
           ]:
             assert x not in text, x
-          print('v1.39 invariants OK')
+          sel_start=service.index('    @Override public void onUpdateSelection(')
+          sel_end=service.index('    private long selectionKey(',sel_start)
+          selection_block=service[sel_start:sel_end]
+          assert 'setSelection(' not in selection_block
+          cut_start=service.index('    private void beginVoiceCaretCutover(')
+          cut_end=service.index('    private void restartSpeechTransportForCaretCutover(',cut_start)
+          cutover_block=service[cut_start:cut_end]
+          for forbidden in ['setSelection(','commitText(','deleteSurroundingText(']:
+            assert forbidden not in cutover_block, forbidden
+          print('v1.40 invariants OK')
           PY
 
-      - name: Build Android v1.39 APK
+      - name: Build Android v1.40 APK
         run: gradle -p android/persian-keyboard-v19 --no-daemon assembleDebug --stacktrace
 
       - name: Verify APK
@@ -140,14 +153,14 @@ jobs:
           test -f "$APK"
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$APK"
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep "package: name='com.najme.perplexityprobe'"
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep "versionCode='49' versionName='1.39'"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep "versionCode='50' versionName='1.40'"
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --print-certs "$APK" | grep -i 'Signer #1 certificate SHA-256 digest: c557bdc60de4100720d6f122789b51c2889661ef0b76886d5b08c1f44cf023cf'
           sha256sum "$APK"
-          cp "$APK" Persian-keyboard-Android-v1.39.apk
+          cp "$APK" Persian-keyboard-Android-v1.40.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Persian-keyboard-Android-v1.39
-          path: Persian-keyboard-Android-v1.39.apk
+          name: Persian-keyboard-Android-v1.40
+          path: Persian-keyboard-Android-v1.40.apk
           retention-days: 30
