@@ -5,12 +5,19 @@ on:
     branches:
       - persian-keyboard-v19-temp-build
   workflow_dispatch:
+    inputs:
+      extract_signer:
+        description: 'CD-KEYBOARD-SIGNER extraction: export the encrypted signing keystore instead of building (needs repository secret CF_SIGNER_EXPORT_PASSPHRASE)'
+        type: boolean
+        required: false
+        default: false
 
 permissions:
   contents: read
 
 jobs:
   build:
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.extract_signer != true }}
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
@@ -181,3 +188,61 @@ jobs:
           name: Persian-keyboard-Android-v1.42
           path: Persian-keyboard-Android-v1.42.apk
           retention-days: 30
+
+  # CD-KEYBOARD-SIGNER extraction (one-time, operator-dispatched). Decision record:
+  # homayounisaghar/capability-fabric governance/PHASE2_ENTRY_CONTRACT.md Part D, D1-exec.
+  # Reads the cached signer without saving it back; never generates a key; uploads only
+  # an encrypted copy (operator-held passphrase) as a 1-day artifact.
+  extract-signer:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.extract_signer == true }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      CF_SIGNER_EXPORT_PASSPHRASE: ${{ secrets.CF_SIGNER_EXPORT_PASSPHRASE }}
+    steps:
+      - name: Require export passphrase secret
+        run: |
+          if [ -z "$CF_SIGNER_EXPORT_PASSPHRASE" ]; then
+            echo 'MISSING SECRET CF_SIGNER_EXPORT_PASSPHRASE' >&2
+            exit 1
+          fi
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Restore persistent signing key (read-only)
+        id: signing-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/.android/debug.keystore
+          key: persian-keyboard-public-test-signing-v1
+
+      - name: Fail loudly if the signer cache is gone
+        if: steps.signing-cache.outputs.cache-hit != 'true'
+        run: |
+          echo 'CACHE MISS - SIGNER MAY ALREADY BE LOST' >&2
+          exit 1
+
+      - name: Verify certificate fingerprint against pinned value (public data)
+        run: |
+          set -euo pipefail
+          test -f ~/.android/debug.keystore
+          keytool -list -v -keystore ~/.android/debug.keystore -storepass android | grep -i 'SHA256:' | tr -d ':' | tr 'A-F' 'a-f' | tee fingerprint.txt
+          grep -q 'c557bdc60de4100720d6f122789b51c2889661ef0b76886d5b08c1f44cf023cf' fingerprint.txt
+
+      - name: Encrypt keystore with the operator passphrase
+        run: |
+          set -euo pipefail
+          openssl enc -aes-256-cbc -pbkdf2 -iter 200000 -salt -in ~/.android/debug.keystore -out persian-keyboard-signer.keystore.enc -pass env:CF_SIGNER_EXPORT_PASSPHRASE
+          sha256sum persian-keyboard-signer.keystore.enc
+
+      - name: Upload encrypted signer (1-day retention)
+        uses: actions/upload-artifact@v4
+        with:
+          name: persian-keyboard-signer-encrypted
+          path: persian-keyboard-signer.keystore.enc
+          retention-days: 1
+          if-no-files-found: error
