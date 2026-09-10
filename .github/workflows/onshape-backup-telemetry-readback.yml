@@ -48,7 +48,7 @@ jobs:
           unzip -q "$RUNNER_TEMP/collector.zip" -d "$RUNNER_TEMP/collector"
           test -s "$RUNNER_TEMP/collector/read-url.txt"
 
-      - name: Fetch and sanitize telemetry
+      - name: Read bounded sanitized status
         shell: bash
         run: |
           set -euo pipefail
@@ -67,21 +67,12 @@ jobs:
               except Exception: continue
               if not isinstance(event,dict): continue
               if not str(event.get('schema','')).startswith('cf.onshape.backup.telemetry.'): continue
-              out.append({'receivedAt':row.get('created_at',''),'event':event})
-          with open('telemetry-sanitized.json','w',encoding='utf-8') as f:
-              json.dump(out,f,ensure_ascii=False,separators=(',',':'))
-          print('sanitized_event_count='+str(len(out)))
-          for item in out[-60:]:
-              e=item['event']; d=e.get('detail',{}) if isinstance(e.get('detail'),dict) else {}
-              fields=[item.get('receivedAt',''),str(e.get('versionCode','')),str(e.get('event','')),str(e.get('runId',''))]
-              if d: fields.append(json.dumps(d,separators=(',',':'))[:500])
-              print(' | '.join(fields))
+              d=event.get('detail',{}) if isinstance(event.get('detail'),dict) else {}
+              allowed={k:d[k] for k in ('stage','operation','state','request','total','bytes','chunks','elapsedMs','contentLength','errorClass','message','code','didCrash') if k in d}
+              out.append((row.get('created_at',''),event.get('versionCode',''),event.get('event',''),allowed))
+          print('event_count='+str(len(out)))
+          for received,version,event,detail in out[-60:]:
+              line=[str(received),str(version),str(event)]
+              if detail: line.append(json.dumps(detail,separators=(',',':'))[:500])
+              print(' | '.join(line))
           PY
-
-      - name: Upload sanitized telemetry
-        uses: actions/upload-artifact@v4
-        with:
-          name: onshape-backup-telemetry-sanitized
-          path: telemetry-sanitized.json
-          retention-days: 1
-          if-no-files-found: error
