@@ -1,2 +1,2 @@
-triggered=2026-09-10T06:00:00Z
-purpose=code24-device-failure-readback
+triggered=2026-09-10T07:40:00Z
+purpose=code25-live-progress-readback
