@@ -15,18 +15,43 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Provision fresh collector
+      - name: Provision and smoke-test fresh collector
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p "$RUNNER_TEMP/collector"
-          curl -fsS -X POST -H 'Accept: application/json' https://webhook.site/token -o "$RUNNER_TEMP/collector/token.json"
-          UUID="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["uuid"])' "$RUNNER_TEMP/collector/token.json")"
+          OUT="$RUNNER_TEMP/collector"
+          mkdir -p "$OUT"
+          curl -fsS -X POST -H 'Accept: application/json' https://webhook.site/token -o "$OUT/token.json"
+          UUID="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["uuid"])' "$OUT/token.json")"
           test -n "$UUID"
-          printf '%s\n' "$UUID" > "$RUNNER_TEMP/collector/collector-id.txt"
-          printf 'https://webhook.site/%s\n' "$UUID" > "$RUNNER_TEMP/collector/post-url.txt"
-          printf 'https://webhook.site/token/%s/requests?sorting=oldest&per_page=100\n' "$UUID" > "$RUNNER_TEMP/collector/read-url.txt"
-          rm -f "$RUNNER_TEMP/collector/token.json"
+          POST_URL="https://webhook.site/$UUID"
+          READ_URL="https://webhook.site/token/$UUID/requests?sorting=oldest&per_page=100"
+          printf '%s\n' "$UUID" > "$OUT/collector-id.txt"
+          printf '%s\n' "$POST_URL" > "$OUT/post-url.txt"
+          printf '%s\n' "$READ_URL" > "$OUT/read-url.txt"
+          printf '%s\n' '{"schema":"cf.onshape.backup.telemetry.v1","event":"COLLECTOR_SMOKE","source":"provisioner"}' > "$OUT/smoke-event.json"
+          curl -fsS -X POST -H 'Content-Type: application/json' --data-binary @"$OUT/smoke-event.json" "$POST_URL" >/dev/null
+          found=0
+          for delay in 1 1 2 3; do
+            sleep "$delay"
+            curl -fsS "$READ_URL" -o "$OUT/smoke-requests.json"
+            if python3 - "$OUT/smoke-requests.json" <<'PY'
+import json, sys
+p = json.load(open(sys.argv[1]))
+rows = p.get("data", []) if isinstance(p, dict) else []
+for row in rows:
+    content = row.get("content", "") if isinstance(row, dict) else ""
+    if "COLLECTOR_SMOKE" in content and "cf.onshape.backup.telemetry.v1" in content:
+        raise SystemExit(0)
+raise SystemExit(1)
+PY
+            then
+              found=1
+              break
+            fi
+          done
+          test "$found" -eq 1
+          rm -f "$OUT/token.json"
 
       - name: Upload collector metadata
         uses: actions/upload-artifact@v4
