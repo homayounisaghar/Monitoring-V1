@@ -1,1 +1,2 @@
-initialized=2026-09-10T04:20:00Z
+triggered=2026-09-10T06:00:00Z
+purpose=code24-device-failure-readback
