@@ -1,0 +1,37 @@
+name: Webhook.site Collector Provision
+
+on:
+  push:
+    paths:
+      - '.github/workflows/webhook-site-collector-provision.yml'
+      - '.ci/webhook-site-collector-trigger.txt'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  provision:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Provision fresh collector
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/collector"
+          curl -fsS -X POST -H 'Accept: application/json' https://webhook.site/token -o "$RUNNER_TEMP/collector/token.json"
+          UUID="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["uuid"])' "$RUNNER_TEMP/collector/token.json")"
+          test -n "$UUID"
+          printf '%s\n' "$UUID" > "$RUNNER_TEMP/collector/collector-id.txt"
+          printf 'https://webhook.site/%s\n' "$UUID" > "$RUNNER_TEMP/collector/post-url.txt"
+          printf 'https://webhook.site/token/%s/requests?sorting=oldest&per_page=100\n' "$UUID" > "$RUNNER_TEMP/collector/read-url.txt"
+          rm -f "$RUNNER_TEMP/collector/token.json"
+
+      - name: Upload collector metadata
+        uses: actions/upload-artifact@v4
+        with:
+          name: webhook-site-collector
+          path: ${{ runner.temp }}/collector
+          retention-days: 7
+          if-no-files-found: error
