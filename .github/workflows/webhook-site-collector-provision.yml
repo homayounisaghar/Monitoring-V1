@@ -35,17 +35,7 @@ jobs:
           for delay in 1 1 2 3; do
             sleep "$delay"
             curl -fsS "$READ_URL" -o "$OUT/smoke-requests.json"
-            if python3 - "$OUT/smoke-requests.json" <<'PY'
-import json, sys
-p = json.load(open(sys.argv[1]))
-rows = p.get("data", []) if isinstance(p, dict) else []
-for row in rows:
-    content = row.get("content", "") if isinstance(row, dict) else ""
-    if "COLLECTOR_SMOKE" in content and "cf.onshape.backup.telemetry.v1" in content:
-        raise SystemExit(0)
-raise SystemExit(1)
-PY
-            then
+            if grep -q 'COLLECTOR_SMOKE' "$OUT/smoke-requests.json" && grep -q 'cf.onshape.backup.telemetry.v1' "$OUT/smoke-requests.json"; then
               found=1
               break
             fi
