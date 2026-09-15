@@ -37,26 +37,30 @@ import { demoAthletes } from "@/lib/demo-library";
 /* ─────────────────── option sets ─────────────────── */
 
 export type BenchKind =
+  | "match_benchmark"
   | "typical_daytype"
-  | "previous_window"
+  | "last_5"
   | "season";
 
 export type RefKind =
+  | "own_match_benchmark"
   | "own_typical"
-  | "previous_window"
+  | "last_n"
   | "season"
   | "positional"
   | "cohort";
 
 export const BENCH_ORDER: BenchKind[] = [
+  "match_benchmark",
   "typical_daytype",
-  "previous_window",
+  "last_5",
   "season",
 ];
 
 export const REF_ORDER: RefKind[] = [
+  "own_match_benchmark",
   "own_typical",
-  "previous_window",
+  "last_n",
   "season",
   "positional",
   "cohort",
@@ -69,35 +73,15 @@ export const DEFAULT_BENCH: BenchKind = "typical_daytype";
 export const DEFAULT_REF: RefKind = "own_typical";
 
 export function benchLabel(k: BenchKind, horizon: Horizon): string {
-  if (k === "previous_window") {
-    return horizon === "season"
-      ? copy("longi.bench.opt.previous_period")
-      : tmpl("longi.bench.opt.previous_window", { n: horizon });
-  }
   return copy(`longi.bench.opt.${k}`);
 }
 export function refLabel(k: RefKind, horizon: Horizon): string {
-  if (k === "previous_window") {
-    return horizon === "season"
-      ? copy("longi.ref.opt.previous_period")
-      : tmpl("longi.ref.opt.previous_window", { n: horizon });
-  }
   return copy(`longi.ref.opt.${k}`);
 }
 function benchGloss(k: BenchKind, horizon: Horizon): string {
-  if (k === "previous_window") {
-    return horizon === "season"
-      ? copy("longi.bench.gloss.previous_period")
-      : tmpl("longi.bench.gloss.previous_window", { n: horizon });
-  }
   return copy(`longi.bench.gloss.${k}`);
 }
 function refGloss(k: RefKind, horizon: Horizon): string {
-  if (k === "previous_window") {
-    return horizon === "season"
-      ? copy("longi.ref.gloss.previous_period")
-      : tmpl("longi.ref.gloss.previous_window", { n: horizon });
-  }
   return copy(`longi.ref.gloss.${k}`);
 }
 
