@@ -290,12 +290,6 @@ function ReferenceChip({
                         )}
                         <span>
                           <span className="block">{refLabelFor(o.kind, session)}</span>
-                          <span
-                            className="block text-[11.5px]"
-                            style={{ color: "var(--color-text-tertiary)" }}
-                          >
-                            {copy(`readingLine.gloss.${o.kind}`)}
-                          </span>
                         </span>
                       </span>
                       {isDefault && (

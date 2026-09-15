@@ -161,19 +161,6 @@ export const COPY = {
 
   // ---------- Reading-line menu glosses (per option kind) ----------
   "readingLine.cohortGloss": "cohort — same position group, this season",
-  // Reference (per-athlete) glosses — DRAFT
-  "readingLine.gloss.own_typical": "their own typical for sessions of this type",
-  "readingLine.gloss.positional": "typical for their position group",
-  "readingLine.gloss.cohort": "the squad's average for sessions of this type",
-  "readingLine.gloss.last_n": "average of their last five matches",
-  "readingLine.gloss.season": "their season average for sessions of this type",
-  "readingLine.gloss.same_opponent": "their output vs this opponent before",
-  // Benchmark (squad) glosses — DRAFT
- "readingLine.bgloss.typical_daytype": "a typical session of this day type",
- "readingLine.bgloss.typical_match": "a typical match of this type",
-  "readingLine.bgloss.last_match": "the squad's previous match",
-  "readingLine.bgloss.last_5": "average of the squad's last five matches",
-  "readingLine.bgloss.same_opponent": "squad output vs this opponent before",
 
   // ---------- Filter panel ----------
   "filter.group.timeWindow": "Time window",
@@ -375,10 +362,6 @@ export const COPY = {
   "longi.bench.opt.previous_window":  "previous {n} days",
   "longi.bench.opt.previous_period":  "previous period",
   "longi.bench.opt.season":           "season average",
-  "longi.bench.gloss.typical_daytype": "each session against its own day type",
-  "longi.bench.gloss.previous_window": "the {n} days before this window",
-  "longi.bench.gloss.previous_period": "the period before this window",
-  "longi.bench.gloss.season":          "the squad's season average for the same day types",
 
   // Reference option labels — five options across two families.
   "longi.ref.opt.own_typical":        "their typical, matched by day type",
@@ -389,12 +372,6 @@ export const COPY = {
   "longi.ref.opt.season":             "their season average",
   "longi.ref.opt.positional":         "same-position average",
   "longi.ref.opt.cohort":             "squad average",
-  "longi.ref.gloss.own_typical":      "each session against their own typical for that day type",
-  "longi.ref.gloss.previous_window":  "the {n} days before this window",
-  "longi.ref.gloss.previous_period":  "the period before this window",
-  "longi.ref.gloss.season":           "their season average for the same day types",
-  "longi.ref.gloss.positional":       "typical for their position group",
-  "longi.ref.gloss.cohort":           "the squad's average, matched by day type",
 
   "longi.filter.title": "Filter",
   "longi.filter.group.participation": "Participation",
