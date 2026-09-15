@@ -397,17 +397,13 @@ export function SessionScopeProvider({ children }: { children: ReactNode }) {
     const filteredRef = sessionIsTraining
       ? REFERENCE_OPTIONS.filter((o) => o.kind !== "same_opponent")
       : REFERENCE_OPTIONS;
-    const refOpts: ReferenceOption[] = filteredRef.map((o) =>
-      o.kind === "own_typical" && dayCode
-        ? { kind: "own_typical", label: `their typical ${dayCode}` }
-        : o,
-    );
+    const refOpts = filteredRef;
     const defRef = refOpts[0];
 
     if (dayCode) {
       const dayTypeOpt: BenchmarkOption = {
         kind: "typical_daytype",
-        label: `typical ${dayCode}`,
+        label: "typical, matched by day type",
       };
       const benchOpts = [
         dayTypeOpt,

@@ -41,12 +41,9 @@ const REF_GROUPS: Array<{ kind: RefKind }[]> = [
 const DEFAULT_REF: RefKind = "own_typical";
 
 function ownTypicalLabel(
-  session: { type: string; dayCode: string } | undefined | null,
+  _session: { type: string; dayCode: string } | undefined | null,
 ): string {
-  if (!session) return "their typical, matched by day type";
-  return session.type === "match"
-    ? "their typical, matched by day type"
-    : `their typical ${session.dayCode}`;
+  return "their typical, matched by day type";
 }
 
 function refLabelFor(
