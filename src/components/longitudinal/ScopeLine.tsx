@@ -18,7 +18,7 @@
  *
  * Filter categories in fixed order: Participation, Positions, Athletes,
  * Session-type. Options render and check; Apply produces dismissible chips.
- * `positional norm` withholds below the cohort floor (default 4) — data
+ * `same-position average` withholds below the cohort floor (default 4) — data
  * behaviour, due when scoping is wired; the option renders normally now.
  */
 import { ChevronDown, Filter as FilterIcon, Check, X } from "lucide-react";

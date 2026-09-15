@@ -22,9 +22,8 @@ import { REFERENCE_OPTIONS, type ReferenceKind } from "@/lib/session-scope";
 
 const PINNED_SESSION_ID = "s-2026-07-04-dortmund";
 
-// Athlete uses Session's Reference set verbatim; the own_typical label is
-// dynamic and echoes Session's helper — "their typical match" on a match,
-// "their typical {dayCode}" on other days.
+// Athlete uses Session's Reference set verbatim; own_typical renders the
+// canonical "their typical, matched by day type" in every context.
 export type RefKind = ReferenceKind;
 
 // Canonical per-athlete Reference order (ST2 Changeset 01).
