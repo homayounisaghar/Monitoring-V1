@@ -136,7 +136,9 @@ export function SummaryCard() {
     sessionIsTraining,
   } = useSessionScope();
 
-  const refs = SQUAD_REF[benchmark.kind];
+  const refs =
+    (SQUAD_REF as Partial<Record<string, BenchRefs>>)[benchmark.kind] ??
+    (sessionIsTraining ? SQUAD_REF.typical_daytype : SQUAD_REF.typical_match);
   const marks = SESSION_MARKS;
 
   // Coverage — squad aggregate on effective data.
