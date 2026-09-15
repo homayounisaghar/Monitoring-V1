@@ -22,50 +22,33 @@ import { REFERENCE_OPTIONS, type ReferenceKind } from "@/lib/session-scope";
 
 const PINNED_SESSION_ID = "s-2026-07-04-dortmund";
 
-// Athlete uses Session's Reference set verbatim; own_typical renders the
-// canonical "their typical, matched by day type" in every context.
+// Athlete uses Session's Reference set verbatim; the own_typical label is
+// dynamic and echoes Session's helper — "their typical match" on a match,
+// "their typical {dayCode}" on other days.
 export type RefKind = ReferenceKind;
 
-// Canonical per-athlete Reference order (ST2 Changeset 01).
 const REF_GROUPS: Array<{ kind: RefKind }[]> = [
-  [
-    { kind: "full_matches" },
-    { kind: "own_typical" },
-    { kind: "last_n" },
-    { kind: "season" },
-  ],
+  [{ kind: "own_typical" }, { kind: "last_n" }, { kind: "season" }],
   [{ kind: "positional" }, { kind: "cohort" }],
   [{ kind: "same_opponent" }],
 ];
 
 const DEFAULT_REF: RefKind = "own_typical";
 
-// Canonical label (ST2 Changeset 01) — one utterance across all shells,
-// no per-session day-code variant.
-function ownTypicalLabel(): string {
-  return copy("longi.ref.opt.own_typical");
-}
-
-// Glosses exist only for kinds that carried them before Changeset 01;
-// full_matches renders no gloss until its copy lands in a later step.
-const REF_GLOSSED: ReadonlySet<RefKind> = new Set([
-  "own_typical",
-  "last_n",
-  "season",
-  "positional",
-  "cohort",
-  "same_opponent",
-]);
-
-function refGlossFor(kind: RefKind): string {
-  return REF_GLOSSED.has(kind) ? copy(`readingLine.gloss.${kind}`) : "";
+function ownTypicalLabel(
+  session: { type: string; dayCode: string } | undefined | null,
+): string {
+  if (!session) return "their typical match";
+  return session.type === "match"
+    ? "their typical match"
+    : `their typical ${session.dayCode}`;
 }
 
 function refLabelFor(
   kind: RefKind,
   session: { type: string; dayCode: string } | undefined | null,
 ): string {
-  if (kind === "own_typical") return ownTypicalLabel();
+  if (kind === "own_typical") return ownTypicalLabel(session);
   const opt = REFERENCE_OPTIONS.find((o) => o.kind === kind);
   return opt ? opt.label : String(kind);
 }
@@ -306,7 +289,7 @@ function ReferenceChip({
                             className="block text-[11.5px]"
                             style={{ color: "var(--color-text-tertiary)" }}
                           >
-                            {refGlossFor(o.kind)}
+                            {copy(`readingLine.gloss.${o.kind}`)}
                           </span>
                         </span>
                       </span>
