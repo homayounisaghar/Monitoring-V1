@@ -27,28 +27,31 @@ const PINNED_SESSION_ID = "s-2026-07-04-dortmund";
 // "their typical {dayCode}" on other days.
 export type RefKind = ReferenceKind;
 
+// Canonical per-athlete Reference order (ST2 Changeset 01).
 const REF_GROUPS: Array<{ kind: RefKind }[]> = [
-  [{ kind: "own_typical" }, { kind: "last_n" }, { kind: "season" }],
+  [
+    { kind: "full_matches" },
+    { kind: "own_typical" },
+    { kind: "last_n" },
+    { kind: "season" },
+  ],
   [{ kind: "positional" }, { kind: "cohort" }],
   [{ kind: "same_opponent" }],
 ];
 
 const DEFAULT_REF: RefKind = "own_typical";
 
-function ownTypicalLabel(
-  session: { type: string; dayCode: string } | undefined | null,
-): string {
-  if (!session) return "their typical match";
-  return session.type === "match"
-    ? "their typical match"
-    : `their typical ${session.dayCode}`;
+// Canonical label (ST2 Changeset 01) — one utterance across all shells,
+// no per-session day-code variant.
+function ownTypicalLabel(): string {
+  return copy("longi.ref.opt.own_typical");
 }
 
 function refLabelFor(
   kind: RefKind,
   session: { type: string; dayCode: string } | undefined | null,
 ): string {
-  if (kind === "own_typical") return ownTypicalLabel(session);
+  if (kind === "own_typical") return ownTypicalLabel();
   const opt = REFERENCE_OPTIONS.find((o) => o.kind === kind);
   return opt ? opt.label : String(kind);
 }
