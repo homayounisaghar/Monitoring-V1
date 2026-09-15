@@ -46,6 +46,21 @@ function ownTypicalLabel(): string {
   return copy("longi.ref.opt.own_typical");
 }
 
+// Glosses exist only for kinds that carried them before Changeset 01;
+// full_matches renders no gloss until its copy lands in a later step.
+const REF_GLOSSED: ReadonlySet<RefKind> = new Set([
+  "own_typical",
+  "last_n",
+  "season",
+  "positional",
+  "cohort",
+  "same_opponent",
+]);
+
+function refGlossFor(kind: RefKind): string {
+  return REF_GLOSSED.has(kind) ? copy(`readingLine.gloss.${kind}`) : "";
+}
+
 function refLabelFor(
   kind: RefKind,
   session: { type: string; dayCode: string } | undefined | null,
