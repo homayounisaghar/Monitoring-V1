@@ -306,7 +306,7 @@ function ReferenceChip({
                             className="block text-[11.5px]"
                             style={{ color: "var(--color-text-tertiary)" }}
                           >
-                            {copy(`readingLine.gloss.${o.kind}`)}
+                            {refGlossFor(o.kind)}
                           </span>
                         </span>
                       </span>
