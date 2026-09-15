@@ -370,6 +370,8 @@ export const COPY = {
   // last_match, same_opponent) have no referent for a multi-day window
   // and live only on Session (see src/lib/session-scope.tsx).
   "longi.bench.opt.typical_daytype":  "typical, matched by day type",
+  "longi.bench.opt.match_benchmark":  "full matches",
+  "longi.bench.opt.last_5":           "last 5 matches",
   "longi.bench.opt.previous_window":  "previous {n} days",
   "longi.bench.opt.previous_period":  "previous period",
   "longi.bench.opt.season":           "season average",

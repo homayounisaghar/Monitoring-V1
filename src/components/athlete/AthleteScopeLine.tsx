@@ -23,12 +23,17 @@ import { REFERENCE_OPTIONS, type ReferenceKind } from "@/lib/session-scope";
 const PINNED_SESSION_ID = "s-2026-07-04-dortmund";
 
 // Athlete uses Session's Reference set verbatim; the own_typical label is
-// dynamic and echoes Session's helper — "their typical match" on a match,
-// "their typical {dayCode}" on other days.
+// dynamic and echoes Session's helper — "their typical, matched by day type"
+// on a match, "their typical {dayCode}" on other days.
 export type RefKind = ReferenceKind;
 
 const REF_GROUPS: Array<{ kind: RefKind }[]> = [
-  [{ kind: "own_typical" }, { kind: "last_n" }, { kind: "season" }],
+  [
+    { kind: "own_match_benchmark" },
+    { kind: "own_typical" },
+    { kind: "last_n" },
+    { kind: "season" },
+  ],
   [{ kind: "positional" }, { kind: "cohort" }],
   [{ kind: "same_opponent" }],
 ];
@@ -38,9 +43,9 @@ const DEFAULT_REF: RefKind = "own_typical";
 function ownTypicalLabel(
   session: { type: string; dayCode: string } | undefined | null,
 ): string {
-  if (!session) return "their typical match";
+  if (!session) return "their typical, matched by day type";
   return session.type === "match"
-    ? "their typical match"
+    ? "their typical, matched by day type"
     : `their typical ${session.dayCode}`;
 }
 
