@@ -78,12 +78,6 @@ export function benchLabel(k: BenchKind, horizon: Horizon): string {
 export function refLabel(k: RefKind, horizon: Horizon): string {
   return copy(`longi.ref.opt.${k}`);
 }
-function benchGloss(k: BenchKind, horizon: Horizon): string {
-  return copy(`longi.bench.gloss.${k}`);
-}
-function refGloss(k: RefKind, horizon: Horizon): string {
-  return copy(`longi.ref.gloss.${k}`);
-}
 
 
 /* ─────────────────── filter state (demo-local) ─────────────────── */
@@ -250,7 +244,6 @@ function BenchmarkChip({
             <OptionRow
               key={k}
               label={benchLabel(k, horizon)}
-              gloss={benchGloss(k, horizon)}
               checked={k === active}
               isDefault={k === DEFAULT_BENCH}
               onClick={() => {
@@ -296,7 +289,6 @@ function ReferenceChip({
             <div key={k}>
               <OptionRow
                 label={refLabel(k, horizon)}
-                gloss={refGloss(k, horizon)}
                 checked={k === active}
                 isDefault={k === DEFAULT_REF}
                 onClick={() => {
@@ -626,13 +618,11 @@ function MenuHead({ title }: { title: string }) {
 
 function OptionRow({
   label,
-  gloss,
   checked,
   isDefault,
   onClick,
 }: {
   label: string;
-  gloss?: string;
   checked: boolean;
   isDefault?: boolean;
   onClick: () => void;
@@ -666,14 +656,6 @@ function OptionRow({
           {checked && <Check className="h-3.5 w-3.5" aria-hidden />}
         </span>
       </span>
-      {gloss && (
-        <span
-          className="mt-0.5 block text-[11.5px]"
-          style={{ color: "var(--color-text-tertiary)" }}
-        >
-          {gloss}
-        </span>
-      )}
     </button>
   );
 }

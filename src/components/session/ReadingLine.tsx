@@ -30,7 +30,6 @@ export function ReadingLine() {
             title={copy("menu.titleBenchmark")}
             options={benchmarkOptions}
             activeKind={benchmark.kind}
-            glossKey={(kind) => `readingLine.bgloss.${kind}`}
             onSelect={(opt) => {
               setBenchmark(opt);
               close();
@@ -51,7 +50,6 @@ export function ReadingLine() {
             title={copy("menu.titleReference")}
             options={referenceOptions}
             activeKind={reference.kind}
-            glossKey={(kind) => `readingLine.gloss.${kind}`}
             showFamilyDividers
             onSelect={(opt) => {
               setReference(opt);
@@ -154,14 +152,12 @@ function ChipOptions<T extends ReferenceKind | BenchmarkKind>({
   title,
   options,
   activeKind,
-  glossKey,
   onSelect,
   showFamilyDividers,
 }: {
   title: string;
   options: Array<{ kind: T; label: string }>;
   activeKind: T;
-  glossKey: (kind: T) => string;
   onSelect: (opt: { kind: T; label: string }) => void;
   showFamilyDividers?: boolean;
 }) {
@@ -180,7 +176,6 @@ function ChipOptions<T extends ReferenceKind | BenchmarkKind>({
         {options.map((opt, idx) => {
           const active = opt.kind === activeKind;
           const isDefault = opt.kind === options[0].kind;
-          const gloss = copy(glossKey(opt.kind));
           const dividerAfter =
             showFamilyDividers &&
             idx < options.length - 1 &&
@@ -221,14 +216,6 @@ function ChipOptions<T extends ReferenceKind | BenchmarkKind>({
                     )}
                   </span>
                 </span>
-                {gloss && (
-                  <span
-                    className="mt-0.5 block text-[11.5px]"
-                    style={{ color: "var(--color-text-tertiary)" }}
-                  >
-                    {gloss}
-                  </span>
-                )}
               </button>
               {dividerAfter && (
                 <div
