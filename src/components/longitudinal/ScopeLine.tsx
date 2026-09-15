@@ -23,7 +23,7 @@
  */
 import { ChevronDown, Filter as FilterIcon, Check, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { copy, tmpl } from "@/lib/copy-deck";
+import { copy } from "@/lib/copy-deck";
 import { LegendPopover } from "./LegendPopover";
 import type { LongiWindow, Horizon } from "@/lib/longitudinal-data";
 import {
@@ -255,7 +255,7 @@ function BenchmarkChip({
             <OptionRow
               key={k}
               label={benchLabel(k, horizon)}
-              gloss={benchGloss(k, horizon)}
+              gloss={benchGloss(k)}
               checked={k === active}
               isDefault={k === DEFAULT_BENCH}
               onClick={() => {
@@ -301,7 +301,7 @@ function ReferenceChip({
             <div key={k}>
               <OptionRow
                 label={refLabel(k, horizon)}
-                gloss={refGloss(k, horizon)}
+                gloss={refGloss(k)}
                 checked={k === active}
                 isDefault={k === DEFAULT_REF}
                 onClick={() => {
