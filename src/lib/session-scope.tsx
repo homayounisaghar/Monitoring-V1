@@ -31,6 +31,7 @@ import { parseShareUrl, type SquadDisplay, type SquadSort, type SquadView } from
 
 
 export type ReferenceKind =
+  | "own_match_benchmark"
   | "own_typical"
   | "positional"
   | "cohort"
@@ -38,10 +39,12 @@ export type ReferenceKind =
   | "season"
   | "same_opponent";
 export type BenchmarkKind =
+  | "match_benchmark"
   | "typical_daytype"
   | "typical_match"
   | "last_match"
   | "last_5"
+  | "season"
   | "same_opponent";
 
 export type BenchmarkOption = { kind: BenchmarkKind; label: string };
@@ -49,20 +52,23 @@ export type BenchmarkOption = { kind: BenchmarkKind; label: string };
 export type ReferenceOption = { kind: ReferenceKind; label: string };
 
 export const REFERENCE_OPTIONS: ReferenceOption[] = [
-  { kind: "own_typical",   label: "their typical match" },
-  { kind: "last_n",        label: "last 5 matches" },
-  { kind: "season",        label: "season average" },
-  { kind: "positional",    label: "positional norm" },
-  { kind: "cohort",        label: "squad average" },
-  { kind: "same_opponent", label: "same opponent" },
+  { kind: "own_match_benchmark", label: "their full matches" },
+  { kind: "own_typical",         label: "their typical, matched by day type" },
+  { kind: "last_n",              label: "their last 5 sessions" },
+  { kind: "season",              label: "their season average" },
+  { kind: "positional",          label: "same-position average" },
+  { kind: "cohort",              label: "squad average" },
+  { kind: "same_opponent",       label: "same opponent" },
 ];
 
-// Match menu — the day-type typical of a match IS "typical match".
+// Match menu — the day-type typical of a match IS "typical, matched by day type".
 export const BENCHMARK_OPTIONS: BenchmarkOption[] = [
-  { kind: "typical_match", label: "typical match" },
-  { kind: "last_match",    label: "last match" },
-  { kind: "last_5",        label: "last 5 matches" },
-  { kind: "same_opponent", label: "same opponent" },
+  { kind: "match_benchmark", label: "full matches" },
+  { kind: "typical_match",   label: "typical, matched by day type" },
+  { kind: "last_match",      label: "last match" },
+  { kind: "last_5",          label: "last 5 matches" },
+  { kind: "season",          label: "season average" },
+  { kind: "same_opponent",   label: "same opponent" },
 ];
 
 // Demo day code for the training-day scenario. Placeholder like the rest.

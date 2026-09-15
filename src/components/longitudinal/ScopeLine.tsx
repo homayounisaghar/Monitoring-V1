@@ -9,12 +9,13 @@
  * chip carries a dismissible × that resets to default.
  *
  * Benchmark set is Longitudinal-specific (one family — the squad's own
- * history): typical_daytype (default), previous_window, season. The
- * match-scoped options (typical_match, last_match, same_opponent) have
+ * history): match_benchmark (squad full matches), typical_daytype (default),
+ * last_5, season. The match-scoped options (last_match, same_opponent) have
  * no referent for a multi-day window and live only on Session.
  *
- * Reference set: own_typical (default), previous_window, season,
- * positional, cohort. Hairline separator after "season".
+ * Reference set: own_match_benchmark (their full matches), own_typical
+ * (default), last_n, season, positional, cohort. Hairline separator after
+ * "season".
  *
  * Filter categories in fixed order: Participation, Positions, Athletes,
  * Session-type. Options render and check; Apply produces dismissible chips.
@@ -23,7 +24,7 @@
  */
 import { ChevronDown, Filter as FilterIcon, Check, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { copy, tmpl } from "@/lib/copy-deck";
+import { copy } from "@/lib/copy-deck";
 import { LegendPopover } from "./LegendPopover";
 import type { LongiWindow, Horizon } from "@/lib/longitudinal-data";
 import {
