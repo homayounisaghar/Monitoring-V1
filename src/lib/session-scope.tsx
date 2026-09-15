@@ -31,6 +31,7 @@ import { parseShareUrl, type SquadDisplay, type SquadSort, type SquadView } from
 
 
 export type ReferenceKind =
+  | "full_matches"
   | "own_typical"
   | "positional"
   | "cohort"
@@ -38,30 +39,36 @@ export type ReferenceKind =
   | "season"
   | "same_opponent";
 export type BenchmarkKind =
+  | "full_matches"
   | "typical_daytype"
   | "typical_match"
   | "last_match"
   | "last_5"
+  | "season"
   | "same_opponent";
 
 export type BenchmarkOption = { kind: BenchmarkKind; label: string };
 
 export type ReferenceOption = { kind: ReferenceKind; label: string };
 
+// Canonical comparison vocabulary (ST2 Changeset 01) — fixed order.
+// `same_opponent` has a referent on match sessions only.
 export const REFERENCE_OPTIONS: ReferenceOption[] = [
-  { kind: "own_typical",   label: "their typical match" },
-  { kind: "last_n",        label: "last 5 matches" },
-  { kind: "season",        label: "season average" },
-  { kind: "positional",    label: "positional norm" },
+  { kind: "full_matches",  label: "their full matches" },
+  { kind: "own_typical",   label: "their typical, matched by day type" },
+  { kind: "last_n",        label: "their last 5 sessions" },
+  { kind: "season",        label: "their season average" },
+  { kind: "positional",    label: "same-position average" },
   { kind: "cohort",        label: "squad average" },
   { kind: "same_opponent", label: "same opponent" },
 ];
 
-// Match menu — the day-type typical of a match IS "typical match".
 export const BENCHMARK_OPTIONS: BenchmarkOption[] = [
-  { kind: "typical_match", label: "typical match" },
+  { kind: "full_matches",  label: "full matches" },
+  { kind: "typical_match", label: "typical, matched by day type" },
   { kind: "last_match",    label: "last match" },
   { kind: "last_5",        label: "last 5 matches" },
+  { kind: "season",        label: "season average" },
   { kind: "same_opponent", label: "same opponent" },
 ];
 
