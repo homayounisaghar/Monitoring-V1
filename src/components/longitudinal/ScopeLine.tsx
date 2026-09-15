@@ -9,12 +9,13 @@
  * chip carries a dismissible × that resets to default.
  *
  * Benchmark set is Longitudinal-specific (one family — the squad's own
- * history): typical_daytype (default), previous_window, season. The
- * match-scoped options (typical_match, last_match, same_opponent) have
+ * history): match_benchmark (squad full matches), typical_daytype (default),
+ * last_5, season. The match-scoped options (last_match, same_opponent) have
  * no referent for a multi-day window and live only on Session.
  *
- * Reference set: own_typical (default), previous_window, season,
- * positional, cohort. Hairline separator after "season".
+ * Reference set: own_match_benchmark (their full matches), own_typical
+ * (default), last_n, season, positional, cohort. Hairline separator after
+ * "season".
  *
  * Filter categories in fixed order: Participation, Positions, Athletes,
  * Session-type. Options render and check; Apply produces dismissible chips.
@@ -23,7 +24,7 @@
  */
 import { ChevronDown, Filter as FilterIcon, Check, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { copy, tmpl } from "@/lib/copy-deck";
+import { copy } from "@/lib/copy-deck";
 import { LegendPopover } from "./LegendPopover";
 import type { LongiWindow, Horizon } from "@/lib/longitudinal-data";
 import {
@@ -36,26 +37,30 @@ import { demoAthletes } from "@/lib/demo-library";
 /* ─────────────────── option sets ─────────────────── */
 
 export type BenchKind =
+  | "match_benchmark"
   | "typical_daytype"
-  | "previous_window"
+  | "last_5"
   | "season";
 
 export type RefKind =
+  | "own_match_benchmark"
   | "own_typical"
-  | "previous_window"
+  | "last_n"
   | "season"
   | "positional"
   | "cohort";
 
 export const BENCH_ORDER: BenchKind[] = [
+  "match_benchmark",
   "typical_daytype",
-  "previous_window",
+  "last_5",
   "season",
 ];
 
 export const REF_ORDER: RefKind[] = [
+  "own_match_benchmark",
   "own_typical",
-  "previous_window",
+  "last_n",
   "season",
   "positional",
   "cohort",
@@ -68,35 +73,15 @@ export const DEFAULT_BENCH: BenchKind = "typical_daytype";
 export const DEFAULT_REF: RefKind = "own_typical";
 
 export function benchLabel(k: BenchKind, horizon: Horizon): string {
-  if (k === "previous_window") {
-    return horizon === "season"
-      ? copy("longi.bench.opt.previous_period")
-      : tmpl("longi.bench.opt.previous_window", { n: horizon });
-  }
   return copy(`longi.bench.opt.${k}`);
 }
 export function refLabel(k: RefKind, horizon: Horizon): string {
-  if (k === "previous_window") {
-    return horizon === "season"
-      ? copy("longi.ref.opt.previous_period")
-      : tmpl("longi.ref.opt.previous_window", { n: horizon });
-  }
   return copy(`longi.ref.opt.${k}`);
 }
 function benchGloss(k: BenchKind, horizon: Horizon): string {
-  if (k === "previous_window") {
-    return horizon === "season"
-      ? copy("longi.bench.gloss.previous_period")
-      : tmpl("longi.bench.gloss.previous_window", { n: horizon });
-  }
   return copy(`longi.bench.gloss.${k}`);
 }
 function refGloss(k: RefKind, horizon: Horizon): string {
-  if (k === "previous_window") {
-    return horizon === "season"
-      ? copy("longi.ref.gloss.previous_period")
-      : tmpl("longi.ref.gloss.previous_window", { n: horizon });
-  }
   return copy(`longi.ref.gloss.${k}`);
 }
 

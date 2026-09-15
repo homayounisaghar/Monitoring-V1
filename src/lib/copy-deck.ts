@@ -370,6 +370,8 @@ export const COPY = {
   // last_match, same_opponent) have no referent for a multi-day window
   // and live only on Session (see src/lib/session-scope.tsx).
   "longi.bench.opt.typical_daytype":  "typical, matched by day type",
+  "longi.bench.opt.match_benchmark":  "full matches",
+  "longi.bench.opt.last_5":           "last 5 matches",
   "longi.bench.opt.previous_window":  "previous {n} days",
   "longi.bench.opt.previous_period":  "previous period",
   "longi.bench.opt.season":           "season average",
@@ -379,12 +381,14 @@ export const COPY = {
   "longi.bench.gloss.season":          "the squad's season average for the same day types",
 
   // Reference option labels — five options across two families.
-  "longi.ref.opt.own_typical":      "their typical, matched by day type",
-  "longi.ref.opt.previous_window":  "their previous {n} days",
-  "longi.ref.opt.previous_period":  "their previous period",
-  "longi.ref.opt.season":           "their season average",
-  "longi.ref.opt.positional":       "positional norm",
-  "longi.ref.opt.cohort":           "squad average",
+  "longi.ref.opt.own_typical":        "their typical, matched by day type",
+  "longi.ref.opt.own_match_benchmark": "their full matches",
+  "longi.ref.opt.last_n":             "their last 5 sessions",
+  "longi.ref.opt.previous_window":    "their previous {n} days",
+  "longi.ref.opt.previous_period":    "their previous period",
+  "longi.ref.opt.season":             "their season average",
+  "longi.ref.opt.positional":         "same-position average",
+  "longi.ref.opt.cohort":             "squad average",
   "longi.ref.gloss.own_typical":      "each session against their own typical for that day type",
   "longi.ref.gloss.previous_window":  "the {n} days before this window",
   "longi.ref.gloss.previous_period":  "the period before this window",
