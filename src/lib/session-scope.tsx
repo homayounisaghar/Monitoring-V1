@@ -296,11 +296,17 @@ export function SessionScopeProvider({ children }: { children: ReactNode }) {
 
   const [reference, setReference] = useState<ReferenceOption>(() => {
     const kind = initial.shared.reference;
-    return REFERENCE_OPTIONS.find((o) => o.kind === kind) ?? REFERENCE_OPTIONS[0];
+    return (
+      REFERENCE_OPTIONS.find((o) => o.kind === kind) ??
+      REFERENCE_OPTIONS.find((o) => o.kind === "own_typical")!
+    );
   });
   const [benchmark, setBenchmark] = useState<BenchmarkOption>(() => {
     const kind = initial.shared.benchmark;
-    return BENCHMARK_OPTIONS.find((o) => o.kind === kind) ?? BENCHMARK_OPTIONS[0];
+    return (
+      BENCHMARK_OPTIONS.find((o) => o.kind === kind) ??
+      BENCHMARK_OPTIONS.find((o) => o.kind === "typical_match")!
+    );
   });
   const [filter, setFilter] = useState<Filter>(() => initial.shared.filter ?? emptyFilter);
   const [demo, setDemo] = useState<DemoScenario>("default");
@@ -395,24 +401,25 @@ export function SessionScopeProvider({ children }: { children: ReactNode }) {
   const dayCode = sessionIsTraining ? TRAINING_DAY_CODE : null;
 
   const { benchmarkOptions, defaultBenchmark, referenceOptions, defaultReference } = useMemo(() => {
-    const filteredRef = sessionIsTraining
+    const refOpts = sessionIsTraining
       ? REFERENCE_OPTIONS.filter((o) => o.kind !== "same_opponent")
       : REFERENCE_OPTIONS;
-    const refOpts: ReferenceOption[] = filteredRef.map((o) =>
-      o.kind === "own_typical" && dayCode
-        ? { kind: "own_typical", label: `their typical ${dayCode}` }
-        : o,
-    );
-    const defRef = refOpts[0];
+    // Default selection unchanged by the canonical order: own_typical.
+    const defRef =
+      refOpts.find((o) => o.kind === "own_typical") ?? refOpts[0];
 
     if (dayCode) {
       const dayTypeOpt: BenchmarkOption = {
         kind: "typical_daytype",
-        label: `typical ${dayCode}`,
+        label: "typical, matched by day type",
       };
+      // Training menu: day-type typical leads; typical_match would duplicate
+      // its label and same_opponent has no referent — both absent.
       const benchOpts = [
         dayTypeOpt,
-        ...BENCHMARK_OPTIONS.filter((o) => o.kind !== "same_opponent"),
+        ...BENCHMARK_OPTIONS.filter(
+          (o) => o.kind !== "same_opponent" && o.kind !== "typical_match",
+        ),
       ];
       return {
         benchmarkOptions: benchOpts,
@@ -423,7 +430,9 @@ export function SessionScopeProvider({ children }: { children: ReactNode }) {
     }
     return {
       benchmarkOptions: BENCHMARK_OPTIONS,
-      defaultBenchmark: BENCHMARK_OPTIONS[0],
+      defaultBenchmark:
+        BENCHMARK_OPTIONS.find((o) => o.kind === "typical_match") ??
+        BENCHMARK_OPTIONS[0],
       referenceOptions: refOpts,
       defaultReference: defRef,
     };

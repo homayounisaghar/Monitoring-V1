@@ -136,7 +136,12 @@ export function SummaryCard() {
     sessionIsTraining,
   } = useSessionScope();
 
-  const refs = SQUAD_REF[benchmark.kind];
+  // New vocabulary kinds (full_matches, season) carry no referent values
+  // yet — the menu is a costume; fall back to the typical-match refs.
+  const refs: BenchRefs =
+    benchmark.kind in SQUAD_REF
+      ? SQUAD_REF[benchmark.kind as BenchKey]
+      : SQUAD_REF.typical_match;
   const marks = SESSION_MARKS;
 
   // Coverage — squad aggregate on effective data.
