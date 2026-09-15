@@ -8,12 +8,12 @@
  * labels take the slate tint, chip and echoing ticks alike; a non-default
  * chip carries a dismissible × that resets to default.
  *
- * Benchmark set is Longitudinal-specific (one family — the squad's own
- * history): typical_daytype (default), previous_window, season. The
- * match-scoped options (typical_match, last_match, same_opponent) have
- * no referent for a multi-day window and live only on Session.
+ * Benchmark set (canonical vocabulary, ST2 Changeset 01): full_matches,
+ * typical_daytype (default), last_5, season. The match-scoped options
+ * (typical_match, last_match, same_opponent) have no referent for a
+ * multi-day window and live only on Session.
  *
- * Reference set: own_typical (default), previous_window, season,
+ * Reference set: full_matches, own_typical (default), last_n, season,
  * positional, cohort. Hairline separator after "season".
  *
  * Filter categories in fixed order: Participation, Positions, Athletes,
@@ -36,26 +36,30 @@ import { demoAthletes } from "@/lib/demo-library";
 /* ─────────────────── option sets ─────────────────── */
 
 export type BenchKind =
+  | "full_matches"
   | "typical_daytype"
-  | "previous_window"
+  | "last_5"
   | "season";
 
 export type RefKind =
+  | "full_matches"
   | "own_typical"
-  | "previous_window"
+  | "last_n"
   | "season"
   | "positional"
   | "cohort";
 
 export const BENCH_ORDER: BenchKind[] = [
+  "full_matches",
   "typical_daytype",
-  "previous_window",
+  "last_5",
   "season",
 ];
 
 export const REF_ORDER: RefKind[] = [
+  "full_matches",
   "own_typical",
-  "previous_window",
+  "last_n",
   "season",
   "positional",
   "cohort",
@@ -67,37 +71,23 @@ const REF_FAMILY_END: ReadonlySet<RefKind> = new Set(["season"]);
 export const DEFAULT_BENCH: BenchKind = "typical_daytype";
 export const DEFAULT_REF: RefKind = "own_typical";
 
-export function benchLabel(k: BenchKind, horizon: Horizon): string {
-  if (k === "previous_window") {
-    return horizon === "season"
-      ? copy("longi.bench.opt.previous_period")
-      : tmpl("longi.bench.opt.previous_window", { n: horizon });
-  }
+export function benchLabel(k: BenchKind, _horizon: Horizon): string {
   return copy(`longi.bench.opt.${k}`);
 }
-export function refLabel(k: RefKind, horizon: Horizon): string {
-  if (k === "previous_window") {
-    return horizon === "season"
-      ? copy("longi.ref.opt.previous_period")
-      : tmpl("longi.ref.opt.previous_window", { n: horizon });
-  }
+export function refLabel(k: RefKind, _horizon: Horizon): string {
   return copy(`longi.ref.opt.${k}`);
 }
-function benchGloss(k: BenchKind, horizon: Horizon): string {
-  if (k === "previous_window") {
-    return horizon === "season"
-      ? copy("longi.bench.gloss.previous_period")
-      : tmpl("longi.bench.gloss.previous_window", { n: horizon });
-  }
-  return copy(`longi.bench.gloss.${k}`);
+
+// Glosses exist only for kinds that carried them before Changeset 01;
+// new kinds render no gloss until their copy lands in a later step.
+const BENCH_GLOSSED: ReadonlySet<BenchKind> = new Set(["typical_daytype", "season"]);
+const REF_GLOSSED: ReadonlySet<RefKind> = new Set(["own_typical", "season", "positional", "cohort"]);
+
+function benchGloss(k: BenchKind): string {
+  return BENCH_GLOSSED.has(k) ? copy(`longi.bench.gloss.${k}`) : "";
 }
-function refGloss(k: RefKind, horizon: Horizon): string {
-  if (k === "previous_window") {
-    return horizon === "season"
-      ? copy("longi.ref.gloss.previous_period")
-      : tmpl("longi.ref.gloss.previous_window", { n: horizon });
-  }
-  return copy(`longi.ref.gloss.${k}`);
+function refGloss(k: RefKind): string {
+  return REF_GLOSSED.has(k) ? copy(`longi.ref.gloss.${k}`) : "";
 }
 
 
