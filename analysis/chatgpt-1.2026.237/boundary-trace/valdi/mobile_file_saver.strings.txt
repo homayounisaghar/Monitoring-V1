@@ -1,0 +1,20 @@
+src/MobileFileSaver.js
+Jmobile_file_saver/src/MobileFileSaver
+require
+module
+exports
+__esModule
+saveFileForUser../NativeMobileFileSaver
+filenameJCannot save a file without a filename
+bytes0Cannot save empty file "
+saveMobileFile&Unable to save file
+O@
+E
+"&O
+A
+98
+(A
+l
+)
+hash@
+5536471bf07dd4674fbe7771db0f466850397647c937c7206ed258cdff9269b7

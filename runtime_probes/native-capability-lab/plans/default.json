@@ -1,0 +1,52 @@
+{
+  "schema": 1,
+  "suite": "conversation_history_title_binding_v17_temporal_diff_rename_reopen",
+  "targetVersion": "1.2026.237",
+  "targetSignerSha256": "b24f4bfbb3cf293f938703b9d87027c1102cc36dc4fa206910e08927db40473c",
+  "steps": [
+    {
+      "op": "resume_chatgpt"
+    },
+    {
+      "op": "wait",
+      "ms": 700
+    },
+    {
+      "op": "history_title_baseline",
+      "timeoutMs": 20000,
+      "settleMs": 1400
+    },
+    {
+      "op": "launch_prompt",
+      "prompt": "Capability Lab temporal History title-binding proof. Reply with exactly this marker and no other text: {{marker}}"
+    },
+    {
+      "op": "capture_tree",
+      "label": "pre_send_temporal_title_draft",
+      "timeoutMs": 8000
+    },
+    {
+      "op": "semantic_send",
+      "timeoutMs": 15000
+    },
+    {
+      "op": "capture_tree",
+      "label": "post_send_temporal_title_receipt",
+      "timeoutMs": 8000
+    },
+    {
+      "op": "wait",
+      "ms": 900
+    },
+    {
+      "op": "history_title_binding",
+      "timeoutMs": 36000,
+      "settleMs": 1200,
+      "correlationWaitMs": 15000
+    },
+    {
+      "op": "finish",
+      "inconclusiveStatus": "INCONCLUSIVE_HISTORY_TITLE_TEMPORAL_DIFF_NOT_VERIFIED"
+    }
+  ]
+}

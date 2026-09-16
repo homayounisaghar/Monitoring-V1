@@ -1,0 +1,224 @@
+name: ChatGPT APK external boundary trace
+
+on:
+  push:
+    branches:
+      - build/pebble-chat-bridge-v019
+    paths:
+      - .github/workflows/chatgpt-apk-boundary-trace.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  trace:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: build/pebble-chat-bridge-v019
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Download exact APK
+        env:
+          LINK_ID: 01a05b9a-9f7f-73ef-8999-5507a44c3b73
+          EXPECTED_SHA256: 50e268c50255ab9aa48be49f0ba668c6f8ef97fd208f3826f19056698ea9f5a4
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib,json,os,pathlib,urllib.request
+          base='https://swisstransfer.infomaniak.com/api/1'; lid=os.environ['LINK_ID']; ua='ChatGPT-ControlPlane-BoundaryTrace/1.0'
+          def j(url):
+              with urllib.request.urlopen(urllib.request.Request(url,headers={'User-Agent':ua,'Accept':'application/json'}),timeout=45) as r:return json.loads(r.read())
+          p=j(f'{base}/links/{lid}?with=transfer').get('data'); f=next(x for x in p['transfer']['files'] if x['path'].lower().endswith('.apk'))
+          url=f"{base}/links/{p.get('id') or lid}/files/{f['id']}?redirect=true"; out=pathlib.Path('chatgpt.apk'); h=hashlib.sha256()
+          with urllib.request.urlopen(urllib.request.Request(url,headers={'User-Agent':ua}),timeout=120) as r,out.open('wb') as w:
+              while True:
+                  b=r.read(1048576)
+                  if not b:break
+                  w.write(b);h.update(b)
+          if h.hexdigest()!=os.environ['EXPECTED_SHA256']:raise RuntimeError('APK SHA mismatch')
+          print('verified',h.hexdigest(),out.stat().st_size)
+          PY
+
+      - name: Install JADX and Python tools
+        run: |
+          set -euo pipefail
+          python3 -m pip install --quiet androguard zstandard lxml
+          mkdir -p tools work/apk work/jadx work/valdi-dec work/valdi-text output/analysis/chatgpt-1.2026.237/boundary-trace
+          python3 - <<'PY'
+          import json,urllib.request
+          req=urllib.request.Request('https://api.github.com/repos/skylot/jadx/releases/latest',headers={'User-Agent':'boundary-trace','Accept':'application/vnd.github+json'})
+          with urllib.request.urlopen(req,timeout=45) as r:rel=json.load(r)
+          a=next(x for x in rel['assets'] if x['name'].startswith('jadx-') and x['name'].endswith('.zip'))
+          urllib.request.urlretrieve(a['browser_download_url'],'tools/jadx.zip')
+          PY
+          unzip -q tools/jadx.zip -d tools/jadx
+          unzip -q chatgpt.apk 'classes*.dex' 'assets/*.valdimodule' -d work/apk
+
+      - name: Decode exact manifest including alias targets and metadata
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from androguard.core.apk import APK
+          from lxml import etree
+          from pathlib import Path
+          a=APK('chatgpt.apk'); x=a.get_android_manifest_xml(); x=x.getroot() if hasattr(x,'getroot') else x
+          Path('output/analysis/chatgpt-1.2026.237/boundary-trace/AndroidManifest.decoded.xml').write_bytes(etree.tostring(x,pretty_print=True,encoding='utf-8',xml_declaration=True))
+          A='{http://schemas.android.com/apk/res/android}'
+          rows=['# External Android boundary inventory','']
+          app=x.find('application')
+          for typ in ['activity','activity-alias','service','receiver','provider']:
+              for e in app.findall(typ):
+                  name=e.get(A+'name',''); exp=e.get(A+'exported','<unspecified>'); target=e.get(A+'targetActivity',''); perm=e.get(A+'permission',''); enabled=e.get(A+'enabled','<default>')
+                  if exp!='true' and typ!='activity-alias': continue
+                  rows.append(f'## {typ} `{name}`')
+                  rows.append(f'- exported: `{exp}`')
+                  rows.append(f'- enabled: `{enabled}`')
+                  if target:rows.append(f'- targetActivity: `{target}`')
+                  if perm:rows.append(f'- permission: `{perm}`')
+                  for fil in e.findall('intent-filter'):
+                      acts=[z.get(A+'name') for z in fil.findall('action')]
+                      cats=[z.get(A+'name') for z in fil.findall('category')]
+                      data=[]
+                      for d in fil.findall('data'):
+                          dd={k:d.get(A+k) for k in ['scheme','host','path','pathPrefix','pathPattern','mimeType'] if d.get(A+k)}
+                          data.append(dd)
+                      rows.append(f'- intent: actions={acts}; categories={cats}; data={data}')
+                  rows.append('')
+          Path('output/analysis/chatgpt-1.2026.237/boundary-trace/EXTERNAL_BOUNDARIES.md').write_text('\n'.join(rows),encoding='utf-8')
+          PY
+
+      - name: Decompile exact APK
+        run: |
+          set -euo pipefail
+          timeout 900 tools/jadx/bin/jadx --no-res --threads-count 2 --comments-level none --show-bad-code -d work/jadx chatgpt.apk >work/jadx.out 2>work/jadx.err || true
+          echo "source_files=$(find work/jadx/sources -type f -name '*.java' | wc -l)" > output/analysis/chatgpt-1.2026.237/boundary-trace/JADX_STATUS.txt
+          tail -n 40 work/jadx.err >> output/analysis/chatgpt-1.2026.237/boundary-trace/JADX_STATUS.txt || true
+
+      - name: Persist selected first-party activity/service sources
+        run: |
+          set -euo pipefail
+          OUT=output/analysis/chatgpt-1.2026.237/boundary-trace
+          python3 - <<'PY'
+          import pathlib
+          root=pathlib.Path('work/jadx/sources'); out=pathlib.Path('output/analysis/chatgpt-1.2026.237/boundary-trace/FIRST_PARTY_ENTRY_SOURCES.md')
+          wanted=[
+            'com/openai/chatgpt/MainActivity.java','com/openai/chatgpt/ChatGptDeeplinkActivity.java',
+            'com/openai/feature/assistant/impl/AssistantProxyActivity.java','com/openai/voice/assistant/AssistantActivity.java',
+            'com/openai/feature/assistant/impl/AssistantVoiceInteractionService.java','com/openai/feature/voice/impl/quicktile/QuickTileService.java',
+            'com/openai/feature/conversations/screencontext/ConversationScreenAccessibilityService.java'
+          ]
+          s=['# Selected first-party exported entry sources','']
+          for rel in wanted:
+              p=root/rel; s.append(f'## `{rel}`')
+              if p.exists():
+                  txt=p.read_text(errors='ignore'); s += ['```java',txt[:40000],'```','']
+              else:s += ['_not decompiled at expected path_','']
+          out.write_text('\n'.join(s),encoding='utf-8')
+          PY
+
+      - name: Trace external share attachment and voice boundaries
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import pathlib,re
+          root=pathlib.Path('work/jadx/sources'); outdir=pathlib.Path('output/analysis/chatgpt-1.2026.237/boundary-trace')
+          topics={
+          'SHARE_INTENT_INTAKE': [r'android\.intent\.action\.SEND',r'SEND_MULTIPLE',r'android\.intent\.extra\.STREAM',r'EXTRA_STREAM',r'getClipData\(',r'ClipData',r'getParcelableExtra',r'getParcelableArrayListExtra',r'hasAttachedRouteAttachments',r'Share attachment wait timed out'],
+          'ATTACHMENT_PIPELINE': [r'PendingAttachmentPreparationHandler',r'ConversationAttachmentsRegistry',r'FileUploadManager',r'CHATGPT_FILE_UPLOAD',r'attachmentUri',r'attachmentAssetPointer',r'FileUploadDocument',r'Content URI upload'],
+          'VOICE_ENTRY': [r'AssistantActivity',r'AssistantProxyActivity',r'android_voice_entry_existing_chat_action',r'CHATGPT_COLD_START_DESTINATION_VOICE_MODE',r'\?mode=voice',r'/voice',r'QuickTileService',r'VoiceModeForegroundService'],
+          'CONVERSATION_MANAGEMENT': [r'ConversationManagementUseCase/archiveConversation',r'ConversationManagementUseCase/deleteConversation',r'archiveConversation',r'deleteConversation',r'renameConversation',r'setConversationPinned',r'share.*conversation',r'BranchInNewChat'],
+          'MESSAGE_ACTIONS': [r'regenerateResponse',r'Regenerate response',r'Retry response',r'Edit message',r'submitEditedPrompt',r'stop.*generation',r'cancel.*generation',r'copyAssistantMessage'],
+          'MODEL_AND_TOOLS': [r'modelSelection',r'useAccountDefaultModel',r'Choose Intelligence',r'handleModelChange',r'connector_openai',r'GoogleConnectors',r'web_search',r'web.?search',r'image_gen',r'image.?generation'],
+          'CONVERSATION_ID_READSIDE': [r'onConversationIdsChanged',r'syncActiveConversationIds',r'ActivelyStreamingConversationRepository/conversationIds',r'conversationId=',r'CONVERSATION_BUBBLE_CONVERSATION_ID',r'getHasAttachedRouteAttachments',r'externallyOpenedRemoteConversationIds']
+          }
+          # Skip third party and resource constants. Prioritize explicit first-party package then obfuscated defpackage.
+          files=[]
+          for base in [root/'com/openai',root/'defpackage']:
+              if base.exists():files.extend(sorted(base.rglob('*.java')))
+          for topic,patterns in topics.items():
+              regs=[re.compile(x,re.I) for x in patterns]; rows=[f'# {topic}','']; total=0; filehits=0
+              for p in files:
+                  try:lines=p.read_text(errors='ignore').splitlines()
+                  except:continue
+                  inds=[]
+                  for i,line in enumerate(lines):
+                      if any(r.search(line) for r in regs):inds.append(i)
+                  if not inds:continue
+                  filehits+=1; rel=p.relative_to(root); rows.append(f'## `{rel}`')
+                  used=[]
+                  for i in inds[:24]:
+                      lo=max(0,i-4);hi=min(len(lines),i+5)
+                      if any(abs(i-u)<6 for u in used):continue
+                      used.append(i);total+=1
+                      rows += [f'### line {i+1}','```java']+[f'{j+1}: {lines[j][:700]}' for j in range(lo,hi)]+['```','']
+                      if total>=300:break
+                  if total>=300:break
+              rows += [f'_files_with_hits={filehits}; excerpts={total}_','']
+              (outdir/(topic+'.md')).write_text('\n'.join(rows),encoding='utf-8')
+          PY
+
+      - name: Decompress and persist selected Valdi strings
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import io,pathlib,shutil
+          import zstandard as zstd
+          src=pathlib.Path('work/apk/assets'); out=pathlib.Path('output/analysis/chatgpt-1.2026.237/boundary-trace/valdi')
+          out.mkdir(parents=True,exist_ok=True)
+          names=['chatgpt_conversation','chatgpt_services','chatgpt_library','chatgpt_global_search','oai_file_picker','oai_voice_service','oai_platform_services','mobile_file_saver','native_menu']
+          for name in names:
+              p=src/(name+'.valdimodule')
+              if not p.exists():continue
+              data=p.read_bytes(); dec=data
+              if data[:4]==b'\x28\xb5\x2f\xfd':
+                  try:
+                      with zstd.ZstdDecompressor().stream_reader(io.BytesIO(data)) as r:dec=r.read()
+                  except Exception:dec=data
+              # approximate GNU strings semantics, but preserve all printable runs >=4
+              import re
+              vals=[m.group().decode('utf-8','ignore') for m in re.finditer(rb'[\x20-\x7e\x80-\xff]{4,}',dec)]
+              (out/(name+'.strings.txt')).write_text('\n'.join(vals),encoding='utf-8')
+          PY
+
+      - name: Build concise boundary conclusions from exact evidence anchors
+        run: |
+          set -euo pipefail
+          OUT=output/analysis/chatgpt-1.2026.237/boundary-trace
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('output/analysis/chatgpt-1.2026.237/boundary-trace')
+          txt=(p/'EXTERNAL_BOUNDARIES.md').read_text(errors='ignore')
+          conclusions=['# Boundary trace checkpoint','',
+          'This file is a mechanical checkpoint; architecture classification must be reviewed against the source/excerpts before promotion.','',
+          '## Mechanical facts','']
+          facts=[
+           ('MainActivity ACTION_SEND','android.intent.action.SEND'),('MainActivity ACTION_SEND_MULTIPLE','android.intent.action.SEND_MULTIPLE'),
+           ('PROCESS_TEXT alias','android.intent.action.PROCESS_TEXT'),('image EDIT alias','android.intent.action.EDIT'),
+           ('AssistantProxy ASSIST','android.intent.action.ASSIST'),('AssistantActivity exported','com.openai.voice.assistant.AssistantActivity'),
+           ('QuickTile service','com.openai.feature.voice.impl.quicktile.QuickTileService'),('voice deeplink path','path=/voice'),
+           ('tasks deeplink path','path=/tasks'),('scheduled deeplink path','path=/scheduled'),('images deeplink path','pathPrefix=/images'),('image-gen deeplink path','pathPrefix=/image-gen')]
+          for label,needle in facts: conclusions.append(f'- {label}: **{"YES" if needle in txt else "NO"}**')
+          (p/'BOUNDARY_CHECKPOINT.md').write_text('\n'.join(conclusions),encoding='utf-8')
+          PY
+
+      - name: Commit durable boundary trace
+        run: |
+          set -euo pipefail
+          rm -rf analysis/chatgpt-1.2026.237/boundary-trace
+          mkdir -p analysis/chatgpt-1.2026.237
+          cp -a output/analysis/chatgpt-1.2026.237/boundary-trace analysis/chatgpt-1.2026.237/
+          git config user.name 'chatgpt-control-plane-bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add analysis/chatgpt-1.2026.237/boundary-trace
+          if ! git diff --cached --quiet; then
+            git commit -m 'persist ChatGPT APK external boundary trace'
+            git push origin HEAD:build/pebble-chat-bridge-v019
+          fi

@@ -1,0 +1,20 @@
+src/VoiceTypes.js
+@oai_voice_service/src/VoiceTypes
+require
+module
+exports
+__esModule VoiceSessionMode$VoiceSessionStatus
+Dictation
+Advanced
+Connecting
+Listening
+Thinking
+Speaking
+O@
+&sm
+Lҷ
+Lҷ
+LҸ
+Lҹ
+hash@
+c0b7e53eaf1c1489a70b521e7662004652d9c10622812553fdce958c2fa8f98d

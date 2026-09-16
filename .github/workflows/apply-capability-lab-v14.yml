@@ -1,0 +1,48 @@
+name: Apply Capability Lab v0.14 Indexed Marker Reopen
+
+on:
+  push:
+    branches:
+      - build/pebble-chat-bridge-v019
+    paths:
+      - '.github/workflows/apply-capability-lab-v14.yml'
+      - 'build_tools/apply_capability_lab_v14_indexed_marker_reopen.py'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Apply v0.14 patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 build_tools/apply_capability_lab_v14_indexed_marker_reopen.py
+          git diff --check
+          grep -Fq "versionCode 14" runtime_probes/native-capability-lab/app/build.gradle
+          grep -Fq "conversation_search_binding_v9_indexed_marker_reopen" runtime_probes/native-capability-lab/plans/default.json
+          grep -Fq 'LAB_CID_9FC96C5A35E04E5B' runtime_probes/native-capability-lab/plans/default.json
+          grep -Fq 'GLOBAL_SEARCH_MARKER_OVERRIDE' runtime_probes/native-capability-lab/app/src/main/java/com/openai/controlplane/capabilitylab/LabAccessibilityService.java
+          grep -Fq 'GLOBAL_SEARCH_QUERY_RECEIPT' runtime_probes/native-capability-lab/app/src/main/java/com/openai/controlplane/capabilitylab/LabAccessibilityService.java
+
+      - name: Commit patched runtime source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add runtime_probes/native-capability-lab
+          if git diff --cached --quiet; then
+            echo "No runtime patch changes to commit"
+            exit 0
+          fi
+          git commit -m "Probe indexed marker SearchBinding in Capability Lab v0.14"
+          git push origin HEAD:build/pebble-chat-bridge-v019

@@ -1,0 +1,58 @@
+name: Apply Capability Lab v0.21 HistoryTitleBinding
+
+on:
+  push:
+    branches: [build/pebble-chat-bridge-v019]
+    paths:
+      - '.github/workflows/apply-capability-lab-v21-history-title.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: build/pebble-chat-bridge-v019
+          fetch-depth: 0
+      - name: Apply v0.21 HistoryTitleBinding patch
+        run: |
+          set -euo pipefail
+          python3 build_tools/apply_capability_lab_v21_history_title.py
+      - name: Verify v0.21 contract
+        run: |
+          set -euo pipefail
+          ROOT=runtime_probes/native-capability-lab
+          SVC="$ROOT/app/src/main/java/com/openai/controlplane/capabilitylab/LabAccessibilityService.java"
+          STORE="$ROOT/app/src/main/java/com/openai/controlplane/capabilitylab/LabStore.java"
+          PLAN="$ROOT/plans/default.json"
+          git diff --check
+          grep -Fq 'versionCode 21' "$ROOT/app/build.gradle"
+          grep -Fq '0.21-native-capability-lab-stable-history-title-binding' "$ROOT/app/build.gradle"
+          grep -Fq 'conversation_history_title_binding_v16_rename_reopen' "$PLAN"
+          grep -Fq '"op": "history_title_binding"' "$PLAN"
+          ! grep -Fq 'global_search_binding' "$PLAN"
+          ! grep -Fq 'history_recent_binding' "$PLAN"
+          grep -Fq 'HISTORY_TITLE_ROW_CORRELATION' "$SVC"
+          grep -Fq 'HISTORY_TITLE_ROW_LONG_CLICK' "$SVC"
+          grep -Fq 'HISTORY_TITLE_RENAME_DRAFT_SET' "$SVC"
+          grep -Fq 'HISTORY_TITLE_RENAME_RECEIPT_SCAN' "$SVC"
+          grep -Fq 'HISTORY_TITLE_REOPEN_VERIFIED' "$SVC"
+          grep -Fq 'RENAME_CLAIM durable=true' "$STORE"
+          grep -Fq 'RENAME_RECEIPT exactTitleUnique=true' "$STORE"
+          grep -Fq 'VERIFIED_HISTORY_TITLE_BINDING' "$STORE"
+          ! grep -Fq 'dispatchGesture' "$SVC"
+          ! grep -Fq 'getBoundsInScreen' "$SVC"
+          ! grep -Fq 'GLOBAL_ACTION_' "$SVC"
+      - name: Commit runtime v0.21
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add runtime_probes/native-capability-lab
+          git commit -m 'Test bounded HistoryTitleBinding rename reopen v0.21'
+          git push origin HEAD:build/pebble-chat-bridge-v019

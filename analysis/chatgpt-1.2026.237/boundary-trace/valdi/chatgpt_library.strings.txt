@@ -1,0 +1,886 @@
+src/LibraryLayout.js
+,Bchatgpt_library/src/LibraryLayout
+require
+module
+exports
+__esModule(ChatGPTLibraryLayout@resolveChatGPTLibraryGridMetrics(filteredLibraryItems*libraryGridCardHeightbchatgpt_services/src/library/ChatGPTLibraryClient
+Grid
+List
+floor
+cardWidth
+columnCount
+contentWidth
+trim"toLocaleLowerCase
+filter
+title
+subtitle
+mimeType
+category
+provider
+entityType
+includes
+kind,ChatGPTLibraryItemKind
+Directory
+round
+SavedEntity
+O@
+
+&
+Lҷ
+Ҿ($
+e
+8
+$
+(B
+ү(
+/8
+(A
+/8
+((
+(\?
+?
+src/ChatGPTLibraryScreen.js
+Pchatgpt_library/src/ChatGPTLibraryScreen
+require
+module
+exports
+Rt(ChatGPTLibraryScreen
+__esModuleFvaldi_core/src/ValdiRuntimeProvider
+getValdiRuntime$valdi_core/src/JSX
+jsx,makeComponentPrototype"makeNodePrototype
+view
+accessibilityId
+chatgpt.library
+scroll(chatgpt.library.back
+label(chatgpt.library.menu$accessibilityLabel
+Library menu
+" " " 
+horizontal,chatgpt.library.search8chatgpt.library.storage-full(Your library is full
+Manage
+Done6chatgpt.library.layout.grid
+View as grid
+%6chatgpt.library.layout.list
+View as list
+7&2chatgpt.library.load-moreBchatgpt.library.suggested-folders
+Folders View all folders
+View all
+size
+%(chatgpt.library.grid(chatgpt.library.list
+Selected
+'.chatgpt.library.loading(Loading your library*chatgpt.library.empty*chatgpt.library.error
+!,Unable to load Library
+Try again@chatgpt.library.selection-footer<chatgpt.library.selection.chat
+ChatDchatgpt.library.selection.download
+Download@chatgpt.library.selection.delete
+Delete6chatgpt.library.menu-dialog8chatgpt.library.menu-options
+title
+Library:chatgpt.library.delete-dialog&Delete from Library(Delete from Library?
+CancelHchatgpt.library.create-folder-dialog
+Create folderDchatgpt.library.create-folder-name
+Folder name
+maxLength
+maxRows
+placeholder
+rows
+Createbchatgpt_services/src/library/ChatGPTLibraryClient<dil_icon_assets/src/IconAssets4oai_core/src/OAIAttributes*oai_core/src/OAITheme,oai_core/src/OAITokensNoai_ui/src/components/ActivityIndicatorPoai_ui/src/components/AuthenticatedImage8oai_ui/src/components/Button8oai_ui/src/components/Dialog4oai_ui/src/components/Icon@oai_ui/src/components/IconButton6oai_ui/src/components/Image>oai_ui/src/components/PressableBoai_ui/src/components/SearchFieldFoai_ui/src/components/SelectionMenu4oai_ui/src/components/Text<oai_ui/src/components/TextArea0valdi_core/src/Component*valdi_core/src/Device(valdi_core/src/Style2valdi_core/src/SystemFont0./ChatGPTLibraryFixtures
+./LibraryLayout
+Suggested*ChatGPTLibrarySurface
+surface
+Favorites
+Images
+category
+Files
+video
+audio
+text
+other"StatefulComponent
+onCreate
+onDestroy
+onRender
+renderHeader
+renderRootTabs&renderFolderFilters
+renderSearch&renderStorageBanner
+renderToolbar
+renderContent,renderSuggestedFolders&renderFolderPreview0renderFolderPreviewMedia
+renderGrid
+renderGridCard
+renderList
+renderListRow"renderItemPreview
+renderThumbnail&handleThumbnailLoad&renderProviderBadge(renderSelectionBadge
+renderLoading
+renderEmpty
+renderError*renderSelectionFooter
+renderMenu$renderDeleteDialog0renderCreateFolderDialog initializeClient
+disposeClient
+loadPage"loadFolderPreview
+isRoot$currentDirectoryId
+pageTitle
+visibleItems
+selectedItems
+selectionActive&serverSearchEnabled*canStartChatSelection(canDownloadSelection$canDeleteSelection
+menuOptions$selectedCountLabel
+sectionTitle
+isSelected
+selectSurface(selectFolderCategory(reloadCurrentSurface
+setLayout
+activateItem
+openItem
+canActivateItem
+toggleSelection
+track
+Style
+OAIColor
+BgPrimary
+backgroundColor
+column
+flexDirection
+100%
+width
+root
+center
+alignItems
+height
+OAISpacing
+OneAndHalf
+paddingLeft
+paddingRight
+header
+flexGrow
+flexShrink
+headerTitle
+TextPrimary
+color$systemSemiboldFont
+font
+numberOfLines
+headerLabel
+alignSelf
+paddingBottom
+content
+marginBottom
+marginLeft
+marginRight
+auto
+tabScroll
+tabRow
+minHeight
+paddingTop
+tab systemMediumFont
+tabLabel tabLabelSelected
+OAIRadius
+Pill
+borderRadius
+bottom
+left
+absolute
+position
+right
+tabIndicator$folderFilterScroll
+folderFilterRow
+searchContainer
+space-between
+justifyContent
+toolbar
+baseline
+toolbarTitle
+TextTertiary
+countLabel
+layoutButtons
+BgStatusWarning
+padding
+storageBanner"storageBannerText$storageBannerTitle
+TextSecondary
+systemFont
+lineHeight"storageBannerBody suggestedFolders,suggestedFoldersHeader
+subsectionTitle&folderPreviewScroll folderPreviewRow
+BgSecondary
+BorderDefault
+borderColor
+borderWidth"folderPreviewCard&ThemeBlueBackground
+Lg"folderPreviewIcon$folderPreviewTitle*folderPreviewSubtitle
+flex-start
+wrap
+flexWrap
+grid
+gridCard
+opacity
+cardSelected
+BgTertiary
+gridPreview
+gridMetadata
+gridTitle
+gridSubtitle
+iconPreview"BgElevatedPrimary
+providerBadge$providerBadgeLabel6InteractiveBgPrimaryDefault"TextInverseStatic
+selectionBadge
+systemBoldFont
+textAlign
+selectionCheck
+list
+listRow
+rowSelected
+listThumbnail
+listText
+listTitle
+listSubtitle
+loading
+loadingHeader
+loadingLabel
+loadingCard
+empty
+emptyIcon
+BgStatusError
+errorIcon
+emptyTitle
+maxWidth
+emptyBody
+loadMore
+zIndex
+selectionFooter
+dialogContent
+dialogTitle
+dialogBody
+flex-end
+marginTop
+dialogActions
+Loading
+Loaded
+Failed createFolderName createFolderOpen$failedThumbnailIds
+folderCategory$folderPreviewItems
+folderStack
+items(ChatGPTLibraryLayout
+Grid
+layout
+loadingMore
+menuOpen
+query
+selectedIds
+state"requestGeneration
+navigateBack
+updateQuery
+submitQuery
+clearSearch
+refresh
+showGrid
+showList
+openMenu
+closeMenu selectMenuOption
+uploadFiles openCreateFolder&dismissCreateFolder,updateCreateFolderName$submitCreateFolder
+createFolder$openFoldersSurface
+clearSelection,startChatWithSelection"downloadSelection*confirmSelectedDelete
+dismissDelete
+deleteCandidate*dismissStorageFixture
+slice
+setState
+context
+navigator
+pop0library_search_submitted
+trim
+queryLength
+cursor
+List
+upload
+new-folder
+select
+call*library_upload_tapped
+client
+activeRequest
+createDirectory
+result
+isDestroyed
+accountId
+viewModel,library_folder_created isLoggingEnabled
+console
+warnFUnable to create a Library folder: 
+startChat
+downloadItems
+deleteItem
+filterBUnable to delete a Library item: :library_storage_manage_tapped
+initialSurface
+fixtureVariant8ChatGPTLibraryFixtureVariant
+Folder
+client-work
+Client work
+assign@resolveChatGPTLibraryGridMetrics
+Device
+getWindowWidth
+beginComponent
+OAITheme(setViewModelProperty
+fill
+mode
+OAIThemeMode
+System
+setUnnamedSlot
+endComponent
+beginRender"setAttributeStyle
+style$setAttributeNumber
+getWindowHeight$getDisplayTopInset
+contentWidth
+endRender
+IconButton
+Back to ChatGPT
+Back to Library
+onPress
+OAIControlSize
+getIconAsset
+arrow-left$setAttributeString2dots-horizontal-more-menu
+forEach
+Pressable
+library-tab-(chatgpt.library.tab.4accessibilityStateSelected,library-folder-filter-<chatgpt.library.folder-filter.
+Show "toLocaleLowerCase
+ in this folder
+background&OnePointSeventyFive
+radius
+Text
+OAITextSize
+LabelLarge
+SearchField
+iconSrc
+search
+onChange
+onSubmit
+Search library
+Search folder
+StorageFull
+Button
+variant
+ButtonVariant
+Secondary
+ item
+ items
+Ghost"IconButtonVariant
+Loading more
+Load more
+ThemeBlueText"suggested-folder->chatgpt.library.folder-preview.
+Open folder 
+subtitle
+cover
+Icon
+folder
+cardWidth*libraryGridCardHeight
+library-grid-*chatgpt.library.item.4accessibilityStateDisabled
+onLongPress
+selected
+selectedStyle
+provider
+library-list-
+IconTertiary
+chevron-right
+kind,ChatGPTLibraryItemKind
+Directory
+IconSecondary
+round
+thumbnailUrl platformServices
+apiService
+includes,requiresAuthentication$AuthenticatedImage
+objectFit
+onAssetLoad
+Image
+A Library thumbnail could not be displayed; showing the item icon instead."ActivityIndicator*ActivityIndicatorSize
+Small
+columnCount library-loading-
+#4No matches in loaded items
+No resultsLLoad more items to continue searching..Try a different search.
+Clear search
+disabled
+Upload files
+IconStatusError
+triangle-alert
+errorHCheck your connection and try again.*getDisplayBottomInset
+Dialog
+isOpen
+onDismiss
+placement
+DialogPlacement
+Bottom
+SelectionMenu
+optionsh will be moved to Deleted and removed after 30 days.
+TextArea
+autoResize4closesWhenReturnKeyPressed
+LiveBcreateChatGPTLibraryFixtureClient|This device does not have an authenticated Library capability.4createChatGPTLibraryClient
+cancel(folderPreviewRequest
+dispose
+load
+directoryId
+categories
+Selection8ChatGPTLibraryCancelledErrorNThe Library is temporarily unavailable.HThe account Library could not load: jThe optional Suggested folder preview could not load.(filteredLibraryItems
+image
+Bookmarks
+every
+File
+SavedEntity
+availability<ChatGPTLibraryItemAvailability
+Unavailable
+New folder
+Select
+ item selected
+ items selected
+find
+Items0library_surface_selected<library_folder_filter_selected,library_layout_changed*library_folder_opened&library_item_opened2originationConversationId openConversation
+trackEvent
+stringify
+suggested
+folders
+favorites
+images
+Uploads
+uploads
+bookmarks
+files
+file
+directory
+saved_entity.ChatGPTLibraryItemState
+Uploading
+Upload failed
+modifiedAt
+Modified 
+mimeType
+Library item
+favorite
+, from 
+isShared
+, shared
+, unavailable
+star
+file-pdf
+presentation"file-presentation
+sheet
+excel file-spreadsheet
+file-image
+file-document
+Presentation
+Spreadsheet
+startsWith
+image/
+Document
+parse
+isFinite
+en-US
+short
+month
+numeric
+recently>Make something worth revisiting
+No folders yet No favorites yet
+No images yet
+Add your files
+No uploads yet No bookmarks yetnYour most useful creations and files will show up here.ZCreate folders to keep related work together.
+Favorite files, messages, places, and products to find them here.dCreate or upload an image and it will appear here.nAsk questions, get summaries, and more with your files.nFiles you upload directly to Library will show up here.\Bookmark files and entities to find them here.
+p;ċ<Č=č>Ď?ď@ĐAđBĒCēDĔEĕFĖGėd
+O@
+m
+n
+o
+p
+q
+r
+s
+t
+u
+v
+w
+x
+y
+z
+{
+|
+}
+~
+Ā
+ā
+Ă
+Ń
+ÄA
+ÄA
+ÄA
+ćd
+ W
+!W
+ňk
+Ċe
+:O%
+nO5
+O8
+O9
+&O>
+O8
+O9
+$O>
+O8
+O9
+(O%
+(O 
+HOw
+JO>
+4O%
+4O 
+0O5
+6O?
+HO%
+HO 
+HO%
+HO 
+Ę)
+----
+55+55&
+5+5!!+
+!+!!5+55&&&5+!&&&5+55&&&+55&!!+++
+!!!5!+!&&&5+55&&&+&5+555&&5+55&+
++55!+5
+5+5!!!+
+&!+5&5+555&5+
++!&&5+5&&&+
+!5!&++5
+&5!&+
+!+
+!+555&+5&+&+
+!+5!!!+
+!+
+!+5
+!!!!5!!+
+!+5
+!&55&&&+
+5+
+!55+55&&&5+
+&&+5!!!+
+!+
+!+55+555&5+
++55&&&5+5
+&5!&+5
+&5!&+
+5+
+&+!5+5&&5+5
+!5&5!&&
+5!&+5
+&!+5
+Lҷ
+LҸ
+Lҷ
+LҸ
++4&
+O
+O
+O
+0LD!&++++
+&&!+
+JJJJ
++!+
+O
+O
+O
+O
+*h
+*h
+JA
+oh
+oh
+00?
+O
+O
+O
+$
+$
+Fh
+A
+8
+B
+($
+A
+%A
+#A
+Hh
+Hh
+A
+A
+l0
+A
+lT
+A
+)B
+&B
+uB
+NB
+'B
+B
+Ҿ((
+AC
+B
+44
+)B
+B
+$
+Hh
+*8
+$
+ffffff?
+A
+(
+AY
+(h
+(
+A
+UT
+Ab
+B
+$
+궨e
+A
++h
+yh
+ZB
+B
+
+
+궨q
+G
+#A
+!I+I+
++!!
+)FA
+A
+A
+FA
+B
+O
+A
+]&+
+)8
+%A3
+O
+5&
+)A
+ʶA
+(
+귡Jή
+(A
+귡Jή
+#A
+A
+(A
++e
+A
+A
+궨(
+JAO
+JA
+Oj
+8
+#A
+A
+A
+O
+A
+O
+
+G
+O
+$
++&0!
+A
+JB
+QB
+AO
+A
+AO
+AO
++!+
+A
+lA
+A
+UT
+B
+ޯ(
+8
+""
+(A
+$A?
+A
+(AO
+(A
+wAO
+A
+A
+ 
+ (
+(AO
+(AO
+(BX
+(BX
+(B
+L8
+G?
+src/ChatGPTLibraryRootScreen.js
+Xchatgpt_library/src/ChatGPTLibraryRootScreen
+require
+module
+exports
+n0ChatGPTLibraryRootScreen
+__esModule$valdi_core/src/JSX
+jsx,makeComponentPrototype0valdi_core/src/Component,./ChatGPTLibraryScreen
+Component
+onRender
+beginComponent(ChatGPTLibraryScreen
+hasContext
+setContext
+assign
+context
+navigator openConversation platformServices
+trackEvent(setViewModelProperty
+accountId
+viewModel
+endComponent
+O@
+O&O
++4&
+src/ChatGPTLibraryFixtures.js
+Tchatgpt_library/src/ChatGPTLibraryFixtures
+require
+module
+exports
+a6FixtureChatGPTLibraryClient
+__esModule8ChatGPTLibraryFixtureVariantBcreateChatGPTLibraryFixtureClientbchatgpt_services/src/library/ChatGPTLibraryClient.library-fixture-accountDdata:image/png;base64,aW52YWxpZA==
+load
+createDirectory
+deleteItem
+dispose
+Live
+Populated
+Empty
+Loading
+Selection
+Folder
+StorageFull
+accountId
+variantPThe fixture Library could not be loaded.
+items
+surface
+directoryId
+assign
+folder-created
+isShared,ChatGPTLibraryItemKind
+Directory
+kind"parentDirectoryId,requiresAuthentication.ChatGPTLibraryItemState
+Ready
+state
+title*ChatGPTLibrarySurface
+Suggested
+filter
+Folders
+Favorites
+Images
+Uploads
+Bookmarks&uploaded-screenshot favorite-product
+trip-notes
+image
+category
+File
+shopping-look(2026-08-21T20:12:00Z
+modifiedAt
+Shopping
+subtitle
+Summer dinner
+#f6cfb8
+#c16f5c
+#6e302d
+thumbnailUrl$Summer dinner look
+garden-render(2026-08-21T16:28:00Z
+Generated image
+Garden
+#b6d6bd
+#3f7656
+#e8f3d6
+?'"Garden renovation
+document
+application/pdf
+mimeType(2026-08-20T18:00:00Z
+PDF  Shared*Kyoto field notes.pdf
+launch-plan
+application/vnd.openxmlformats-officedocument.presentationml.presentation(2026-08-19T14:42:00Z
+Presentation&Q4 launch plan.pptx(2026-08-19T10:05:00Z
+Uploaded image
+Screenshot
+#a8c8f0
+#3e5e9b
+#f4f7ff
+Screenshot.png
+client-work(2026-08-18T12:18:00Z
+12 items
+Client work
+#91c4ee
+#3678ad
+#123d67
+google-drive
+Google Drive
+provider
+Connected
+shared-with-me
+8 items
+Shared with meRA restrained oak chair with a woven seat."entityDescription
+Product
+entityType
+SavedEntity
+Sailmaker
+#d9c2a0
+#735136
+#f8ebd1
+%,Sailmaker dining chair
+folder-brief(2026-08-21T09:35:00Z
+PDF"Project brief.pdf folder-moodboard(2026-08-20T13:10:00Z
+Moodboard
+#d9c1e8
+#725287
+#f7ecff
+folder-research
+4 items
+Research
+#e8c888
+#9b6835
+#4d311b
+startsWith
+data:Bdata:image/svg+xml;charset=utf-8,$encodeURIComponent
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640">
+    <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop stop-color="@"/><stop offset="1" stop-color="
+"/></linearGradient></defs>
+    <rect width="640" height="640" fill="url(#g)"/>
+    <circle cx="540" cy="110" r="150" fill="
+" opacity=".18"/>
+    <circle cx="98" cy="560" r="210" fill="#fff" opacity=".16"/>
+    <rect x="46" y="46" width="548" height="548" rx="38" fill="none" stroke="#fff" stroke-opacity=".45" stroke-width="3"/>
+    <text x="320" y="335" text-anchor="middle" font-family="sans-serif" font-size="160" fill="
+" opacity=".9">
+</text>
+    <text x="320" y="540" text-anchor="middle" font-family="sans-serif" font-size="34" font-weight="600" fill="#fff"> </text>
+  </svg>
+result
+cancel
+O@
+&
+Lҷ
+LҸ
+Lҹ
+LҺ
+Lһ
+LҼ
+Lҽ
+E
+E
+\
+8
+(B
+(B
+(B
+(B
+(B
+(B
+(B
+55555
+55555
+55&5555
+555555
+55555
+555
+555555
+55555
+Fh
+Fh
+(
+hash@
+1ac3652c212594734ad7b6d008be3539499ba8ca9b538c764b45ff97aa068503

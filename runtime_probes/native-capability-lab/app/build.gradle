@@ -1,0 +1,20 @@
+plugins { id 'com.android.application' }
+
+android {
+    namespace 'com.openai.controlplane.capabilitylab'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'com.openai.controlplane.capabilitylab.stable'
+        minSdk 32
+        targetSdk 35
+        versionCode 22
+        versionName "0.22-native-capability-lab-stable-history-title-temporal-diff"
+    }
+}
+
+dependencies {
+    implementation 'androidx.core:core:1.15.0'
+    implementation 'dev.rikka.shizuku:api:13.1.5'
+    implementation 'dev.rikka.shizuku:provider:13.1.5'
+}

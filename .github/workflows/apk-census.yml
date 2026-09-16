@@ -1,0 +1,272 @@
+name: ChatGPT APK Capability Census
+
+on:
+  push:
+    branches:
+      - build/pebble-chat-bridge-v019
+    paths:
+      - .github/workflows/apk-census.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  census:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download exact ChatGPT build
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p census/download census/out
+          URLS=(
+            'https://d.apkpure.net/b/XAPK/com.openai.chatgpt?version=2623716'
+            'https://d.apkpure.net/b/XAPK/com.openai.chatgpt?version=1.2026.237'
+            'https://d.apkpure.net/b/XAPK/com.openai.chatgpt?version=latest'
+          )
+          found=0
+          for i in "${!URLS[@]}"; do
+            echo "Trying ${URLS[$i]}"
+            rm -f census/download/candidate
+            if ! curl -fL --retry 2 --connect-timeout 20 --max-time 240 "${URLS[$i]}" -o census/download/candidate; then
+              continue
+            fi
+            if ! unzip -tq census/download/candidate >/dev/null 2>&1; then
+              echo 'Not a ZIP/XAPK'
+              continue
+            fi
+            rm -rf census/download/unpacked
+            mkdir -p census/download/unpacked
+            unzip -q census/download/candidate -d census/download/unpacked
+            base=$(find census/download/unpacked -type f -name '*.apk' | while read -r f; do
+              if unzip -l "$f" 2>/dev/null | grep -q 'AndroidManifest.xml'; then echo "$f"; fi
+            done | head -n1 || true)
+            if [ -z "$base" ]; then
+              echo 'No base APK found'
+              continue
+            fi
+            bt=$(ls -1 "$ANDROID_HOME/build-tools" | sort -V | tail -n1)
+            aapt="$ANDROID_HOME/build-tools/$bt/aapt"
+            badging=$($aapt dump badging "$base" | head -n1)
+            echo "$badging"
+            if echo "$badging" | grep -q "package: name='com.openai.chatgpt'" && echo "$badging" | grep -q "versionCode='2623716'"; then
+              cp "$base" census/chatgpt-base.apk
+              cp census/download/candidate census/chatgpt-source.xapk
+              found=1
+              break
+            fi
+          done
+          if [ "$found" != 1 ]; then
+            echo 'FAILED to obtain exact versionCode 2623716' >&2
+            exit 2
+          fi
+          sha256sum census/chatgpt-base.apk census/chatgpt-source.xapk | tee census/out/hashes.txt
+
+      - name: Verify package and signing certificate
+        shell: bash
+        run: |
+          set -euo pipefail
+          bt=$(ls -1 "$ANDROID_HOME/build-tools" | sort -V | tail -n1)
+          aapt="$ANDROID_HOME/build-tools/$bt/aapt"
+          apksigner="$ANDROID_HOME/build-tools/$bt/apksigner"
+          $aapt dump badging census/chatgpt-base.apk | tee census/out/badging.txt
+          $apksigner verify --print-certs census/chatgpt-base.apk | tee census/out/signing.txt
+          grep -q "package: name='com.openai.chatgpt' versionCode='2623716' versionName='1.2026.237'" census/out/badging.txt
+          grep -qi 'b24f4bfbb3cf293f938703b9d87027c1102cc36dc4fa206910e08927db40473c' census/out/signing.txt
+
+      - name: Install static-analysis helpers
+        shell: bash
+        run: |
+          python -m pip install --quiet --disable-pip-version-check androguard zstandard lxml
+
+      - name: Extract manifest and capability strings
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          from zipfile import ZipFile
+          import re, hashlib, io, json, sys
+          from lxml import etree
+          import zstandard as zstd
+          from androguard.core.apk import APK
+
+          apk_path = Path('census/chatgpt-base.apk')
+          out = Path('census/out')
+          out.mkdir(parents=True, exist_ok=True)
+          apk = APK(str(apk_path))
+          root = apk.get_android_manifest_xml()
+          manifest = etree.tostring(root, pretty_print=True, encoding='unicode')
+          (out/'manifest.xml').write_text(manifest, encoding='utf-8')
+
+          A = '{http://schemas.android.com/apk/res/android}'
+          def av(el, name):
+              return el.get(A+name)
+          def bool_attr(el, name, default=None):
+              v=av(el,name)
+              if v is None: return default
+              return str(v).lower()=='true'
+
+          lines=[]
+          lines.append('=== IDENTITY ===')
+          lines += [
+              f'package={apk.get_package()}',
+              f'versionName={apk.get_androidversion_name()}',
+              f'versionCode={apk.get_androidversion_code()}',
+              f'minSdk={apk.get_min_sdk_version()}',
+              f'targetSdk={apk.get_target_sdk_version()}',
+          ]
+          lines.append('')
+          lines.append('=== PERMISSIONS ===')
+          for p in sorted(apk.get_permissions()): lines.append(p)
+          lines.append('')
+
+          app=root.find('application')
+          tag_types=['activity','activity-alias','service','receiver','provider']
+          lines.append('=== COMPONENTS + INTENT FILTERS ===')
+          for typ in tag_types:
+              for el in app.findall(typ):
+                  name=av(el,'name') or ''
+                  exported=av(el,'exported')
+                  enabled=av(el,'enabled')
+                  perm=av(el,'permission')
+                  auth=av(el,'authorities')
+                  grant=av(el,'grantUriPermissions')
+                  filters=el.findall('intent-filter')
+                  lines.append(f'[{typ}] {name} exported={exported} enabled={enabled} permission={perm} authorities={auth} grantUriPermissions={grant} filters={len(filters)}')
+                  for idx,f in enumerate(filters,1):
+                      actions=[av(x,'name') for x in f.findall('action')]
+                      cats=[av(x,'name') for x in f.findall('category')]
+                      data=[]
+                      for d in f.findall('data'):
+                          attrs={etree.QName(k).localname:v for k,v in d.attrib.items()}
+                          data.append(attrs)
+                      lines.append(f'  filter#{idx} actions={actions} categories={cats} data={json.dumps(data,ensure_ascii=False)}')
+          lines.append('')
+
+          # ZIP inventory / interesting assets
+          with ZipFile(apk_path) as z:
+              names=z.namelist()
+              lines.append('=== APK INVENTORY SUMMARY ===')
+              lines.append(f'zipEntries={len(names)}')
+              dex=[n for n in names if re.fullmatch(r'classes\d*\.dex',n)]
+              valdi=[n for n in names if n.endswith('.valdimodule')]
+              lines.append(f'dex={dex}')
+              lines.append(f'valdiCount={len(valdi)}')
+              for n in valdi: lines.append('valdi='+n)
+              lines.append('')
+
+              families={
+                'SHARE_ATTACH':[r'android\.intent\.action\.SEND',r'SEND_MULTIPLE',r'PROCESS_TEXT',r'EXTRA_STREAM',r'ClipData',r'attachment',r'attach',r'upload',r'file.?picker',r'photo',r'camera',r'mime',r'content://'],
+                'CONVERSATION':[r'conversation[_ ]?id',r'conversationId',r'openConversation',r'newConversation',r'rename',r'archive',r'deleteConversation',r'shareConversation',r'history',r'library',r'global.?search'],
+                'MESSAGE_GENERATION':[r'sendCurrentDraft',r'handleChatSubmit',r'stopGeneration',r'stopGenerating',r'retry',r'regenerate',r'editMessage',r'copyMessage',r'renderSendOrStopAction',r'cancelGeneration'],
+                'MODEL_TOOLS':[r'modelSelection',r'useAccountDefaultModel',r'model-selector',r'Choose Intelligence',r'connector',r'tool',r'browse',r'web.?search',r'image.?generation',r'canvas',r'research'],
+                'VOICE_AUDIO':[r'AssistantActivity',r'voice',r'audio',r'microphone',r'mute',r'headphone',r'QuickTileService'],
+                'IDS_ROUTES':[r'ChatGptDeeplinkActivity',r'EXTRA_ROUTES',r'/c/',r'/conversation/',r'/uc/',r'open-app',r'conversation_id',r'NotificationManager',r'notify\('],
+                'AUTOMATION':[r'suggestedAutomationType',r'suggestionType',r'automation',r'task',r'reminder'],
+              }
+
+              def printable_strings(b):
+                  # ASCII and common UTF-8 text chunks. DEX string_data is UTF-8-ish; this catches most capability literals.
+                  vals=[]
+                  vals += [m.decode('utf-8','ignore') for m in re.findall(rb'[\x20-\x7e]{4,}', b)]
+                  # UTF-16LE fallback for Android resource-like strings
+                  for m in re.findall(rb'(?:[\x20-\x7e]\x00){4,}', b):
+                      try: vals.append(m.decode('utf-16le'))
+                      except: pass
+                  return vals
+
+              corpus=[]
+              sources=[]
+              for n in dex:
+                  b=z.read(n)
+                  ss=printable_strings(b)
+                  corpus.extend(ss); sources.extend([(n,s) for s in ss])
+              for n in valdi:
+                  b=z.read(n)
+                  # Some Valdi modules are zstd compressed.
+                  if b[:4] == bytes.fromhex('28b52ffd'):
+                      try:
+                          with zstd.ZstdDecompressor().stream_reader(io.BytesIO(b)) as r:
+                              b=r.read()
+                      except Exception as e:
+                          lines.append(f'VALDI_DECOMPRESS_ERROR {n}: {e}')
+                  ss=printable_strings(b)
+                  corpus.extend(ss); sources.extend([(n,s) for s in ss])
+
+              hit_lines=[]
+              for fam, pats in families.items():
+                  hit_lines.append(f'=== {fam} ===')
+                  seen=set(); count=0
+                  regs=[re.compile(p,re.I) for p in pats]
+                  for src,s in sources:
+                      if any(r.search(s) for r in regs):
+                          k=(src,s)
+                          if k in seen: continue
+                          seen.add(k)
+                          # avoid giant binary-ish runs
+                          clean=' '.join(s.split())
+                          if len(clean)>500: clean=clean[:500]+'...'
+                          hit_lines.append(f'[{src}] {clean}')
+                          count+=1
+                          if count>=800:
+                              hit_lines.append('... family hit cap reached ...')
+                              break
+                  hit_lines.append(f'HIT_COUNT_SHOWN={count}')
+                  hit_lines.append('')
+              (out/'capability-string-hits.txt').write_text('\n'.join(hit_lines),encoding='utf-8')
+
+          (out/'report.txt').write_text('\n'.join(lines),encoding='utf-8')
+          print('\n'.join(lines))
+          print('\n=== CAPABILITY STRING HITS ===')
+          print((out/'capability-string-hits.txt').read_text(encoding='utf-8'))
+          PY
+
+      - name: DEX xref analysis for high-value strings
+        shell: bash
+        continue-on-error: true
+        run: |
+          python - <<'PY'
+          from androguard.misc import AnalyzeAPK
+          import re, json
+          a, ds, dx = AnalyzeAPK('census/chatgpt-base.apk')
+          needles=[
+            'ACTION_SEND','SEND_MULTIPLE','EXTRA_STREAM','attachment','upload','AssistantActivity',
+            'openConversation','conversation_id','conversationId','rename','archive','deleteConversation','shareConversation',
+            'sendCurrentDraft','handleChatSubmit','stopGeneration','retry','regenerate','editMessage',
+            'modelSelection','useAccountDefaultModel','Choose Intelligence','suggestedAutomationType'
+          ]
+          out=[]
+          out.append('=== DEX STRING XREFS ===')
+          try:
+            strings = dx.get_strings()
+            if isinstance(strings, dict): iterable=strings.values()
+            else: iterable=strings
+            for sa in iterable:
+              try:
+                val=sa.get_value()
+              except Exception:
+                val=str(sa)
+              if not any(n.lower() in val.lower() for n in needles): continue
+              out.append('STRING '+repr(val[:1000]))
+              try:
+                for cls,meth in sa.get_xref_from():
+                  out.append(f'  XREF {cls.name}->{meth.name}{meth.descriptor}')
+              except Exception as e:
+                out.append('  XREF_ERROR '+repr(e))
+          except Exception as e:
+            out.append('ANALYSIS_ERROR '+repr(e))
+          open('census/out/dex-xrefs.txt','w',encoding='utf-8').write('\n'.join(out))
+          print('\n'.join(out))
+          PY
+
+      - name: Upload census artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: chatgpt-1.2026.237-capability-census
+          path: census/out/
+          retention-days: 7

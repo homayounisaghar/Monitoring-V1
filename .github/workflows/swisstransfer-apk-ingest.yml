@@ -1,0 +1,106 @@
+name: SwissTransfer APK ingest probe
+
+on:
+  push:
+    branches:
+      - build/pebble-chat-bridge-v019
+    paths:
+      - .github/workflows/swisstransfer-apk-ingest.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Download APK via SwissTransfer v2 API
+        env:
+          LINK_ID: 01a05b9a-9f7f-73ef-8999-5507a44c3b73
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib, json, os, pathlib, urllib.request
+
+          link_id = os.environ['LINK_ID']
+          ua = 'Mozilla/5.0 (X11; Linux x86_64) ChatGPT-ControlPlane-Ingest/1.0'
+          base = 'https://swisstransfer.infomaniak.com/api/1'
+
+          def get_json(url):
+              req = urllib.request.Request(url, headers={
+                  'User-Agent': ua,
+                  'Accept': 'application/json, text/plain, */*',
+              })
+              with urllib.request.urlopen(req, timeout=30) as r:
+                  return json.loads(r.read().decode('utf-8'))
+
+          meta = get_json(f'{base}/links/{link_id}?with=transfer')
+          payload = meta.get('data', meta)
+          link_record_id = payload.get('id') or link_id
+          transfer = payload.get('transfer') or {}
+          files = transfer.get('files') or []
+          if not files:
+              raise RuntimeError(f'No files in v2 transfer; payload keys={list(payload.keys())}, transfer keys={list(transfer.keys())}')
+
+          print('link record id:', link_record_id)
+          print('transfer id:', transfer.get('id'))
+          print('file count:', len(files))
+          for i, f in enumerate(files):
+              print(f"file[{i}] path={f.get('path')} id={f.get('id')} size={f.get('size')} mime={f.get('mime_type')}")
+
+          selected = next((f for f in files if str(f.get('path','')).lower().endswith('.apk')), None)
+          if selected is None:
+              selected = max(files, key=lambda f: int(f.get('size') or 0))
+
+          file_id = selected['id']
+          expected_size = int(selected.get('size') or 0)
+          out = pathlib.Path('chatgpt.apk')
+          download_url = f'{base}/links/{link_record_id}/files/{file_id}?redirect=true'
+
+          req = urllib.request.Request(download_url, headers={'User-Agent': ua, 'Accept': '*/*'})
+          h = hashlib.sha256()
+          total = 0
+          with urllib.request.urlopen(req, timeout=90) as r, out.open('wb') as w:
+              print('resolved download URL:', r.geturl())
+              while True:
+                  chunk = r.read(1024 * 1024)
+                  if not chunk:
+                      break
+                  w.write(chunk)
+                  h.update(chunk)
+                  total += len(chunk)
+
+          sha = h.hexdigest()
+          print('download mechanism: official-v2')
+          print('downloaded bytes:', total)
+          print('expected bytes:', expected_size)
+          print('sha256:', sha)
+          if expected_size and total != expected_size:
+              raise RuntimeError(f'size mismatch: got {total}, expected {expected_size}')
+          with out.open('rb') as f:
+              if f.read(2) != b'PK':
+                  raise RuntimeError('Downloaded payload is not ZIP/APK (missing PK header)')
+
+          pathlib.Path('ingest-proof.txt').write_text(
+              f'link_id={link_id}\nlink_record_id={link_record_id}\nfile={selected.get("path")}\nbytes={total}\nsha256={sha}\n',
+              encoding='utf-8'
+          )
+          PY
+
+      - name: APK ZIP sanity check
+        run: |
+          set -euo pipefail
+          unzip -t chatgpt.apk >/tmp/unzip-test.txt
+          grep -E 'AndroidManifest.xml|classes[0-9]*\.dex|assets/.*\.valdimodule' /tmp/unzip-test.txt | head -n 40 || true
+          echo '--- ingest proof ---'
+          cat ingest-proof.txt
+
+      - name: Upload text proof only
+        uses: actions/upload-artifact@v4
+        with:
+          name: swisstransfer-apk-ingest-proof
+          path: ingest-proof.txt
+          if-no-files-found: error
+          retention-days: 3

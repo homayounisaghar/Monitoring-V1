@@ -1,0 +1,49 @@
+name: Apply Capability Lab v0.13 State-Bound Search Field
+
+on:
+  push:
+    branches:
+      - build/pebble-chat-bridge-v019
+    paths:
+      - '.github/workflows/apply-capability-lab-v13.yml'
+      - 'build_tools/apply_capability_lab_v13_state_bound_search_field.py'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Apply v0.13 patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 build_tools/apply_capability_lab_v13_state_bound_search_field.py
+          git diff --check
+          grep -Fq "versionCode 13" runtime_probes/native-capability-lab/app/build.gradle
+          grep -Fq "conversation_search_binding_v8_state_bound_search_field" runtime_probes/native-capability-lab/plans/default.json
+          grep -Fq "GLOBAL_SEARCH_RUNTIME_FIELD_CONTRACT matched=true" runtime_probes/native-capability-lab/app/src/main/java/com/openai/controlplane/capabilitylab/LabAccessibilityService.java
+          grep -Fq "GLOBAL_SEARCH_POST_QUERY_CONTROL_CENSUS" runtime_probes/native-capability-lab/app/src/main/java/com/openai/controlplane/capabilitylab/LabAccessibilityService.java
+          grep -Fq 'collectExactSemanticNodes(root, "Search", search, 0)' runtime_probes/native-capability-lab/app/src/main/java/com/openai/controlplane/capabilitylab/LabAccessibilityService.java
+          grep -Fq 'collectExactSemanticNodes(root, "Close", close, 0)' runtime_probes/native-capability-lab/app/src/main/java/com/openai/controlplane/capabilitylab/LabAccessibilityService.java
+
+      - name: Commit patched runtime source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add runtime_probes/native-capability-lab
+          if git diff --cached --quiet; then
+            echo "No runtime patch changes to commit"
+            exit 0
+          fi
+          git commit -m "Recognize state-bound runtime Search field in Capability Lab v0.13"
+          git push origin HEAD:build/pebble-chat-bridge-v019

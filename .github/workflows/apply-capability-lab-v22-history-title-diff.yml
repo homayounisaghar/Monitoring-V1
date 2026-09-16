@@ -1,0 +1,54 @@
+name: Apply Capability Lab v0.22 Temporal History Title Diff
+
+on:
+  push:
+    branches: [build/pebble-chat-bridge-v019]
+    paths:
+      - '.github/workflows/apply-capability-lab-v22-history-title-diff.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: build/pebble-chat-bridge-v019
+          fetch-depth: 0
+      - name: Apply v0.22 temporal History title diff patch
+        run: |
+          set -euo pipefail
+          python3 build_tools/apply_capability_lab_v22_history_title_diff.py
+      - name: Verify v0.22 contract
+        run: |
+          set -euo pipefail
+          ROOT=runtime_probes/native-capability-lab
+          SVC="$ROOT/app/src/main/java/com/openai/controlplane/capabilitylab/LabAccessibilityService.java"
+          STORE="$ROOT/app/src/main/java/com/openai/controlplane/capabilitylab/LabStore.java"
+          git diff --check
+          grep -Fq 'versionCode 22' "$ROOT/app/build.gradle"
+          grep -Fq '0.22-native-capability-lab-stable-history-title-temporal-diff' "$ROOT/app/build.gradle"
+          grep -Fq 'conversation_history_title_binding_v17_temporal_diff_rename_reopen' "$ROOT/plans/default.json"
+          grep -Fq '"op": "history_title_baseline"' "$ROOT/plans/default.json"
+          grep -Fq 'case "history_title_baseline"' "$SVC"
+          grep -Fq 'HISTORY_TITLE_BASELINE_CAPTURED' "$SVC"
+          grep -Fq 'source=temporal_title_diff' "$SVC"
+          grep -Fq 'rowDeltaOne' "$SVC"
+          grep -Fq 'HISTORY_TITLE_CORRELATION_WAIT' "$SVC"
+          grep -Fq 'historyTitleBaseline' "$STORE"
+          grep -Fq 'RENAME_CLAIM durable=true' "$STORE"
+          ! grep -Fq '{{titleSeed}}' "$ROOT/plans/default.json"
+          ! grep -Fq 'global_search_binding' "$ROOT/plans/default.json"
+          git status --short
+      - name: Commit runtime v0.22
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add runtime_probes/native-capability-lab
+          git commit -m 'Use temporal History title diff for safe fresh-row correlation v0.22'
+          git push origin HEAD:build/pebble-chat-bridge-v019

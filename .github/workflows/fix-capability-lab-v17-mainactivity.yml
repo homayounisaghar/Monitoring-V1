@@ -1,0 +1,43 @@
+name: Fix Capability Lab v0.17 MainActivity
+
+on:
+  push:
+    branches: [build/pebble-chat-bridge-v019]
+    paths:
+      - '.github/workflows/fix-capability-lab-v17-mainactivity.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: build/pebble-chat-bridge-v019
+          fetch-depth: 0
+      - name: Repair Java screen description literal
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          p=Path('runtime_probes/native-capability-lab/app/src/main/java/com/openai/controlplane/capabilitylab/MainActivity.java')
+          s=p.read_text()
+          replacement='''    private static final String SCREEN_DESCRIPTION =\n            "Stable v0.17 tests a fresh History binding that does not depend on Global Search indexing. "\n          + "It creates one synthetic marker chat, sends exactly once with the proven CLAIM/no-replay Send contract, "\n          + "opens official History, deliberately switches away through the exact New chat control, reopens History, "\n          + "selects only the first semantic conversation row, harvests that row metadata, and requires the exact marker on the reopened thread.\\n\\n"\n          + "The full report file remains authoritative and captures the relevant ChatGPT Accessibility surfaces. "\n          + "DOWNLOAD FULL REPORT saves it directly to Android Downloads with one tap and no share sheet. "\n          + "No private ChatGPT API is called, no credentials are extracted, and no coordinate writes, gestures, or global actions are used.";\n\n    private final Handler handler'''
+          s2,n=re.subn(r'    private static final String SCREEN_DESCRIPTION =\n.*?\n\n    private final Handler handler', replacement, s, count=1, flags=re.S)
+          if n != 1:
+              raise SystemExit('screen description anchor not found')
+          p.write_text(s2)
+          PY
+          git diff --check
+          grep -n -A8 -B1 'SCREEN_DESCRIPTION' runtime_probes/native-capability-lab/app/src/main/java/com/openai/controlplane/capabilitylab/MainActivity.java
+      - name: Commit repair
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add runtime_probes/native-capability-lab/app/src/main/java/com/openai/controlplane/capabilitylab/MainActivity.java
+          git commit -m 'Fix v0.17 MainActivity Java string literal'
+          git push origin HEAD:build/pebble-chat-bridge-v019

@@ -1,0 +1,118 @@
+name: ChatGPT APK route xref
+
+on:
+  push:
+    branches:
+      - build/pebble-chat-bridge-v019
+    paths:
+      - .github/workflows/chatgpt-apk-route-xref.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  xref:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: build/pebble-chat-bridge-v019
+          fetch-depth: 0
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Download exact APK
+        env:
+          LINK_ID: 01a05b9a-9f7f-73ef-8999-5507a44c3b73
+          EXPECTED_SHA256: 50e268c50255ab9aa48be49f0ba668c6f8ef97fd208f3826f19056698ea9f5a4
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib,json,os,pathlib,urllib.request
+          base='https://swisstransfer.infomaniak.com/api/1'; lid=os.environ['LINK_ID']; ua='CP-RouteXref/1.0'
+          def gj(u):
+            with urllib.request.urlopen(urllib.request.Request(u,headers={'User-Agent':ua,'Accept':'application/json'}),timeout=45) as r:return json.loads(r.read())
+          p=gj(f'{base}/links/{lid}?with=transfer')['data']; f=next(x for x in p['transfer']['files'] if x['path'].lower().endswith('.apk'))
+          u=f"{base}/links/{p.get('id') or lid}/files/{f['id']}?redirect=true"; h=hashlib.sha256(); out=pathlib.Path('chatgpt.apk')
+          with urllib.request.urlopen(urllib.request.Request(u,headers={'User-Agent':ua}),timeout=120) as r,out.open('wb') as w:
+            while True:
+              b=r.read(1048576)
+              if not b:break
+              w.write(b);h.update(b)
+          if h.hexdigest()!=os.environ['EXPECTED_SHA256']:raise RuntimeError('sha mismatch')
+          PY
+      - name: Install JADX
+        run: |
+          set -euo pipefail
+          mkdir -p tools work/jadx output/analysis/chatgpt-1.2026.237/route-xref
+          python3 - <<'PY'
+          import json,urllib.request
+          req=urllib.request.Request('https://api.github.com/repos/skylot/jadx/releases/latest',headers={'User-Agent':'route-xref','Accept':'application/vnd.github+json'})
+          with urllib.request.urlopen(req,timeout=45) as r:rel=json.load(r)
+          a=next(x for x in rel['assets'] if x['name'].startswith('jadx-') and x['name'].endswith('.zip'))
+          urllib.request.urlretrieve(a['browser_download_url'],'tools/jadx.zip')
+          PY
+          unzip -q tools/jadx.zip -d tools/jadx
+      - name: Decompile
+        run: |
+          set -euo pipefail
+          timeout 900 tools/jadx/bin/jadx --no-res --threads-count 2 --comments-level none --show-bad-code -d work/jadx chatgpt.apk >work/jadx.out 2>work/jadx.err || true
+          echo "source_files=$(find work/jadx/sources -type f -name '*.java' | wc -l)" > output/analysis/chatgpt-1.2026.237/route-xref/STATUS.txt
+      - name: Extract exact xref neighborhoods
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import pathlib
+          root=pathlib.Path('work/jadx/sources'); out=pathlib.Path('output/analysis/chatgpt-1.2026.237/route-xref'); out.mkdir(parents=True,exist_ok=True)
+          patterns={
+           'ROUTE_ATTACHMENTS': ['attachmentUri','attachmentAssetPointer','hasAttachedRouteAttachments','Share attachment wait timed out','AttachedRoute','routeAttachments','focusKeyboard'],
+           'SHARE_INTAKE': ['android.intent.action.SEND','android.intent.action.SEND_MULTIPLE','android.intent.extra.STREAM','getClipData()','getClipData(','EXTRA_STREAM'],
+           'VOICE_ROUTES': ['/voice','mode=voice','android_voice_entry_existing_chat_action','CHATGPT_COLD_START_DESTINATION_VOICE_MODE','isAssistant'],
+           'DEEPLINK_QUERY': ['getQueryParameter','autosend','scroll_to_bottom','allowWhenLoggedIn','modelSelection','useAccountDefaultModel'],
+           'ID_EXPOSURE': ['CONVERSATION_BUBBLE_CONVERSATION_ID','onConversationIdsChanged','syncActiveConversationIds','externallyOpenedRemoteConversationIds']
+          }
+          allfiles=list((root/'com/openai').rglob('*.java')) if (root/'com/openai').exists() else []
+          if (root/'defpackage').exists(): allfiles += list((root/'defpackage').rglob('*.java'))
+          for title,needles in patterns.items():
+            rows=['# '+title,'']; fh=0; ex=0
+            for p in sorted(allfiles):
+              try: lines=p.read_text(errors='ignore').splitlines()
+              except: continue
+              hits=[i for i,l in enumerate(lines) if any(n.lower() in l.lower() for n in needles)]
+              if not hits:continue
+              fh+=1; rows.append(f'## `{p.relative_to(root)}`')
+              selected=[]
+              for i in hits:
+                if any(abs(i-j)<12 for j in selected):continue
+                selected.append(i); lo=max(0,i-12);hi=min(len(lines),i+13); ex+=1
+                rows += [f'### line {i+1}','```java']+[f'{j+1}: {lines[j][:1000]}' for j in range(lo,hi)]+['```','']
+                if ex>=500:break
+              if ex>=500:break
+            rows += [f'_files={fh}; excerpts={ex}_']
+            (out/(title+'.md')).write_text('\n'.join(rows),encoding='utf-8')
+          hitsdir=out/'route-attachment-files';hitsdir.mkdir(exist_ok=True)
+          copied=0
+          for p in allfiles:
+            try:t=p.read_text(errors='ignore')
+            except:continue
+            if any(n.lower() in t.lower() for n in ['attachmentUri','attachmentAssetPointer','hasAttachedRouteAttachments','Share attachment wait timed out']):
+              rel=str(p.relative_to(root)).replace('/','__');(hitsdir/rel).write_text(t,encoding='utf-8');copied+=1
+          (out/'ROUTE_ATTACHMENT_FILE_COUNT.txt').write_text(str(copied)+'\n')
+          PY
+      - name: Commit xref
+        run: |
+          set -euo pipefail
+          git config user.name 'chatgpt-control-plane-bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git pull --rebase origin build/pebble-chat-bridge-v019
+          rm -rf analysis/chatgpt-1.2026.237/route-xref
+          mkdir -p analysis/chatgpt-1.2026.237
+          cp -a output/analysis/chatgpt-1.2026.237/route-xref analysis/chatgpt-1.2026.237/
+          git add analysis/chatgpt-1.2026.237/route-xref
+          if ! git diff --cached --quiet; then
+            git commit -m 'persist ChatGPT route attachment and voice xrefs'
+            git push origin HEAD:build/pebble-chat-bridge-v019
+          fi

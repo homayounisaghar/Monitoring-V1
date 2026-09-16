@@ -1,0 +1,1 @@
+Trigger Codemagic after v0.28 workflow update.

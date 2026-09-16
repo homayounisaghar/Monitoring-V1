@@ -1,0 +1,197 @@
+name: ChatGPT APK fresh binding static trace
+
+on:
+  push:
+    branches:
+      - build/pebble-chat-bridge-v019
+    paths:
+      - .github/workflows/chatgpt-apk-fresh-binding-static-trace.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  trace:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: build/pebble-chat-bridge-v019
+
+      - name: Download exact ChatGPT APK
+        env:
+          LINK_ID: 01a05b9a-9f7f-73ef-8999-5507a44c3b73
+          EXPECTED_SHA256: 50e268c50255ab9aa48be49f0ba668c6f8ef97fd208f3826f19056698ea9f5a4
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib,json,os,pathlib,urllib.request
+          base='https://swisstransfer.infomaniak.com/api/1'; lid=os.environ['LINK_ID']; ua='ChatGPT-ControlPlane-FreshBindingStaticTrace/1.0'
+          def j(url):
+              with urllib.request.urlopen(urllib.request.Request(url,headers={'User-Agent':ua,'Accept':'application/json'}),timeout=45) as r:
+                  return json.loads(r.read())
+          p=j(f'{base}/links/{lid}?with=transfer').get('data')
+          f=next(x for x in p['transfer']['files'] if x['path'].lower().endswith('.apk'))
+          url=f"{base}/links/{p.get('id') or lid}/files/{f['id']}?redirect=true"
+          out=pathlib.Path('chatgpt.apk'); h=hashlib.sha256()
+          with urllib.request.urlopen(urllib.request.Request(url,headers={'User-Agent':ua}),timeout=120) as r,out.open('wb') as w:
+              while True:
+                  b=r.read(1048576)
+                  if not b: break
+                  w.write(b); h.update(b)
+          got=h.hexdigest()
+          if got != os.environ['EXPECTED_SHA256']:
+              raise RuntimeError(f'APK SHA mismatch {got}')
+          print('verified', got, out.stat().st_size)
+          PY
+
+      - name: Extract exact Valdi modules
+        run: |
+          set -euo pipefail
+          python3 -m pip install --quiet zstandard
+          mkdir -p work output/analysis/chatgpt-1.2026.237/fresh-binding-static-trace
+          unzip -p chatgpt.apk assets/chatgpt_conversation.valdimodule > work/chatgpt_conversation.valdimodule
+          unzip -p chatgpt.apk assets/chatgpt_services.valdimodule > work/chatgpt_services.valdimodule
+          test -s work/chatgpt_conversation.valdimodule
+          test -s work/chatgpt_services.valdimodule
+
+      - name: Parse Valdi archives and map fresh-binding symbols to entries
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import io, pathlib, re, struct, hashlib
+          import zstandard as zstd
+
+          OUT=pathlib.Path('output/analysis/chatgpt-1.2026.237/fresh-binding-static-trace')
+          OUT.mkdir(parents=True, exist_ok=True)
+          MAGIC=0x0100C633
+          PAD=0x80000000
+
+          def decompress(p):
+              data=p.read_bytes()
+              if data[:4] == b'\x28\xb5\x2f\xfd':
+                  with zstd.ZstdDecompressor().stream_reader(io.BytesIO(data)) as r:
+                      return r.read()
+              return data
+
+          def parse_archive(data):
+              if len(data) < 8: raise ValueError('short archive')
+              magic,total=struct.unpack_from('<II',data,0)
+              if magic != MAGIC: raise ValueError(f'bad magic {magic:#x}')
+              body=data[8:8+total]
+              if len(body) != total: raise ValueError('truncated archive')
+              pos=0; entries=[]
+              while pos < len(body):
+                  raw=struct.unpack_from('<I',body,pos)[0]; pos+=4
+                  n=raw & 0x7fffffff; padded=bool(raw & PAD)
+                  name=body[pos:pos+n].decode('utf-8','replace'); pos += n
+                  if padded: pos += (-n) % 4
+                  raw=struct.unpack_from('<I',body,pos)[0]; pos+=4
+                  n=raw & 0x7fffffff; padded=bool(raw & PAD)
+                  payload=body[pos:pos+n]; pos += n
+                  if padded: pos += (-n) % 4
+                  entries.append((name,payload))
+              return entries
+
+          def ascii_tokens(blob):
+              return [(m.start(),m.group().decode('utf-8','replace')) for m in re.finditer(rb'[\x20-\x7e]{3,}',blob)]
+
+          targets={
+            'chatgpt_conversation':[
+              'src/persistence/ChatGPTConversationPersistence.js',
+              'remoteId','activeConversationId','nextConversationId',
+              'synchronizeConversationIdentifiers','remoteConversationHistory',
+              'pinnedRemoteConversationHistory','loadedRemoteConversationIds',
+              'externallyOpenedRemoteConversationIds','renderHistoryConversation',
+              'renderHistoryItem','chatgpt.history.item.','accessibilityId','Open ',
+              'onLongPress','openConversation','loadConversationContent',
+              'beginConversationRename','commitConversationRename','renameRemoteConversationHistory',
+              'conversationId'
+            ],
+            'chatgpt_services':[
+              'src/conversations/ChatGPTConversationHistoryClient.js',
+              'loadConversations','loadConversation','renameConversation',
+              '/backend-api/conversations','/backend-api/conversation','conversation_id',
+              'conversationId','title','create_time','update_time'
+            ]
+          }
+
+          summary=['# Exact APK fresh-binding static trace','',
+                   '- APK: `com.openai.chatgpt` `1.2026.237` / `2623716`',
+                   '- APK SHA-256: `50e268c50255ab9aa48be49f0ba668c6f8ef97fd208f3826f19056698ea9f5a4`',
+                   '- Scope: narrow fresh-conversation identifier/history boundary only; this is not a reopened broad census.',
+                   '']
+
+          for mod in ['chatgpt_conversation','chatgpt_services']:
+              raw=decompress(pathlib.Path('work')/(mod+'.valdimodule'))
+              entries=parse_archive(raw)
+              inv=[f'# `{mod}.valdimodule` archive inventory','',f'entries={len(entries)}','']
+              target_rows=[]
+              neighborhoods=[]
+              for idx,(name,payload) in enumerate(entries):
+                  inv.append(f'- `{idx:03d}` `{name}` size={len(payload)} sha256={hashlib.sha256(payload).hexdigest()[:16]} head={payload[:12].hex()}')
+                  toks=ascii_tokens(payload)
+                  for target in targets[mod]:
+                      hits=[(off,s) for off,s in toks if target in s]
+                      if not hits: continue
+                      target_rows.append((target,idx,name,len(hits)))
+                      for off,s in hits[:4]:
+                          # Token-local neighborhood, more useful than arbitrary binary bytes.
+                          nearest=sorted(range(len(toks)), key=lambda i: abs(toks[i][0]-off))[:1]
+                          center=nearest[0] if nearest else 0
+                          lo=max(0,center-18); hi=min(len(toks),center+19)
+                          neighborhoods += [f'## `{target}` in entry `{name}` @ 0x{off:x}','', '```text']
+                          for o,t in toks[lo:hi]:
+                              neighborhoods.append(f'{o:08x}  {t[:240]}')
+                          neighborhoods += ['```','']
+              (OUT/(mod+'_ARCHIVE_INVENTORY.md')).write_text('\n'.join(inv),encoding='utf-8')
+              rows=[f'# `{mod}` target-to-entry map','']
+              for target,idx,name,count in target_rows:
+                  rows.append(f'- `{target}` -> entry `{idx:03d}` `{name}` hits={count}')
+              (OUT/(mod+'_TARGET_MAP.md')).write_text('\n'.join(rows),encoding='utf-8')
+              (OUT/(mod+'_TOKEN_NEIGHBORHOODS.md')).write_text('\n'.join(neighborhoods),encoding='utf-8')
+
+              summary += [f'## `{mod}`','']
+              by={t:[] for t in targets[mod]}
+              for t,i,n,c in target_rows: by.setdefault(t,[]).append((i,n,c))
+              for t in targets[mod]:
+                  vals=by.get(t,[])
+                  if vals:
+                      summary.append(f'- `{t}`: present in ' + ', '.join(f'`{n}`' for _,n,_ in vals))
+                  else:
+                      summary.append(f'- `{t}`: not found as printable token')
+              summary.append('')
+
+          summary += [
+            '## Mechanical interpretation boundary','',
+            'The trace intentionally distinguishes token co-location from data-flow proof. If `remoteId`, history rendering functions, and `chatgpt.history.item.` are co-located in one compiled entry, that strongly narrows the runtime boundary but does **not** by itself prove that the accessibility-ID suffix equals `remoteId`.',
+            '',
+            'A runtime harness must not assume a suffix mapping unless either bytecode-level data flow or an exact on-device correspondence proves it.',
+            ''
+          ]
+          (OUT/'FRESH_BINDING_STATIC_TRACE.md').write_text('\n'.join(summary),encoding='utf-8')
+          PY
+
+      - name: Persist exact manifest route and existing native boundary anchors
+        run: |
+          set -euo pipefail
+          OUT=output/analysis/chatgpt-1.2026.237/fresh-binding-static-trace
+          cp analysis/chatgpt-1.2026.237/boundary-trace/CONVERSATION_ID_READSIDE.md "$OUT/EXISTING_CONVERSATION_ID_READSIDE.md"
+          cp analysis/chatgpt-1.2026.237/route-xref/ID_EXPOSURE.md "$OUT/EXISTING_ID_EXPOSURE.md"
+          cp analysis/chatgpt-1.2026.237/boundary-trace/EXTERNAL_BOUNDARIES.md "$OUT/EXISTING_EXTERNAL_BOUNDARIES.md"
+
+      - name: Commit durable targeted static trace
+        run: |
+          set -euo pipefail
+          rm -rf analysis/chatgpt-1.2026.237/fresh-binding-static-trace
+          mkdir -p analysis/chatgpt-1.2026.237
+          cp -a output/analysis/chatgpt-1.2026.237/fresh-binding-static-trace analysis/chatgpt-1.2026.237/
+          git config user.name 'chatgpt-control-plane-bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add analysis/chatgpt-1.2026.237/fresh-binding-static-trace
+          if ! git diff --cached --quiet; then
+            git commit -m 'persist targeted fresh binding static trace'
+            git push origin HEAD:build/pebble-chat-bridge-v019
+          fi

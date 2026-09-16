@@ -1,0 +1,44 @@
+name: Calibrate Capability Lab v0.17 History Rows
+
+on:
+  push:
+    branches: [build/pebble-chat-bridge-v019]
+    paths:
+      - '.github/workflows/calibrate-capability-lab-v17-history-rows.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  calibrate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: build/pebble-chat-bridge-v019
+          fetch-depth: 0
+      - name: Allow long-click conversation rows before title generation
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('runtime_probes/native-capability-lab/app/src/main/java/com/openai/controlplane/capabilitylab/LabAccessibilityService.java')
+          s=p.read_text()
+          old='''        if (node.isVisibleToUser() && node.isEnabled() && node.isClickable()\n                && hasAction(node, AccessibilityNodeInfo.ACTION_CLICK)\n                && hasAction(node, AccessibilityNodeInfo.ACTION_LONG_CLICK)) {\n            String title = historyRowTitle(node);\n            if (!title.isEmpty()) {\n                out.add(node);\n                return;\n            }\n        }\n'''
+          new='''        if (node.isVisibleToUser() && node.isEnabled() && node.isClickable()\n                && hasAction(node, AccessibilityNodeInfo.ACTION_CLICK)\n                && hasAction(node, AccessibilityNodeInfo.ACTION_LONG_CLICK)) {\n            // Runtime evidence distinguishes History conversation rows by their\n            // ACTION_CLICK + ACTION_LONG_CLICK contract. A freshly finalized\n            // conversation may not have a generated title yet, so title text is\n            // evidence only, not a prerequisite for row recognition.\n            out.add(node);\n            return;\n        }\n'''
+          if old not in s:
+              raise SystemExit('history row recognition anchor missing')
+          s=s.replace(old,new,1)
+          s=s.replace('''            if (!value.isEmpty() && cls.endsWith("TextView")\n                    && !"New chat".equals(value) && !"Search".equals(value)\n                    && !"Close".equals(value)) return value;\n''','''            if (!value.isEmpty() && cls.endsWith("TextView")\n                    && !"Search".equals(value) && !"Close".equals(value)) return value;\n''',1)
+          p.write_text(s)
+          PY
+          git diff --check
+          grep -n -A23 'collectHistoryConversationRows' runtime_probes/native-capability-lab/app/src/main/java/com/openai/controlplane/capabilitylab/LabAccessibilityService.java | tail -n 28
+      - name: Commit calibration
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add runtime_probes/native-capability-lab/app/src/main/java/com/openai/controlplane/capabilitylab/LabAccessibilityService.java
+          git commit -m 'Allow untitled fresh History rows in v0.17 proof'
+          git push origin HEAD:build/pebble-chat-bridge-v019

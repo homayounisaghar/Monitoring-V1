@@ -1,0 +1,4 @@
+Capability Lab v0.16 final runtime review trigger.
+Expected runtime source includes GLOBAL_SEARCH_ENTRY already_history_drawer=true.
+Expected runtime source includes WAITING_GLOBAL_SEARCH_PROBE_CLOSE so a close/history transition cannot be misattributed to the earlier probe stage.
+This file exists only to force the full public Capability Lab CI after workflow-generated source patches.

@@ -1,0 +1,48 @@
+name: Apply Capability Lab v0.12 Runtime Search Field
+
+on:
+  push:
+    branches:
+      - build/pebble-chat-bridge-v019
+    paths:
+      - '.github/workflows/apply-capability-lab-v12.yml'
+      - 'build_tools/apply_capability_lab_v12_runtime_search_field.py'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Apply v0.12 patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 build_tools/apply_capability_lab_v12_runtime_search_field.py
+          git diff --check
+          grep -Fq "versionCode 12" runtime_probes/native-capability-lab/app/build.gradle
+          grep -Fq "conversation_search_binding_v7_runtime_search_field" runtime_probes/native-capability-lab/plans/default.json
+          grep -Fq "v0.11 real-device evidence reached the official Search surface" runtime_probes/native-capability-lab/app/src/main/java/com/openai/controlplane/capabilitylab/LabAccessibilityService.java
+          grep -Fq 'collectExactSemanticNodes(root, "Search chats, files, and projects", runtimeSentinels, 0)' runtime_probes/native-capability-lab/app/src/main/java/com/openai/controlplane/capabilitylab/LabAccessibilityService.java
+          grep -Fq 'countEditableSearchFields(root, false)' runtime_probes/native-capability-lab/app/src/main/java/com/openai/controlplane/capabilitylab/LabAccessibilityService.java
+
+      - name: Commit patched runtime source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add runtime_probes/native-capability-lab
+          if git diff --cached --quiet; then
+            echo "No runtime patch changes to commit"
+            exit 0
+          fi
+          git commit -m "Recognize exact runtime Search field in Capability Lab v0.12"
+          git push origin HEAD:build/pebble-chat-bridge-v019
