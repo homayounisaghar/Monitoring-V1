@@ -87,6 +87,17 @@ numpad = r'''    private String shortcutLabel(int slot){
         rows.addView(r);
     }
 
+    private void numpadBackspace(){
+        stopVoiceForManualInput();
+        InputConnection ic=getCurrentInputConnection();
+        if(ic==null)return;
+        try{
+            CharSequence sel=ic.getSelectedText(0);
+            if(sel!=null&&sel.length()>0)ic.commitText("",1);
+            else ic.deleteSurroundingText(1,0);
+        }catch(Exception ignored){}
+    }
+
     private void renderNumpad() {
         LinearLayout ops = newKeyRow();
         for (String op : new String[]{"+","−","×","*","÷","%","="}) ops.addView(charKey(op), keyLp(1f));
@@ -101,7 +112,7 @@ numpad = r'''    private String shortcutLabel(int slot){
         last.addView(actionKey(alphaLabel(), v -> { layer=Layer.ALPHA; render(); }), keyLp(1.1f));
         last.addView(charKey("0"), keyLp(1.7f));
         last.addView(charKey("."), keyLp(0.85f));
-        last.addView(actionKey("⌫", v -> backspace()), keyLp(1.05f));
+        last.addView(actionKey("⌫", v -> numpadBackspace()), keyLp(1.05f));
         last.addView(actionKey("↵", v -> enter()), keyLp(1.05f));
         rows.addView(last);
     }
@@ -226,6 +237,9 @@ required=[
     'addNumpadDigitRow(1,new String[]{"4","5","6"});',
     'addNumpadDigitRow(2,new String[]{"7","8","9"});',
     'last.addView(shortcutKey(3)',
+    'private void numpadBackspace(){',
+    'stopVoiceForManualInput();',
+    'else ic.deleteSurroundingText(1,0);',
     'private void showShortcutChooser()',
     'private void showShortcutEditor(int slot)',
     '.putString(SHORTCUT_LABEL_PREFIX+slot,newLabel)',
