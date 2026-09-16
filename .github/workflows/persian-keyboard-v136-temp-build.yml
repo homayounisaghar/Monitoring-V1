@@ -1,4 +1,4 @@
-name: Persian Keyboard Android v1.42 Resilient Broker + Mic Recovery + Base Layer APK
+name: Persian Keyboard Android v1.43 Editable Numpad Shortcuts APK
 
 on:
   push:
@@ -54,7 +54,7 @@ jobs:
           echo 'Expected persistent signing cache was not restored.' >&2
           exit 1
 
-      - name: Apply v1.8 through v1.42 behavior
+      - name: Apply v1.8 through v1.43 behavior
         working-directory: android/persian-keyboard-v19
         run: |
           set -euo pipefail
@@ -101,8 +101,9 @@ jobs:
           python3 tools/apply_v1420_auth_view_compatibility_prepatch.py
           python3 tools/apply_v142_resilient_broker_mic_preemption_base_layer_patch.py
           python3 tools/apply_v1421_restore_broker_helpers_patch.py
+          python3 tools/apply_v143_numpad_shortcuts_patch.py
 
-      - name: Verify v1.42 invariants
+      - name: Verify v1.43 invariants
         working-directory: android/persian-keyboard-v19
         run: |
           set -euo pipefail
@@ -141,8 +142,22 @@ jobs:
             'AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED',
             'private void stopVoiceForImeHidden(){',
             'Button zwnj=actionKey("−", v -> commitText("\\u200C"));',
-            'versionCode 52',
-            "versionName '1.42'",
+            'private static final String SHORTCUT_PREFS="numpad_shortcuts";',
+            'private static final String[] SHORTCUT_DEFAULT_LABELS={"UN","PW","PN","S4"};',
+            'private Button shortcutKey(int slot){',
+            'b.setOnLongClickListener(v -> {openNumpadShortcutSetup(slot);return true;});',
+            'intent.putExtra("shortcut_slot",slot);',
+            'new String[]{"+","−","×","*","÷","%","="}',
+            'addNumpadDigitRow(0,new String[]{"1","2","3"});',
+            'addNumpadDigitRow(1,new String[]{"4","5","6"});',
+            'addNumpadDigitRow(2,new String[]{"7","8","9"});',
+            'last.addView(shortcutKey(3)',
+            'private void showShortcutChooser()',
+            'private void showShortcutEditor(int slot)',
+            '.putString(SHORTCUT_LABEL_PREFIX+slot,newLabel)',
+            '.putString(SHORTCUT_VALUE_PREFIX+slot,newValue)',
+            'versionCode 53',
+            "versionName '1.43'",
           ]:
             assert x in text, x
           for x in [
@@ -153,6 +168,7 @@ jobs:
             'scheduleInternalSelectionReanchor();',
             'scheduleExternalSelectionConfirmation(newSelStart,newSelEnd);',
             'Voice stopped — live text sync lost',
+            'SHORTCUT_DEFAULT_VALUES',
           ]:
             assert x not in text, x
           sel_start=service.index('    @Override public void onUpdateSelection(')
@@ -163,10 +179,10 @@ jobs:
           for forbidden in ['setSelection(','commitText(','deleteSurroundingText(']:
             assert forbidden not in service[cut_start:cut_end], forbidden
           assert 'event.getText()' not in helper
-          print('v1.42 invariants OK')
+          print('v1.43 invariants OK')
           PY
 
-      - name: Build Android v1.42 APK
+      - name: Build Android v1.43 APK
         run: gradle -p android/persian-keyboard-v19 --no-daemon assembleDebug --stacktrace
 
       - name: Verify APK
@@ -177,16 +193,16 @@ jobs:
           test -f "$APK"
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$APK"
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep "package: name='com.najme.perplexityprobe'"
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep "versionCode='52' versionName='1.42'"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep "versionCode='53' versionName='1.43'"
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --print-certs "$APK" | grep -i 'Signer #1 certificate SHA-256 digest: c557bdc60de4100720d6f122789b51c2889661ef0b76886d5b08c1f44cf023cf'
           sha256sum "$APK"
-          cp "$APK" Persian-keyboard-Android-v1.42.apk
+          cp "$APK" Persian-keyboard-Android-v1.43.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Persian-keyboard-Android-v1.42
-          path: Persian-keyboard-Android-v1.42.apk
+          name: Persian-keyboard-Android-v1.43
+          path: Persian-keyboard-Android-v1.43.apk
           retention-days: 30
 
   # CD-KEYBOARD-SIGNER extraction (one-time, operator-dispatched). Decision record:
