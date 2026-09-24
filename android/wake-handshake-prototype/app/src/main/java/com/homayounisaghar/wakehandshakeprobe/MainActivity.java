@@ -69,6 +69,8 @@ public class MainActivity extends Activity {
     private static final String PREFS = "wake_probe";
     private static final String PREF_WAKE = "wake_phrase";
     private static final String PREF_DELAY = "silence_delay_ms";
+    private static final String PREF_WAKE_DELAY = "wake_silence_delay_ms";
+    private static final String PREF_COMMAND_DELAY = "command_silence_delay_ms";
     private static final String PREF_LOCKED = "keep_listening_locked";
     private static final String MOBILE_BROWSER_UA =
             "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 " +
@@ -86,7 +88,8 @@ public class MainActivity extends Activity {
 
     private SharedPreferences prefs;
     private EditText wakeField;
-    private Spinner delaySpinner;
+    private Spinner wakeDelaySpinner;
+    private Spinner commandDelaySpinner;
     private CheckBox lockedModeBox;
     private TextView lastChunk;
     private TextView status;
@@ -103,9 +106,13 @@ public class MainActivity extends Activity {
     private volatile boolean finishSent;
     private volatile long activeEpoch;
 
+    private enum ListeningPhase { WAKE, COMMAND }
+
     private long epochCounter;
     private long lastSpeechAt;
-    private int endpointDelayMs = 1500;
+    private int wakeDelayMs = 0;
+    private int commandDelayMs = 1500;
+    private ListeningPhase listeningPhase = ListeningPhase.WAKE;
     private int pendingBytes;
     private int credentialAttempt;
     private boolean retryAfterPageLoad;
@@ -118,7 +125,9 @@ public class MainActivity extends Activity {
         if (Build.VERSION.SDK_INT >= 30) getWindow().setDecorFitsSystemWindows(true);
 
         prefs = getSharedPreferences(PREFS, MODE_PRIVATE);
-        endpointDelayMs = prefs.getInt(PREF_DELAY, 1500);
+        int legacyDelayMs = prefs.getInt(PREF_DELAY, 0);
+        wakeDelayMs = prefs.getInt(PREF_WAKE_DELAY, legacyDelayMs);
+        commandDelayMs = prefs.getInt(PREF_COMMAND_DELAY, 1500);
         tone = new ToneGenerator(AudioManager.STREAM_NOTIFICATION, 90);
 
         buildUi();
@@ -146,7 +155,7 @@ public class MainActivity extends Activity {
         root.addView(title);
 
         TextView subtitle = new TextView(this);
-        subtitle.setText("Speech → local silence hold → latest chunk → wake match → ding");
+        subtitle.setText("Wake timing → command timing → latest chunk → handshake ding(s)");
         subtitle.setTextSize(12f);
         subtitle.setTextColor(0xFF6B7280);
         subtitle.setPadding(0, dp(3), 0, dp(16));
@@ -167,33 +176,55 @@ public class MainActivity extends Activity {
             if (!hasFocus) saveWakePhrase();
         });
 
-        LinearLayout delayRow = new LinearLayout(this);
-        delayRow.setOrientation(LinearLayout.HORIZONTAL);
-        delayRow.setGravity(Gravity.CENTER_VERTICAL);
-        delayRow.setPadding(0, dp(14), 0, dp(12));
-        TextView delayLabel = label("Silence interval");
-        delayRow.addView(delayLabel, new LinearLayout.LayoutParams(0,
+        LinearLayout wakeDelayRow = new LinearLayout(this);
+        wakeDelayRow.setOrientation(LinearLayout.HORIZONTAL);
+        wakeDelayRow.setGravity(Gravity.CENTER_VERTICAL);
+        wakeDelayRow.setPadding(0, dp(14), 0, dp(6));
+        TextView wakeDelayLabel = label("Wake delay");
+        wakeDelayRow.addView(wakeDelayLabel, new LinearLayout.LayoutParams(0,
                 ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
 
-        delaySpinner = new Spinner(this);
-        ArrayAdapter<String> adapter = new ArrayAdapter<>(
+        wakeDelaySpinner = new Spinner(this);
+        ArrayAdapter<String> wakeDelayAdapter = new ArrayAdapter<>(
                 this, android.R.layout.simple_spinner_dropdown_item, DELAY_LABELS);
-        delaySpinner.setAdapter(adapter);
-        int selected = 3;
-        for (int i = 0; i < DELAYS_MS.length; i++) {
-            if (DELAYS_MS[i] == endpointDelayMs) selected = i;
-        }
-        delaySpinner.setSelection(selected);
-        delaySpinner.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener() {
+        wakeDelaySpinner.setAdapter(wakeDelayAdapter);
+        int wakeSelected = delayIndexFor(wakeDelayMs, 0);
+        wakeDelaySpinner.setSelection(wakeSelected);
+        wakeDelaySpinner.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener() {
             @Override public void onItemSelected(android.widget.AdapterView<?> parent, View view,
                                                  int position, long id) {
-                endpointDelayMs = DELAYS_MS[position];
-                prefs.edit().putInt(PREF_DELAY, endpointDelayMs).apply();
+                wakeDelayMs = DELAYS_MS[position];
+                prefs.edit().putInt(PREF_WAKE_DELAY, wakeDelayMs).apply();
             }
             @Override public void onNothingSelected(android.widget.AdapterView<?> parent) {}
         });
-        delayRow.addView(delaySpinner);
-        root.addView(delayRow);
+        wakeDelayRow.addView(wakeDelaySpinner);
+        root.addView(wakeDelayRow);
+
+        LinearLayout commandDelayRow = new LinearLayout(this);
+        commandDelayRow.setOrientation(LinearLayout.HORIZONTAL);
+        commandDelayRow.setGravity(Gravity.CENTER_VERTICAL);
+        commandDelayRow.setPadding(0, 0, 0, dp(12));
+        TextView commandDelayLabel = label("Command delay");
+        commandDelayRow.addView(commandDelayLabel, new LinearLayout.LayoutParams(0,
+                ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+
+        commandDelaySpinner = new Spinner(this);
+        ArrayAdapter<String> commandDelayAdapter = new ArrayAdapter<>(
+                this, android.R.layout.simple_spinner_dropdown_item, DELAY_LABELS);
+        commandDelaySpinner.setAdapter(commandDelayAdapter);
+        int commandSelected = delayIndexFor(commandDelayMs, 3);
+        commandDelaySpinner.setSelection(commandSelected);
+        commandDelaySpinner.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener() {
+            @Override public void onItemSelected(android.widget.AdapterView<?> parent, View view,
+                                                 int position, long id) {
+                commandDelayMs = DELAYS_MS[position];
+                prefs.edit().putInt(PREF_COMMAND_DELAY, commandDelayMs).apply();
+            }
+            @Override public void onNothingSelected(android.widget.AdapterView<?> parent) {}
+        });
+        commandDelayRow.addView(commandDelaySpinner);
+        root.addView(commandDelayRow);
 
         lockedModeBox = new CheckBox(this);
         lockedModeBox.setText("Keep listening when screen is locked");
@@ -294,6 +325,13 @@ public class MainActivity extends Activity {
         view.requestApplyInsets();
     }
 
+    private int delayIndexFor(int delayMs, int fallback) {
+        for (int i = 0; i < DELAYS_MS.length; i++) {
+            if (DELAYS_MS[i] == delayMs) return i;
+        }
+        return fallback;
+    }
+
     private TextView label(String text) {
         TextView v = new TextView(this);
         v.setText(text);
@@ -353,6 +391,7 @@ public class MainActivity extends Activity {
         finishSent = false;
         retryAfterPageLoad = false;
         credentialAttempt = 0;
+        listeningPhase = ListeningPhase.WAKE;
         lastSpeechAt = SystemClock.uptimeMillis();
 
         synchronized (audioLock) {
@@ -365,7 +404,7 @@ public class MainActivity extends Activity {
         }
 
         startStop.setText("Stop");
-        setStatus("Listening…");
+        setStatus("Listening for wake phrase…");
         if (keepListeningLocked()) startKeepAliveService();
         startAudioCapture(epoch);
         requestCredential(epoch);
@@ -440,7 +479,7 @@ public class MainActivity extends Activity {
                                 return;
                             }
                             main.post(() -> {
-                                if (isActive(epoch)) setStatus(stopRequested ? "Finalizing…" : "Listening…");
+                                if (isActive(epoch)) setStatus(stopRequested ? "Finalizing…" : phaseStatus());
                             });
                             maybeFinish(epoch);
                         }
@@ -607,10 +646,21 @@ public class MainActivity extends Activity {
         return "<end>".equalsIgnoreCase(s) || "<fin>".equalsIgnoreCase(s);
     }
 
+    private int activeDelayMs() {
+        return listeningPhase == ListeningPhase.COMMAND ? commandDelayMs : wakeDelayMs;
+    }
+
+    private String phaseStatus() {
+        return listeningPhase == ListeningPhase.COMMAND
+                ? "Wake received — waiting for command…"
+                : "Listening for wake phrase…";
+    }
+
     private void armCommit(long epoch) {
         main.removeCallbacks(commitRunnable);
-        if (endpointDelayMs <= 0) main.post(commitRunnable);
-        else main.postDelayed(commitRunnable, endpointDelayMs);
+        int delayMs = activeDelayMs();
+        if (delayMs <= 0) main.post(commitRunnable);
+        else main.postDelayed(commitRunnable, delayMs);
     }
 
     private final Runnable commitRunnable = this::runCommitCheck;
@@ -618,7 +668,8 @@ public class MainActivity extends Activity {
     private void runCommitCheck() {
         long epoch = activeEpoch;
         if (!isActive(epoch)) return;
-        long remaining = endpointDelayMs - (SystemClock.uptimeMillis() - lastSpeechAt);
+        int delayMs = activeDelayMs();
+        long remaining = delayMs - (SystemClock.uptimeMillis() - lastSpeechAt);
         if (remaining > 0) {
             main.postDelayed(commitRunnable, Math.max(60, remaining));
             return;
@@ -642,15 +693,25 @@ public class MainActivity extends Activity {
         if (chunk.isEmpty()) return;
 
         lastChunk.setText(chunk);
+
+        if (listeningPhase == ListeningPhase.COMMAND) {
+            playDings(2);
+            listeningPhase = ListeningPhase.WAKE;
+            setStatus("Command received — listening for wake phrase…");
+            return;
+        }
+
         WakeMatch match = classifyWake(chunk, wakeField.getText().toString());
         if (match == WakeMatch.WAKE_ONLY) {
             playDings(1);
-            setStatus("Wake phrase detected.");
+            listeningPhase = ListeningPhase.COMMAND;
+            setStatus("Wake received — waiting for command…");
         } else if (match == WakeMatch.WAKE_WITH_COMMAND) {
             playDings(2);
-            setStatus("Wake phrase + command detected.");
+            listeningPhase = ListeningPhase.WAKE;
+            setStatus("Command received — listening for wake phrase…");
         } else if (running && !stopRequested) {
-            setStatus("Listening…");
+            setStatus("Listening for wake phrase…");
         }
     }
 
@@ -731,6 +792,7 @@ public class MainActivity extends Activity {
         running = false;
         stopRequested = true;
         awaitingCredential = false;
+        listeningPhase = ListeningPhase.WAKE;
         main.removeCallbacks(commitRunnable);
         stopAudioRecord();
         synchronized (audioLock) {
