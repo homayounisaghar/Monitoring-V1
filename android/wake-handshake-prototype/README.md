@@ -6,7 +6,7 @@ Flow:
 
 `operator speech -> Perplexity session credential -> Soniox realtime STT -> phase-selected local silence hold -> latest emitted chunk -> wake/command state machine -> local ding(s)`
 
-Behavior in v0.1.3:
+Behavior in v0.1.4:
 - editable wake phrase, default `خط باز`;
 - two independent silence controls with the same choices `0 / 800 / 1200 / 1500 / 2000 / 2500 ms`:
   - **Wake delay** while searching for the wake phrase;
@@ -30,9 +30,14 @@ Behavior in v0.1.3:
 - recognized transcript is not intentionally persisted or logged;
 - UI keeps system-bar/display-cutout safe-area handling and scrolling.
 
+Auth/session compatibility in v0.1.4:
+- the Perplexity setup WebView, manifest/service support, user agent, cookie handling, hidden credential WebView, credential fetch path, and retry/session behavior are restored/locked to the exact v0.1.2 baseline;
+- after removing the punctuation-only COMMAND guard, MainActivity is byte-identical to v0.1.2;
+- the only intended runtime delta from v0.1.2 is the punctuation-only command filter.
+
 Identity:
 - package: `com.homayounisaghar.wakehandshakeprobe`
-- versionCode: `4`
+- versionCode: `5`
 - versionName: `0.1.2`
 - expected signer certificate SHA-256: `b8bfbfb9d7962afd739c990d661e94c457dfb37cb6ab8516cdb54c3f95b9d2ec`
 - source/build branch: `project/wake-handshake-prototype`
