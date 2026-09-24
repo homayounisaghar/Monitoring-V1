@@ -6,7 +6,7 @@ Flow:
 
 `operator speech -> Perplexity session credential -> Soniox realtime STT -> phase-selected local silence hold -> latest emitted chunk -> wake/command state machine -> local ding(s)`
 
-Behavior in v0.1.2:
+Behavior in v0.1.3:
 - editable wake phrase, default `خط باز`;
 - two independent silence controls with the same choices `0 / 800 / 1200 / 1500 / 2000 / 2500 ms`:
   - **Wake delay** while searching for the wake phrase;
@@ -18,7 +18,8 @@ Behavior in v0.1.2:
   - wake phrase followed by actual letter/digit content in the same chunk -> two dings and state stays/returns **WAKE**;
   - wake phrase later in a chunk -> no trigger;
 - in COMMAND:
-  - the first non-empty committed chunk is treated as the command;
+  - punctuation/whitespace-only chunks are ignored and COMMAND remains armed;
+  - the first committed chunk containing at least one letter or digit is treated as the command;
   - it produces two dings;
   - state immediately returns to **WAKE**;
 - COMMAND has no separate expiry timeout; it remains armed until the next committed chunk or until listening is stopped/reset;
@@ -31,7 +32,7 @@ Behavior in v0.1.2:
 
 Identity:
 - package: `com.homayounisaghar.wakehandshakeprobe`
-- versionCode: `3`
+- versionCode: `4`
 - versionName: `0.1.2`
 - expected signer certificate SHA-256: `b8bfbfb9d7962afd739c990d661e94c457dfb37cb6ab8516cdb54c3f95b9d2ec`
 - source/build branch: `project/wake-handshake-prototype`
