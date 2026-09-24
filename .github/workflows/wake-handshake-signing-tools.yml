@@ -34,7 +34,9 @@ jobs:
           mkdir -p out/lib out/lib64
           cp "$ANDROID_HOME/build-tools/35.0.0/zipalign" out/
           cp "$ANDROID_HOME/build-tools/35.0.0/lib/apksigner.jar" out/lib/
-          cp "$ANDROID_HOME/build-tools/35.0.0/lib64/libc++.so" out/lib64/
+          LIBCPP="$(find "$ANDROID_HOME/build-tools/35.0.0" -type f -name 'libc++.so' | head -n 1)"
+          test -n "$LIBCPP"
+          cp "$LIBCPP" out/lib64/
           chmod +x out/zipalign
           sha256sum out/zipalign out/lib/apksigner.jar out/lib64/libc++.so > out/SHA256SUMS
 
