@@ -141,6 +141,7 @@ jobs:
             'private String withVoiceProjectionPrefix(String segment){',
             'voiceProjectionPrefix=" ";',
             'boolean multiline=(inputType&InputType.TYPE_TEXT_FLAG_MULTI_LINE)!=0;',
+            'private void copyCurrentText(){',
             'if(ic.commitText("\\n",1))return;',
             'ViewGroup.LayoutParams.MATCH_PARENT, weight',
             'b.setBackground(keyStateBackground(action));',
