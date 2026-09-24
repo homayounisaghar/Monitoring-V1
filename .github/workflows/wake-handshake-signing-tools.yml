@@ -1,0 +1,45 @@
+name: Wake Handshake Signing Tools
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - project/wake-handshake-prototype
+    paths:
+      - '.github/workflows/wake-handshake-signing-tools.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  tools:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Use preinstalled Android SDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          test -x "$SDKMANAGER"
+          set +o pipefail
+          yes | "$SDKMANAGER" --licenses >/dev/null
+          set -o pipefail
+          "$SDKMANAGER" "build-tools;35.0.0"
+
+      - name: Stage signing tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p out/lib
+          cp "$ANDROID_HOME/build-tools/35.0.0/zipalign" out/
+          cp "$ANDROID_HOME/build-tools/35.0.0/lib/apksigner.jar" out/lib/
+          chmod +x out/zipalign
+          sha256sum out/zipalign out/lib/apksigner.jar > out/SHA256SUMS
+
+      - name: Upload signing tools
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-build-tools-35-signing-tools
+          path: out/
+          retention-days: 7
