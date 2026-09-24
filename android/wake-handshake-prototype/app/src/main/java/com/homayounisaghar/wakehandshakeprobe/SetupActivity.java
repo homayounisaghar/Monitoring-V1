@@ -12,14 +12,12 @@ import android.webkit.CookieManager;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
+import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
 public class SetupActivity extends Activity {
     private static final String START_URL = "https://www.perplexity.ai/";
-    private static final String MOBILE_BROWSER_UA =
-            "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 " +
-            "(KHTML, like Gecko) SamsungBrowser/30.0 Chrome/143.0.0.0 Mobile Safari/537.36";
 
     private TextView status;
     private WebView webView;
@@ -49,10 +47,17 @@ public class SetupActivity extends Activity {
         root.addView(status);
 
         TextView hint = new TextView(this);
-        hint.setText("If Perplexity asks you to sign in or complete a normal verification, do it here. This session is used only to obtain the speech credential.");
+        hint.setText("If Perplexity asks you to sign in or complete a normal verification, do it here. This session uses the standard Android WebView browser profile.");
         hint.setTextSize(12f);
         hint.setPadding(dp(3), 0, dp(3), dp(8));
         root.addView(hint);
+
+        Button reset = new Button(this);
+        reset.setText("Reset Perplexity session");
+        reset.setAllCaps(false);
+        reset.setOnClickListener(v -> resetPerplexitySession());
+        root.addView(reset, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
         webView = new WebView(this);
         root.addView(webView, new LinearLayout.LayoutParams(
@@ -60,22 +65,27 @@ public class SetupActivity extends Activity {
         setContentView(root);
 
         configureWebView();
-        webView.loadUrl(START_URL);
+        boolean resettingLegacyProfile = PerplexitySessionCompat.needsDefaultUaReset(this);
+        if (resettingLegacyProfile) {
+            status.setText("Resetting the old Perplexity WebView profile…");
+        }
+        PerplexitySessionCompat.resetLegacyProfileOnce(this, () -> {
+            if (webView == null) return;
+            webView.clearCache(true);
+            webView.loadUrl(START_URL);
+            if (resettingLegacyProfile) {
+                status.setText("Session reset. Sign in and complete normal verification once.");
+            }
+        });
     }
 
     @SuppressLint("SetJavaScriptEnabled")
     private void configureWebView() {
+        PerplexitySessionCompat.configure(webView);
         WebSettings s = webView.getSettings();
-        s.setJavaScriptEnabled(true);
-        s.setDomStorageEnabled(true);
-        s.setUserAgentString(MOBILE_BROWSER_UA);
         s.setSupportZoom(true);
         s.setBuiltInZoomControls(true);
         s.setDisplayZoomControls(false);
-
-        CookieManager cm = CookieManager.getInstance();
-        cm.setAcceptCookie(true);
-        cm.setAcceptThirdPartyCookies(webView, true);
 
         webView.setWebViewClient(new WebViewClient() {
             @Override public void onPageFinished(WebView view, String url) {
@@ -90,6 +100,18 @@ public class SetupActivity extends Activity {
                     status.setText("Waiting for Perplexity…");
                 }
             }
+        });
+    }
+
+    private void resetPerplexitySession() {
+        status.setText("Clearing Perplexity session…");
+        PerplexitySessionCompat.clearSession(this, () -> {
+            if (webView == null) return;
+            webView.stopLoading();
+            webView.clearHistory();
+            webView.clearCache(true);
+            webView.loadUrl(START_URL);
+            status.setText("Session cleared. Sign in and complete normal verification once.");
         });
     }
 
