@@ -4,28 +4,35 @@ Independent Android MVP inspired by the accepted WebView Dashboard speech path. 
 
 Flow:
 
-`operator speech -> Perplexity session credential -> Soniox realtime STT -> local silence hold -> latest emitted chunk -> wake classification -> local ding(s)`
+`operator speech -> Perplexity session credential -> Soniox realtime STT -> phase-selected local silence hold -> latest emitted chunk -> wake/command state machine -> local ding(s)`
 
-Behavior in v0.1.1:
+Behavior in v0.1.2:
 - editable wake phrase, default `خط باز`;
-- local silence choices `0 / 800 / 1200 / 1500 / 2000 / 2500 ms`;
+- two independent silence controls with the same choices `0 / 800 / 1200 / 1500 / 2000 / 2500 ms`:
+  - **Wake delay** while searching for the wake phrase;
+  - **Command delay** after a wake-only acknowledgement, while capturing the next command;
 - each committed chunk replaces the prior displayed chunk;
-- exact wake phrase, or wake phrase followed only by whitespace/punctuation, produces **one ding**;
-- wake phrase followed by actual letter/digit content produces **two dings**;
-- wake phrase occurring later in the chunk does not trigger;
-- optional **Keep listening when screen is locked** checkbox:
-  - if a listening session is already active and the phone is then locked/screen-off, a microphone foreground service + partial wake lock keeps the session alive;
-  - switching to another app while the screen remains on still stops listening;
-  - the microphone foreground service is started while the Activity is visible, before the lock transition;
+- state starts in **WAKE**;
+- in WAKE:
+  - wake phrase alone, or followed only by whitespace/punctuation -> one ding, then state becomes **COMMAND**;
+  - wake phrase followed by actual letter/digit content in the same chunk -> two dings and state stays/returns **WAKE**;
+  - wake phrase later in a chunk -> no trigger;
+- in COMMAND:
+  - the first non-empty committed chunk is treated as the command;
+  - it produces two dings;
+  - state immediately returns to **WAKE**;
+- COMMAND has no separate expiry timeout; it remains armed until the next committed chunk or until listening is stopped/reset;
+- optional **Keep listening when screen is locked** behavior from v0.1.1 is preserved:
+  - an active session can continue through lock/screen-off using the microphone foreground service + partial wake lock;
+  - switching to another app while the screen stays on still stops listening;
 - no TTS;
 - recognized transcript is not intentionally persisted or logged;
-- visible Perplexity setup uses normal user sign-in/verification only;
-- UI uses system-bar/display-cutout insets and a scroll container for safe-area access.
+- UI keeps system-bar/display-cutout safe-area handling and scrolling.
 
 Identity:
 - package: `com.homayounisaghar.wakehandshakeprobe`
-- versionCode: `2`
-- versionName: `0.1.1`
+- versionCode: `3`
+- versionName: `0.1.2`
 - expected signer certificate SHA-256: `b8bfbfb9d7962afd739c990d661e94c457dfb37cb6ab8516cdb54c3f95b9d2ec`
 - source/build branch: `project/wake-handshake-prototype`
 
