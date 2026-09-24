@@ -549,7 +549,9 @@ public class MainActivity extends Activity {
         main.postDelayed(commitRunnable, Math.max(60, endpointDelayMs));
     }
 
-    private final Runnable commitRunnable = () -> {
+    private final Runnable commitRunnable = this::runCommitCheck;
+
+    private void runCommitCheck() {
         long epoch = activeEpoch;
         if (!isActive(epoch)) return;
         long remaining = endpointDelayMs - (SystemClock.uptimeMillis() - lastSpeechAt);
@@ -558,7 +560,7 @@ public class MainActivity extends Activity {
             return;
         }
         commitHeldChunk(epoch);
-    };
+    }
 
     private void forceCommit(long epoch) {
         main.post(() -> {
