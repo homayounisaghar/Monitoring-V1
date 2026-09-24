@@ -1,4 +1,4 @@
-name: Persian Keyboard Android v1.43 Editable Numpad Shortcuts APK
+name: Persian Keyboard Android v1.44 Unsigned Signing Kit
 
 on:
   push:
@@ -53,20 +53,7 @@ jobs:
         with:
           gradle-version: '8.9'
 
-      - name: Restore persistent signing key
-        id: signing-cache
-        uses: actions/cache@v4
-        with:
-          path: ~/.android/debug.keystore
-          key: persian-keyboard-public-test-signing-v1
-
-      - name: Fail rather than rotate signing identity
-        if: steps.signing-cache.outputs.cache-hit != 'true'
-        run: |
-          echo 'Expected persistent signing cache was not restored.' >&2
-          exit 1
-
-      - name: Apply v1.8 through v1.43 behavior
+      - name: Apply v1.8 through v1.44 behavior
         working-directory: android/persian-keyboard-v19
         run: |
           set -euo pipefail
@@ -114,8 +101,9 @@ jobs:
           python3 tools/apply_v142_resilient_broker_mic_preemption_base_layer_patch.py
           python3 tools/apply_v1421_restore_broker_helpers_patch.py
           python3 tools/apply_v143_numpad_shortcuts_patch.py
+          python3 tools/apply_v144_cursor_newline_touch_hardening_patch.py
 
-      - name: Verify v1.43 invariants
+      - name: Verify v1.44 invariants
         working-directory: android/persian-keyboard-v19
         run: |
           set -euo pipefail
@@ -146,7 +134,16 @@ jobs:
             'if(microphoneSilenced)return true;',
             'layer=Layer.ALPHA;shift=false;',
             'String warm=consumeWarmCredential();',
-            'PersianKeyboardService.notifyPerplexitySessionChanged();',
+            'private long voiceProgrammaticCaretLeaseUntilUptime;',
+            'private boolean healTransientVoiceEndMinusOne(',
+            'current.selectionStart!=expected-1',
+            'if(healTransientVoiceEndMinusOne(ic,current,runId))return;',
+            'private String withVoiceProjectionPrefix(String segment){',
+            'voiceProjectionPrefix=" ";',
+            'boolean multiline=(inputType&InputType.TYPE_TEXT_FLAG_MULTI_LINE)!=0;',
+            'if(ic.commitText("\\n",1))return;',
+            'ViewGroup.LayoutParams.MATCH_PARENT, weight',
+            'b.setBackground(new InsetDrawable(',
             'private int voiceExtractMonitorToken;',
             'InputConnection.GET_EXTRACTED_TEXT_MONITOR',
             'private void beginVoiceCaretCutover(',
@@ -157,19 +154,9 @@ jobs:
             'private static final String SHORTCUT_PREFS="numpad_shortcuts";',
             'private static final String[] SHORTCUT_DEFAULT_LABELS={"UN","PW","PN","S4"};',
             'private Button shortcutKey(int slot){',
-            'b.setOnLongClickListener(v -> {openNumpadShortcutSetup(slot);return true;});',
-            'intent.putExtra("shortcut_slot",slot);',
             'new String[]{"+","−","×","*","÷","%","="}',
-            'addNumpadDigitRow(0,new String[]{"1","2","3"});',
-            'addNumpadDigitRow(1,new String[]{"4","5","6"});',
-            'addNumpadDigitRow(2,new String[]{"7","8","9"});',
-            'last.addView(shortcutKey(3)',
-            'private void showShortcutChooser()',
-            'private void showShortcutEditor(int slot)',
-            '.putString(SHORTCUT_LABEL_PREFIX+slot,newLabel)',
-            '.putString(SHORTCUT_VALUE_PREFIX+slot,newValue)',
-            'versionCode 53',
-            "versionName '1.43'",
+            'versionCode 54',
+            "versionName '1.44'",
           ]:
             assert x in text, x
           for x in [
@@ -181,6 +168,8 @@ jobs:
             'scheduleExternalSelectionConfirmation(newSelStart,newSelEnd);',
             'Voice stopped — live text sync lost',
             'SHORTCUT_DEFAULT_VALUES',
+            'new LinearLayout.LayoutParams(0, keyHeightPx(), weight);',
+            'lp.setMargins(dp(2),dp(1),dp(2),dp(1));',
           ]:
             assert x not in text, x
           sel_start=service.index('    @Override public void onUpdateSelection(')
@@ -190,32 +179,42 @@ jobs:
           cut_end=service.index('    private void restartSpeechTransportForCaretCutover(',cut_start)
           for forbidden in ['setSelection(','commitText(','deleteSurroundingText(']:
             assert forbidden not in service[cut_start:cut_end], forbidden
+          restart_start=service.index('    private void restartSpeechTransportForCaretCutover(')
+          restart_end=service.index('    private void noteVoicePublicationPaused(',restart_start)
+          assert 'consumeWarmCredential()' in service[restart_start:restart_end]
+          assert 'ensureCredentialWebView()' in service[restart_start:restart_end]
           assert 'event.getText()' not in helper
-          print('v1.43 invariants OK')
+          print('v1.44 invariants OK')
           PY
 
-      - name: Build Android v1.43 APK
-        run: gradle -p android/persian-keyboard-v19 --no-daemon assembleDebug --stacktrace
+      - name: Build Android v1.44 unsigned release APK
+        run: gradle -p android/persian-keyboard-v19 --no-daemon assembleRelease --stacktrace
 
-      - name: Verify APK
+      - name: Prepare and verify v1.44 signing kit
         shell: bash
         run: |
           set -euo pipefail
-          APK='android/persian-keyboard-v19/app/build/outputs/apk/debug/app-debug.apk'
-          test -f "$APK"
-          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$APK"
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep "package: name='com.najme.perplexityprobe'"
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep "versionCode='53' versionName='1.43'"
-          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --print-certs "$APK" | grep -i 'Signer #1 certificate SHA-256 digest: c557bdc60de4100720d6f122789b51c2889661ef0b76886d5b08c1f44cf023cf'
-          sha256sum "$APK"
-          cp "$APK" Persian-keyboard-Android-v1.43.apk
+          RAW='android/persian-keyboard-v19/app/build/outputs/apk/release/app-release-unsigned.apk'
+          ALIGNED='Persian-keyboard-Android-v1.44-unsigned-aligned.apk'
+          test -f "$RAW"
+          "$ANDROID_HOME/build-tools/35.0.0/zipalign" -f 4 "$RAW" "$ALIGNED"
+          "$ANDROID_HOME/build-tools/35.0.0/zipalign" -c 4 "$ALIGNED"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$ALIGNED" | grep "package: name='com.najme.perplexityprobe'"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$ALIGNED" | grep "versionCode='54' versionName='1.44'"
+          java -jar "$ANDROID_HOME/build-tools/35.0.0/lib/apksigner.jar" --version
+          mkdir -p signing-kit
+          cp "$ALIGNED" signing-kit/
+          cp "$ANDROID_HOME/build-tools/35.0.0/lib/apksigner.jar" signing-kit/
+          sha256sum "$ALIGNED" > signing-kit/SHA256SUMS.txt
+          printf '%s\n' 'package=com.najme.perplexityprobe' 'versionCode=54' 'versionName=1.44' 'signer=external-private-v2' > signing-kit/BUILD-METADATA.txt
 
-      - name: Upload APK
+      - name: Upload v1.44 signing kit
         uses: actions/upload-artifact@v4
         with:
-          name: Persian-keyboard-Android-v1.43
-          path: Persian-keyboard-Android-v1.43.apk
+          name: Persian-keyboard-Android-v1.44-signing-kit
+          path: signing-kit/
           retention-days: 30
+          if-no-files-found: error
 
   # CD-KEYBOARD-SIGNER extraction (one-time, operator-dispatched). Decision record:
   # homayounisaghar/capability-fabric governance/PHASE2_ENTRY_CONTRACT.md Part D, D1-exec.
