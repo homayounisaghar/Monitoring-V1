@@ -1,4 +1,4 @@
-name: Persian Keyboard Android v1.45 Unsigned Signing Kit
+name: Persian Keyboard Android v1.46 Unsigned Signing Kit
 
 on:
   push:
@@ -53,7 +53,7 @@ jobs:
         with:
           gradle-version: '8.9'
 
-      - name: Apply v1.8 through v1.45 behavior
+      - name: Apply v1.8 through v1.46 behavior
         working-directory: android/persian-keyboard-v19
         run: |
           set -euo pipefail
@@ -103,8 +103,9 @@ jobs:
           python3 tools/apply_v143_numpad_shortcuts_patch.py
           python3 tools/apply_v144_cursor_newline_touch_hardening_patch.py
           python3 tools/apply_v145_end_minus_one_publisher_recovery_patch.py
+          python3 tools/apply_v146_host_retained_tail_recovery_patch.py
 
-      - name: Verify v1.45 invariants
+      - name: Verify v1.46 invariants
         working-directory: android/persian-keyboard-v19
         run: |
           set -euo pipefail
@@ -160,9 +161,12 @@ jobs:
             'private boolean voicePrefixProvesTransientEndMinusOne(',
             'ic.getTextBeforeCursor(guardLen,0)',
             'boolean repairedEndMinusOne=healTransientVoiceEndMinusOne(ic,window,runId);',
-            'diagCurrentEditor("V145 PUB_PAUSE region-null");',
-            'versionCode 55',
-            "versionName '1.45'",
+            'private boolean recoverHostRetainedVoiceTail(',
+            'ic.deleteSurroundingText(0,retained)',
+            'if(recoverHostRetainedVoiceTail(',
+            'diagCurrentEditor("V146 PUB_PAUSE region-null");',
+            'versionCode 56',
+            "versionName '1.46'",
           ]:
             assert x in text, x
           for x in [
@@ -177,6 +181,7 @@ jobs:
             'new LinearLayout.LayoutParams(0, keyHeightPx(), weight);',
             'lp.setMargins(dp(2),dp(1),dp(2),dp(1));',
             'int[] region=locatePublishedVoiceRegion(current);\\n        if(region==null||region[1]!=expected)return false;',
+            'diagCurrentEditor("V145 PUB_PAUSE region-null");',
           ]:
             assert x not in text, x
           sel_start=service.index('    @Override public void onUpdateSelection(')
@@ -191,34 +196,34 @@ jobs:
           assert 'consumeWarmCredential()' in service[restart_start:restart_end]
           assert 'ensureCredentialWebView()' in service[restart_start:restart_end]
           assert 'event.getText()' not in helper
-          print('v1.45 invariants OK')
+          print('v1.46 invariants OK')
           PY
 
-      - name: Build Android v1.45 unsigned release APK
+      - name: Build Android v1.46 unsigned release APK
         run: gradle -p android/persian-keyboard-v19 --no-daemon assembleRelease --stacktrace
 
-      - name: Prepare and verify v1.45 signing kit
+      - name: Prepare and verify v1.46 signing kit
         shell: bash
         run: |
           set -euo pipefail
           RAW='android/persian-keyboard-v19/app/build/outputs/apk/release/app-release-unsigned.apk'
-          ALIGNED='Persian-keyboard-Android-v1.45-unsigned-aligned.apk'
+          ALIGNED='Persian-keyboard-Android-v1.46-unsigned-aligned.apk'
           test -f "$RAW"
           "$ANDROID_HOME/build-tools/35.0.0/zipalign" -f 4 "$RAW" "$ALIGNED"
           "$ANDROID_HOME/build-tools/35.0.0/zipalign" -c 4 "$ALIGNED"
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$ALIGNED" | grep "package: name='com.najme.perplexityprobe'"
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$ALIGNED" | grep "versionCode='55' versionName='1.45'"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$ALIGNED" | grep "versionCode='56' versionName='1.46'"
           java -jar "$ANDROID_HOME/build-tools/35.0.0/lib/apksigner.jar" --version
           mkdir -p signing-kit
           cp "$ALIGNED" signing-kit/
           cp "$ANDROID_HOME/build-tools/35.0.0/lib/apksigner.jar" signing-kit/
           sha256sum "$ALIGNED" > signing-kit/SHA256SUMS.txt
-          printf '%s\n' 'package=com.najme.perplexityprobe' 'versionCode=55' 'versionName=1.45' 'signer=external-private-v2' > signing-kit/BUILD-METADATA.txt
+          printf '%s\n' 'package=com.najme.perplexityprobe' 'versionCode=56' 'versionName=1.46' 'signer=external-private-v2' > signing-kit/BUILD-METADATA.txt
 
-      - name: Upload v1.45 signing kit
+      - name: Upload v1.46 signing kit
         uses: actions/upload-artifact@v4
         with:
-          name: Persian-keyboard-Android-v1.45-signing-kit
+          name: Persian-keyboard-Android-v1.46-signing-kit
           path: signing-kit/
           retention-days: 30
           if-no-files-found: error
