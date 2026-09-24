@@ -101,13 +101,12 @@ enter_method = r'''    private void enter(){
     }
 
 '''
-s = replace_region(
-    s,
-    '    private void enter(){',
-    '    private void pasteClipboard(){',
-    enter_method,
-    'multiline newline-first Enter semantics',
-)
+old_enter = r'''    private void enter(){
+        InputConnection ic=getCurrentInputConnection(); if(ic==null)return; int action=editorInfo==null?EditorInfo.IME_ACTION_NONE:(editorInfo.imeOptions&EditorInfo.IME_MASK_ACTION);
+        try{if(action!=EditorInfo.IME_ACTION_NONE&&action!=EditorInfo.IME_ACTION_UNSPECIFIED&&ic.performEditorAction(action))return; ic.sendKeyEvent(new KeyEvent(KeyEvent.ACTION_DOWN,KeyEvent.KEYCODE_ENTER)); ic.sendKeyEvent(new KeyEvent(KeyEvent.ACTION_UP,KeyEvent.KEYCODE_ENTER));}catch(Exception ignored){}
+    }
+'''
+s = rep(s, old_enter, enter_method, 'multiline newline-first Enter semantics')
 
 # Prefix is segment-local and persistent so subsequent partial/final replacements
 # do not delete the one separator that was added at a genuine end-of-text cutover.
@@ -299,6 +298,7 @@ required = [
     'ViewGroup.LayoutParams.MATCH_PARENT, weight',
     'b.setBackground(keyStateBackground(action));',
     'boolean multiline=(inputType&InputType.TYPE_TEXT_FLAG_MULTI_LINE)!=0;',
+    'private void copyCurrentText(){',
     'if(ic.commitText("\\n",1))return;',
     'private String withVoiceProjectionPrefix(String segment){',
     'desired=withVoiceProjectionPrefix(',
