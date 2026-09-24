@@ -16,6 +16,12 @@ jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    env:
+      ROOT: android/wake-handshake-prototype
+      PACKAGE: com.homayounisaghar.wakehandshakeprobe
+      VERSION_CODE: '2'
+      VERSION_NAME: 0.1.1
+      EXPECTED_SIGNER_SHA256: b8bfbfb9d7962afd739c990d661e94c457dfb37cb6ab8516cdb54c3f95b9d2ec
     steps:
       - name: Checkout exact commit
         uses: actions/checkout@v6
@@ -29,7 +35,7 @@ jobs:
       - name: Use preinstalled Android SDK
         shell: bash
         run: |
-          set -euo pipefail
+          set -eu
           SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
           test -x "$SDKMANAGER"
           "$SDKMANAGER" --version
@@ -43,54 +49,79 @@ jobs:
         with:
           gradle-version: '8.9'
 
-      - name: Static contract checks
+      - name: Static v0.1.1 contract checks
         shell: bash
         run: |
           set -euo pipefail
           python3 - <<'PY'
           from pathlib import Path
-          s=Path('android/wake-handshake-prototype/app/src/main/java/com/homayounisaghar/wakehandshakeprobe/MainActivity.java').read_text()
-          g=Path('android/wake-handshake-prototype/app/build.gradle').read_text()
-          m=Path('android/wake-handshake-prototype/app/src/main/AndroidManifest.xml').read_text()
-          for needle in [
-              'com.homayounisaghar.wakehandshakeprobe',
-              "versionCode 1",
-              "versionName '0.1.0'",
-              'private static final int[] DELAYS_MS = {800, 1200, 1500, 2000, 2500};',
-              'lastChunk.setText(chunk);',
-              'if (matchesWake(chunk, wakeField.getText().toString()))',
-              'ToneGenerator.TONE_PROP_ACK',
-              'replaceAll("\\\\s+", " ")',
-              'onPause()',
-              'stopImmediate(epoch, "Paused.")',
-          ]:
-              assert needle in (s + "\n" + g + "\n" + m), needle
-          print('static contract OK')
+          root=Path('android/wake-handshake-prototype')
+          s=(root/'app/src/main/java/com/homayounisaghar/wakehandshakeprobe/MainActivity.java').read_text()
+          svc=(root/'app/src/main/java/com/homayounisaghar/wakehandshakeprobe/LockedListeningService.java').read_text()
+          g=(root/'app/build.gradle').read_text()
+          m=(root/'app/src/main/AndroidManifest.xml').read_text()
+          checks=[
+              ("package", "applicationId 'com.homayounisaghar.wakehandshakeprobe'" in g),
+              ("version code", "versionCode 2" in g),
+              ("version name", "versionName '0.1.1'" in g),
+              ("zero delay", 'private static final int[] DELAYS_MS = {0, 800, 1200, 1500, 2000, 2500};' in s),
+              ("zero delay immediate arm", 'if (endpointDelayMs <= 0) main.post(commitRunnable);' in s),
+              ("wake only classification", 'WakeMatch.WAKE_ONLY' in s),
+              ("wake plus command classification", 'WakeMatch.WAKE_WITH_COMMAND' in s),
+              ("punctuation-only ignored as command", 'Character.isLetterOrDigit(cp)' in s),
+              ("double ding", 'if (count > 1) main.postDelayed(this::playDing, 260L);' in s),
+              ("locked checkbox", 'Keep listening when screen is locked' in s),
+              ("locked screen lifecycle gate", 'keepListeningLocked() && isDeviceLockedOrScreenOff()' in s),
+              ("foreground service", 'LockedListeningService' in m and 'foregroundServiceType="microphone"' in m),
+              ("fgs mic permission", 'android.permission.FOREGROUND_SERVICE_MICROPHONE' in m),
+              ("wake lock", 'PowerManager.PARTIAL_WAKE_LOCK' in svc),
+              ("foreground microphone type", 'FOREGROUND_SERVICE_TYPE_MICROPHONE' in svc),
+              ("safe insets", 'WindowInsets.Type.systemBars() | WindowInsets.Type.displayCutout()' in s),
+              ("scrollable UI", 'new ScrollView(this)' in s),
+              ("no transcript persistence marker", 'lastChunk.setText(chunk);' in s),
+          ]
+          bad=[name for name,ok in checks if not ok]
+          if bad:
+              raise SystemExit('contract failure: '+', '.join(bad))
+          print('PASS v0.1.1 static contract')
           PY
 
       - name: Build unsigned release
-        run: gradle -p android/wake-handshake-prototype --no-daemon assembleRelease --stacktrace
-
-      - name: Verify unsigned signing kit
         shell: bash
         run: |
           set -euo pipefail
-          APK='android/wake-handshake-prototype/app/build/outputs/apk/release/app-release-unsigned.apk'
-          test -f "$APK"
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep "package: name='com.homayounisaghar.wakehandshakeprobe'"
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep "versionCode='1' versionName='0.1.0'"
-          if "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify "$APK" >/dev/null 2>&1; then
-            echo 'Expected unsigned APK but signature verification succeeded' >&2
-            exit 1
-          fi
-          sha256sum "$APK" | tee unsigned-sha256.txt
-          cp "$APK" Wake-Handshake-Prototype-v0.1.0-unsigned.apk
+          gradle -p "$ROOT" --no-daemon assembleRelease --stacktrace
+
+      - name: Build unsigned aligned signing kit
+        shell: bash
+        run: |
+          set -euo pipefail
+          U="$ROOT/app/build/outputs/apk/release/app-release-unsigned.apk"
+          OUT="$ROOT/out"
+          A="$OUT/Wake-Handshake-Prototype-v0.1.1-aligned-unsigned.apk"
+          BT="$ANDROID_HOME/build-tools/35.0.0"
+          mkdir -p "$OUT"
+          test -f "$U"
+          "$BT/zipalign" -f -p 4 "$U" "$A"
+          "$BT/zipalign" -c -v 4 "$A" > "$OUT/zipalign-verify.txt"
+          "$BT/aapt" dump badging "$A" > "$OUT/badging.txt"
+          grep -Fq "package: name='$PACKAGE' versionCode='$VERSION_CODE' versionName='$VERSION_NAME'" "$OUT/badging.txt"
+          sha256sum "$A" | tee "$OUT/UNSIGNED_SHA256.txt"
+          printf '%s\n' "$EXPECTED_SIGNER_SHA256" > "$OUT/EXPECTED_SIGNER_CERT_SHA256.txt"
+          printf '%s\n' "$GITHUB_SHA" > "$OUT/SOURCE_REF.txt"
+          printf 'package=%s\nversion_code=%s\nversion_name=%s\nexpected_signer_sha256=%s\nsource_ref=%s\nstage=unsigned_aligned_release\n'             "$PACKAGE" "$VERSION_CODE" "$VERSION_NAME" "$EXPECTED_SIGNER_SHA256" "$GITHUB_SHA"             > "$OUT/BUILD_METADATA.txt"
 
       - name: Upload signing kit
         uses: actions/upload-artifact@v4
         with:
-          name: wake-handshake-prototype-v0.1.0-signing-kit
+          name: wake-handshake-prototype-v0.1.1-signing-kit
           path: |
-            Wake-Handshake-Prototype-v0.1.0-unsigned.apk
-            unsigned-sha256.txt
+            android/wake-handshake-prototype/out/Wake-Handshake-Prototype-v0.1.1-aligned-unsigned.apk
+            android/wake-handshake-prototype/out/UNSIGNED_SHA256.txt
+            android/wake-handshake-prototype/out/EXPECTED_SIGNER_CERT_SHA256.txt
+            android/wake-handshake-prototype/out/SOURCE_REF.txt
+            android/wake-handshake-prototype/out/BUILD_METADATA.txt
+            android/wake-handshake-prototype/out/badging.txt
+            android/wake-handshake-prototype/out/zipalign-verify.txt
+          if-no-files-found: error
           retention-days: 30
