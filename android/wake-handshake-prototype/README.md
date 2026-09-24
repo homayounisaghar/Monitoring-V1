@@ -20,7 +20,7 @@ Identity:
 - package: `com.homayounisaghar.wakehandshakeprobe`
 - versionCode: `1`
 - versionName: `0.1.0`
-- expected signer certificate SHA-256: `b8bfbfb9d7962afd739c990d661e94c457dfb37cb6ab8516cdb54c3f95b9d2ec`
+- expected signer certificate SHA-256: `e59c1bea6876f1c1d0aba3c9f23d788e93f3ca015cd0e8371e3b80c20c020a0d`
 - source/build branch: `project/wake-handshake-prototype`
 
-The repository workflow builds an unsigned release signing kit. Final signing is a separate promotion step with the durable prototype signer; signer private material is not committed to Git.
+The repository workflow builds an unsigned release signing kit. Final signing is a separate promotion step with the pinned prototype signer; signer private material and credentials are not committed to Git. The public certificate pin is also stored in `signing/EXPECTED_SIGNING_SHA256.txt`.
