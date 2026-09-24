@@ -62,52 +62,55 @@ jobs:
 
           root=Path('android/wake-handshake-prototype')
           java=root/'app/src/main/java/com/homayounisaghar/wakehandshakeprobe'
-          s=(java/'MainActivity.java').read_text()
+          main=(java/'MainActivity.java').read_text()
           setup=(java/'SetupActivity.java').read_text()
           svc=(java/'LockedListeningService.java').read_text()
-          g=(root/'app/build.gradle').read_text()
-          m=(root/'app/src/main/AndroidManifest.xml').read_text()
+          manifest=(root/'app/src/main/AndroidManifest.xml').read_text()
+          gradle=(root/'app/build.gradle').read_text()
           base='087f8e84ee96835a17b8edcc5cdb9d9b0b2f2cf8'
 
           def git_show(rel):
-              return subprocess.check_output(
-                  ['git','show',f'{base}:{rel}'],
-                  text=True
-              )
+              return subprocess.check_output(['git','show',f'{base}:{rel}'], text=True)
 
-          # Auth/session-supporting files are exact v0.1.2 bytes.
           assert setup == git_show(str(java/'SetupActivity.java'))
           assert svc == git_show(str(java/'LockedListeningService.java'))
-          assert m == git_show(str(root/'app/src/main/AndroidManifest.xml'))
+          assert manifest == git_show(str(root/'app/src/main/AndroidManifest.xml'))
 
-          # MainActivity must equal v0.1.2 after removing only the v0.1.4
-          # punctuation-only command guard.
-          inserted='''            if (!hasCommandContent(chunk)) {
-                          setStatus("Ignoring punctuation — waiting for command…");
-                          return;
-                      }
-          '''
-          # Preserve exact indentation/newlines used by source.
-          inserted = inserted.replace('              setStatus', '                setStatus') \
-                             .replace('              return', '                return') \
-                             .replace('          }\n', '            }\n')
-          assert inserted in s
-          stripped=s.replace(inserted,'',1)
-          assert stripped == git_show(str(java/'MainActivity.java'))
+          base_main=git_show(str(java/'MainActivity.java'))
+          old_block="""        if (listeningPhase == ListeningPhase.COMMAND) {
+              playDings(2);
+              listeningPhase = ListeningPhase.WAKE;
+              setStatus("Command received — listening for wake phrase…");
+              return;
+          }""".replace("              ", "            ")
+          new_block="""        if (listeningPhase == ListeningPhase.COMMAND) {
+              if (!hasCommandContent(chunk)) {
+                  setStatus("Ignoring punctuation — waiting for command…");
+                  return;
+              }
+              playDings(2);
+              listeningPhase = ListeningPhase.WAKE;
+              setStatus("Command received — listening for wake phrase…");
+              return;
+          }""".replace("              ", "            ").replace("                  ", "                ")
+          assert old_block in base_main
+          expected_main=base_main.replace(old_block,new_block,1)
+          assert main == expected_main
 
           checks=[
-              ("package", "applicationId 'com.homayounisaghar.wakehandshakeprobe'" in g),
-              ("version code", "versionCode 5" in g),
-              ("version name", "versionName '0.1.4'" in g),
-              ("punctuation-only command ignored", 'if (!hasCommandContent(chunk))' in s and 'Ignoring punctuation — waiting for command…' in s),
-              ("two delays preserved", 'Wake delay' in s and 'Command delay' in s),
-              ("locked screen preserved", 'Keep listening when screen is locked' in s),
-              ("safe insets preserved", 'WindowInsets.Type.systemBars() | WindowInsets.Type.displayCutout()' in s),
+              ("package", "applicationId 'com.homayounisaghar.wakehandshakeprobe'" in gradle),
+              ("version code", "versionCode 5" in gradle),
+              ("version name", "versionName '0.1.4'" in gradle),
+              ("punctuation guard", 'if (!hasCommandContent(chunk))' in main),
+              ("wake delay", 'Wake delay' in main),
+              ("command delay", 'Command delay' in main),
+              ("locked screen", 'Keep listening when screen is locked' in main),
+              ("safe insets", 'WindowInsets.Type.systemBars() | WindowInsets.Type.displayCutout()' in main),
           ]
           bad=[name for name,ok in checks if not ok]
           if bad:
               raise SystemExit('contract failure: '+', '.join(bad))
-          print('PASS v0.1.4: exact v0.1.2 auth/session baseline + punctuation-only command guard')
+          print('PASS v0.1.4 exact v0.1.2 baseline plus punctuation guard')
           PY
 
       - name: Build unsigned release
