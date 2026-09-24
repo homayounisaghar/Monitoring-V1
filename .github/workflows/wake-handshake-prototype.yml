@@ -1,0 +1,96 @@
+name: Wake Handshake Prototype Android
+
+on:
+  push:
+    branches:
+      - project/wake-handshake-prototype
+    paths:
+      - 'android/wake-handshake-prototype/**'
+      - '.github/workflows/wake-handshake-prototype.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout exact commit
+        uses: actions/checkout@v6
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Use preinstalled Android SDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          test -x "$SDKMANAGER"
+          "$SDKMANAGER" --version
+          set +o pipefail
+          yes | "$SDKMANAGER" --licenses >/dev/null
+          set -o pipefail
+          "$SDKMANAGER" "platforms;android-35" "build-tools;35.0.0" "platform-tools"
+
+      - name: Set up Gradle 8.9
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          gradle-version: '8.9'
+
+      - name: Static contract checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          s=Path('android/wake-handshake-prototype/app/src/main/java/com/homayounisaghar/wakehandshakeprobe/MainActivity.java').read_text()
+          g=Path('android/wake-handshake-prototype/app/build.gradle').read_text()
+          m=Path('android/wake-handshake-prototype/app/src/main/AndroidManifest.xml').read_text()
+          for needle in [
+              'com.homayounisaghar.wakehandshakeprobe',
+              "versionCode 1",
+              "versionName '0.1.0'",
+              'private static final int[] DELAYS_MS = {800, 1200, 1500, 2000, 2500};',
+              'lastChunk.setText(chunk);',
+              'if (matchesWake(chunk, wakeField.getText().toString()))',
+              'ToneGenerator.TONE_PROP_ACK',
+              'replaceAll("\\\\s+", " ")',
+              'onPause()',
+              'stopImmediate(epoch, "Paused.")',
+          ]:
+              assert needle in (s + "\n" + g + "\n" + m), needle
+          print('static contract OK')
+          PY
+
+      - name: Build unsigned release
+        run: gradle -p android/wake-handshake-prototype --no-daemon assembleRelease --stacktrace
+
+      - name: Verify unsigned signing kit
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK='android/wake-handshake-prototype/app/build/outputs/apk/release/app-release-unsigned.apk'
+          test -f "$APK"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep "package: name='com.homayounisaghar.wakehandshakeprobe'"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep "versionCode='1' versionName='0.1.0'"
+          if "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify "$APK" >/dev/null 2>&1; then
+            echo 'Expected unsigned APK but signature verification succeeded' >&2
+            exit 1
+          fi
+          sha256sum "$APK" | tee unsigned-sha256.txt
+          cp "$APK" Wake-Handshake-Prototype-v0.1.0-unsigned.apk
+
+      - name: Upload signing kit
+        uses: actions/upload-artifact@v4
+        with:
+          name: wake-handshake-prototype-v0.1.0-signing-kit
+          path: |
+            Wake-Handshake-Prototype-v0.1.0-unsigned.apk
+            unsigned-sha256.txt
+          retention-days: 30
