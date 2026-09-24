@@ -133,6 +133,15 @@ new_probe = r'''            VoiceEditorWindow window=currentVoiceEditorWindow(ic
                 }
             }
 
+            String desired;String partial;int finalChars;
+            synchronized(textLock){
+                String allFinal=finalTranscript.toString();
+                int base=Math.max(0,Math.min(voiceProjectionFinalBaseChars,allFinal.length()));
+                desired=withVoiceProjectionPrefix(allFinal.substring(base)+(partialTranscript==null?"":partialTranscript));
+                partial=partialTranscript==null?"":partialTranscript;
+                finalChars=allFinal.length();
+            }
+
             int[] region=locatePublishedVoiceRegion(window);
             if(region==null){
                 if(stopVoiceIfExternalComposerCleared(window))return;
@@ -164,6 +173,7 @@ required=[
     'normalizeVoiceOwnedText(before).endsWith(normalizedGuard)',
     'diag("V145 END_MINUS_ONE_HEAL expected="',
     'boolean repairedEndMinusOne=healTransientVoiceEndMinusOne(ic,window,runId);',
+    'desired=withVoiceProjectionPrefix(allFinal.substring(base)+(partialTranscript==null?"":partialTranscript));',
     'main.postDelayed(()->publish(retryFinish,runId),35L);',
     'diagCurrentEditor("V145 PUB_PAUSE region-null");',
     'voiceProgrammaticCaretLeaseUntilUptime=android.os.SystemClock.uptimeMillis()+1500L;',
