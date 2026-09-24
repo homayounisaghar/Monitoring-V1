@@ -77,22 +77,26 @@ jobs:
           assert manifest == git_show(str(root/'app/src/main/AndroidManifest.xml'))
 
           base_main=git_show(str(java/'MainActivity.java'))
-          old_block="""        if (listeningPhase == ListeningPhase.COMMAND) {
-              playDings(2);
-              listeningPhase = ListeningPhase.WAKE;
-              setStatus("Command received — listening for wake phrase…");
-              return;
-          }""".replace("              ", "            ")
-          new_block="""        if (listeningPhase == ListeningPhase.COMMAND) {
-              if (!hasCommandContent(chunk)) {
-                  setStatus("Ignoring punctuation — waiting for command…");
-                  return;
-              }
-              playDings(2);
-              listeningPhase = ListeningPhase.WAKE;
-              setStatus("Command received — listening for wake phrase…");
-              return;
-          }""".replace("              ", "            ").replace("                  ", "                ")
+          old_block=(
+              "        if (listeningPhase == ListeningPhase.COMMAND) {\n"
+              "            playDings(2);\n"
+              "            listeningPhase = ListeningPhase.WAKE;\n"
+              "            setStatus(\"Command received — listening for wake phrase…\");\n"
+              "            return;\n"
+              "        }"
+          )
+          new_block=(
+              "        if (listeningPhase == ListeningPhase.COMMAND) {\n"
+              "            if (!hasCommandContent(chunk)) {\n"
+              "                setStatus(\"Ignoring punctuation — waiting for command…\");\n"
+              "                return;\n"
+              "            }\n"
+              "            playDings(2);\n"
+              "            listeningPhase = ListeningPhase.WAKE;\n"
+              "            setStatus(\"Command received — listening for wake phrase…\");\n"
+              "            return;\n"
+              "        }"
+          )
           assert old_block in base_main
           expected_main=base_main.replace(old_block,new_block,1)
           assert main == expected_main
