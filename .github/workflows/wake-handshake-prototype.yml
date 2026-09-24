@@ -19,12 +19,15 @@ jobs:
     env:
       ROOT: android/wake-handshake-prototype
       PACKAGE: com.homayounisaghar.wakehandshakeprobe
-      VERSION_CODE: '4'
-      VERSION_NAME: 0.1.3
+      VERSION_CODE: '5'
+      VERSION_NAME: 0.1.4
+      V012_BASE: 087f8e84ee96835a17b8edcc5cdb9d9b0b2f2cf8
       EXPECTED_SIGNER_SHA256: b8bfbfb9d7962afd739c990d661e94c457dfb37cb6ab8516cdb54c3f95b9d2ec
     steps:
-      - name: Checkout exact commit
+      - name: Checkout exact commit with baseline history
         uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
 
       - name: Set up JDK 17
         uses: actions/setup-java@v5
@@ -49,47 +52,62 @@ jobs:
         with:
           gradle-version: '8.9'
 
-      - name: Static v0.1.3 contract checks
+      - name: Verify v0.1.2 auth-session baseline plus v0.1.4 technical patch
         shell: bash
         run: |
           set -euo pipefail
           python3 - <<'PY'
           from pathlib import Path
+          import subprocess
+
           root=Path('android/wake-handshake-prototype')
-          s=(root/'app/src/main/java/com/homayounisaghar/wakehandshakeprobe/MainActivity.java').read_text()
-          svc=(root/'app/src/main/java/com/homayounisaghar/wakehandshakeprobe/LockedListeningService.java').read_text()
+          java=root/'app/src/main/java/com/homayounisaghar/wakehandshakeprobe'
+          s=(java/'MainActivity.java').read_text()
+          setup=(java/'SetupActivity.java').read_text()
+          svc=(java/'LockedListeningService.java').read_text()
           g=(root/'app/build.gradle').read_text()
           m=(root/'app/src/main/AndroidManifest.xml').read_text()
+          base='087f8e84ee96835a17b8edcc5cdb9d9b0b2f2cf8'
+
+          def git_show(rel):
+              return subprocess.check_output(
+                  ['git','show',f'{base}:{rel}'],
+                  text=True
+              )
+
+          # Auth/session-supporting files are exact v0.1.2 bytes.
+          assert setup == git_show(str(java/'SetupActivity.java'))
+          assert svc == git_show(str(java/'LockedListeningService.java'))
+          assert m == git_show(str(root/'app/src/main/AndroidManifest.xml'))
+
+          # MainActivity must equal v0.1.2 after removing only the v0.1.4
+          # punctuation-only command guard.
+          inserted='''            if (!hasCommandContent(chunk)) {
+                          setStatus("Ignoring punctuation — waiting for command…");
+                          return;
+                      }
+          '''
+          # Preserve exact indentation/newlines used by source.
+          inserted = inserted.replace('              setStatus', '                setStatus') \
+                             .replace('              return', '                return') \
+                             .replace('          }\n', '            }\n')
+          assert inserted in s
+          stripped=s.replace(inserted,'',1)
+          assert stripped == git_show(str(java/'MainActivity.java'))
+
           checks=[
               ("package", "applicationId 'com.homayounisaghar.wakehandshakeprobe'" in g),
-              ("version code", "versionCode 4" in g),
-              ("version name", "versionName '0.1.3'" in g),
-              ("delay values", 'private static final int[] DELAYS_MS = {0, 800, 1200, 1500, 2000, 2500};' in s),
-              ("separate wake pref", 'PREF_WAKE_DELAY = "wake_silence_delay_ms"' in s),
-              ("separate command pref", 'PREF_COMMAND_DELAY = "command_silence_delay_ms"' in s),
-              ("wake delay UI", 'label("Wake delay")' in s and 'wakeDelaySpinner' in s),
-              ("command delay UI", 'label("Command delay")' in s and 'commandDelaySpinner' in s),
-              ("phase enum", 'private enum ListeningPhase { WAKE, COMMAND }' in s),
-              ("phase-selected delay", 'return listeningPhase == ListeningPhase.COMMAND ? commandDelayMs : wakeDelayMs;' in s),
-              ("wake only enters command", 'listeningPhase = ListeningPhase.COMMAND;' in s),
-              ("command next chunk double ding", 'if (listeningPhase == ListeningPhase.COMMAND)' in s and 'playDings(2);' in s),
+              ("version code", "versionCode 5" in g),
+              ("version name", "versionName '0.1.4'" in g),
               ("punctuation-only command ignored", 'if (!hasCommandContent(chunk))' in s and 'Ignoring punctuation — waiting for command…' in s),
-              ("command returns wake", 'Command received — listening for wake phrase…' in s),
-              ("direct wake command", 'match == WakeMatch.WAKE_WITH_COMMAND' in s),
-              ("punctuation-only wake", 'Character.isLetterOrDigit(cp)' in s),
-              ("double ding spacing", 'main.postDelayed(this::playDing, 260L);' in s),
-              ("locked checkbox", 'Keep listening when screen is locked' in s),
-              ("locked lifecycle gate", 'keepListeningLocked() && isDeviceLockedOrScreenOff()' in s),
-              ("foreground service", 'LockedListeningService' in m and 'foregroundServiceType="microphone"' in m),
-              ("fgs mic permission", 'android.permission.FOREGROUND_SERVICE_MICROPHONE' in m),
-              ("wake lock", 'PowerManager.PARTIAL_WAKE_LOCK' in svc),
-              ("safe insets", 'WindowInsets.Type.systemBars() | WindowInsets.Type.displayCutout()' in s),
-              ("latest chunk", 'lastChunk.setText(chunk);' in s),
+              ("two delays preserved", 'Wake delay' in s and 'Command delay' in s),
+              ("locked screen preserved", 'Keep listening when screen is locked' in s),
+              ("safe insets preserved", 'WindowInsets.Type.systemBars() | WindowInsets.Type.displayCutout()' in s),
           ]
           bad=[name for name,ok in checks if not ok]
           if bad:
               raise SystemExit('contract failure: '+', '.join(bad))
-          print('PASS v0.1.3 punctuation-filtered wake-command contract')
+          print('PASS v0.1.4: exact v0.1.2 auth/session baseline + punctuation-only command guard')
           PY
 
       - name: Build unsigned release
@@ -104,7 +122,7 @@ jobs:
           set -euo pipefail
           U="$ROOT/app/build/outputs/apk/release/app-release-unsigned.apk"
           OUT="$ROOT/out"
-          A="$OUT/Wake-Handshake-Prototype-v0.1.3-aligned-unsigned.apk"
+          A="$OUT/Wake-Handshake-Prototype-v0.1.4-aligned-unsigned.apk"
           BT="$ANDROID_HOME/build-tools/35.0.0"
           mkdir -p "$OUT"
           test -f "$U"
@@ -115,16 +133,16 @@ jobs:
           sha256sum "$A" | tee "$OUT/UNSIGNED_SHA256.txt"
           printf '%s\n' "$EXPECTED_SIGNER_SHA256" > "$OUT/EXPECTED_SIGNER_CERT_SHA256.txt"
           printf '%s\n' "$GITHUB_SHA" > "$OUT/SOURCE_REF.txt"
-          printf 'package=%s\nversion_code=%s\nversion_name=%s\nexpected_signer_sha256=%s\nsource_ref=%s\nstage=unsigned_aligned_release\n' \
-            "$PACKAGE" "$VERSION_CODE" "$VERSION_NAME" "$EXPECTED_SIGNER_SHA256" "$GITHUB_SHA" \
+          printf 'package=%s\nversion_code=%s\nversion_name=%s\nexpected_signer_sha256=%s\nsource_ref=%s\nauth_baseline=%s\nstage=unsigned_aligned_release\n' \
+            "$PACKAGE" "$VERSION_CODE" "$VERSION_NAME" "$EXPECTED_SIGNER_SHA256" "$GITHUB_SHA" "$V012_BASE" \
             > "$OUT/BUILD_METADATA.txt"
 
       - name: Upload signing kit
         uses: actions/upload-artifact@v4
         with:
-          name: wake-handshake-prototype-v0.1.3-signing-kit
+          name: wake-handshake-prototype-v0.1.4-signing-kit
           path: |
-            android/wake-handshake-prototype/out/Wake-Handshake-Prototype-v0.1.3-aligned-unsigned.apk
+            android/wake-handshake-prototype/out/Wake-Handshake-Prototype-v0.1.4-aligned-unsigned.apk
             android/wake-handshake-prototype/out/UNSIGNED_SHA256.txt
             android/wake-handshake-prototype/out/EXPECTED_SIGNER_CERT_SHA256.txt
             android/wake-handshake-prototype/out/SOURCE_REF.txt
