@@ -609,7 +609,7 @@ public class MainActivity extends Activity {
 
     private boolean isBoundary(char c) {
         return Character.isWhitespace(c) ||
-                ",.;:!?،؛؟-—()[]{}"'".indexOf(c) >= 0;
+                ",.;:!?،؛؟-—()[]{}\"'".indexOf(c) >= 0;
     }
 
     private void playDing() {
