@@ -695,6 +695,10 @@ public class MainActivity extends Activity {
         lastChunk.setText(chunk);
 
         if (listeningPhase == ListeningPhase.COMMAND) {
+            if (!hasCommandContent(chunk)) {
+                setStatus("Ignoring punctuation — waiting for command…");
+                return;
+            }
             playDings(2);
             listeningPhase = ListeningPhase.WAKE;
             setStatus("Command received — listening for wake phrase…");
