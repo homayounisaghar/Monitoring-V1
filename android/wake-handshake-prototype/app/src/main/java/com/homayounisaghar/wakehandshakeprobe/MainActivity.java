@@ -72,6 +72,9 @@ public class MainActivity extends Activity {
     private static final String PREF_WAKE_DELAY = "wake_silence_delay_ms";
     private static final String PREF_COMMAND_DELAY = "command_silence_delay_ms";
     private static final String PREF_LOCKED = "keep_listening_locked";
+    private static final String MOBILE_BROWSER_UA =
+            "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 " +
+            "(KHTML, like Gecko) SamsungBrowser/30.0 Chrome/143.0.0.0 Mobile Safari/537.36";
 
     private final Handler main = new Handler(Looper.getMainLooper());
     private final OkHttpClient http = new OkHttpClient.Builder()
@@ -129,19 +132,7 @@ public class MainActivity extends Activity {
 
         buildUi();
         configureAuthWebView();
-        boolean resettingLegacyProfile = PerplexitySessionCompat.needsDefaultUaReset(this);
-        if (resettingLegacyProfile) {
-            setStatus("Resetting Perplexity session for standard WebView compatibility…");
-        }
-        PerplexitySessionCompat.resetLegacyProfileOnce(this, () -> {
-            if (auth != null) {
-                auth.clearCache(true);
-                auth.loadUrl(START_URL);
-            }
-            if (resettingLegacyProfile) {
-                setStatus("Perplexity session reset — open the session and sign in once.");
-            }
-        });
+        auth.loadUrl(START_URL);
     }
 
     private void buildUi() {
@@ -869,7 +860,13 @@ public class MainActivity extends Activity {
     @SuppressLint({"SetJavaScriptEnabled", "AddJavascriptInterface"})
     private void configureAuthWebView() {
         WebSettings s = auth.getSettings();
-        PerplexitySessionCompat.configure(auth);
+        s.setJavaScriptEnabled(true);
+        s.setDomStorageEnabled(true);
+        s.setUserAgentString(MOBILE_BROWSER_UA);
+
+        CookieManager cm = CookieManager.getInstance();
+        cm.setAcceptCookie(true);
+        cm.setAcceptThirdPartyCookies(auth, true);
 
         auth.addJavascriptInterface(new CredentialBridge(), "AndroidProbe");
         auth.setWebViewClient(new WebViewClient() {
