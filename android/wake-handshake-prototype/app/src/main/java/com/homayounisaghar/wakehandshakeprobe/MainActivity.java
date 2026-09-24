@@ -3,10 +3,12 @@ package com.homayounisaghar.wakehandshakeprobe;
 import android.Manifest;
 import android.annotation.SuppressLint;
 import android.app.Activity;
+import android.app.KeyguardManager;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
+import android.graphics.Insets;
 import android.graphics.drawable.GradientDrawable;
 import android.media.AudioFormat;
 import android.media.AudioManager;
@@ -18,10 +20,12 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.PowerManager;
 import android.os.SystemClock;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.WindowInsets;
 import android.webkit.CookieManager;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebSettings;
@@ -29,8 +33,10 @@ import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
+import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.LinearLayout;
+import android.widget.ScrollView;
 import android.widget.Spinner;
 import android.widget.TextView;
 
@@ -58,11 +64,12 @@ public class MainActivity extends Activity {
     private static final int AUDIO_CHUNK = 3200;
     private static final int MAX_PENDING_BYTES = SAMPLE_RATE * 2 * 12;
     private static final long CREDENTIAL_TIMEOUT_MS = 18000L;
-    private static final int[] DELAYS_MS = {800, 1200, 1500, 2000, 2500};
-    private static final String[] DELAY_LABELS = {"0.8 s", "1.2 s", "1.5 s", "2.0 s", "2.5 s"};
+    private static final int[] DELAYS_MS = {0, 800, 1200, 1500, 2000, 2500};
+    private static final String[] DELAY_LABELS = {"0 s", "0.8 s", "1.2 s", "1.5 s", "2.0 s", "2.5 s"};
     private static final String PREFS = "wake_probe";
     private static final String PREF_WAKE = "wake_phrase";
     private static final String PREF_DELAY = "silence_delay_ms";
+    private static final String PREF_LOCKED = "keep_listening_locked";
     private static final String MOBILE_BROWSER_UA =
             "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 " +
             "(KHTML, like Gecko) SamsungBrowser/30.0 Chrome/143.0.0.0 Mobile Safari/537.36";
@@ -80,6 +87,7 @@ public class MainActivity extends Activity {
     private SharedPreferences prefs;
     private EditText wakeField;
     private Spinner delaySpinner;
+    private CheckBox lockedModeBox;
     private TextView lastChunk;
     private TextView status;
     private Button startStop;
@@ -101,6 +109,7 @@ public class MainActivity extends Activity {
     private int pendingBytes;
     private int credentialAttempt;
     private boolean retryAfterPageLoad;
+    private volatile boolean activityResumed;
     private AudioRecord audioRecord;
     private WebSocket webSocket;
 
@@ -118,6 +127,12 @@ public class MainActivity extends Activity {
     }
 
     private void buildUi() {
+        ScrollView scroll = new ScrollView(this);
+        scroll.setFillViewport(true);
+        scroll.setClipToPadding(false);
+        scroll.setBackgroundColor(0xFFF4F5F7);
+        applySafeInsets(scroll);
+
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setPadding(dp(18), dp(18), dp(18), dp(18));
@@ -164,7 +179,7 @@ public class MainActivity extends Activity {
         ArrayAdapter<String> adapter = new ArrayAdapter<>(
                 this, android.R.layout.simple_spinner_dropdown_item, DELAY_LABELS);
         delaySpinner.setAdapter(adapter);
-        int selected = 2;
+        int selected = 3;
         for (int i = 0; i < DELAYS_MS.length; i++) {
             if (DELAYS_MS[i] == endpointDelayMs) selected = i;
         }
@@ -179,6 +194,26 @@ public class MainActivity extends Activity {
         });
         delayRow.addView(delaySpinner);
         root.addView(delayRow);
+
+        lockedModeBox = new CheckBox(this);
+        lockedModeBox.setText("Keep listening when screen is locked");
+        lockedModeBox.setTextSize(14f);
+        lockedModeBox.setChecked(prefs.getBoolean(PREF_LOCKED, false));
+        lockedModeBox.setOnCheckedChangeListener((buttonView, checked) -> {
+            prefs.edit().putBoolean(PREF_LOCKED, checked).apply();
+            if (running) {
+                if (checked) startKeepAliveService();
+                else stopKeepAliveService();
+            }
+        });
+        root.addView(lockedModeBox);
+
+        TextView lockedHint = new TextView(this);
+        lockedHint.setText("When enabled, an active listening session keeps running after the phone locks. Switching to another app while the screen stays on still stops listening.");
+        lockedHint.setTextSize(11f);
+        lockedHint.setTextColor(0xFF6B7280);
+        lockedHint.setPadding(dp(3), 0, dp(3), dp(10));
+        root.addView(lockedHint);
 
         TextView outputLabel = label("Last emitted chunk");
         root.addView(outputLabel);
@@ -229,7 +264,34 @@ public class MainActivity extends Activity {
         auth.setAlpha(0.01f);
         root.addView(auth, new LinearLayout.LayoutParams(1, 1));
 
-        setContentView(root);
+        scroll.addView(root, new ScrollView.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        setContentView(scroll);
+    }
+
+    private void applySafeInsets(View view) {
+        view.setOnApplyWindowInsetsListener((v, insets) -> {
+            int left;
+            int top;
+            int right;
+            int bottom;
+            if (Build.VERSION.SDK_INT >= 30) {
+                Insets safe = insets.getInsets(
+                        WindowInsets.Type.systemBars() | WindowInsets.Type.displayCutout());
+                left = safe.left;
+                top = safe.top;
+                right = safe.right;
+                bottom = safe.bottom;
+            } else {
+                left = insets.getSystemWindowInsetLeft();
+                top = insets.getSystemWindowInsetTop();
+                right = insets.getSystemWindowInsetRight();
+                bottom = insets.getSystemWindowInsetBottom();
+            }
+            v.setPadding(left, top, right, bottom);
+            return insets;
+        });
+        view.requestApplyInsets();
     }
 
     private TextView label(String text) {
@@ -304,6 +366,7 @@ public class MainActivity extends Activity {
 
         startStop.setText("Stop");
         setStatus("Listening…");
+        if (keepListeningLocked()) startKeepAliveService();
         startAudioCapture(epoch);
         requestCredential(epoch);
         main.postDelayed(() -> {
@@ -546,7 +609,8 @@ public class MainActivity extends Activity {
 
     private void armCommit(long epoch) {
         main.removeCallbacks(commitRunnable);
-        main.postDelayed(commitRunnable, Math.max(60, endpointDelayMs));
+        if (endpointDelayMs <= 0) main.post(commitRunnable);
+        else main.postDelayed(commitRunnable, endpointDelayMs);
     }
 
     private final Runnable commitRunnable = this::runCommitCheck;
@@ -578,21 +642,43 @@ public class MainActivity extends Activity {
         if (chunk.isEmpty()) return;
 
         lastChunk.setText(chunk);
-        if (matchesWake(chunk, wakeField.getText().toString())) {
-            playDing();
+        WakeMatch match = classifyWake(chunk, wakeField.getText().toString());
+        if (match == WakeMatch.WAKE_ONLY) {
+            playDings(1);
             setStatus("Wake phrase detected.");
+        } else if (match == WakeMatch.WAKE_WITH_COMMAND) {
+            playDings(2);
+            setStatus("Wake phrase + command detected.");
         } else if (running && !stopRequested) {
             setStatus("Listening…");
         }
     }
 
-    private boolean matchesWake(String chunk, String wake) {
+    private enum WakeMatch {
+        NONE,
+        WAKE_ONLY,
+        WAKE_WITH_COMMAND
+    }
+
+    private WakeMatch classifyWake(String chunk, String wake) {
         String c = normalizeForMatch(chunk);
         String w = normalizeForMatch(wake);
-        if (w.isEmpty() || c.isEmpty()) return false;
-        if (c.equals(w)) return true;
-        if (!c.startsWith(w) || c.length() <= w.length()) return false;
-        return isBoundary(c.charAt(w.length()));
+        if (w.isEmpty() || c.isEmpty()) return WakeMatch.NONE;
+        if (c.equals(w)) return WakeMatch.WAKE_ONLY;
+        if (!c.startsWith(w) || c.length() <= w.length()) return WakeMatch.NONE;
+        int next = c.codePointAt(w.length());
+        if (!isBoundary(next)) return WakeMatch.NONE;
+        String tail = c.substring(w.length());
+        return hasCommandContent(tail) ? WakeMatch.WAKE_WITH_COMMAND : WakeMatch.WAKE_ONLY;
+    }
+
+    private boolean hasCommandContent(String tail) {
+        for (int i = 0; i < tail.length();) {
+            int cp = tail.codePointAt(i);
+            if (Character.isLetterOrDigit(cp)) return true;
+            i += Character.charCount(cp);
+        }
+        return false;
     }
 
     private String normalizeForMatch(String s) {
@@ -609,9 +695,21 @@ public class MainActivity extends Activity {
                 .toLowerCase(Locale.ROOT);
     }
 
-    private boolean isBoundary(char c) {
-        return Character.isWhitespace(c) ||
-                ",.;:!?،؛؟-—()[]{}\"'".indexOf(c) >= 0;
+    private boolean isBoundary(int cp) {
+        if (Character.isWhitespace(cp)) return true;
+        int type = Character.getType(cp);
+        return type == Character.CONNECTOR_PUNCTUATION
+                || type == Character.DASH_PUNCTUATION
+                || type == Character.START_PUNCTUATION
+                || type == Character.END_PUNCTUATION
+                || type == Character.INITIAL_QUOTE_PUNCTUATION
+                || type == Character.FINAL_QUOTE_PUNCTUATION
+                || type == Character.OTHER_PUNCTUATION;
+    }
+
+    private void playDings(int count) {
+        playDing();
+        if (count > 1) main.postDelayed(this::playDing, 260L);
     }
 
     private void playDing() {
@@ -645,6 +743,7 @@ public class MainActivity extends Activity {
         if (ws != null) {
             try { ws.close(1000, "stop"); } catch (Exception ignored) {}
         }
+        stopKeepAliveService();
         startStop.setText("Start listening");
         setStatus(message);
     }
@@ -658,6 +757,34 @@ public class MainActivity extends Activity {
             } catch (Exception ignored) {}
             try { r.release(); } catch (Exception ignored) {}
         }
+    }
+
+    private boolean keepListeningLocked() {
+        if (lockedModeBox != null) return lockedModeBox.isChecked();
+        return prefs != null && prefs.getBoolean(PREF_LOCKED, false);
+    }
+
+    private boolean isDeviceLockedOrScreenOff() {
+        PowerManager pm = (PowerManager) getSystemService(POWER_SERVICE);
+        KeyguardManager km = (KeyguardManager) getSystemService(KEYGUARD_SERVICE);
+        boolean screenOff = pm != null && !pm.isInteractive();
+        boolean locked = km != null && km.isKeyguardLocked();
+        return screenOff || locked;
+    }
+
+    private void startKeepAliveService() {
+        Intent i = new Intent(this, LockedListeningService.class);
+        try {
+            if (Build.VERSION.SDK_INT >= 26) startForegroundService(i);
+            else startService(i);
+        } catch (Exception e) {
+            setStatus("Locked-screen listening could not start.");
+        }
+    }
+
+    private void stopKeepAliveService() {
+        try { stopService(new Intent(this, LockedListeningService.class)); }
+        catch (Exception ignored) {}
     }
 
     private void setStatus(String text) {
@@ -737,6 +864,7 @@ public class MainActivity extends Activity {
 
     @Override protected void onResume() {
         super.onResume();
+        activityResumed = true;
         if (auth != null && !running) {
             try { CookieManager.getInstance().flush(); } catch (Exception ignored) {}
             auth.reload();
@@ -744,26 +872,39 @@ public class MainActivity extends Activity {
     }
 
     @Override protected void onPause() {
+        activityResumed = false;
         if (running) {
             long epoch = activeEpoch;
-            forceCommit(epoch);
-            stopImmediate(epoch, "Paused.");
+            main.postDelayed(() -> {
+                if (!isActive(epoch) || activityResumed) return;
+                if (keepListeningLocked() && isDeviceLockedOrScreenOff()) {
+                    setStatus("Listening while screen is locked…");
+                    return;
+                }
+                forceCommit(epoch);
+                stopImmediate(epoch, "Paused.");
+            }, 350L);
         }
         super.onPause();
     }
 
     @Override protected void onDestroy() {
-        if (running) stopImmediate(activeEpoch, "Stopped.");
+        boolean preserveLockedRun = running
+                && keepListeningLocked()
+                && isDeviceLockedOrScreenOff();
         saveWakePhrase();
-        if (auth != null) {
-            auth.removeJavascriptInterface("AndroidProbe");
-            auth.destroy();
+        if (!preserveLockedRun) {
+            if (running) stopImmediate(activeEpoch, "Stopped.");
+            if (auth != null) {
+                auth.removeJavascriptInterface("AndroidProbe");
+                auth.destroy();
+            }
+            if (tone != null) {
+                tone.release();
+                tone = null;
+            }
+            http.dispatcher().executorService().shutdown();
         }
-        if (tone != null) {
-            tone.release();
-            tone = null;
-        }
-        http.dispatcher().executorService().shutdown();
         super.onDestroy();
     }
 
