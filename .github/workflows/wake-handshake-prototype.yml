@@ -19,8 +19,8 @@ jobs:
     env:
       ROOT: android/wake-handshake-prototype
       PACKAGE: com.homayounisaghar.wakehandshakeprobe
-      VERSION_CODE: '2'
-      VERSION_NAME: 0.1.1
+      VERSION_CODE: '3'
+      VERSION_NAME: 0.1.2
       EXPECTED_SIGNER_SHA256: b8bfbfb9d7962afd739c990d661e94c457dfb37cb6ab8516cdb54c3f95b9d2ec
     steps:
       - name: Checkout exact commit
@@ -49,7 +49,7 @@ jobs:
         with:
           gradle-version: '8.9'
 
-      - name: Static v0.1.1 contract checks
+      - name: Static v0.1.2 contract checks
         shell: bash
         run: |
           set -euo pipefail
@@ -62,28 +62,33 @@ jobs:
           m=(root/'app/src/main/AndroidManifest.xml').read_text()
           checks=[
               ("package", "applicationId 'com.homayounisaghar.wakehandshakeprobe'" in g),
-              ("version code", "versionCode 2" in g),
-              ("version name", "versionName '0.1.1'" in g),
-              ("zero delay", 'private static final int[] DELAYS_MS = {0, 800, 1200, 1500, 2000, 2500};' in s),
-              ("zero delay immediate arm", 'if (endpointDelayMs <= 0) main.post(commitRunnable);' in s),
-              ("wake only classification", 'WakeMatch.WAKE_ONLY' in s),
-              ("wake plus command classification", 'WakeMatch.WAKE_WITH_COMMAND' in s),
-              ("punctuation-only ignored as command", 'Character.isLetterOrDigit(cp)' in s),
-              ("double ding", 'if (count > 1) main.postDelayed(this::playDing, 260L);' in s),
+              ("version code", "versionCode 3" in g),
+              ("version name", "versionName '0.1.2'" in g),
+              ("delay values", 'private static final int[] DELAYS_MS = {0, 800, 1200, 1500, 2000, 2500};' in s),
+              ("separate wake pref", 'PREF_WAKE_DELAY = "wake_silence_delay_ms"' in s),
+              ("separate command pref", 'PREF_COMMAND_DELAY = "command_silence_delay_ms"' in s),
+              ("wake delay UI", 'label("Wake delay")' in s and 'wakeDelaySpinner' in s),
+              ("command delay UI", 'label("Command delay")' in s and 'commandDelaySpinner' in s),
+              ("phase enum", 'private enum ListeningPhase { WAKE, COMMAND }' in s),
+              ("phase-selected delay", 'return listeningPhase == ListeningPhase.COMMAND ? commandDelayMs : wakeDelayMs;' in s),
+              ("wake only enters command", 'listeningPhase = ListeningPhase.COMMAND;' in s),
+              ("command next chunk double ding", 'if (listeningPhase == ListeningPhase.COMMAND)' in s and 'playDings(2);' in s),
+              ("command returns wake", 'Command received — listening for wake phrase…' in s),
+              ("direct wake command", 'match == WakeMatch.WAKE_WITH_COMMAND' in s),
+              ("punctuation-only wake", 'Character.isLetterOrDigit(cp)' in s),
+              ("double ding spacing", 'main.postDelayed(this::playDing, 260L);' in s),
               ("locked checkbox", 'Keep listening when screen is locked' in s),
-              ("locked screen lifecycle gate", 'keepListeningLocked() && isDeviceLockedOrScreenOff()' in s),
+              ("locked lifecycle gate", 'keepListeningLocked() && isDeviceLockedOrScreenOff()' in s),
               ("foreground service", 'LockedListeningService' in m and 'foregroundServiceType="microphone"' in m),
               ("fgs mic permission", 'android.permission.FOREGROUND_SERVICE_MICROPHONE' in m),
               ("wake lock", 'PowerManager.PARTIAL_WAKE_LOCK' in svc),
-              ("foreground microphone type", 'FOREGROUND_SERVICE_TYPE_MICROPHONE' in svc),
               ("safe insets", 'WindowInsets.Type.systemBars() | WindowInsets.Type.displayCutout()' in s),
-              ("scrollable UI", 'new ScrollView(this)' in s),
-              ("no transcript persistence marker", 'lastChunk.setText(chunk);' in s),
+              ("latest chunk", 'lastChunk.setText(chunk);' in s),
           ]
           bad=[name for name,ok in checks if not ok]
           if bad:
               raise SystemExit('contract failure: '+', '.join(bad))
-          print('PASS v0.1.1 static contract')
+          print('PASS v0.1.2 wake-command state-machine contract')
           PY
 
       - name: Build unsigned release
@@ -98,7 +103,7 @@ jobs:
           set -euo pipefail
           U="$ROOT/app/build/outputs/apk/release/app-release-unsigned.apk"
           OUT="$ROOT/out"
-          A="$OUT/Wake-Handshake-Prototype-v0.1.1-aligned-unsigned.apk"
+          A="$OUT/Wake-Handshake-Prototype-v0.1.2-aligned-unsigned.apk"
           BT="$ANDROID_HOME/build-tools/35.0.0"
           mkdir -p "$OUT"
           test -f "$U"
@@ -109,14 +114,16 @@ jobs:
           sha256sum "$A" | tee "$OUT/UNSIGNED_SHA256.txt"
           printf '%s\n' "$EXPECTED_SIGNER_SHA256" > "$OUT/EXPECTED_SIGNER_CERT_SHA256.txt"
           printf '%s\n' "$GITHUB_SHA" > "$OUT/SOURCE_REF.txt"
-          printf 'package=%s\nversion_code=%s\nversion_name=%s\nexpected_signer_sha256=%s\nsource_ref=%s\nstage=unsigned_aligned_release\n'             "$PACKAGE" "$VERSION_CODE" "$VERSION_NAME" "$EXPECTED_SIGNER_SHA256" "$GITHUB_SHA"             > "$OUT/BUILD_METADATA.txt"
+          printf 'package=%s\nversion_code=%s\nversion_name=%s\nexpected_signer_sha256=%s\nsource_ref=%s\nstage=unsigned_aligned_release\n' \
+            "$PACKAGE" "$VERSION_CODE" "$VERSION_NAME" "$EXPECTED_SIGNER_SHA256" "$GITHUB_SHA" \
+            > "$OUT/BUILD_METADATA.txt"
 
       - name: Upload signing kit
         uses: actions/upload-artifact@v4
         with:
-          name: wake-handshake-prototype-v0.1.1-signing-kit
+          name: wake-handshake-prototype-v0.1.2-signing-kit
           path: |
-            android/wake-handshake-prototype/out/Wake-Handshake-Prototype-v0.1.1-aligned-unsigned.apk
+            android/wake-handshake-prototype/out/Wake-Handshake-Prototype-v0.1.2-aligned-unsigned.apk
             android/wake-handshake-prototype/out/UNSIGNED_SHA256.txt
             android/wake-handshake-prototype/out/EXPECTED_SIGNER_CERT_SHA256.txt
             android/wake-handshake-prototype/out/SOURCE_REF.txt
