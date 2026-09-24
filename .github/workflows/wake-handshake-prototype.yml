@@ -19,12 +19,15 @@ jobs:
     env:
       ROOT: android/wake-handshake-prototype
       PACKAGE: com.homayounisaghar.wakehandshakeprobe
-      VERSION_CODE: '6'
-      VERSION_NAME: 0.1.5
+      VERSION_CODE: '7'
+      VERSION_NAME: 0.1.6
+      ROLLBACK_BASE: d710b9b975846280572fbf833a0bfbdfc0e40142
       EXPECTED_SIGNER_SHA256: b8bfbfb9d7962afd739c990d661e94c457dfb37cb6ab8516cdb54c3f95b9d2ec
     steps:
-      - name: Checkout exact commit
+      - name: Checkout exact commit with rollback history
         uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
 
       - name: Set up JDK 17
         uses: actions/setup-java@v5
@@ -49,39 +52,56 @@ jobs:
         with:
           gradle-version: '8.9'
 
-      - name: Static v0.1.5 contract checks
+      - name: Verify v0.1.6 exact Perplexity rollback contract
         shell: bash
         run: |
           set -euo pipefail
           python3 - <<'PY'
           from pathlib import Path
+          import subprocess
+
           root=Path('android/wake-handshake-prototype')
           java=root/'app/src/main/java/com/homayounisaghar/wakehandshakeprobe'
+          base='d710b9b975846280572fbf833a0bfbdfc0e40142'
+
+          def git_show(rel):
+              return subprocess.check_output(['git','show',f'{base}:{rel}'], text=True)
+
           main=(java/'MainActivity.java').read_text()
           setup=(java/'SetupActivity.java').read_text()
-          compat=(java/'PerplexitySessionCompat.java').read_text()
-          svc=(java/'LockedListeningService.java').read_text()
-          gradle=(root/'app/build.gradle').read_text()
+          service=(java/'LockedListeningService.java').read_text()
           manifest=(root/'app/src/main/AndroidManifest.xml').read_text()
+          gradle=(root/'app/build.gradle').read_text()
+
+          # Exact rollback of the Perplexity/session runtime to the pre-v0.1.5 line.
+          assert main == git_show(str(java/'MainActivity.java'))
+          assert setup == git_show(str(java/'SetupActivity.java'))
+          assert service == git_show(str(java/'LockedListeningService.java'))
+          assert manifest == git_show(str(root/'app/src/main/AndroidManifest.xml'))
+
+          # The v0.1.5 session-compat experiment must be completely absent.
+          assert not (java/'PerplexitySessionCompat.java').exists()
+          assert 'SamsungBrowser/30.0' in main
+          assert 'SamsungBrowser/30.0' in setup
+          assert 'setUserAgentString(MOBILE_BROWSER_UA)' in main
+          assert 'setUserAgentString(MOBILE_BROWSER_UA)' in setup
+          assert 'Reset Perplexity session' not in setup
+          assert 'removeAllCookies' not in main
+          assert 'deleteAllData' not in main
+
           checks=[
               ("package", "applicationId 'com.homayounisaghar.wakehandshakeprobe'" in gradle),
-              ("version code", "versionCode 6" in gradle),
-              ("version name", "versionName '0.1.5'" in gradle),
-              ("no spoofed UA main", "SamsungBrowser/30.0" not in main and "setUserAgentString" not in main),
-              ("no spoofed UA setup", "SamsungBrowser/30.0" not in setup and "setUserAgentString" not in setup),
-              ("default UA helper", "Deliberately keep Android WebView's default, unmodified User-Agent." in compat),
-              ("one-time reset", "resetLegacyProfileOnce" in compat and "removeAllCookies" in compat and "deleteAllData" in compat),
-              ("manual reset", "Reset Perplexity session" in setup and "resetPerplexitySession()" in setup),
+              ("version code", "versionCode 7" in gradle),
+              ("version name", "versionName '0.1.6'" in gradle),
               ("two delays", 'label("Wake delay")' in main and 'label("Command delay")' in main),
               ("punctuation filter", 'if (!hasCommandContent(chunk))' in main),
-              ("locked screen", 'Keep listening when screen is locked' in main and 'PowerManager.PARTIAL_WAKE_LOCK' in svc),
+              ("locked screen", 'Keep listening when screen is locked' in main and 'PowerManager.PARTIAL_WAKE_LOCK' in service),
               ("safe insets", 'WindowInsets.Type.systemBars() | WindowInsets.Type.displayCutout()' in main),
-              ("fgs", 'foregroundServiceType="microphone"' in manifest),
           ]
           bad=[name for name,ok in checks if not ok]
           if bad:
               raise SystemExit('contract failure: '+', '.join(bad))
-          print('PASS v0.1.5 standard-WebView session compatibility contract')
+          print('PASS v0.1.6 exact pre-v0.1.5 Perplexity/session rollback contract')
           PY
 
       - name: Build unsigned release
@@ -96,7 +116,7 @@ jobs:
           set -euo pipefail
           U="$ROOT/app/build/outputs/apk/release/app-release-unsigned.apk"
           OUT="$ROOT/out"
-          A="$OUT/Wake-Handshake-Prototype-v0.1.5-aligned-unsigned.apk"
+          A="$OUT/Wake-Handshake-Prototype-v0.1.6-aligned-unsigned.apk"
           BT="$ANDROID_HOME/build-tools/35.0.0"
           mkdir -p "$OUT"
           test -f "$U"
@@ -107,15 +127,16 @@ jobs:
           sha256sum "$A" | tee "$OUT/UNSIGNED_SHA256.txt"
           printf '%s\n' "$EXPECTED_SIGNER_SHA256" > "$OUT/EXPECTED_SIGNER_CERT_SHA256.txt"
           printf '%s\n' "$GITHUB_SHA" > "$OUT/SOURCE_REF.txt"
-          printf 'package=%s\nversion_code=%s\nversion_name=%s\nexpected_signer_sha256=%s\nsource_ref=%s\nstage=unsigned_aligned_release\n' \
-            "$PACKAGE" "$VERSION_CODE" "$VERSION_NAME" "$EXPECTED_SIGNER_SHA256" "$GITHUB_SHA"             > "$OUT/BUILD_METADATA.txt"
+          printf 'package=%s\nversion_code=%s\nversion_name=%s\nexpected_signer_sha256=%s\nsource_ref=%s\nrollback_base=%s\nstage=unsigned_aligned_release\n' \
+            "$PACKAGE" "$VERSION_CODE" "$VERSION_NAME" "$EXPECTED_SIGNER_SHA256" "$GITHUB_SHA" "$ROLLBACK_BASE" \
+            > "$OUT/BUILD_METADATA.txt"
 
       - name: Upload signing kit
         uses: actions/upload-artifact@v4
         with:
-          name: wake-handshake-prototype-v0.1.5-signing-kit
+          name: wake-handshake-prototype-v0.1.6-signing-kit
           path: |
-            android/wake-handshake-prototype/out/Wake-Handshake-Prototype-v0.1.5-aligned-unsigned.apk
+            android/wake-handshake-prototype/out/Wake-Handshake-Prototype-v0.1.6-aligned-unsigned.apk
             android/wake-handshake-prototype/out/UNSIGNED_SHA256.txt
             android/wake-handshake-prototype/out/EXPECTED_SIGNER_CERT_SHA256.txt
             android/wake-handshake-prototype/out/SOURCE_REF.txt
