@@ -106,15 +106,18 @@ s = rep(
     'extend narrow publication lease',
 )
 
-old_window = r'''            VoiceEditorWindow window=currentVoiceEditorWindow(ic);
-            if(window==null){noteVoicePublicationPaused(runId);return;}
-            int[] region=locatePublishedVoiceRegion(window);
-            if(region==null){
-                if(stopVoiceIfExternalComposerCleared(window))return;
-                noteVoicePublicationPaused(runId);return;
-            }
-'''
-new_window = r'''            VoiceEditorWindow window=currentVoiceEditorWindow(ic);
+# Rewrite only the window/region-probe prefix inside publish(), independent of
+# minor formatting/instrumentation added by earlier patches.
+pub_start=s.find('    private void publish(boolean finish,long runId){')
+pub_end=s.find('    private void finishWithText',pub_start)
+if pub_start<0 or pub_end<0:
+    raise SystemExit('v1.45 patch: publish method region missing')
+pub=s[pub_start:pub_end]
+probe_start=pub.find('            VoiceEditorWindow window=currentVoiceEditorWindow(ic);')
+probe_end=pub.find('            String actual=window.text.substring(region[2],region[3]);',probe_start)
+if probe_start<0 or probe_end<0:
+    raise SystemExit('v1.45 patch: publisher probe markers missing')
+new_probe = r'''            VoiceEditorWindow window=currentVoiceEditorWindow(ic);
             if(window==null){noteVoicePublicationPaused(runId);return;}
 
             // Repair the exact host end-1 drift before it can make v1.36 drop
@@ -145,7 +148,8 @@ new_window = r'''            VoiceEditorWindow window=currentVoiceEditorWindow(i
                 noteVoicePublicationPaused(runId);return;
             }
 '''
-s = rep(s, old_window, new_window, 'publisher-side end-minus-one repair before follow decision')
+pub=pub[:probe_start]+new_probe+pub[probe_end:]
+s=s[:pub_start]+pub+s[pub_end:]
 
 if 'versionCode 54' not in g or "versionName '1.44'" not in g:
     raise SystemExit('v1.45 patch: expected v1.44 Gradle markers missing')
