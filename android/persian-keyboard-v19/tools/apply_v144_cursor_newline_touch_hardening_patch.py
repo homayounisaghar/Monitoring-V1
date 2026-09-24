@@ -297,7 +297,7 @@ required = [
     'private int voiceProgrammaticCaretLeaseEnd = -1;',
     'private String voiceProjectionPrefix = "";',
     'ViewGroup.LayoutParams.MATCH_PARENT, weight',
-    'b.setBackground(new InsetDrawable(',
+    'b.setBackground(keyStateBackground(action));',
     'boolean multiline=(inputType&InputType.TYPE_TEXT_FLAG_MULTI_LINE)!=0;',
     'if(ic.commitText("\\n",1))return;',
     'private String withVoiceProjectionPrefix(String segment){',
