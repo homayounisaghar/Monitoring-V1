@@ -4,49 +4,33 @@ Independent Android MVP inspired by the accepted WebView Dashboard speech path. 
 
 Flow:
 
-`operator speech -> Perplexity session credential -> Soniox realtime STT -> phase-selected local silence hold -> latest emitted chunk -> wake/command state machine -> local ding(s)`
+`operator speech -> Perplexity session credential -> Soniox realtime STT -> phase-selected local silence hold -> latest emitted chunk -> WAKE/COMMAND state machine -> local ding(s)`
 
-Behavior in v0.1.5:
+Behavior in v0.1.6:
 - editable wake phrase, default `خط باز`;
-- two independent silence controls with the same choices `0 / 800 / 1200 / 1500 / 2000 / 2500 ms`:
+- two independent silence controls with choices `0 / 800 / 1200 / 1500 / 2000 / 2500 ms`:
   - **Wake delay** while searching for the wake phrase;
-  - **Command delay** after a wake-only acknowledgement, while capturing the next command;
-- each committed chunk replaces the prior displayed chunk;
-- state starts in **WAKE**;
-- in WAKE:
-  - wake phrase alone, or followed only by whitespace/punctuation -> one ding, then state becomes **COMMAND**;
-  - wake phrase followed by actual letter/digit content in the same chunk -> two dings and state stays/returns **WAKE**;
-  - wake phrase later in a chunk -> no trigger;
-- in COMMAND:
-  - punctuation/whitespace-only chunks are ignored and COMMAND remains armed;
-  - the first committed chunk containing at least one letter or digit is treated as the command;
-  - it produces two dings;
-  - state immediately returns to **WAKE**;
-- COMMAND has no separate expiry timeout; it remains armed until the next committed chunk or until listening is stopped/reset;
-- optional **Keep listening when screen is locked** behavior from v0.1.1 is preserved:
-  - an active session can continue through lock/screen-off using the microphone foreground service + partial wake lock;
-  - switching to another app while the screen stays on still stops listening;
-- no TTS;
-- recognized transcript is not intentionally persisted or logged;
-- UI keeps system-bar/display-cutout safe-area handling and scrolling.
+  - **Command delay** after a wake-only acknowledgement;
+- wake-only -> one ding -> COMMAND;
+- punctuation/whitespace-only chunks in COMMAND are ignored and COMMAND remains armed;
+- first later chunk containing at least one letter/digit -> two dings -> WAKE;
+- wake phrase + command in the same chunk -> two dings -> WAKE;
+- locked-screen listening behavior remains available;
+- latest emitted chunk replaces the prior display;
+- no TTS and transcript is not intentionally persisted/logged.
 
-Auth/session compatibility in v0.1.5:
-- the Perplexity setup WebView, manifest/service support, user agent, cookie handling, hidden credential WebView, credential fetch path, and retry/session behavior are restored/locked to the exact v0.1.2 baseline;
-- after removing the punctuation-only COMMAND guard, MainActivity is byte-identical to v0.1.2;
-- the only intended runtime delta from v0.1.2 is the punctuation-only command filter.
-
-Perplexity/WebView compatibility in v0.1.5:
-- both the visible setup WebView and hidden credential WebView now use Android WebView's default, unmodified User-Agent;
-- the prior hard-coded SamsungBrowser User-Agent has been removed;
-- on first v0.1.5 launch, legacy Perplexity cookies/WebStorage are cleared once so old clearance state is not reused under the new browser environment;
-- Setup exposes a manual `Reset Perplexity session` action for future challenge/session recovery without uninstalling;
-- human verification remains user-driven and is not automated or bypassed.
+Perplexity/session rollback in v0.1.6:
+- the v0.1.5 default-UA/session-reset experiment is fully removed;
+- `MainActivity.java`, `SetupActivity.java`, `LockedListeningService.java`, and `AndroidManifest.xml` are restored exactly to the pre-v0.1.5 runtime baseline at commit `d710b9b975846280572fbf833a0bfbdfc0e40142`;
+- that baseline uses the original hard-coded mobile SamsungBrowser User-Agent and original cookie/session behavior;
+- there is no automatic cookie/WebStorage clearing and no manual session-reset button;
+- normal Perplexity sign-in / human verification remains user-driven.
 
 Identity:
 - package: `com.homayounisaghar.wakehandshakeprobe`
-- versionCode: `6`
-- versionName: `0.1.2`
+- versionCode: `7`
+- versionName: `0.1.6`
 - expected signer certificate SHA-256: `b8bfbfb9d7962afd739c990d661e94c457dfb37cb6ab8516cdb54c3f95b9d2ec`
 - source/build branch: `project/wake-handshake-prototype`
 
-The repository workflow builds an unsigned aligned release signing kit. Final signing is a separate promotion step with the pinned prototype signer; signer private material and credentials are not committed to Git. The public certificate pin is stored in `signing/EXPECTED_SIGNING_SHA256.txt`.
+The repository workflow builds an unsigned aligned release signing kit. Final signing is a separate promotion step with the pinned prototype signer; signer private material and credentials are not committed to Git.
