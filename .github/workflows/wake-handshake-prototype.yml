@@ -19,15 +19,12 @@ jobs:
     env:
       ROOT: android/wake-handshake-prototype
       PACKAGE: com.homayounisaghar.wakehandshakeprobe
-      VERSION_CODE: '5'
-      VERSION_NAME: 0.1.4
-      V012_BASE: 087f8e84ee96835a17b8edcc5cdb9d9b0b2f2cf8
+      VERSION_CODE: '6'
+      VERSION_NAME: 0.1.5
       EXPECTED_SIGNER_SHA256: b8bfbfb9d7962afd739c990d661e94c457dfb37cb6ab8516cdb54c3f95b9d2ec
     steps:
-      - name: Checkout exact commit with baseline history
+      - name: Checkout exact commit
         uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
 
       - name: Set up JDK 17
         uses: actions/setup-java@v5
@@ -52,69 +49,39 @@ jobs:
         with:
           gradle-version: '8.9'
 
-      - name: Verify v0.1.2 auth-session baseline plus v0.1.4 technical patch
+      - name: Static v0.1.5 contract checks
         shell: bash
         run: |
           set -euo pipefail
           python3 - <<'PY'
           from pathlib import Path
-          import subprocess
-
           root=Path('android/wake-handshake-prototype')
           java=root/'app/src/main/java/com/homayounisaghar/wakehandshakeprobe'
           main=(java/'MainActivity.java').read_text()
           setup=(java/'SetupActivity.java').read_text()
+          compat=(java/'PerplexitySessionCompat.java').read_text()
           svc=(java/'LockedListeningService.java').read_text()
-          manifest=(root/'app/src/main/AndroidManifest.xml').read_text()
           gradle=(root/'app/build.gradle').read_text()
-          base='087f8e84ee96835a17b8edcc5cdb9d9b0b2f2cf8'
-
-          def git_show(rel):
-              return subprocess.check_output(['git','show',f'{base}:{rel}'], text=True)
-
-          assert setup == git_show(str(java/'SetupActivity.java'))
-          assert svc == git_show(str(java/'LockedListeningService.java'))
-          assert manifest == git_show(str(root/'app/src/main/AndroidManifest.xml'))
-
-          base_main=git_show(str(java/'MainActivity.java'))
-          old_block=(
-              "        if (listeningPhase == ListeningPhase.COMMAND) {\n"
-              "            playDings(2);\n"
-              "            listeningPhase = ListeningPhase.WAKE;\n"
-              "            setStatus(\"Command received — listening for wake phrase…\");\n"
-              "            return;\n"
-              "        }"
-          )
-          new_block=(
-              "        if (listeningPhase == ListeningPhase.COMMAND) {\n"
-              "            if (!hasCommandContent(chunk)) {\n"
-              "                setStatus(\"Ignoring punctuation — waiting for command…\");\n"
-              "                return;\n"
-              "            }\n"
-              "            playDings(2);\n"
-              "            listeningPhase = ListeningPhase.WAKE;\n"
-              "            setStatus(\"Command received — listening for wake phrase…\");\n"
-              "            return;\n"
-              "        }"
-          )
-          assert old_block in base_main
-          expected_main=base_main.replace(old_block,new_block,1)
-          assert main == expected_main
-
+          manifest=(root/'app/src/main/AndroidManifest.xml').read_text()
           checks=[
               ("package", "applicationId 'com.homayounisaghar.wakehandshakeprobe'" in gradle),
-              ("version code", "versionCode 5" in gradle),
-              ("version name", "versionName '0.1.4'" in gradle),
-              ("punctuation guard", 'if (!hasCommandContent(chunk))' in main),
-              ("wake delay", 'Wake delay' in main),
-              ("command delay", 'Command delay' in main),
-              ("locked screen", 'Keep listening when screen is locked' in main),
+              ("version code", "versionCode 6" in gradle),
+              ("version name", "versionName '0.1.5'" in gradle),
+              ("no spoofed UA main", "SamsungBrowser/30.0" not in main and "setUserAgentString" not in main),
+              ("no spoofed UA setup", "SamsungBrowser/30.0" not in setup and "setUserAgentString" not in setup),
+              ("default UA helper", "Deliberately keep Android WebView's default, unmodified User-Agent." in compat),
+              ("one-time reset", "resetLegacyProfileOnce" in compat and "removeAllCookies" in compat and "deleteAllData" in compat),
+              ("manual reset", "Reset Perplexity session" in setup and "resetPerplexitySession()" in setup),
+              ("two delays", 'label("Wake delay")' in main and 'label("Command delay")' in main),
+              ("punctuation filter", 'if (!hasCommandContent(chunk))' in main),
+              ("locked screen", 'Keep listening when screen is locked' in main and 'PowerManager.PARTIAL_WAKE_LOCK' in svc),
               ("safe insets", 'WindowInsets.Type.systemBars() | WindowInsets.Type.displayCutout()' in main),
+              ("fgs", 'foregroundServiceType="microphone"' in manifest),
           ]
           bad=[name for name,ok in checks if not ok]
           if bad:
               raise SystemExit('contract failure: '+', '.join(bad))
-          print('PASS v0.1.4 exact v0.1.2 baseline plus punctuation guard')
+          print('PASS v0.1.5 standard-WebView session compatibility contract')
           PY
 
       - name: Build unsigned release
@@ -129,7 +96,7 @@ jobs:
           set -euo pipefail
           U="$ROOT/app/build/outputs/apk/release/app-release-unsigned.apk"
           OUT="$ROOT/out"
-          A="$OUT/Wake-Handshake-Prototype-v0.1.4-aligned-unsigned.apk"
+          A="$OUT/Wake-Handshake-Prototype-v0.1.5-aligned-unsigned.apk"
           BT="$ANDROID_HOME/build-tools/35.0.0"
           mkdir -p "$OUT"
           test -f "$U"
@@ -140,16 +107,15 @@ jobs:
           sha256sum "$A" | tee "$OUT/UNSIGNED_SHA256.txt"
           printf '%s\n' "$EXPECTED_SIGNER_SHA256" > "$OUT/EXPECTED_SIGNER_CERT_SHA256.txt"
           printf '%s\n' "$GITHUB_SHA" > "$OUT/SOURCE_REF.txt"
-          printf 'package=%s\nversion_code=%s\nversion_name=%s\nexpected_signer_sha256=%s\nsource_ref=%s\nauth_baseline=%s\nstage=unsigned_aligned_release\n' \
-            "$PACKAGE" "$VERSION_CODE" "$VERSION_NAME" "$EXPECTED_SIGNER_SHA256" "$GITHUB_SHA" "$V012_BASE" \
-            > "$OUT/BUILD_METADATA.txt"
+          printf 'package=%s\nversion_code=%s\nversion_name=%s\nexpected_signer_sha256=%s\nsource_ref=%s\nstage=unsigned_aligned_release\n' \
+            "$PACKAGE" "$VERSION_CODE" "$VERSION_NAME" "$EXPECTED_SIGNER_SHA256" "$GITHUB_SHA"             > "$OUT/BUILD_METADATA.txt"
 
       - name: Upload signing kit
         uses: actions/upload-artifact@v4
         with:
-          name: wake-handshake-prototype-v0.1.4-signing-kit
+          name: wake-handshake-prototype-v0.1.5-signing-kit
           path: |
-            android/wake-handshake-prototype/out/Wake-Handshake-Prototype-v0.1.4-aligned-unsigned.apk
+            android/wake-handshake-prototype/out/Wake-Handshake-Prototype-v0.1.5-aligned-unsigned.apk
             android/wake-handshake-prototype/out/UNSIGNED_SHA256.txt
             android/wake-handshake-prototype/out/EXPECTED_SIGNER_CERT_SHA256.txt
             android/wake-handshake-prototype/out/SOURCE_REF.txt
