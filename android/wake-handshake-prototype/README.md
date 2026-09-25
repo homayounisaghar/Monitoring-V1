@@ -31,7 +31,7 @@ Identity:
 - package: `com.homayounisaghar.wakehandshakeprobe`
 - versionCode: `8`
 - versionName: `0.1.7`
-- expected signer certificate SHA-256: `b8bfbfb9d7962afd739c990d661e94c457dfb37cb6ab8516cdb54c3f95b9d2ec`
+- expected signer certificate SHA-256: `98fb854378d390f32267acfbc23e82be6d267cae7049b3c7ae0894752897080c`
 - source/build branch: `project/wake-handshake-prototype`
 
-The repository workflow builds an unsigned aligned release signing kit. Final signing is a separate promotion step with the pinned prototype signer; signer private material and credentials are not committed to Git.
+Signer line note: v0.1.7 was installed and accepted by the operator on 2026-09-25 with signer v2 (`98fb854378d390f32267acfbc23e82be6d267cae7049b3c7ae0894752897080c`). The earlier signer line is retired for future updates. Future successors must keep this v2 signer and use a higher versionCode.\n\nThe repository workflow builds an unsigned aligned release signing kit. Final signing is a separate promotion step with the pinned prototype signer; signer private material and credentials are not committed to Git.
