@@ -68,6 +68,7 @@ public class MainActivity extends Activity {
     private static final String[] DELAY_LABELS = {"0 s", "0.8 s", "1.2 s", "1.5 s", "2.0 s", "2.5 s"};
     private static final String PREFS = "wake_probe";
     private static final String PREF_WAKE = "wake_phrase";
+    private static final String PREF_WAKE_ALT = "wake_phrase_alias_2";
     private static final String PREF_DELAY = "silence_delay_ms";
     private static final String PREF_WAKE_DELAY = "wake_silence_delay_ms";
     private static final String PREF_COMMAND_DELAY = "command_silence_delay_ms";
@@ -88,6 +89,7 @@ public class MainActivity extends Activity {
 
     private SharedPreferences prefs;
     private EditText wakeField;
+    private EditText wakeAliasField;
     private Spinner wakeDelaySpinner;
     private Spinner commandDelaySpinner;
     private CheckBox lockedModeBox;
@@ -161,7 +163,7 @@ public class MainActivity extends Activity {
         subtitle.setPadding(0, dp(3), 0, dp(16));
         root.addView(subtitle);
 
-        TextView wakeLabel = label("Wake phrase");
+        TextView wakeLabel = label("Wake phrase 1");
         root.addView(wakeLabel);
 
         wakeField = new EditText(this);
@@ -173,7 +175,23 @@ public class MainActivity extends Activity {
         root.addView(wakeField, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         wakeField.setOnFocusChangeListener((v, hasFocus) -> {
-            if (!hasFocus) saveWakePhrase();
+            if (!hasFocus) saveWakePhrases();
+        });
+
+        TextView wakeAliasLabel = label("Wake phrase 2 (optional)");
+        wakeAliasLabel.setPadding(0, dp(10), 0, dp(6));
+        root.addView(wakeAliasLabel);
+
+        wakeAliasField = new EditText(this);
+        wakeAliasField.setSingleLine(true);
+        wakeAliasField.setText(prefs.getString(PREF_WAKE_ALT, ""));
+        wakeAliasField.setTextSize(18f);
+        wakeAliasField.setPadding(dp(12), dp(10), dp(12), dp(10));
+        wakeAliasField.setBackground(roundRect(Color.WHITE, 0xFFD1D5DB, 1, 12));
+        root.addView(wakeAliasField, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        wakeAliasField.setOnFocusChangeListener((v, hasFocus) -> {
+            if (!hasFocus) saveWakePhrases();
         });
 
         LinearLayout wakeDelayRow = new LinearLayout(this);
@@ -265,7 +283,7 @@ public class MainActivity extends Activity {
         startStop.setAllCaps(false);
         startStop.setTextSize(17f);
         startStop.setOnClickListener(v -> {
-            saveWakePhrase();
+            saveWakePhrases();
             if (running) requestStop();
             else beginStart();
         });
@@ -349,9 +367,12 @@ public class MainActivity extends Activity {
         return g;
     }
 
-    private void saveWakePhrase() {
-        if (wakeField == null) return;
-        prefs.edit().putString(PREF_WAKE, wakeField.getText().toString()).apply();
+    private void saveWakePhrases() {
+        if (wakeField == null || wakeAliasField == null) return;
+        prefs.edit()
+                .putString(PREF_WAKE, wakeField.getText().toString())
+                .putString(PREF_WAKE_ALT, wakeAliasField.getText().toString())
+                .apply();
     }
 
     private void beginStart() {
@@ -705,7 +726,10 @@ public class MainActivity extends Activity {
             return;
         }
 
-        WakeMatch match = classifyWake(chunk, wakeField.getText().toString());
+        WakeMatch match = classifyWake(
+                chunk,
+                wakeField.getText().toString(),
+                wakeAliasField.getText().toString());
         if (match == WakeMatch.WAKE_ONLY) {
             playDings(1);
             listeningPhase = ListeningPhase.COMMAND;
@@ -725,7 +749,17 @@ public class MainActivity extends Activity {
         WAKE_WITH_COMMAND
     }
 
-    private WakeMatch classifyWake(String chunk, String wake) {
+    private WakeMatch classifyWake(String chunk, String... wakeAliases) {
+        WakeMatch best = WakeMatch.NONE;
+        for (String wake : wakeAliases) {
+            WakeMatch match = classifySingleWake(chunk, wake);
+            if (match == WakeMatch.WAKE_ONLY) return WakeMatch.WAKE_ONLY;
+            if (match == WakeMatch.WAKE_WITH_COMMAND) best = WakeMatch.WAKE_WITH_COMMAND;
+        }
+        return best;
+    }
+
+    private WakeMatch classifySingleWake(String chunk, String wake) {
         String c = normalizeForMatch(chunk);
         String w = normalizeForMatch(wake);
         if (w.isEmpty() || c.isEmpty()) return WakeMatch.NONE;
@@ -958,7 +992,7 @@ public class MainActivity extends Activity {
         boolean preserveLockedRun = running
                 && keepListeningLocked()
                 && isDeviceLockedOrScreenOff();
-        saveWakePhrase();
+        saveWakePhrases();
         if (!preserveLockedRun) {
             if (running) stopImmediate(activeEpoch, "Stopped.");
             if (auth != null) {
