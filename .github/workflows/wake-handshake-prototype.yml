@@ -22,7 +22,7 @@ jobs:
       VERSION_CODE: '8'
       VERSION_NAME: 0.1.7
       ROLLBACK_BASE: d710b9b975846280572fbf833a0bfbdfc0e40142
-      EXPECTED_SIGNER_SHA256: b8bfbfb9d7962afd739c990d661e94c457dfb37cb6ab8516cdb54c3f95b9d2ec
+      EXPECTED_SIGNER_SHA256: 98fb854378d390f32267acfbc23e82be6d267cae7049b3c7ae0894752897080c
     steps:
       - name: Checkout exact commit with rollback history
         uses: actions/checkout@v6
